@@ -536,6 +536,13 @@ Het scherm `Type [STD]`; de bewegende stoel is er niet (er is ook geen stoel).
 * Dus niet "een stroom berichten" (Meting 20: die verklaring is hiermee onwaarschijnlijk) maar een blijvend hangende of draaiende `NtUserPeekMessage` in Wine: wachtend op het venster- of schermstuurprogramma, of een lus in `win32u.so` (`win32u.so` heeft symbolen).
 * Nu gelogd (rg-amhw): `PeekMessage N aangeroepen, M teruggekeerd` (N > M = vast binnen de aanroep), de eerste zes `CreateWindowEx` (`venster: ... stijl 0x... op x,y maat WxH ouder ...`), en `GAME.INI geopend door het spel`. Dynamisch, midden in de hang: `tools/dev/proc-threads.py Game.exe` (toestand, wchan, syscall) en `sudo gdb -p <pid> -batch -ex 'thread apply all bt 15'` (alleen lezen; de Unix-stapel van de rekenende thread met functienamen uit `win32u.so`).
 
+### Meting 22 (SDR 2026-10-18 13:57, ronde 36): het venster is 1926x1112 op CW_USEDEFAULT [gemeten]
+
+* `GAME.INI geopend door het spel: ...\GAME.INI; [SEATENABLE=0] [ENABLE_VSYNC=1] [FULLSCREEN=0] [SCREEN_WIDTH=1920] [SCREEN_HEIGHT=1080]`: de game ziet de lokale kopie, dus FULLSCREEN 0 is aangekomen.
+* `venster: CreateWindowExA klasse 'gamewin' stijl 0x000A0000 op -2147483648,-2147483648 maat 1926x1112 ouder 0`: 1920x1080 plus een kader van 6x32, op de standaardplek, en `PeekMessage 1 aangeroepen, 0 teruggekeerd`; `proc-threads`: hoofdthread `R`, wchan 0. Het venster is groter dan de 1920x1080 van gamescope.
+* Hypothese (coordinator): gamescope/Xwayland dwingt een grootte af en Wine verwerkt ConfigureNotify/WM_SIZE/WM_NCCALCSIZE binnen `NtUserPeekMessage` zonder einde. Mario Kart DX loste het op met een venster dat past (1360x768).
+* **Wijziging:** `RG_AMHW_WINDOW="X,Y,W,H[,popup]"` in rg-amhw: het eerste hoofdvenster (geen ouder, breedte >= 640) krijgt die plek en maat, met `popup` zonder rand (`WS_POPUP`); `SetWindowPos` op dat venster krijgt dezelfde maat. Logt de vraag van het spel en de uitkomst; `ShowWindow`, `SetWindowPos` en `SetWindowLongA` van het spel worden (eerste tien) gelogd. Primair: `0,0,1920,1080,popup`. Terugval: 1280x720 in `Game.ini` (SCREEN_* en RENDER_*), geen forceren.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

@@ -18,6 +18,7 @@
 // Omgeving: RG_AMHW_OEM (platform-id: AAM RingWide, AAL RingEdge, AAL2 RingEdge 2; standaard AAM), RG_AMHW_VENDOR (Supermicro, NEC, Advantech;
 // standaard Supermicro), RG_AMHW_DIR (map voor mxsram.bin; standaard de map van de DLL), RG_AMHW_SRAM_KB (standaard 2048), RG_AMHW_OFF=1,
 // RG_AMHW_DIPIN ("FE,FF": invoerpoorten 0 en 1 van de PCA9535, actief laag; LGI: bit 0 aan = standaardkast zonder passagiersstoel),
+// RG_AMHW_WINDOW="X,Y,W,H[,popup]" (het eerste hoofdvenster van het spel krijgt die plek/maat, zie "venster"),
 // RG_AMHW_WATCHDOG=N (na N en 2N s de plek van elke thread in het logboek),
 // RG_AMHW_NOREPARSE=1 (een gelinkte map meldt GetFileAttributes als 0x10 in plaats van 0x410; terugval voor SDR, zie "de werkmap van het spel").
 #define WIN32_LEAN_AND_MEAN
@@ -417,24 +418,80 @@ using CreateWinAFn = HWND(WINAPI*)(DWORD, LPCSTR, LPCSTR, DWORD, int, int, int, 
 using CreateWinWFn = HWND(WINAPI*)(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID);
 CreateWinAFn g_createwin_a = CreateWindowExA;
 CreateWinWFn g_createwin_w = CreateWindowExW;
-void log_window(const char* api, const char* cls, const char* title, DWORD ex, DWORD style, int x, int y, int w, int h, HWND parent, HWND r) {
+void log_window(const char* api, const char* cls, const char* title, DWORD ex, DWORD style, int x, int y, int w, int h, HWND parent, HWND r, DWORD st0 = 0, int w0 = 0, int h0 = 0) {
     static LONG n = 0;
     if (InterlockedIncrement(&n) > 6) return;
-    rg_log("venster: %s klasse '%s' titel '%s' stijl 0x%08lX ex 0x%08lX op %d,%d maat %dx%d ouder %p -> %p", api, cls, title, static_cast<unsigned long>(style),
+    char head[200];
+    std::snprintf(head, sizeof head, api, static_cast<unsigned long>(st0), w0, h0);
+    rg_log("venster: %s klasse '%s' titel '%s' stijl 0x%08lX ex 0x%08lX op %d,%d maat %dx%d ouder %p -> %p", head, cls, title, static_cast<unsigned long>(style),
            static_cast<unsigned long>(ex), x, y, w, h, static_cast<void*>(parent), static_cast<void*>(r));
 }
+// RG_AMHW_WINDOW="X,Y,W,H[,popup]": het eerste hoofdvenster van het spel (geen ouder, breedte >= 640) krijgt deze plek en maat, bij "popup" zonder rand en titelbalk
+// (WS_POPUP). SDR maakt zijn venster 1926x1112 (1920x1080 plus kader) op CW_USEDEFAULT; dat past niet op de 1920x1080 van gamescope en de hoofdthread blijft dan in
+// NtUserPeekMessage rekenen (Meting 22, nog te bewijzen). SetWindowPos op dat venster krijgt dezelfde maat, zodat het spel het niet terugzet.
+struct WinForce { bool on = false, popup = false; int x = 0, y = 0, w = 0, h = 0; HWND hwnd = nullptr; } g_winforce;
+void parse_winforce() {
+    const std::string v = env("RG_AMHW_WINDOW", "");
+    if (v.empty()) return;
+    int x, y, w, h;
+    if (std::sscanf(v.c_str(), "%d,%d,%d,%d", &x, &y, &w, &h) == 4 && w >= 64 && h >= 64) {
+        g_winforce.on = true; g_winforce.x = x; g_winforce.y = y; g_winforce.w = w; g_winforce.h = h;
+        g_winforce.popup = v.find("popup") != std::string::npos;
+        rg_log("venster: RG_AMHW_WINDOW=%s: het eerste hoofdvenster wordt %d,%d %dx%d%s", v.c_str(), x, y, w, h, g_winforce.popup ? " (popup, zonder rand)" : "");
+    }
+}
+void force_window(DWORD& st, int& x, int& y, int& w, int& h, HWND parent) {
+    if (!g_winforce.on || g_winforce.hwnd || parent || w < 640) return;
+    x = g_winforce.x; y = g_winforce.y; w = g_winforce.w; h = g_winforce.h;
+    if (g_winforce.popup) st = (st & ~static_cast<DWORD>(WS_OVERLAPPEDWINDOW | WS_CAPTION | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME)) | WS_POPUP;
+}
 HWND WINAPI rg_CreateWindowExA(DWORD ex, LPCSTR c, LPCSTR t, DWORD st, int x, int y, int w, int h, HWND p, HMENU m, HINSTANCE i, LPVOID l) {
+    const bool was = g_winforce.on && !g_winforce.hwnd && !p && w >= 640;
+    const DWORD st0 = st; const int w0 = w, h0 = h;
+    force_window(st, x, y, w, h, p);
     HWND r = g_createwin_a(ex, c, t, st, x, y, w, h, p, m, i, l);
-    log_window("CreateWindowExA", reinterpret_cast<uintptr_t>(c) > 0xFFFF && c ? c : "(atoom)", t ? t : "", ex, st, x, y, w, h, p, r);
+    if (was && r) g_winforce.hwnd = r;
+    log_window(was ? "CreateWindowExA (aangepast; spel vroeg stijl/maat 0x%08lX / %dx%d)" : "CreateWindowExA", reinterpret_cast<uintptr_t>(c) > 0xFFFF && c ? c : "(atoom)", t ? t : "", ex, st, x, y, w, h, p, r, st0, w0, h0);
     return r;
 }
 HWND WINAPI rg_CreateWindowExW(DWORD ex, LPCWSTR c, LPCWSTR t, DWORD st, int x, int y, int w, int h, HWND p, HMENU m, HINSTANCE i, LPVOID l) {
+    const bool was = g_winforce.on && !g_winforce.hwnd && !p && w >= 640;
+    const DWORD st0 = st; const int w0 = w, h0 = h;
+    force_window(st, x, y, w, h, p);
     HWND r = g_createwin_w(ex, c, t, st, x, y, w, h, p, m, i, l);
+    if (was && r) g_winforce.hwnd = r;
     char ca[100] = "(atoom)", ta[100] = "";
     if (reinterpret_cast<uintptr_t>(c) > 0xFFFF && c) WideCharToMultiByte(CP_ACP, 0, c, -1, ca, sizeof ca, nullptr, nullptr);
     if (t) WideCharToMultiByte(CP_ACP, 0, t, -1, ta, sizeof ta, nullptr, nullptr);
-    log_window("CreateWindowExW", ca, ta, ex, st, x, y, w, h, p, r);
+    log_window(was ? "CreateWindowExW (aangepast; spel vroeg stijl/maat 0x%08lX / %dx%d)" : "CreateWindowExW", ca, ta, ex, st, x, y, w, h, p, r, st0, w0, h0);
     return r;
+}
+// Wat doet het spel verder met zijn venster? De eerste tien aanroepen van elk.
+using SetWinPosFn = BOOL(WINAPI*)(HWND, HWND, int, int, int, int, UINT);
+using ShowWinFn = BOOL(WINAPI*)(HWND, int);
+using SetWinLongAFn = LONG(WINAPI*)(HWND, int, LONG);
+SetWinPosFn g_setwinpos = SetWindowPos;
+ShowWinFn g_showwin = ShowWindow;
+SetWinLongAFn g_setwinlong_a = SetWindowLongA;
+BOOL WINAPI rg_SetWindowPos(HWND h, HWND after, int x, int y, int cx, int cy, UINT f) {
+    static LONG n = 0;
+    const bool mine = g_winforce.on && h == g_winforce.hwnd;
+    const int x0 = x, y0 = y, cx0 = cx, cy0 = cy;
+    if (mine && !(f & SWP_NOSIZE)) { cx = g_winforce.w; cy = g_winforce.h; }
+    if (mine && !(f & SWP_NOMOVE)) { x = g_winforce.x; y = g_winforce.y; }
+    if (InterlockedIncrement(&n) <= 10)
+        rg_log("venster: SetWindowPos(%p, vlaggen 0x%X) spel %d,%d %dx%d%s", static_cast<void*>(h), f, x0, y0, cx0, cy0, mine ? " (aangepast naar de gevraagde maat)" : "");
+    return g_setwinpos(h, after, x, y, cx, cy, f);
+}
+BOOL WINAPI rg_ShowWindow(HWND h, int cmd) {
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) <= 10) rg_log("venster: ShowWindow(%p, %d)", static_cast<void*>(h), cmd);
+    return g_showwin(h, cmd);
+}
+LONG WINAPI rg_SetWindowLongA(HWND h, int idx, LONG v) {
+    static LONG n = 0;
+    if (InterlockedIncrement(&n) <= 10) rg_log("venster: SetWindowLongA(%p, %d, 0x%lX)", static_cast<void*>(h), idx, static_cast<unsigned long>(v));
+    return g_setwinlong_a(h, idx, v);
 }
 void* __cdecl rg_fopen(const char* path, const char* mode) {
     const std::string t = debugout_target(path, mode);
@@ -1200,6 +1257,10 @@ void setup() {
     hook("USER32.dll", "PeekMessageW", rg_PeekMessageW, g_peek_w);
     hook("USER32.dll", "CreateWindowExA", rg_CreateWindowExA, g_createwin_a);
     hook("USER32.dll", "CreateWindowExW", rg_CreateWindowExW, g_createwin_w);
+    parse_winforce();
+    hook("USER32.dll", "SetWindowPos", rg_SetWindowPos, g_setwinpos);
+    hook("USER32.dll", "ShowWindow", rg_ShowWindow, g_showwin);
+    hook("USER32.dll", "SetWindowLongA", rg_SetWindowLongA, g_setwinlong_a);
     fix_rdata_writable();
     hook("KERNEL32.dll", "CreateFileW", rg_CreateFileW, g_create_w);
     hook("KERNEL32.dll", "CreateFileA", rg_CreateFileA, g_create_a);

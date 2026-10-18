@@ -70,6 +70,7 @@ int main(int argc, char** argv) {
     SetEnvironmentVariableA("RG_AMHW_DIPSW", "70,00");
     SetEnvironmentVariableA("RG_AMHW_DIPIN", "FE,FF");        // LGI: dipschakelaar 0 aan = standaardkast zonder passagiersstoel (de standaard FF,FF staat in test_amhw)
     SetEnvironmentVariableA("RG_AMHW_NOREPARSE", "1");
+    SetEnvironmentVariableA("RG_AMHW_WINDOW", "0,0,800,600,popup");   // het eerste grote hoofdvenster wordt 800x600 zonder rand
     SetEnvironmentVariableA("RG_AMHW_WATCHDOG", "1");        // de bewaker: na 1 s de plek van elke thread (hier o.a. de nep-JVS-thread)
     DeleteFileA((dir + "\\mxsram.bin").c_str());
     DeleteFileA((dir + "\\mxeeprom.bin").c_str());
@@ -333,6 +334,8 @@ int main(int argc, char** argv) {
             HANDLE gh = CreateFileA((dir + "\\GAME.INI").c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
             if (gh != INVALID_HANDLE_VALUE) CloseHandle(gh);
             CreateWindowExA(0, "STATIC", "rg-amhw-probe", WS_POPUP, 0, 0, 64, 48, nullptr, nullptr, nullptr, nullptr);
+            HWND big = CreateWindowExA(0, "STATIC", "rg-amhw-groot", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 1926, 1112, nullptr, nullptr, nullptr, nullptr);
+            if (big) SetWindowPos(big, nullptr, 10, 10, 1926, 1112, SWP_NOZORDER);
         }
         MSG pm = {};
         PeekMessageA(&pm, nullptr, 0, 0, PM_REMOVE);   // de berichtenteller telt deze aanroep (geen bericht)
@@ -344,6 +347,8 @@ int main(int argc, char** argv) {
               "de bewaker schreef na 1 s de threads (plek + terugkeeradressen) in rg-amhw.log");
         check(wl.find("GAME.INI geopend door het spel:") != std::string::npos && wl.find("[FULLSCREEN=0]") != std::string::npos && wl.find("[SCREEN_WIDTH=1920]") != std::string::npos, "GAME.INI: het spel-pad en FULLSCREEN=0 staan in rg-amhw.log");
         check(wl.find("venster: CreateWindowExA klasse 'STATIC'") != std::string::npos, "CreateWindowExA staat in rg-amhw.log (klasse, stijl, maat)");
+        check(wl.find("CreateWindowExA (aangepast; spel vroeg stijl/maat 0x00CF0000 / 1926x1112)") != std::string::npos && wl.find("stijl 0x80000000 ex 0x00000000 op 0,0 maat 800x600") != std::string::npos,
+              "RG_AMHW_WINDOW: het grote venster wordt 800x600 als popup (CreateWindowExA gelogd met de vraag van het spel)");
         check(wl.find("bewaker 1: PeekMessage 1 aangeroepen, 1 teruggekeerd, 1 zonder bericht") != std::string::npos, "de bewaker toont de berichtenteller (1 PeekMessage aangeroepen en teruggekeerd, leeg)");
     }
     std::printf("%s\n", g_fail ? "MISLUKT" : "ALLES OK");
