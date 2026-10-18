@@ -866,3 +866,6 @@ bewust NIET opgelost (geen uitbreiding van ds/ssd zonder besluit).
 
 Aanvulling (meting 10): OG 3005 bij de tweede run kwam doordat `request=query_appdata_status` zonder `status=` (en `id=`) werd beantwoord; de eerste run nam het formatteerpad. rg-amhw stuurt schrijfacties op `debugout.txt`
 (de eigen log van de teaArcade2-games, in de view een symlink naar de NAS) naar `debugout-spel.txt` naast de DLL, om de reden van de vroege stop van LGI/LGI3D te kunnen lezen.
+
+Aanvulling (meting 11): de 60 s wachttijd van OG tussen mxsuperio en mxjvs is `pcpaOpenClient` naar poort 40110 (de "catcher", `startcatcher`) zonder luisteraar; 40110 is een standaardpoort van de AM-daemon. De
+debugout-omleiding haakt fopen/fopen_s/_fsopen/_wfopen in de game-IAT omdat de CRT-DLL CreateFileW via zijn eigen importtabel aanroept.

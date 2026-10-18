@@ -401,6 +401,21 @@ JVS-schakelaarpakket af te sluiten (`mxjvs: gesloten`, daarna `mxmaster.foregrou
   `debugout.txt` gaat naar `debugout-spel.txt` naast de DLL. Eén run van LGI of LGI3D laat dus de eigen foutregel van de game zien (`[teaArcade2] ... failed`).
 * Overige meetopties: `WINEDEBUG=err+all,warn+seh` (OutputDebugString-regels van OG verschijnen zo al in het logboek), en een schermfoto op 3-4 s na de start (de game sluit binnen ~6 s).
 
+### Meting 11 (TV 2026-10-18 08:07-08:11): OG wacht 60,0 s op een poort zonder luisteraar; debugout via fopen
+
+**OG "Now Initializing 2/20" [gemeten + gelezen].** In elke OG-run die voorbij 3005 komt (20:26, 08:07, 08:08) zit precies **60,0 s** tussen het openen van `\\.\mxsuperio` (amHmInit, 08:08:31.46) en het openen van `\\.\mxjvs`
+(08:09:31.49); de AM-daemon ziet in die minuut niets, `rg-amhw.log` ook niet, en er staat geen `niet nagebootst` of foutregel. De Wine-regels van de game (OutputDebugString) bevestigen: `SULogClose`
+(08:08:31) -> `f:... p:...` (08:08:31) -> `KeyRegion: 1` (08:09:31). De game zit dus binnen `AMLibContext::Init` (`0x4AC2B0`): na `MainStorage::Init` en `amHmInit` roept hij `0x594AD0` aan, de "catcher"
+(`request=startcatcher`, `0x594B10`), en dat verbindt via `pcpaOpenClient(127.0.0.1, **40110** (`push 0x9CAE`, `0x594217`), time-out 60000 ms (`0xEA60`))`. Poort 40110 stond niet in de lijst van de AM-daemon; een geweigerde
+verbinding wordt tot de time-out opnieuw geprobeerd en daarna zonder melding opgegeven (Init gaat door: `[amlib+0xDE4]`). Het "x/20" is de laadbalk van de game zelf (`0x4AA850`, stap/20) tijdens die minuut.
+**Fix:** 40110 staat nu in de standaardpoorten; `request=startcatcher` krijgt het standaardantwoord `response=startcatcher&result=success`. Of de catcher daarna meer vraagt (`stopcatcher`, `isupdate`, ...) is niet bekend;
+de daemon antwoordt die ook met `result=success`. De ontbrekende geluidsstroom is waarschijnlijk een gevolg van deze vertraging/afbreking van Init, niet bevestigd.
+
+**debugout.txt via fopen.** LGI en LGI3D importeren `fopen` en `fopen_s` uit MSVCR90.dll (de game-IAT, gelezen). Een omleiding op `CreateFileA/W` van de game ziet dat niet (fopen roept `CreateFileW` aan via de eigen
+importtabel van de CRT). rg-amhw haakt nu `fopen`, `fopen_s`, `_fsopen` en `_wfopen` in de importtabel van de game (voor MSVCR80/90/100/110, MSVCRT en de UCRT-api-sets) en daarnaast `CreateFileW/A` in de importtabel van
+de CRT-DLL; een schrijfopening van `debugout.txt` gaat naar `debugout-spel.txt` naast de DLL (in `rg-amhw.log`: `debugout.txt (fopen, schrijven) omgeleid naar ...`). Wine-proef: de omleiding werkt voor `fopen` uit de UCRT
+(de probe) en voor `CreateFileA/W`. Dat de teaArcade2-games `fopen` gebruiken en niet `ofstream` (MSVCP90) is uit de importtabel afgeleid, niet gemeten.
+
 ## Testrecept (TV)
 
 Per game, in deze volgorde. Voorbeeld LGI; voor een andere game dezelfde stappen met zijn map in `docs/research/segajvs/patches/<Game>/`.

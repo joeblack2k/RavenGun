@@ -329,6 +329,47 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD acc, DWORD share, LPSECURITY_ATT
     return g_create_a(name, acc, share, sa, disp, flags, tmpl);
 }
 
+// De Ring-games (teaArcade2) schrijven debugout.txt met fopen uit MSVCR90.dll (dynamische CRT): dat roept CreateFileW aan via de EIGEN importtabel van msvcr90, niet
+// die van de game. Daarom haken we fopen/fopen_s/_wfopen/_fsopen in de importtabel van de game en CreateFileW/A in die van de CRT-DLL's (zie setup()).
+using FopenFn = void*(__cdecl*)(const char*, const char*);
+using FopenSFn = int(__cdecl*)(void**, const char*, const char*);
+using WfopenFn = void*(__cdecl*)(const wchar_t*, const wchar_t*);
+using FsopenFn = void*(__cdecl*)(const char*, const char*, int);
+FopenFn g_fopen = nullptr;
+FopenSFn g_fopen_s = nullptr;
+WfopenFn g_wfopen = nullptr;
+FsopenFn g_fsopen = nullptr;
+bool mode_writes(const char* m) { return m && (std::strchr(m, 'w') || std::strchr(m, 'a') || std::strchr(m, '+')); }
+std::string debugout_target(const char* path, const char* mode) {
+    if (!mode_writes(mode) || !is_debugout_write(path, GENERIC_WRITE)) return {};
+    static LONG nd = 0;
+    const std::string fb = g_dir + "\\debugout-spel.txt";
+    if (InterlockedIncrement(&nd) <= 2) rg_log("debugout.txt (fopen, schrijven) omgeleid naar %s", fb.c_str());
+    return fb;
+}
+void* __cdecl rg_fopen(const char* path, const char* mode) {
+    const std::string t = debugout_target(path, mode);
+    return g_fopen(t.empty() ? path : t.c_str(), mode);
+}
+int __cdecl rg_fopen_s(void** f, const char* path, const char* mode) {
+    const std::string t = debugout_target(path, mode);
+    return g_fopen_s(f, t.empty() ? path : t.c_str(), mode);
+}
+void* __cdecl rg_fsopen(const char* path, const char* mode, int share) {
+    const std::string t = debugout_target(path, mode);
+    return g_fsopen(t.empty() ? path : t.c_str(), mode, share);
+}
+void* __cdecl rg_wfopen(const wchar_t* path, const wchar_t* mode) {
+    char a[300] = {}, m[16] = {};
+    WideCharToMultiByte(CP_ACP, 0, path, -1, a, sizeof a, nullptr, nullptr);
+    WideCharToMultiByte(CP_ACP, 0, mode, -1, m, sizeof m, nullptr, nullptr);
+    const std::string t = debugout_target(a, m);
+    if (t.empty()) return g_wfopen(path, mode);
+    wchar_t w[300] = {};
+    MultiByteToWideChar(CP_ACP, 0, t.c_str(), -1, w, 300);
+    return g_wfopen(w, mode);
+}
+
 // De JVS-transactie van het stuurprogramma (0x9C402000): de bytes van de bovenlaag naar de lijn, dan het antwoordkader terug, en de OVERLAPPED
 // meteen klaar (InternalHigh = aantal bytes, gebeurtenis gezet): Windows meldt een direct voltooide overlapped-opdracht ook met TRUE.
 BOOL jvs_transfer(HANDLE h, LPVOID in, DWORD in_n, LPVOID out, DWORD out_n, LPDWORD ret, LPOVERLAPPED ov) {
@@ -708,6 +749,18 @@ void setup() {
     fix_rdata_writable();
     hook("KERNEL32.dll", "CreateFileW", rg_CreateFileW, g_create_w);
     hook("KERNEL32.dll", "CreateFileA", rg_CreateFileA, g_create_a);
+    // De CRT: de game importeert fopen e.d. uit MSVCR90.dll (of een andere versie); haak ze in de game en haak CreateFileW/A in de importtabel van de CRT-DLL zelf.
+    for (const char* crt : {"MSVCR90.dll", "MSVCR100.dll", "MSVCR80.dll", "MSVCR110.dll", "MSVCRT.dll", "api-ms-win-crt-stdio-l1-1-0.dll", "ucrtbase.dll"}) {
+        if (void* o = patch_iat(GetModuleHandleW(nullptr), crt, "fopen", reinterpret_cast<void*>(rg_fopen))) { g_fopen = reinterpret_cast<FopenFn>(o); rg_log("importtabel: %s!fopen omgezet", crt); }
+        if (void* o = patch_iat(GetModuleHandleW(nullptr), crt, "fopen_s", reinterpret_cast<void*>(rg_fopen_s))) { g_fopen_s = reinterpret_cast<FopenSFn>(o); rg_log("importtabel: %s!fopen_s omgezet", crt); }
+        if (void* o = patch_iat(GetModuleHandleW(nullptr), crt, "_fsopen", reinterpret_cast<void*>(rg_fsopen))) { g_fsopen = reinterpret_cast<FsopenFn>(o); rg_log("importtabel: %s!_fsopen omgezet", crt); }
+        if (void* o = patch_iat(GetModuleHandleW(nullptr), crt, "_wfopen", reinterpret_cast<void*>(rg_wfopen))) { g_wfopen = reinterpret_cast<WfopenFn>(o); rg_log("importtabel: %s!_wfopen omgezet", crt); }
+        if (HMODULE m = GetModuleHandleA(crt)) {
+            const bool w = patch_iat(m, "KERNEL32.dll", "CreateFileW", reinterpret_cast<void*>(rg_CreateFileW)) != nullptr;
+            const bool a = patch_iat(m, "KERNEL32.dll", "CreateFileA", reinterpret_cast<void*>(rg_CreateFileA)) != nullptr;
+            rg_log("importtabel van %s: CreateFileW %s, CreateFileA %s", crt, w ? "omgezet" : "niet gevonden", a ? "omgezet" : "niet gevonden");
+        }
+    }
     hook("KERNEL32.dll", "DeviceIoControl", rg_DeviceIoControl, g_ioctl);
     hook("KERNEL32.dll", "CloseHandle", rg_CloseHandle, g_close);
     hook("KERNEL32.dll", "SetFilePointer", rg_SetFilePointer, g_seek);
