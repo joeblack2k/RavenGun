@@ -41,6 +41,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <atomic>
 #include <cwchar>
 
 #include "allsio_proto.h"
@@ -129,12 +130,24 @@ void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
 
 // --- Afzonderlijke synchrone COM1-sensor in Hodzero (geen daemon-HID-handvatten) ---
 rg_allsio::GunSensor g_sensor;
-HANDLE g_sensor_handle = nullptr, g_sensor_map = nullptr;
+// Ons tijdelijk COM1-handvat. De kernel32-hooks vergelijken het op elk bestand dat het spel
+// opent; daarom atomair, zodat die vergelijking zonder de globale vergrendeling kan.
+std::atomic<HANDLE> g_sensor_handle{nullptr};
+HANDLE g_sensor_map = nullptr;
+// Snel pad voor de kernel32-hooks: vrijwel elke ReadFile/WriteFile/CloseHandle in het spel gaat
+// over een eigen bestand. Alleen het handvat vergelijken is dan genoeg; de globale vergrendeling
+// (die het logboek en de toestand beschermt) komt er niet aan te pas. Klopt het wel, dan volgt
+// binnen de vergrendeling nog een tweede controle, want het handvat kan net gesloten zijn.
+inline bool is_sensor_handle(HANDLE h) {
+    return h != nullptr && h == g_sensor_handle.load(std::memory_order_acquire);
+}
+
 const uint8_t* g_sensor_view = nullptr;
 DCB g_sensor_dcb = {};
 COMMTIMEOUTS g_sensor_timeouts = {};
 DWORD g_sensor_map_retry = 0;
 LONG g_sensor_writes = 0;
+LONG g_sensor_fails = 0;
 using CreateFileAFn = decltype(&CreateFileA);
 CreateFileAFn g_sensor_create = &CreateFileA;
 decltype(&ReadFile) g_sensor_read = &ReadFile;
@@ -168,12 +181,12 @@ HANDLE WINAPI sensor_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECUR
         SetLastError(ERROR_INVALID_PARAMETER); return INVALID_HANDLE_VALUE;
     }
     EnterCriticalSection(&g_cs);
-    if (g_sensor_handle) {
+    if (g_sensor_handle.load(std::memory_order_relaxed)) {
         LeaveCriticalSection(&g_cs);
         SetLastError(ERROR_SHARING_VIOLATION); return INVALID_HANDLE_VALUE;
     }
-    g_sensor_handle = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    HANDLE h = g_sensor_handle;
+    HANDLE h = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    g_sensor_handle.store(h, std::memory_order_release);
     g_sensor.close();
     g_sensor_dcb = {};
     g_sensor_dcb.DCBlength = sizeof(DCB);
@@ -187,21 +200,27 @@ HANDLE WINAPI sensor_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECUR
 }
 
 BOOL WINAPI sensor_CloseHandle(HANDLE h) {
+    if (!is_sensor_handle(h)) return g_sensor_close(h);
+    bool ours = false;
     EnterCriticalSection(&g_cs);
     if (g_sensor_handle && h == g_sensor_handle) {
-        g_sensor_handle = nullptr;
+        g_sensor_handle.store(nullptr, std::memory_order_release);
         g_sensor.close();
         if (g_sensor_view) UnmapViewOfFile(g_sensor_view);
         if (g_sensor_map) CloseHandle(g_sensor_map);
         g_sensor_view = nullptr; g_sensor_map = nullptr; g_sensor_map_retry = 0;
-        rg_log("gunsensor: COM1 gesloten");
+        ours = true;
     }
-    const BOOL ok = g_sensor_close(h);
     LeaveCriticalSection(&g_cs);
+    // Het echte CloseHandle buiten de vergrendeling: dat kan even duren (Wine) en andere
+    // processen hoeven daar niet op te wachten.
+    const BOOL ok = g_sensor_close(h);
+    if (ours) rg_log("gunsensor: COM1 gesloten");
     return ok;
 }
 
 BOOL WINAPI sensor_ReadFile(HANDLE h, LPVOID buf, DWORD len, LPDWORD got, LPOVERLAPPED ov) {
+    if (!is_sensor_handle(h)) return g_sensor_read(h, buf, len, got, ov);
     EnterCriticalSection(&g_cs);
     if (!g_sensor_handle || h != g_sensor_handle) {
         LeaveCriticalSection(&g_cs);
@@ -217,6 +236,7 @@ BOOL WINAPI sensor_ReadFile(HANDLE h, LPVOID buf, DWORD len, LPDWORD got, LPOVER
 }
 
 BOOL WINAPI sensor_WriteFile(HANDLE h, LPCVOID buf, DWORD len, LPDWORD written, LPOVERLAPPED ov) {
+    if (!is_sensor_handle(h)) return g_sensor_write(h, buf, len, written, ov);
     EnterCriticalSection(&g_cs);
     if (!g_sensor_handle || h != g_sensor_handle) {
         LeaveCriticalSection(&g_cs);
@@ -228,7 +248,15 @@ BOOL WINAPI sensor_WriteFile(HANDLE h, LPCVOID buf, DWORD len, LPDWORD written, 
     }
     const bool ok = !len || g_sensor.write(static_cast<const uint8_t*>(buf), len, sensor_input());
     if (ok) *written = len;
-    if (++g_sensor_writes <= 30 || !ok) {
+    // Het logboek mag niet vollopen: de eerste dertig schrijfacties volledig, daarna af en
+    // toe een voorbeeld, en een storing ook maar tot dertig regels (daarna zeldzaam).
+    const long n = ++g_sensor_writes;
+    bool log_now = n <= 30 || (n % 1000) == 0;
+    if (!ok) {
+        const long f = ++g_sensor_fails;
+        log_now = f <= 30 || (f % 100) == 0;
+    }
+    if (log_now) {
         char hex[80];
         hexline(hex, sizeof hex, static_cast<const uint8_t*>(buf), len < 16 ? len : 16);
         rg_log("gunsensor: schrijf %s -> %s, antwoord %lu bytes, invoer %s", hex, ok ? "ok" : "onbekend",
@@ -240,6 +268,7 @@ BOOL WINAPI sensor_WriteFile(HANDLE h, LPCVOID buf, DWORD len, LPDWORD written, 
 }
 
 BOOL WINAPI sensor_GetCommState(HANDLE h, LPDCB state) {
+    if (!is_sensor_handle(h)) return g_sensor_getstate(h, state);
     EnterCriticalSection(&g_cs);
     if (!g_sensor_handle || h != g_sensor_handle) {
         LeaveCriticalSection(&g_cs); return g_sensor_getstate(h, state);
@@ -252,6 +281,7 @@ BOOL WINAPI sensor_GetCommState(HANDLE h, LPDCB state) {
     return ok ? TRUE : FALSE;
 }
 BOOL WINAPI sensor_SetCommState(HANDLE h, LPDCB state) {
+    if (!is_sensor_handle(h)) return g_sensor_setstate(h, state);
     EnterCriticalSection(&g_cs);
     if (!g_sensor_handle || h != g_sensor_handle) {
         LeaveCriticalSection(&g_cs); return g_sensor_setstate(h, state);
@@ -268,6 +298,7 @@ BOOL WINAPI sensor_SetCommState(HANDLE h, LPDCB state) {
     return ok ? TRUE : FALSE;
 }
 BOOL WINAPI sensor_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS timeouts) {
+    if (!is_sensor_handle(h)) return g_sensor_gettimeouts(h, timeouts);
     EnterCriticalSection(&g_cs);
     if (!g_sensor_handle || h != g_sensor_handle) {
         LeaveCriticalSection(&g_cs); return g_sensor_gettimeouts(h, timeouts);
@@ -278,6 +309,7 @@ BOOL WINAPI sensor_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS timeouts) {
     return timeouts ? TRUE : FALSE;
 }
 BOOL WINAPI sensor_SetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS timeouts) {
+    if (!is_sensor_handle(h)) return g_sensor_settimeouts(h, timeouts);
     EnterCriticalSection(&g_cs);
     if (!g_sensor_handle || h != g_sensor_handle) {
         LeaveCriticalSection(&g_cs); return g_sensor_settimeouts(h, timeouts);
@@ -741,8 +773,11 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         if (GetEnvironmentVariableA("RG_ALLSIO_OFF", env, sizeof env) > 0 && env[0] == '1') { rg_log("RG_ALLSIO_OFF=1: niets doen"); return TRUE; }
         if (is_process(L"Hodzero-Win64-Shipping.exe")) {
             if (GetEnvironmentVariableA("RG_ALLSIO_GUN_SENSOR", env, sizeof env) == 1 && env[0] == '1') {
+                // De ini aanpassen is hulp, geen voorwaarde: als het niet lukt blijven de hooks
+                // gewoon staan (het profiel kan de waarde ook zelf zetten) in plaats van dat de
+                // hele DLL het spel laat mislukken.
                 if (GetEnvironmentVariableA("RG_ALLSIO_GUN_CONFIG", env, sizeof env) == 1 && env[0] == '1' && !configure_sensor_mode())
-                    return FALSE;
+                    rg_log("gunsensor: RG_ALLSIO_GUN_CONFIG kon Game.ini niet aanpassen; de hooks blijven actief");
                 install_sensor_hooks();
             }
             return TRUE;
