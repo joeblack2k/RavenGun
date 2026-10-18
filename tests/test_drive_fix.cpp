@@ -60,6 +60,40 @@ int main() {
     CHECK(letter_enabled('f', "F") && letter_enabled('F', "f"));
     CHECK(!letter_enabled('C', "C") && !letter_enabled('Z', "Z") && !letter_enabled('1', "1"));
 
+    // TeknoParrot-stijl: tekenreeksen van het spel zelf ("F:/" -> "./F", zelfde lengte), met de echte gevallen uit MK_AGP3_FINAL.exe.
+    {
+        const char raw[] = "\0F:/system/\0\0\0F:/income/\0F:/\0" "1505\0F:\\workspace\\rom\\x.cpp\0"
+                           "G:/\0H:/\0I:/\0J:/\0G:/Contents\0xF:/nope\0f:/lower/\0";
+        std::string s(raw, sizeof raw);
+        const size_t n = rg_drivefix::patch_strings(reinterpret_cast<uint8_t*>(&s[0]), s.size(), "F", 1);
+        CHECK(n == 4);   // F:/system/, F:/income/, F:/ (kaal, niet in een stationrij), f:/lower/
+        CHECK(s.find("./Fsystem/") != std::string::npos);
+        CHECK(s.find("./Fincome/") != std::string::npos);
+        CHECK(s.find(std::string("\0./F\0" "1505", 9)) != std::string::npos);
+        CHECK(s.find("./Flower/") != std::string::npos);
+        CHECK(s.find("F:\\workspace\\rom\\x.cpp") != std::string::npos);   // bronbestandspad blijft
+        CHECK(s.find(std::string("G:/\0H:/\0I:/\0J:/", 15)) != std::string::npos);                       // stationlijst blijft
+        CHECK(s.find("G:/Contents") != std::string::npos);                // G staat niet in de lijst
+        CHECK(s.find("xF:/nope") != std::string::npos);                    // midden in een tekenreeks: niet
+        CHECK(s.size() == sizeof raw);                                      // op zijn plaats: zelfde lengte
+        // met G erbij: G:/Contents wel, de stationlijst niet
+        std::string t(raw, sizeof raw);
+        const size_t n2 = rg_drivefix::patch_strings(reinterpret_cast<uint8_t*>(&t[0]), t.size(), "FG", 1);
+        CHECK(n2 == 5);
+        CHECK(t.find("./GContents") != std::string::npos);
+        CHECK(t.find(std::string("G:/\0H:/", 7)) != std::string::npos);   // ook met G in de lijst blijft de stationlijst
+    }
+    {
+        // breed: "F:\income\Income_*.bin" en "F:/playdata/1812/" (na een smalle tekenreeks "115\0"), plus G:/Contents die blijft
+        const char rawn[] = "115\0F\0:\0/\0p\0l\0\0\0\0\0F\0:\0\\\0i\0n\0\0\0G\0:\0/\0C\0\0\0";
+        std::string w(rawn, sizeof rawn);
+        const size_t n = rg_drivefix::patch_strings(reinterpret_cast<uint8_t*>(&w[0]), w.size(), "F", 2);
+        CHECK(n == 2);
+        CHECK(w.find(std::string(".\0/\0F\0p\0l\0", 10)) != std::string::npos);
+        CHECK(w.find(std::string(".\0\\\0F\0i\0n\0", 10)) != std::string::npos);
+        CHECK(w.find(std::string("G\0:\0/\0C\0", 8)) != std::string::npos);
+    }
+
     std::printf("drive_fix: %d controles, %d mislukt\n", g_checks, g_failures);
     return g_failures ? 1 : 0;
 }

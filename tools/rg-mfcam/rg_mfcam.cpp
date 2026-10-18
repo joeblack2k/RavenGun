@@ -67,7 +67,16 @@
 //   de elf importen van bngrw.dll om naar logger-omhulsels rond de echte functies (argumenten, uitkomst en elke callback van de bibliotheek); met
 //   RG_BNGRW=fake geeft hij zelf antwoord: twee lezers zonder kaart (bngrw_fake.h). Uit met de TeknoParrot-kern.
 //
+// ACHTSTE TAAK: de berichtenlus en de vensters van het spel volgen, en de F:/-tekenreeksen zoals TeknoParrot aanpassen
+//   RG_MSGTRACE=1 zet PeekMessageW, DispatchMessageW, ShowWindow, SetWindowPos en CreateWindowExW van het spel om naar logger-omhulsels: de eerste vijf
+//   PeekMessageW-aanroepen (binnen en terug, met de duur), de vensters van de draad bij de eerste aanroep (zichtbaar, voorgrond, afmetingen), de eerste 40
+//   berichten, trage aanroepen (>= 200 ms) en elke 5 s een samenvatting van de lus. Een PeekMessageW die nooit terugkeert staat als "binnen" zonder "terug".
+//   De TP-kern past de tekenreeksen van het spel zelf aan (`F:/playdata/` wordt `./Fplaydata/`, zelfde lengte; het spel logt dat zelf); met RG_DRIVE_FIXUP doen
+//   we dat nu ook (drive_fix.h, patch_strings), voor de genoemde letters, in de niet-uitvoerbare secties van de exe. RG_DRIVE_STRINGS=0 laat dat weg.
+//
 // OMGEVING
+//   RG_MSGTRACE=1        de berichtenlus en vensters volgen
+//   RG_DRIVE_STRINGS=0   bij RG_DRIVE_FIXUP de tekenreeksen niet aanpassen (alleen de API-omleiding)
 //   RG_BNGRW=trace|fake  de kaartlezer volgen of nabootsen; leeg = uit
 //   RG_DRIVE_FIXUP=F  de schijfletters (zonder C en Z) waarvoor de aanvullende herleiding aan staat; leeg = uit
 //   RG_STALL_DUMP=30,60  de stalldump aan (seconden); leeg = uit
@@ -1184,8 +1193,10 @@ template <typename Fn>
 void hook_import(const char* dll, const char* func, void* repl, Fn& orig) {
     void* old = patch_iat(GetModuleHandleW(nullptr), dll, func, repl);
     if (old) orig = reinterpret_cast<Fn>(old);
-    rg_log("importtabel: %s!%s %s", dll, func, old ? "omgezet (schijfletter-herleiding)" : "niet in het spel");
+    rg_log("importtabel: %s!%s %s", dll, func, old ? "omgezet" : "niet in het spel");
 }
+
+void patch_drive_strings();
 
 void setup_drive_fix() {
     char v[28];
@@ -1196,6 +1207,8 @@ void setup_drive_fix() {
     }
     std::snprintf(g_drive_letters, sizeof g_drive_letters, "%s", v);
     rg_log("schijfletter-herleiding aan voor: %s", g_drive_letters);
+    char ds[8];
+    if (!(GetEnvironmentVariableA("RG_DRIVE_STRINGS", ds, sizeof ds) > 0 && ds[0] == '0')) patch_drive_strings();
     hook_import("MSVCR100.dll", "rename", reinterpret_cast<void*>(&rg_rename), g_rename);
     hook_import("MSVCR100.dll", "_wrename", reinterpret_cast<void*>(&rg_wrename), g_wrename);
     hook_import("MSVCR100.dll", "remove", reinterpret_cast<void*>(&rg_remove), g_remove);
@@ -1424,6 +1437,120 @@ void setup_bngrw() {
     hook_bng("_BngRwReqSendUrlTo@32", reinterpret_cast<void*>(&rg_BngRwReqSendUrlTo), g_bng_send_url);
 }
 
+// --- berichtenlus en vensters volgen (zie ACHTSTE TAAK bovenaan) -----------------------------------------------------------------------------------
+volatile LONG g_peek_n = 0, g_peek_msgs = 0, g_disp_n = 0;
+volatile LONG g_peek_slow = 0;
+DWORD g_peek_max_ms = 0;
+DWORD g_peek_last_sum = 0;
+
+using PeekMessageWFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
+using DispatchMessageWFn = LRESULT(WINAPI*)(const MSG*);
+using ShowWindowFn = BOOL(WINAPI*)(HWND, int);
+using SetWindowPosFn = BOOL(WINAPI*)(HWND, HWND, int, int, int, int, UINT);
+using CreateWindowExWFn = HWND(WINAPI*)(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID);
+PeekMessageWFn g_peek_w = nullptr;
+DispatchMessageWFn g_dispatch_w = nullptr;
+ShowWindowFn g_show_window = nullptr;
+SetWindowPosFn g_set_window_pos = nullptr;
+CreateWindowExWFn g_create_window_ex_w = nullptr;
+
+BOOL CALLBACK enum_thread_window(HWND h, LPARAM) {
+    wchar_t cls[80] = {};
+    GetClassNameW(h, cls, 79);
+    RECT r = {};
+    GetWindowRect(h, &r);
+    rg_log("  venster %p klasse %s zichtbaar %d iconic %d rect %ld,%ld %ldx%ld", h, to_utf8(cls).c_str(), IsWindowVisible(h) ? 1 : 0, IsIconic(h) ? 1 : 0,
+           static_cast<long>(r.left), static_cast<long>(r.top), static_cast<long>(r.right - r.left), static_cast<long>(r.bottom - r.top));
+    return TRUE;
+}
+
+void window_state(const char* why) {
+    rg_log("vensters van deze draad (%s): voorgrond %p, actief %p, focus %p", why, GetForegroundWindow(), GetActiveWindow(), GetFocus());
+    EnumThreadWindows(GetCurrentThreadId(), enum_thread_window, 0);
+}
+
+BOOL WINAPI rg_PeekMessageW(LPMSG m, HWND h, UINT a, UINT b, UINT f) {
+    const LONG n = InterlockedIncrement(&g_peek_n);
+    if (n <= 5) {
+        rg_log("PeekMessageW #%ld: binnen (hwnd %p, %u..%u, vlaggen 0x%x)", static_cast<long>(n), h, a, b, f);
+        if (n == 1) window_state("eerste PeekMessageW");
+    }
+    const DWORD t0 = GetTickCount();
+    const BOOL r = g_peek_w(m, h, a, b, f);
+    const DWORD dt = GetTickCount() - t0;
+    if (n <= 5) rg_log("PeekMessageW #%ld: terug met %d na %lu ms", static_cast<long>(n), r ? 1 : 0, static_cast<unsigned long>(dt));
+    if (dt >= 200 && InterlockedIncrement(&g_peek_slow) <= 20) rg_log("PeekMessageW #%ld duurde %lu ms", static_cast<long>(n), static_cast<unsigned long>(dt));
+    if (dt > g_peek_max_ms) g_peek_max_ms = dt;
+    if (r) {
+        const LONG k = InterlockedIncrement(&g_peek_msgs);
+        if (k <= 40 && m) rg_log("bericht #%ld: hwnd %p msg 0x%04x wParam 0x%lx lParam 0x%lx", static_cast<long>(k), m->hwnd, m->message, static_cast<unsigned long>(m->wParam),
+                                 static_cast<unsigned long>(m->lParam));
+    }
+    const DWORD now = GetTickCount();
+    if (now - g_peek_last_sum >= 5000) {   // elke 5 s een samenvatting (alleen als de lus draait: bij een hang komt hij niet)
+        g_peek_last_sum = now;
+        rg_log("berichtenlus: %ld aanroepen, %ld berichten, langste aanroep %lu ms", static_cast<long>(g_peek_n), static_cast<long>(g_peek_msgs), static_cast<unsigned long>(g_peek_max_ms));
+    }
+    return r;
+}
+LRESULT WINAPI rg_DispatchMessageW(const MSG* m) {
+    const LONG n = InterlockedIncrement(&g_disp_n);
+    if (n <= 5 && m) rg_log("DispatchMessageW #%ld: hwnd %p msg 0x%04x", static_cast<long>(n), m->hwnd, m->message);
+    return g_dispatch_w(m);
+}
+BOOL WINAPI rg_ShowWindow(HWND h, int cmd) {
+    const BOOL r = g_show_window(h, cmd);
+    rg_log("ShowWindow(%p, %d) -> %d", h, cmd, r ? 1 : 0);
+    return r;
+}
+BOOL WINAPI rg_SetWindowPos(HWND h, HWND after, int x, int y, int cx, int cy, UINT fl) {
+    const BOOL r = g_set_window_pos(h, after, x, y, cx, cy, fl);
+    static volatile LONG k = 0;
+    if (InterlockedIncrement(&k) <= 20) rg_log("SetWindowPos(%p, %p, %d,%d %dx%d, 0x%x) -> %d", h, after, x, y, cx, cy, fl, r ? 1 : 0);
+    return r;
+}
+HWND WINAPI rg_CreateWindowExW(DWORD ex, LPCWSTR cls, LPCWSTR name, DWORD style, int x, int y, int w, int hh, HWND parent, HMENU menu, HINSTANCE inst, LPVOID p) {
+    HWND h = g_create_window_ex_w(ex, cls, name, style, x, y, w, hh, parent, menu, inst, p);
+    rg_log("CreateWindowExW(ex 0x%lx, %s, %s, stijl 0x%lx, %d,%d %dx%d) -> %p", static_cast<unsigned long>(ex), (reinterpret_cast<uintptr_t>(cls) > 0xFFFF) ? to_utf8(cls).c_str() : "(atoom)",
+           name ? to_utf8(name).c_str() : "", static_cast<unsigned long>(style), x, y, w, hh, h);
+    return h;
+}
+
+void setup_msg_trace() {
+    char v[8];
+    if (GetEnvironmentVariableA("RG_MSGTRACE", v, sizeof v) == 0 || v[0] != '1') return;   // uit
+    rg_log("berichtenlus volgen aan");
+    hook_import("USER32.dll", "PeekMessageW", reinterpret_cast<void*>(&rg_PeekMessageW), g_peek_w);
+    hook_import("USER32.dll", "DispatchMessageW", reinterpret_cast<void*>(&rg_DispatchMessageW), g_dispatch_w);
+    hook_import("USER32.dll", "ShowWindow", reinterpret_cast<void*>(&rg_ShowWindow), g_show_window);
+    hook_import("USER32.dll", "SetWindowPos", reinterpret_cast<void*>(&rg_SetWindowPos), g_set_window_pos);
+    hook_import("USER32.dll", "CreateWindowExW", reinterpret_cast<void*>(&rg_CreateWindowExW), g_create_window_ex_w);
+}
+
+// TeknoParrot-stijl: de F:/-tekenreeksen van het spel zelf aanpassen (drive_fix.h, patch_strings) in de gegevenssecties van de exe.
+void patch_drive_strings() {
+    auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(exe + reinterpret_cast<IMAGE_DOS_HEADER*>(exe)->e_lfanew);
+    auto* sec = IMAGE_FIRST_SECTION(nt);
+    size_t total_n = 0, total_w = 0;
+    for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i) {
+        if (sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) continue;   // geen code
+        BYTE* start = exe + sec[i].VirtualAddress;
+        const DWORD size = sec[i].Misc.VirtualSize;
+        DWORD old = 0;
+        if (!size || !VirtualProtect(start, size, PAGE_READWRITE, &old)) continue;
+        const size_t n = rg_drivefix::patch_strings(start, size, g_drive_letters, 1);
+        const size_t w = rg_drivefix::patch_strings(start, size, g_drive_letters, 2);
+        VirtualProtect(start, size, old, &old);
+        char name[9] = {};
+        std::memcpy(name, sec[i].Name, 8);
+        rg_log("schijfletter: tekenreeksen in %s: %lu smal, %lu breed aangepast (<L>:/ -> ./<L>, zoals TeknoParrot)", name, static_cast<unsigned long>(n), static_cast<unsigned long>(w));
+        total_n += n;
+        total_w += w;
+    }
+    rg_log("schijfletter: %lu smalle en %lu brede tekenreeksen aangepast", static_cast<unsigned long>(total_n), static_cast<unsigned long>(total_w));
+}
+
 // --- de stalldump (zie VIJFDE TAAK bovenaan) -------------------------------------------------------------------------------------------------
 // Waar ligt `a`? In de exe: "exe+0xRVA (VA 0x...)", anders "module+0xoffset".
 void where_text(DWORD a, char* out, size_t n) {
@@ -1562,6 +1689,7 @@ void setup() {
     setup_stall_dump();     // idem: alleen met RG_STALL_DUMP
     setup_drive_fix();      // idem: alleen met RG_DRIVE_FIXUP
     setup_bngrw();          // idem: alleen met RG_BNGRW
+    setup_msg_trace();      // idem: alleen met RG_MSGTRACE=1
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: niets omgezet");
         return;
