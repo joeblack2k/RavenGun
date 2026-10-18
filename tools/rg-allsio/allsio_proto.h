@@ -91,6 +91,88 @@ inline IoctlResult platform_ioctl(PlatformDevice device, uint32_t code,
     return IoctlResult::Ok;
 }
 
+// FGunSensor in Hodzero: synchrone COM1, reset 04, tekstconfiguratie S P2 / S Fn,
+// poll 08. Parser 0x1401e2840: vier big-endian 10-bit assen, Y omgekeerd,
+// vlaggen in byte 8, byte 9 ongebruikt, complement van de som in byte 10.
+// Dit staat los van het HID-bord van amdaemon. Invoer: HOTDSDPipe (64 bytes).
+class GunSensor {
+public:
+    static uint8_t checksum(const uint8_t* data, size_t n) {
+        uint8_t sum = 0;
+        for (size_t i = 0; i < n; ++i) sum = static_cast<uint8_t>(sum + data[i]);
+        return static_cast<uint8_t>(~sum);
+    }
+    static void frame(const uint8_t* shm, uint8_t* out) {
+        std::memset(out, 0, 11);
+        out[8] = 0xc0; // actieve-lage on-screen-bits: zonder invoer buiten beeld
+        for (size_t player = 0; player < 2; ++player) {
+            const unsigned x = shm ? shm[12 + player * 8] : 128;
+            const unsigned y = shm ? shm[16 + player * 8] : 128;
+            const unsigned raw_x = (x * 1023 + 127) / 255;
+            const unsigned raw_y = 1023 - (y * 1023 + 127) / 255;
+            out[player * 4] = static_cast<uint8_t>(raw_x >> 8);
+            out[player * 4 + 1] = static_cast<uint8_t>(raw_x);
+            out[player * 4 + 2] = static_cast<uint8_t>(raw_y >> 8);
+            out[player * 4 + 3] = static_cast<uint8_t>(raw_y);
+            if (shm && x > 1 && x < 254 && y > 1 && y < 254)
+                out[8] &= static_cast<uint8_t>(~(0x80 >> player));
+            if (shm && (shm[8] & (1u << player))) out[8] |= static_cast<uint8_t>(0x20 >> player);
+        }
+        out[10] = checksum(out, 10);
+    }
+    // Antwoorden worden pas na een opdracht beschikbaar; deelreads verbruiken
+    // dezelfde momentopname, niet steeds een nieuw (mogelijk gescheurd) pakket.
+    bool write(const uint8_t* data, size_t n, const uint8_t* shm) {
+        if (!data || !n) return false;
+        if (n == 1 && data[0] == 0x04) {
+            configured_ = false;
+            command_size_ = 0;
+            reply_[0] = 0; reply_[1] = 0xff;
+            pos_ = 0; size_ = 2;
+            return true;
+        }
+        if (n == 1 && data[0] == 0x08) {
+            if (!configured_ || command_size_) return false;
+            frame(shm, reply_);
+            pos_ = 0; size_ = 11;
+            return true;
+        }
+        // Alleen de gemeten opdrachten; onbekende tekst geeft geen verzonnen ACK.
+        for (size_t i = 0; i < n; ++i) {
+            if (command_size_ >= sizeof command_ || data[i] < 0x0a || data[i] > 0x7e) {
+                command_size_ = 0; purge(); return false;
+            }
+            command_[command_size_++] = static_cast<char>(data[i]);
+            if (data[i] == '\n') {
+                const bool players = command_size_ == 6 && std::memcmp(command_, "S P2\r\n", 6) == 0;
+                const bool frequency = command_size_ == 6 && std::memcmp(command_, "S F", 3) == 0 &&
+                    command_[3] >= '0' && command_[3] <= '3' && command_[4] == '\r';
+                command_size_ = 0;
+                if (!players && !frequency) { purge(); return false; }
+                if (players) configured_ = true;
+                reply_[0] = 0x75; reply_[1] = 0x8a;
+                pos_ = 0; size_ = 2;
+            }
+        }
+        return true;
+    }
+    size_t read(uint8_t* out, size_t capacity) {
+        if (!out || !capacity) return 0;
+        const size_t n = capacity < pending() ? capacity : pending();
+        std::memcpy(out, reply_ + pos_, n);
+        pos_ += n;
+        return n;
+    }
+    size_t pending() const { return size_ - pos_; }
+    void purge() { pos_ = size_ = 0; }
+    void close() { purge(); command_size_ = 0; configured_ = false; }
+private:
+    uint8_t reply_[11] = {};
+    char command_[16] = {};
+    size_t pos_ = 0, size_ = 0, command_size_ = 0;
+    bool configured_ = false;
+};
+
 enum class Pipe { Control, Interrupt };
 
 struct Request {

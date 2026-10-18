@@ -1,0 +1,483 @@
+{
+  "title": "Gaia Attack 4",
+  "nas_folder": "Gaia Attack 4",
+  "platform": "Taito Type X2 (32-bit, OpenParrot core)",
+  "exe": "game.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "general.resolutionwidth",
+      "name_en": "Resolution Width",
+      "type": "int",
+      "default": 1280,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "ResolutionWidth",
+        "also_in_ini": {
+          "section": "General",
+          "key": "ResolutionWidth"
+        }
+      },
+      "description_en": "Horizontal resolution in pixels (used when custom resolution is on, or by the game launcher).",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "general.resolutionheight",
+      "name_en": "Resolution Height",
+      "type": "int",
+      "default": 720,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "ResolutionHeight",
+        "also_in_ini": {
+          "section": "General",
+          "key": "ResolutionHeight"
+        }
+      },
+      "description_en": "Vertical resolution in pixels (used when custom resolution is on, or by the game launcher).",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "general.region",
+      "name_en": "Region",
+      "type": "enum",
+      "values": [
+        "A",
+        "C",
+        "E",
+        "I"
+      ],
+      "default": "E",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "Region",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Region"
+        }
+      },
+      "description_en": "Game region/language variant. Valid options: A C E I",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "custom_crosshairs.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "Custom Crosshairs",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "Custom Crosshairs",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Draw a custom crosshair image (P1.png, P2.png ... in the game folder). Place P1.png/P2.png/P3.png/P4.png into game folder",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "custom_crosshairs.render_hook",
+      "name_en": "Render Hook",
+      "type": "enum",
+      "values": [
+        "EndScene",
+        "Present"
+      ],
+      "default": "Present",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "Custom Crosshairs",
+        "field": "Render Hook",
+        "also_in_ini": {
+          "section": "Custom Crosshairs",
+          "key": "Render Hook"
+        }
+      },
+      "description_en": "Direct3D 9 function hooked to draw the custom crosshair and border.",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "general.player_3_relative_sensitivity",
+      "name_en": "Player 3 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "Player 3 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 3 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 3 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "general.player_4_relative_sensitivity",
+      "name_en": "Player 4 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "GaiaAttack4",
+        "category": "General",
+        "field": "Player 4 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 4 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 4 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:GaiaAttack4"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "GaiaAttack4",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/GaiaAttack4.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "ini.region",
+      "name_en": "Region",
+      "type": "enum",
+      "default": "E",
+      "values": [
+        "A",
+        "C",
+        "E",
+        "I"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "MINIGUN.INI",
+        "base": "game_dir",
+        "format": "tab_ini",
+        "key": "REGION"
+      },
+      "description_en": "Game region (A, C, E, I). Same value as the TeknoParrot Region field.",
+      "source": [
+        "gamemap:MINIGUN.INI",
+        "findings/12_aanpassingen_en_koppelingen.md"
+      ]
+    },
+    {
+      "key": "ini.screen_width",
+      "name_en": "Screen width",
+      "type": "int",
+      "default": 1280,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "game_config_file",
+        "path": "MINIGUN.INI",
+        "base": "game_dir",
+        "format": "tab_ini",
+        "key": "SCREEN_WIDTH"
+      },
+      "description_en": "Window width. README: change SCREEN_* and RENDER_* to the same value.",
+      "source": [
+        "gamemap:MINIGUN.INI"
+      ]
+    },
+    {
+      "key": "ini.screen_height",
+      "name_en": "Screen height",
+      "type": "int",
+      "default": 720,
+      "min": 240,
+      "max": 4320,
+      "target": {
+        "kind": "game_config_file",
+        "path": "MINIGUN.INI",
+        "base": "game_dir",
+        "format": "tab_ini",
+        "key": "SCREEN_HEIGHT"
+      },
+      "description_en": "Window height.",
+      "source": [
+        "gamemap:MINIGUN.INI"
+      ]
+    },
+    {
+      "key": "ini.render_width",
+      "name_en": "Render width",
+      "type": "int",
+      "default": 1280,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "game_config_file",
+        "path": "MINIGUN.INI",
+        "base": "game_dir",
+        "format": "tab_ini",
+        "key": "RENDER_WIDTH"
+      },
+      "description_en": "Internal render width (also RENDER_WIDTH3D).",
+      "source": [
+        "gamemap:MINIGUN.INI"
+      ]
+    },
+    {
+      "key": "ini.render_height",
+      "name_en": "Render height",
+      "type": "int",
+      "default": 720,
+      "min": 240,
+      "max": 4320,
+      "target": {
+        "kind": "game_config_file",
+        "path": "MINIGUN.INI",
+        "base": "game_dir",
+        "format": "tab_ini",
+        "key": "RENDER_HEIGHT"
+      },
+      "description_en": "Internal render height (also RENDER_HEIGHT3D).",
+      "source": [
+        "gamemap:MINIGUN.INI"
+      ]
+    },
+    {
+      "key": "ini.prjenable",
+      "name_en": "Projector mode",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "MINIGUN.INI",
+        "base": "game_dir",
+        "format": "tab_ini",
+        "key": "PRJENABLE"
+      },
+      "description_en": "PRJENABLE flag of the Type X2 ini (meaning not documented in the findings).",
+      "source": [
+        "gamemap:MINIGUN.INI"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "rank",
+        "path": "RANK/ranking0.bin, ranking1.bin",
+        "base": "game_dir",
+        "kind": "highscores",
+        "description_en": "Rankings as shipped in the dump (8 KB each, two copies).",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Clears rankings.",
+        "source": [
+          "gamemap:RANK"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "ga_cfg",
+        "path": "GA/0.CFG, 0.CRC, 1.CFG, 1.CRC",
+        "base": "game_dir",
+        "kind": "operator_settings",
+        "description_en": "Config pairs (file + CRC), two redundant copies.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets test-menu settings. Delete the CFG with its CRC.",
+        "source": [
+          "gamemap:GA"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "ga_bk",
+        "path": "GA/bk1.dat, bk2.dat",
+        "base": "game_dir",
+        "kind": "bookkeeping",
+        "description_en": "Bookkeeping, two copies.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets audits.",
+        "source": [
+          "gamemap:GA"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "openparrot_dir",
+        "path": "OpenParrot/GA4 and OpenParrot/ (ranking files)",
+        "base": "game_dir",
+        "kind": "savegame",
+        "description_en": "Where saves go after the OpenParrot-modified MINIGUN.INI (CNFNAME .\\OpenParrot\\GA4, RANKFILE .\\OpenParrot\\). Created at first run.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets everything the game saved under OpenParrot.",
+        "source": [
+          "findings/12_aanpassingen_en_koppelingen.md",
+          "gamemap:MINIGUN.INI"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "notes_en": "The folders GA and RANK are the initial state from the dump; at runtime the patched ini redirects saves to OpenParrot."
+  }
+}

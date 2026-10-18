@@ -25,8 +25,8 @@ S="$ROOT/tools/dev/rg-saver-status.sh"
 # 1. Geen bestand: het bord zegt dat er geen status is.
 UIT=$("$S" --show 2>&1); RC=$?
 [[ $RC -eq 1 ]] || fail "zonder bestand: exitcode $RC, verwacht 1"
-grep -q "Geen status beschikbaar" <<<"$UIT" && grep -q "het statusbestand ontbreekt" <<<"$UIT" || fail "zonder bestand: $UIT"
-grep -q "Het gaat goed" <<<"$UIT" && fail "zonder bestand staat er 'Het gaat goed'"
+grep -q "No status available" <<<"$UIT" && grep -q "the status file is missing" <<<"$UIT" || fail "zonder bestand: $UIT"
+grep -q "Going well" <<<"$UIT" && fail "zonder bestand staat er 'Het gaat goed'"
 
 # 2. Een goede status wordt geschreven en komt er in gewone taal uit.
 UIT=$("$S" --spel Halo --bezig "Richten en schieten testen" --stand goed --stap "3 van 5" \
@@ -34,9 +34,9 @@ UIT=$("$S" --spel Halo --bezig "Richten en schieten testen" --stand goed --stap 
           --gehaald "Rabbids" 2>&1); RC=$?
 [[ $RC -eq 0 ]] || fail "goede status: exitcode $RC ($UIT)"
 [[ -f "$F" ]] || fail "goede status: het bestand is niet geschreven"
-for regel in "Halo: Richten en schieten testen" "Het gaat goed · stap 3 van 5" "Waarvoor: Zien of de trekker aankomt" \
-             "Al gedaan: Beeld op de tv · Kalibratie overgeslagen" "Nog te doen: Twee minuten spelen" \
-             "Gehaald (5 minuten attract of spel): Rabbids"; do
+for regel in "Halo: Richten en schieten testen" "Going well · step 3 of 5" "Purpose: Zien of de trekker aankomt" \
+             "Done: Beeld op de tv · Kalibratie overgeslagen" "To do: Twee minuten spelen" \
+             "Passed (5 minutes attract or play): Rabbids"; do
   grep -qF "$regel" <<<"$UIT" || fail "goede status: de regel '$regel' ontbreekt in: $UIT"
 done
 grep -q "^spel: Halo$" "$F" && grep -q "^stand: goed$" "$F" || fail "het bestand heeft niet het afgesproken formaat: $(cat "$F")"
@@ -46,7 +46,7 @@ GOED=$(cat "$F")
 # 2b. De nieuwe sleutels: vraag en doelen, en de activiteitenlijst (--feed).
 UIT=$("$S" --spel Halo --bezig Testen --stand bezig --vraag "Met of zonder kalibratie?" --doelen "Alles halen; Wiki" 2>&1); RC=$?
 [[ $RC -eq 0 ]] || fail "vraag: exitcode $RC ($UIT)"
-grep -qF "Vraag voor jou: Met of zonder kalibratie?" <<<"$UIT" || fail "vraag ontbreekt in: $UIT"
+grep -qF "Question for you: Met of zonder kalibratie?" <<<"$UIT" || fail "vraag ontbreekt in: $UIT"
 grep -q "^vraag: Met of zonder kalibratie?$" "$F" && grep -q "^doelen: Alles halen; Wiki$" "$F" || fail "vraag/doelen niet in het bestand: $(cat "$F")"
 "$S" --spel Halo --bezig Testen --stand bezig >/dev/null 2>&1; grep -q "^vraag:" "$F" && fail "de vraag blijft staan na een status zonder --vraag"
 GOED=$(cat "$F")
@@ -72,27 +72,27 @@ nee() {   # $1 = wat er in de melding moet staan; de rest = de opties
   grep -q "NIET geschreven" <<<"$uit" && grep -qF "$wat" <<<"$uit" || fail "melding klopt niet voor [$*]: $uit"
   [[ "$(cat "$F")" == "$GOED" ]] || fail "het oude bestand is veranderd door een afgekeurde status: $*"
 }
-nee "'stand' ontbreekt" --spel Halo --bezig Testen
-nee "'spel' ontbreekt" --bezig Testen --stand goed
-nee "goed, slecht of bezig" --spel Halo --bezig Testen --stand prima
-nee "dat kan niet" --spel Halo --bezig Testen --stand goed --stap "6 van 5"
-nee "3 van 5" --spel Halo --bezig Testen --stand goed --stap "de derde"
-nee "te lang" --spel Halo --bezig "$(printf 'x%.0s' $(seq 1 200))" --stand goed
+nee "'stand' is missing" --spel Halo --bezig Testen
+nee "'spel' is missing" --bezig Testen --stand goed
+nee "goed, slecht or bezig" --spel Halo --bezig Testen --stand prima
+nee "that cannot be" --spel Halo --bezig Testen --stand goed --stap "6 van 5"
+nee "3 of 5" --spel Halo --bezig Testen --stand goed --stap "de derde"
+nee "too long" --spel Halo --bezig "$(printf 'x%.0s' $(seq 1 200))" --stand goed
 
 # 4. Onzin in het bestand zelf (met de hand geschreven): het bord zegt dat, met de reden.
 onzin() {   # $1 = inhoud, $2 = wat er in de reden moet staan
   printf '%b' "$1" > "$T/onzin.txt"
   local uit rc; uit=$("$S" --check "$T/onzin.txt" 2>&1); rc=$?
   [[ $rc -eq 1 ]] || fail "onzin moet exitcode 1 geven ($rc): $1"
-  grep -q "Geen status beschikbaar" <<<"$uit" && grep -qF "$2" <<<"$uit" || fail "onzin [$1]: $uit"
-  grep -q "Het gaat goed" <<<"$uit" && fail "onzin [$1] wordt als 'Het gaat goed' getoond"
+  grep -q "No status available" <<<"$uit" && grep -qF "$2" <<<"$uit" || fail "onzin [$1]: $uit"
+  grep -q "Going well" <<<"$uit" && fail "onzin [$1] wordt als 'Het gaat goed' getoond"
 }
-onzin "" "leeg"
-onzin "alles goed\n" "geen 'sleutel: waarde'"
-onzin '{"spel": "Halo", "stand": "goed"}\n' "onbekende sleutel"
-onzin "spel: Halo\nbezig: Testen\nstand: goed\nkleur: groen\n" "onbekende sleutel 'kleur'"
-onzin "spel: Halo\nspel: Rabbids\nbezig: Testen\nstand: goed\n" "twee keer"
-onzin "spel: Halo\nbezig: Testen\nstand:\n" "'stand' ontbreekt"
+onzin "" "empty"
+onzin "alles goed\n" "not 'key: value'"
+onzin '{"spel": "Halo", "stand": "goed"}\n' "unknown key"
+onzin "spel: Halo\nbezig: Testen\nstand: goed\nkleur: groen\n" "unknown key 'kleur'"
+onzin "spel: Halo\nspel: Rabbids\nbezig: Testen\nstand: goed\n" "appears twice"
+onzin "spel: Halo\nbezig: Testen\nstand:\n" "'stand' is missing"
 head -c 4096 /dev/urandom > "$T/ruis.txt"
 "$S" --check "$T/ruis.txt" >/dev/null 2>&1 && fail "willekeurige bytes worden als geldige status gelezen"
 

@@ -1,0 +1,47 @@
+{
+  "title": "Target: Terror Gold",
+  "enabled": true,
+  "status": "werkt",
+  "note": "WERKT (2026-10-15, dubbelklik, 5,5 min gespeeld). i386, ongepakt, gewone ld.so. De dump brengt een eigen emulator van het JAMMA-bord en de dongle mee (tt_emu.so + libXshooter.so; runGame.sh op de kast: LD_PRELOAD=./tt_emu.so ./game). De pty-koppeling /dev/ttyS0 <-> /tmp/ttyJamma die tt_daemon.sh met socat maakte, doet librg_ptylink.so (RG_PTYLINK). Toetsen: tt_emu leest het virtuele toetsenbord van de daemon rechtstreeks (KBD_HOOK=/dev/input/ravengun-kbd: 1/2 START, 5/6 munt, 7 service, 8 test, 0 biljet, pijl op/neer volume). Geweren: libXshooter neemt alleen evdev-apparaten met ABS_X/ABS_Y, BTN_LEFT/RIGHT/MIDDLE en een fysiek pad dat met usb begint (EVIOCGPHYS); de virtuele gun heeft daarom phys usb-ravengun/inputN. Geluid: de game opent OSS /dev/dsp, dat in de sandbox niet bestaat; zijn geluidsthread deed dan SNDCTL_DSP_GETOSPACE op fd -1 en een memset met een ongevulde lengte en crashte soms (2026-10-17). librg-oss-stub.so (tools/rg-oss-stub) beantwoordt /dev/dsp; met RG_OSS_PLAY=1 speelt hij het af via PulseAudio (ring + eigen draad, pacing via GETOSPACE; 2026-10-18). Het spel zet mono S16LE 22050 Hz, 3x4096-fragmenten (de shim meldt er 2).",
+  "arch": "i386",
+  "launcher": "gamescope",
+  "mounts": [
+    {
+      "src": "@nas/Target Terror Gold",
+      "dst": "/pm",
+      "mode": "overlay"
+    }
+  ],
+  "files": [
+    {
+      "src": "@patches/TargetTerrorGold/data/Xshooter.ini",
+      "dst": "/pm/Xshooter.ini"
+    }
+  ],
+  "libs": [
+    "@nas/Target Terror Gold/libXshooter.so",
+    "@lib32/libglut.so.3",
+    "@lib32/libXi.so.6",
+    "@lib32/libGLU.so.1",
+    "@build/lib32/librg_ptylink.so",
+    "@build/lib32/librg-oss-stub.so"
+  ],
+  "preload": "/rg/lib/librg_ptylink.so:/rg/lib/librg-oss-stub.so:/pm/tt_emu.so",
+  "env": {
+    "RG_PTYLINK": "/dev/ttyS0=/tmp/ttyJamma",
+    "RG_PTYLINK_LOG": "1",
+    "KBD_HOOK": "/dev/input/ravengun-kbd",
+    "TTG_FULLSCREEN": "1",
+    "TTG_CROSSHAIR": "1",
+    "XSHOOTER_DBG": "1",
+    "RG_OSS_STUB_LOG": "1",
+    "RG_OSS_PLAY": "1",
+    "RG_OSS_NAME": "Target: Terror Gold"
+  },
+  "exe": "/pm/game",
+  "cwd": "/pm",
+  "home": "/pm",
+  "args": [],
+  "res": "1024x768",
+  "route": "evdev"
+}

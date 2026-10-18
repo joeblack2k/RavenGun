@@ -411,7 +411,7 @@ OpResult Install::installTree(const QString& sourcePrefixIn, const InstallLayout
         auto cleanup = [&stage] { QDir(stage).removeRecursively(); };
         say(log, QStringLiteral("Copying %1 to %2").arg(src, prefix));
         QDir().mkpath(stage);
-        for (const QString& d : {QStringLiteral("bin"), QStringLiteral("lib"), QStringLiteral("share")}) {
+        for (const QString& d : {QStringLiteral("bin"), QStringLiteral("lib"), QStringLiteral("share"), QStringLiteral("patches")}) {
             if (!QFileInfo(src + QLatin1Char('/') + d).isDir()) continue;
             QString err;
             if (!copyTree(src + QLatin1Char('/') + d, stage + QLatin1Char('/') + d, &err)) {

@@ -211,8 +211,8 @@ t('fitVerdict: geslaagd, marginaal, mislukt', () => {
   assert.strictEqual(f.level, 'fail');
   assert.strictEqual(f.tips[0], 'te weinig dekking: 40 %');
   assert.strictEqual(C.fitVerdict({ aborted: 'door gebruiker' }).level, 'fail');
-  assert.ok(C.actionTip('te weinig dekking: 40 %').indexOf('ondersteboven') >= 0);
-  assert.ok(C.actionTip('veld niet homogeen').indexOf('1 meter') >= 0);
+  assert.ok(C.actionTip('te weinig dekking: 40 %').indexOf('ceiling') >= 0);
+  assert.ok(C.actionTip('veld niet homogeen').indexOf('1 metre') >= 0);
 });
 
 t('screenTargets: 3x3 op 10, 50 en 90 procent van 1920x1080', () => {
@@ -344,8 +344,8 @@ t('PracticeButtons: toewijzing, baseline en debounce', () => {
 });
 
 t('aimModeText: modus en middenbron', () => {
-  assert.strictEqual(C.aimModeText({ tracking_mode: 'orientation', aim: { center_source: 'auto_initial' } }), 'oriëntatie (voorlopig), auto-midden');
-  assert.strictEqual(C.aimModeText({ tracking_mode: 'orientation', aim: { center_source: 'user' } }), 'oriëntatie (voorlopig), midden door jou gezet');
-  assert.ok(C.aimModeText(null).indexOf('onbekend') === 0);
+  assert.strictEqual(C.aimModeText({ tracking_mode: 'orientation', aim: { center_source: 'auto_initial' } }), 'orientation (provisional), auto-centered');
+  assert.strictEqual(C.aimModeText({ tracking_mode: 'orientation', aim: { center_source: 'user' } }), 'orientation (provisional), centered by you');
+  assert.ok(C.aimModeText(null).indexOf('unknown') === 0);
 });
 console.log('JS_TESTS_OK ' + n);

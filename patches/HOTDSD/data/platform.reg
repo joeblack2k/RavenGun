@@ -1,0 +1,15 @@
+Windows Registry Editor Version 5.00
+
+; House of the Dead: Scarlet Dawn (amdaemon.exe, Sega AM Daemon 2437) zonder de TeknoParrot-kern.
+;
+; Waarom: am::platform::Manager::initialize() (amdaemon.exe 0x1401e66a0) roept amPlatformGetPlatformInformation() (0x14022eec0) aan.
+; Die leest HKLM\System\SEGA\SystemProperty\Static, waarde PlatformId (0x140259f50; amsSystemPropertyStaticInit), eist een tekenreeks
+; van precies 4 tekens en vult daarmee {platform-id, cijfer}. Ontbreekt de waarde, dan geeft de functie 0 ("ErrCode 0") met een leeg
+; platform-id terug en weigert initialize() dat: "Runtime exception ... amw_platform_manager.cpp Line 102 ... amPlatformGetPlatformInformation().
+; ErrCode 0" en de daemon stopt na 1 s (gemeten 2026-10-13, patches/HOTDSD/METING-1-DAEMON.md). De gesloten kern van TeknoParrot haakt die
+; registerleesactie; hier staat de waarde gewoon in het register.
+;
+; Waarde: ACA0 = het platform-id uit pxGetHwInfo.ini van de game (platform-id = ACA0, ALLS).
+; Let op: de prefix is de gedeelde prefix; de sleutel is van Sega's systeemlaag en wordt door geen andere game van ons gelezen.
+[HKEY_LOCAL_MACHINE\System\SEGA\SystemProperty\Static]
+"PlatformId"="ACA0"

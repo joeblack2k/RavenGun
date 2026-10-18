@@ -27,7 +27,7 @@ t('pickTab: hash gaat voor, dan het onthouden tabblad, anders overzicht', () => 
 });
 
 t('getallen: komma, afronden, logschaal', () => {
-  assert.strictEqual(A.fmtNl(0.3, 2), '0,30');
+  assert.strictEqual(A.fmtNl(0.3, 2), '0.30');
   assert.strictEqual(A.fmtNl(NaN), '-');
   assert.strictEqual(A.percent255(255), 100);
   assert.strictEqual(A.percent255(180), 71);
@@ -41,15 +41,15 @@ t('getallen: komma, afronden, logschaal', () => {
 });
 
 t('batterij: niveaus, laden, niet verbonden', () => {
-  assert.deepStrictEqual(A.batteryView('ge60', true), { segments: 4, level: 'ok', label: 'Goed', detail: 'minstens 60%', charging: false });
+  assert.deepStrictEqual(A.batteryView('ge60', true), { segments: 4, level: 'ok', label: 'Good', detail: 'at least 60%', charging: false });
   assert.strictEqual(A.batteryView('min', true).level, 'low');
   assert.strictEqual(A.batteryView('ge20', true).level, 'mid');
   assert.strictEqual(A.batteryView('max', true).segments, 5);
   const c = A.batteryView('charging', true);
-  assert.ok(c.charging && c.label === 'Laadt' && c.level === 'charging');
-  assert.strictEqual(A.batteryView('charged', true).label, 'Vol');
+  assert.ok(c.charging && c.label === 'Charging' && c.level === 'charging');
+  assert.strictEqual(A.batteryView('charged', true).label, 'Full');
   const off = A.batteryView('ge80', false);
-  assert.ok(off.segments === 0 && off.level === 'none' && off.detail === 'niet verbonden');
+  assert.ok(off.segments === 0 && off.level === 'none' && off.detail === 'not connected');
   assert.strictEqual(A.batteryView('onzin', true).segments, 0);
   assert.strictEqual(A.batteryView('ge40', true, 55).detail, '55%');   // Navigation Controller met percentage
 });
@@ -69,13 +69,13 @@ t('acties: keuzelijst met vaste menutoetsen en alle toetsen, zonder dubbele waar
   assert.strictEqual(new Set(all).size, all.length);
   ['none', 'reload', 'grenade', 'aux1', 'aux2', 'recenter', 'key:5', 'key:1', 'key:f2', 'key:f3', 'key:a', 'key:esc'].forEach(v => assert.ok(all.indexOf(v) >= 0, v));
   assert.ok(all.indexOf('ps') < 0 && all.indexOf('key:ps') < 0);
-  assert.strictEqual(A.actionLabel('key:5'), 'Coin (toets 5)');
-  assert.strictEqual(A.actionLabel('key:f2'), 'Test (toets F2)');
-  assert.strictEqual(A.actionLabel('key:f3'), 'Service (toets F3)');
-  assert.strictEqual(A.actionLabel('key:1'), 'Start speler 1 (toets 1)');
-  assert.strictEqual(A.actionLabel('key:2'), 'Start speler 2 (toets 2)');
-  assert.strictEqual(A.actionLabel('recenter'), 'Centreren');
-  assert.strictEqual(A.actionLabel('key:q'), 'Toets Q');
+  assert.strictEqual(A.actionLabel('key:5'), 'Coin (key 5)');
+  assert.strictEqual(A.actionLabel('key:f2'), 'Test (key F2)');
+  assert.strictEqual(A.actionLabel('key:f3'), 'Service (key F3)');
+  assert.strictEqual(A.actionLabel('key:1'), 'Start player 1 (key 1)');
+  assert.strictEqual(A.actionLabel('key:2'), 'Start player 2 (key 2)');
+  assert.strictEqual(A.actionLabel('recenter'), 'Center');
+  assert.strictEqual(A.actionLabel('key:q'), 'Key Q');
   assert.strictEqual(A.actionLabel('onbekend'), 'onbekend');
   // alle waarden in de lijst zijn geldig voor de daemon-parser: none/reload/.. of key:<naam>
   all.forEach(v => assert.ok(/^(none|reload|grenade|aux1|aux2|recenter|key:[a-z0-9]+)$/.test(v), v));
@@ -96,11 +96,11 @@ t('pressedSet: knoppen en trekker', () => {
 });
 t('driftcorrectie en klok', () => {
   assert.deepStrictEqual(A.FUSION_CHOICES.map(f => f.id), ['vqf_mag', 'vqf', 'mahony_mag', 'mahony']);
-  assert.strictEqual(A.fusionLabel('vqf_mag'), 'Kompas (aanbevolen)');
-  assert.strictEqual(A.fusionLabel('mahony'), 'Alleen gyro');
+  assert.strictEqual(A.fusionLabel('vqf_mag'), 'Compass (recommended)');
+  assert.strictEqual(A.fusionLabel('mahony'), 'Gyro only');
   assert.deepStrictEqual(A.clockChoices(250).map(c => c.hz), [0, 125, 250, 500]);
   assert.deepStrictEqual(A.clockChoices(333).map(c => c.hz), [0, 125, 250, 333, 500]);
-  assert.strictEqual(A.clockChoices(0)[0].label, 'Uit');
+  assert.strictEqual(A.clockChoices(0)[0].label, 'Off');
 });
 
 t('games: toestanden', () => {
@@ -129,11 +129,11 @@ t('plainSettings: echte instellingen, ook zonder Move', () => {
   const lines = A.plainSettings(st);
   const m = {};
   lines.forEach(l => { m[l[0]] = l[1]; });
-  assert.strictEqual(m['Cursor gladstrijken'], 'aan');
-  assert.strictEqual(m['Driftcorrectie'], 'Kompas (aanbevolen)');
-  assert.strictEqual(m['Vooruitkijken'], '40 ms');
-  assert.strictEqual(m['Trillen'], 'aan, sterkte 71%');
-  assert.strictEqual(m['Uitvoerklok'], '250 Hz');
+  assert.strictEqual(m['Smooth cursor'], 'on');
+  assert.strictEqual(m['Drift correction'], 'Compass (recommended)');
+  assert.strictEqual(m['Prediction'], '40 ms');
+  assert.strictEqual(m['Rumble'], 'on, strength 71%');
+  assert.strictEqual(m['Output clock'], '250 Hz');
   assert.strictEqual(A.plainSettings({}).length >= 4, true);
 });
 
@@ -209,7 +209,7 @@ t('spelers: keuze onthouden, opties, verzoek met speler', () => {
   assert.deepStrictEqual(A.playerOptions(players, 1).map(o => o.player), [1, 2]);
   assert.deepStrictEqual(A.playerOptions(players, 3).map(o => o.player), [1, 2, 3]);   // gekozen speler zonder Move blijft zichtbaar
   assert.strictEqual(A.playerOptions(players, 1)[1].sub, 'Rode Move');
-  assert.deepStrictEqual(A.playerOptions([], 1), [{ player: 1, label: 'Speler 1', sub: 'geen Move' }]);
+  assert.deepStrictEqual(A.playerOptions([], 1), [{ player: 1, label: 'Player 1', sub: 'no Move' }]);
   const body = { beta: 4 };
   assert.deepStrictEqual(A.withPlayer(body, 2), { beta: 4, player: 2 });
   assert.deepStrictEqual(body, { beta: 4 });   // origineel ongewijzigd
@@ -219,33 +219,33 @@ t('controllers: type, laatst gezien, batterij', () => {
   assert.strictEqual(A.controllerTypeLabel('move'), 'Move');
   assert.strictEqual(A.controllerTypeLabel('navigation'), 'Navigation Controller');
   const now = 1800000000;
-  assert.strictEqual(A.lastSeenText(null, now), 'nog nooit');
-  assert.strictEqual(A.lastSeenText(now - 30, now), 'zojuist');
-  assert.strictEqual(A.lastSeenText(now - 600, now), '10 minuten geleden');
-  assert.strictEqual(A.lastSeenText(now - 3 * 3600, now), '3 uur geleden');
-  assert.strictEqual(A.lastSeenText(now - 30 * 3600, now), 'gisteren');
-  assert.strictEqual(A.lastSeenText(now - 5 * 86400, now), '5 dagen geleden');
-  assert.strictEqual(A.lastSeenText(now + 100, now), 'zojuist');   // klok iets voor: geen negatieve tijd
+  assert.strictEqual(A.lastSeenText(null, now), 'never');
+  assert.strictEqual(A.lastSeenText(now - 30, now), 'just now');
+  assert.strictEqual(A.lastSeenText(now - 600, now), '10 minutes ago');
+  assert.strictEqual(A.lastSeenText(now - 3 * 3600, now), '3 hours ago');
+  assert.strictEqual(A.lastSeenText(now - 30 * 3600, now), 'yesterday');
+  assert.strictEqual(A.lastSeenText(now - 5 * 86400, now), '5 days ago');
+  assert.strictEqual(A.lastSeenText(now + 100, now), 'just now');   // klok iets voor: geen negatieve tijd
   assert.strictEqual(A.controllerBattery({ connected: true, battery: { known: true, code: 'ge40', percent: 40 } }).detail, '40%');
   assert.strictEqual(A.controllerBattery({ connected: false, battery: { known: true, code: 'max' } }).level, 'none');
   assert.strictEqual(A.controllerBattery({ connected: true, battery: { known: false, code: 'unknown' } }).segments, 0);
 });
 t('koppelwizard: stappen en knoppen per toestand', () => {
-  assert.deepStrictEqual(A.PAIR_STEPS, ['Kabel erin', 'Koppelen', 'Kabel eruit', 'PS-knop']);
+  assert.deepStrictEqual(A.PAIR_STEPS, ['Cable in', 'Pairing', 'Cable out', 'PS button']);
   let v = A.pairView({ state: 'idle' });
   assert.ok(v.canStart && !v.canCancel && v.step === 0);
   v = A.pairView({ state: 'wait_usb', active: true, instruction: 'Sluit aan' });
   assert.ok(!v.canStart && v.canCancel && v.text === 'Sluit aan');
   v = A.pairView({ state: 'already_paired', active: true });
-  assert.ok(v.canConfirm && v.confirmLabel === 'Opnieuw koppelen' && v.step === 1);
+  assert.ok(v.canConfirm && v.confirmLabel === 'Pair again' && v.step === 1);
   v = A.pairView({ state: 'need_helper', active: true });
-  assert.ok(v.showInstall && v.canConfirm && v.confirmLabel === 'Opnieuw proberen');
+  assert.ok(v.showInstall && v.canConfirm && v.confirmLabel === 'Try again');
   v = A.pairView({ state: 'register', active: true, busy: true });
   assert.ok(v.busy && !v.canCancel && !v.canStart);
   assert.strictEqual(A.pairView({ state: 'wait_unplug' }).step, 2);
   assert.strictEqual(A.pairView({ state: 'wait_bluetooth' }).step, 3);
   v = A.pairView({ state: 'done', player: 2 });
-  assert.ok(v.step === 4 && v.tone === 'ok' && v.canStart && /Nog een/.test(v.startLabel));
+  assert.ok(v.step === 4 && v.tone === 'ok' && v.canStart && /another/.test(v.startLabel));
   v = A.pairView({ state: 'failed', message: 'kapot' });
   assert.ok(v.tone === 'bad' && v.message === 'kapot' && v.canStart);
   assert.ok(A.pairView(undefined).canStart);

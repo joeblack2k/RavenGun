@@ -14,6 +14,7 @@ secrets*
 # CMake-builds
 /build/
 /build-app/
+/build-app-asan/
 src/tools/movetest/movetest
 /.claude/
 /dist/
@@ -25,8 +26,20 @@ __pycache__/
 # dropin.ini noemt. Zonder deze uitzondering mist een kloon elk bestand waar dropin.ini naar wijst.
 !patches/*/dropin/**
 
-# De patches per game staan in hun eigen repo (ravengun-patches): het is gebruikersinhoud en de
-# loader hoort schoon te zijn. Op een ontwikkelmachine staat hier een koppeling naar die repo; die
-# is bewust niet vastgelegd. Zie docs/geen-dongle-in-de-loader.md en de README van ravengun-patches.
-/patches
+# Meegeleverde profielen en eigen drop-ins horen bij deze repository.
+# Privégegevens uit de oude patchescheckout blijven lokaal; nooit toevoegen aan Git.
+/patches/**/ravengun-hasp/
+/patches/**/memory/
+/patches/**/dongle.json
+/patches/**/dongle.*.json
+/patches/**/data/shaders/
+/patches/**/dropin/SAVE/
+/patches/**/heap.tsv
+# Deze eigen DLL bevat een game-afgeleide ontsleutelde importtabel.
+/patches/**/WkWin32.dll
+/patches/FarCryParadiseLost/dropin/systemcfg.lua
+/patches/FarCryParadiseLost/dropin/Systemcfgoverride.lua
+/patches/FarCryParadiseLost/dropin/Arcade_Calibration.txt
+# Eigen gebouwde FMOD-host; niet de proprietary FMOD-bibliotheken.
+!/patches/Halo/data/fmod/rg-fmod-host.exe
 build-saver/

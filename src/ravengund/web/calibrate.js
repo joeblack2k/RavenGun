@@ -17,10 +17,10 @@
       opt.body = JSON.stringify(body);
     }
     return fetch(path, opt).then(function (r) { return r.json(); }).catch(function () {
-      return { ok: false, error: { message: 'daemon niet bereikbaar' } };
+      return { ok: false, error: { message: 'daemon not reachable' } };
     });
   }
-  function errText(j) { return j && j.error ? j.error.message : 'onbekende fout'; }
+  function errText(j) { return j && j.error ? j.error.message : 'unknown error'; }
   function el(tag, cls, text) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -53,16 +53,16 @@
   var settingsButtons = {};
 
   var ROLES = [
-    { k: 'trekker', title: 'de trekker', sub: 'Trek de trekker van de Sharp Shooter over.' },
-    { k: 'pomp', title: 'de pomp', sub: 'Trek de pomp naar achteren (of doe wat de pomp bedient).' },
-    { k: 'driehoek', title: 'Driehoek', sub: 'Druk op de knop met de driehoek.' },
-    { k: 'cirkel', title: 'Cirkel', sub: 'Druk op de knop met de cirkel.' },
-    { k: 'kruis', title: 'Kruis', sub: 'Druk op de knop met het kruis.' },
-    { k: 'vierkant', title: 'Vierkant', sub: 'Druk op de knop met het vierkant.' },
-    { k: 'start', title: 'Start', sub: 'Druk op de Start-knop.' },
-    { k: 'select', title: 'Select', sub: 'Druk op de Select-knop.' },
-    { k: 'move', title: 'Move-knop', sub: 'Druk op de grote Move-knop.' },
-    { k: 'ps', title: 'PS-knop', sub: 'Druk op de PS-knop (kan ontoegankelijk zijn: dan overslaan door te wachten).' }
+    { k: 'trekker', title: 'the trigger', sub: 'Pull the trigger of the Sharp Shooter.' },
+    { k: 'pomp', title: 'the pump', sub: 'Pull the pump back (or do what operates the pump).' },
+    { k: 'driehoek', title: 'Triangle', sub: 'Press the button with the triangle.' },
+    { k: 'cirkel', title: 'Circle', sub: 'Press the button with the circle.' },
+    { k: 'kruis', title: 'Cross', sub: 'Press the button with the cross.' },
+    { k: 'vierkant', title: 'Square', sub: 'Press the button with the square.' },
+    { k: 'start', title: 'Start', sub: 'Press the Start button.' },
+    { k: 'select', title: 'Select', sub: 'Press the Select button.' },
+    { k: 'move', title: 'Move button', sub: 'Press the large Move button.' },
+    { k: 'ps', title: 'PS button', sub: 'Press the PS button (it may be inaccessible: then skip by waiting).' }
   ];
   var ROLE_LABEL = {};
   ROLES.forEach(function (r) { ROLE_LABEL[r.k] = r.title.charAt(0).toUpperCase() + r.title.slice(1); });
@@ -86,8 +86,8 @@
   });
 
   def('mag_intro', {
-    sec: 's-mag-intro', crumb: 'Stap 1 van 5: Magnetometer', move: true,
-    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Starten', back: 'Terug', skip: 'Overslaan', abort: 'Afbreken' },
+    sec: 's-mag-intro', crumb: 'Step 1 of 5: Magnetometer', move: true,
+    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Start', back: 'Back', skip: 'Skip', abort: 'Cancel' },
     enter: function () { show('mag-intro-err', false); },
     next: function () {
       if (busy) return;
@@ -106,13 +106,13 @@
 
   var magWasActive = false, trail = [], lastDirKey = '';
   def('mag_run', {
-    sec: 's-mag-run', crumb: 'Stap 1 van 5: Magnetometer draaien', move: true,
-    allow: { next: 1, abort: 1 }, keys: { next: 'Afronden (als de balk vol is)', abort: 'Afbreken' },
+    sec: 's-mag-run', crumb: 'Step 1 of 5: Turning the magnetometer', move: true,
+    allow: { next: 1, abort: 1 }, keys: { next: 'Finish (when the bar is full)', abort: 'Cancel' },
     enter: function () { magWasActive = false; trail = []; lastDirKey = ''; gyroEma.reset(); },
     next: function () {
       var m = progress && progress.mag_calibration;
       if (!m || !m.active) return;
-      if (!m.ready) { flashHint('Nog niet genoeg: wacht tot de balk vol is en draai verder.'); return; }
+      if (!m.ready) { flashHint('Not enough yet: wait until the bar is full and keep turning.'); return; }
       if (busy) return;
       busy = true;
       api('/api/calibrate/mag/stop', {}).then(function (j) {
@@ -125,8 +125,8 @@
   });
 
   def('mag_result', {
-    sec: 's-mag-result', crumb: 'Stap 1 van 5: Resultaat', move: false,
-    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Verder', back: 'Opnieuw', skip: 'Verder', abort: 'Afbreken' },
+    sec: 's-mag-result', crumb: 'Step 1 of 5: Result', move: false,
+    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Continue', back: 'Again', skip: 'Continue', abort: 'Cancel' },
     enter: function () {
       var v = results.mag, r = results.magRaw || {};
       var h = $('mag-verdict');
@@ -140,12 +140,12 @@
         if (a) ul.appendChild(el('li', 'sub', a));
       });
       var parts = [];
-      if (typeof r.coverage === 'number') parts.push('dekking ' + Math.round(r.coverage * 100) + ' %');
-      if (typeof r.rms_norm_err === 'number') parts.push('restfout ' + fmt1(r.rms_norm_err * 100) + ' % (goed: 2 %, marginaal: 4 %)');
-      if (typeof r.dip_std_deg === 'number') parts.push('dip-spreiding ' + fmt1(r.dip_std_deg) + ' graden (goed: 1,5, marginaal: 8)');
+      if (typeof r.coverage === 'number') parts.push('coverage ' + Math.round(r.coverage * 100) + ' %');
+      if (typeof r.rms_norm_err === 'number') parts.push('residual error ' + fmt1(r.rms_norm_err * 100) + ' % (good: 2 %, marginal: 4 %)');
+      if (typeof r.dip_std_deg === 'number') parts.push('dip spread ' + fmt1(r.dip_std_deg) + ' degrees (good: 1.5, marginal: 8)');
       if (typeof r.duration_s === 'number') parts.push(Math.round(r.duration_s) + ' s');
       setText('mag-metrics', parts.join(' · '));
-      setText('mag-result-next', v.level === 'fail' ? 'Trekker: toch verder' : 'Trekker: verder');
+      setText('mag-result-next', v.level === 'fail' ? 'Trigger: continue anyway' : 'Trigger: continue');
     },
     next: function () { go('still_intro'); },
     skip: function () { go('still_intro'); },
@@ -168,8 +168,8 @@
   function currentLabel(end) { var k = plan[si].key; return C.stillLabel(k, attempts[k] || 1, end); }
 
   def('still_intro', {
-    sec: 's-still-intro', crumb: 'Stap 2 van 5: Stil richten', move: true,
-    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Starten', back: 'Terug', skip: 'Overslaan', abort: 'Afbreken' },
+    sec: 's-still-intro', crumb: 'Step 2 of 5: Steady aim', move: true,
+    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Start', back: 'Back', skip: 'Skip', abort: 'Cancel' },
     enter: function () { show('still-intro-err', false); stillReset(); },
     next: function () {
       if (busy) return;
@@ -178,7 +178,7 @@
         busy = false;
         if (state !== 'still_intro') return;
         if (j.ok) { recOn = true; go('still_aim'); }
-        else { setText('still-intro-err', 'Opname starten mislukt: ' + errText(j)); show('still-intro-err', true); }
+        else { setText('still-intro-err', 'Starting the recording failed: ' + errText(j)); show('still-intro-err', true); }
       });
     },
     back: function () { go('mag_result'); },
@@ -198,8 +198,8 @@
   function crossClass(c) { $('cross').className = 'cross' + (c ? ' ' + c : ''); }
 
   def('still_aim', {
-    sec: 's-still', crumb: 'Stap 2 van 5: Stil richten', move: true,
-    allow: { next: 1, back: 1, abort: 1 }, keys: { next: 'Start de meting', back: 'Vorige opnieuw', abort: 'Afbreken' },
+    sec: 's-still', crumb: 'Step 2 of 5: Steady aim', move: true,
+    allow: { next: 1, back: 1, abort: 1 }, keys: { next: 'Start the measurement', back: 'Previous again', abort: 'Cancel' },
     enter: function () {
       var p = plan[si];
       crossClass('');
@@ -207,19 +207,19 @@
       $('still-count').className = 'count small';
       var pos;
       if (p.where === 'midden') {
-        setText('still-title', 'Richt op het kruis');
-        pos = 'Meting ' + p.n + ' van 5 in het midden. ';
+        setText('still-title', 'Aim at the cross');
+        pos = 'Measurement ' + p.n + ' of 5 in the center. ';
       } else if (p.where === 'links') {
-        setText('still-title', 'Stap een halve meter naar links');
-        pos = 'Meting links. ';
+        setText('still-title', 'Step half a metre to the left');
+        pos = 'Measurement left. ';
       } else {
-        setText('still-title', 'Stap een halve meter naar rechts van het midden');
-        pos = 'Meting rechts. ';
+        setText('still-title', 'Step half a metre to the right of the center');
+        pos = 'Measurement right. ';
       }
       var k = plan[si].key;
       var tryNo = attempts[k] || 1;
-      setText('still-sub', pos + 'Richt op het kruis, trek de trekker en houd vijf seconden stil.' + (tryNo > 1 ? ' (nieuwe poging)' : ''));
-      setText('still-count', 'Trekker = start');
+      setText('still-sub', pos + 'Aim at the cross, pull the trigger and hold still for five seconds.' + (tryNo > 1 ? ' (new attempt)' : ''));
+      setText('still-count', 'Trigger = start');
       setText('still-live', stillMsg || '');
       stillMsg = '';
       renderDots();
@@ -240,11 +240,11 @@
   var stillMsg = '';
 
   def('still_count', {
-    sec: 's-still', crumb: 'Stap 2 van 5: Houd stil', move: true,
-    allow: { abort: 1 }, keys: { abort: 'Afbreken' },
+    sec: 's-still', crumb: 'Step 2 of 5: Hold still', move: true,
+    allow: { abort: 1 }, keys: { abort: 'Cancel' },
     enter: function () {
-      setText('still-title', 'Houd stil');
-      setText('still-sub', 'Blijf op het kruis gericht en beweeg niet.');
+      setText('still-title', 'Hold still');
+      setText('still-sub', 'Keep aiming at the cross and do not move.');
       $('still-count').className = 'count';
       show('still-meter', true);
       renderDots();
@@ -261,7 +261,7 @@
     $('still-count').className = 'count small';
     if (ok) {
       crossClass('still');
-      setText('still-count', 'Goed');
+      setText('still-count', 'Good');
       stillDone.push({ key: k, attempts: attempts[k] || 1, max_dps: r.max_dps, fraction: r.fraction });
       si++;
       renderDots();
@@ -269,34 +269,34 @@
       later(function () { if (si >= plan.length) go('still_done'); else go('still_aim'); }, 1300);
     } else {
       crossClass('fail');
-      setText('still-count', 'Opnieuw');
-      setText('still-live', 'Te onrustig: ' + r.why);
-      stillMsg = 'Vorige poging mislukt: ' + r.why + '.';
+      setText('still-count', 'Again');
+      setText('still-live', 'Too restless: ' + r.why);
+      stillMsg = 'Previous attempt failed: ' + r.why + '.';
       attempts[k] = (attempts[k] || 1) + 1;
       go('still_flash', true);
       later(function () { go('still_aim'); }, 2200);
     }
   }
   def('still_flash', {
-    sec: 's-still', crumb: 'Stap 2 van 5: Stil richten', move: true, allow: { abort: 1 }, keys: { abort: 'Afbreken' },
+    sec: 's-still', crumb: 'Step 2 of 5: Steady aim', move: true, allow: { abort: 1 }, keys: { abort: 'Cancel' },
     abort: function () { stopRec(); go('welcome'); }
   });
 
   def('still_done', {
-    sec: 's-still-done', crumb: 'Stap 2 van 5: Klaar', move: false,
-    allow: { next: 1, back: 1, abort: 1 }, keys: { next: 'Verder', back: 'Opnieuw', abort: 'Afbreken' },
+    sec: 's-still-done', crumb: 'Step 2 of 5: Done', move: false,
+    allow: { next: 1, back: 1, abort: 1 }, keys: { next: 'Continue', back: 'Again', abort: 'Cancel' },
     enter: function () {
       show('still-done-err', false);
       var extra = 0;
       stillDone.forEach(function (d) { extra += (d.attempts - 1); });
-      setText('still-done-text', stillDone.length + ' metingen vastgelegd' + (extra ? ', ' + extra + ' keer opnieuw gedaan' : '') + '. De opname wordt nu afgesloten.');
+      setText('still-done-text', stillDone.length + ' measurements recorded' + (extra ? ', repeated ' + extra + ' times' : '') + '. The recording is now closed.');
       results.still = { n: stillDone.length, retries: extra, file: null };
       stopRec().then(function (j) {
         if (!j) return;
         if (j.ok) {
           var f = j.result && (j.result.file || (j.result.last && j.result.last.file));
-          if (f) { results.still.file = f; setText('still-done-text', $('still-done-text').textContent + ' Bestand: ' + f); }
-        } else { setText('still-done-err', 'Opname stoppen mislukt: ' + errText(j)); show('still-done-err', true); }
+          if (f) { results.still.file = f; setText('still-done-text', $('still-done-text').textContent + ' File: ' + f); }
+        } else { setText('still-done-err', 'Stopping the recording failed: ' + errText(j)); show('still-done-err', true); }
       });
     },
     next: function () { go('btn_live'); },
@@ -337,8 +337,8 @@
     });
   }
   def('btn_live', {
-    sec: 's-btn-live', crumb: 'Stap 3 van 5: Knoppen', move: true,
-    allow: {}, keys: { next: 'Lang: vastleggen', back: 'Lang: terug', skip: 'Lang: overslaan', abort: 'Lang: stoppen' },
+    sec: 's-btn-live', crumb: 'Step 3 of 5: Buttons', move: true,
+    allow: {}, keys: { next: 'Long: record', back: 'Long: back', skip: 'Long: skip', abort: 'Long: stop' },
     enter: function () {
       buildTiles();
       BTN_NAMES.forEach(function (n) { tiles[n].seen = false; tiles[n].box.className = 'tile'; });
@@ -356,16 +356,16 @@
 
   var mi = 0, mapped = {}, mapStart = 0;
   def('btn_map', {
-    sec: 's-btn-map', crumb: 'Stap 3 van 5: Knoppen vastleggen', move: true,
-    allow: {}, keys: { abort: 'Lang: afbreken' },
+    sec: 's-btn-map', crumb: 'Step 3 of 5: Recording buttons', move: true,
+    allow: {}, keys: { abort: 'Long: cancel' },
     enter: function () { mi = 0; mapped = {}; armHold(); mapc.reset(); promptMap(); },
     hold: function (bit) { if (bit === C.BIT.start && ROLES[mi] && ROLES[mi].k !== 'start') go('welcome'); }
   });
   function promptMap() {
     var r = ROLES[mi];
-    setText('map-count', 'Knop ' + (mi + 1) + ' van ' + ROLES.length);
-    setText('map-title', 'Druk nu op ' + r.title);
-    setText('map-sub', r.sub + ' (wachten = overslaan)');
+    setText('map-count', 'Button ' + (mi + 1) + ' of ' + ROLES.length);
+    setText('map-title', 'Now press ' + r.title);
+    setText('map-sub', r.sub + ' (waiting = skip)');
     setText('map-msg', '');
     mapStart = now();
     mapc.reset();
@@ -377,7 +377,7 @@
       var row = el('div');
       row.appendChild(el('span', '', ROLE_LABEL[r.k]));
       var v = mapped[r.k];
-      var txt = v ? C.LABEL[v] : (state === 'btn_done' ? 'niet gevonden' : (i < mi ? 'overgeslagen' : (i === mi ? '...' : '')));
+      var txt = v ? C.LABEL[v] : (state === 'btn_done' ? 'not found' : (i < mi ? 'skipped' : (i === mi ? '...' : '')));
       var cell = el('span', v ? 'v' : 'none', txt);
       row.appendChild(cell);
       box.appendChild(row);
@@ -394,18 +394,18 @@
     var found = Object.keys(mapped).length;
     results.buttons = { found: found, total: ROLES.length, saved: false };
     go('btn_done');
-    setText('btn-save-msg', 'Opslaan...');
+    setText('btn-save-msg', 'Saving...');
     api('/api/calibrate/buttons', body).then(function (j) {
       if (j.ok) {
         results.buttons.saved = true;
         settingsButtons = j.result.buttons || {};
-        setText('btn-save-msg', found + ' van ' + ROLES.length + ' knoppen gevonden en opgeslagen in de configuratie.');
-      } else setText('btn-save-msg', 'Opslaan mislukt: ' + errText(j));
+        setText('btn-save-msg', found + ' of ' + ROLES.length + ' buttons found and saved in the configuration.');
+      } else setText('btn-save-msg', 'Saving failed: ' + errText(j));
     });
   }
   def('btn_done', {
-    sec: 's-btn-done', crumb: 'Stap 3 van 5: Knoppen', move: false,
-    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Verder', back: 'Opnieuw meten', skip: 'Verder', abort: 'Afbreken' },
+    sec: 's-btn-done', crumb: 'Step 3 of 5: Buttons', move: false,
+    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Continue', back: 'Measure again', skip: 'Continue', abort: 'Cancel' },
     enter: function () { renderMapList($('done-list')); },
     next: function () { go('screen'); },
     skip: function () { go('screen'); },
@@ -416,8 +416,8 @@
   // ---- Scherm (fase 5, plaatshouder) ----
   var targetsBuilt = false;
   def('screen', {
-    sec: 's-screen', crumb: 'Stap 4 van 5: Scherm (fase 5)', move: false, fs: true,
-    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Verder', back: 'Terug', abort: 'Afbreken' },
+    sec: 's-screen', crumb: 'Step 4 of 5: Screen (phase 5)', move: false, fs: true,
+    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Continue', back: 'Back', abort: 'Cancel' },
     enter: function () {
       if (targetsBuilt) return;
       targetsBuilt = true;
@@ -440,16 +440,16 @@
   });
 
   def('done', {
-    sec: 's-done', crumb: 'Klaar', move: false,
-    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Oefenen', back: 'Terug', skip: 'Sluiten', abort: 'Naar begin' },
+    sec: 's-done', crumb: 'Done', move: false,
+    allow: { next: 1, back: 1, skip: 1, abort: 1 }, keys: { next: 'Practice', back: 'Back', skip: 'Close', abort: 'To start' },
     enter: function () {
       var ul = $('summary');
       ul.textContent = '';
       var m = results.mag, s = results.still, b = results.buttons;
-      ul.appendChild(el('li', '', 'Magnetometer: ' + (m ? m.headline : 'overgeslagen')));
-      ul.appendChild(el('li', '', 'Stil richten: ' + (s ? s.n + ' metingen' + (s.retries ? ' (' + s.retries + ' herhaald)' : '') : 'overgeslagen')));
-      ul.appendChild(el('li', '', 'Knoppen: ' + (b ? b.found + ' van ' + b.total + ' vastgelegd' + (b.saved ? '' : ' (niet opgeslagen)') : 'overgeslagen')));
-      ul.appendChild(el('li', '', 'Scherm: volgt in fase 5'));
+      ul.appendChild(el('li', '', 'Magnetometer: ' + (m ? m.headline : 'skipped')));
+      ul.appendChild(el('li', '', 'Steady aim: ' + (s ? s.n + ' measurements' + (s.retries ? ' (' + s.retries + ' repeated)' : '') : 'skipped')));
+      ul.appendChild(el('li', '', 'Buttons: ' + (b ? b.found + ' of ' + b.total + ' recorded' + (b.saved ? '' : ' (not saved)') : 'skipped')));
+      ul.appendChild(el('li', '', 'Screen: follows in phase 5'));
     },
     next: function () { go('practice'); },
     skip: function () { closeUi(); },
@@ -472,7 +472,7 @@
   function pMsg(text, ms) { setText('pr-msg', text); show('pr-msg', true); pMsgUntil = now() + (ms || 1200); }
 
   def('practice', {
-    sec: 's-practice', crumb: 'Stap 5 van 5: Oefenen', move: true, fs: true,
+    sec: 's-practice', crumb: 'Step 5 of 5: Practice', move: true, fs: true,
     allow: {}, keys: {},
     enter: function () {
       pbtn.reset(); pStats.reset(); pShots = []; pFlash = 0; pHitFx = null; pAim = null;
@@ -495,8 +495,8 @@
       if (res.hit) { pHitFx = { x: pTarget.x, y: pTarget.y, t: now() }; pNewTarget(); }
     },
     // De daemon centreert bij elke PS-druk zelf; hier géén /api/recenter erbij (dubbel centreren).
-    centered: function () { pMsg('Midden gezet', 1200); },
-    toggle_raw: function () { pRawOn = !pRawOn; pMsg(pRawOn ? 'Ruwe stip aan' : 'Ruwe stip uit', 900); }
+    centered: function () { pMsg('Centered', 1200); },
+    toggle_raw: function () { pRawOn = !pRawOn; pMsg(pRawOn ? 'Raw dot on' : 'Raw dot off', 900); }
   });
 
   // Elke SSE-frame in de oefenstap: aim voor de weergave, knoppen voor de acties.
@@ -588,11 +588,11 @@
     var t = now();
     pDraw(t);
     var st = pStats.summary();
-    var sc = st.shots ? 'Treffers ' + st.hits + '   Missers ' + st.misses + '   Gemiddelde afstand ' + Math.round(st.avgPx) + ' px (' + fmt1(st.avgPct) + ' % van de breedte)'
-                      : 'Raak de doelen met de trekker';
+    var sc = st.shots ? 'Hits ' + st.hits + '   Misses ' + st.misses + '   Average distance ' + Math.round(st.avgPx) + ' px (' + fmt1(st.avgPct) + ' % of the width)'
+                      : 'Hit the targets with the trigger';
     if (sc !== pLast.score) { setText('pr-score', sc); pLast.score = sc; }
     var hz = isDemo ? 60 : pRate.hz(t);
-    var stt = 'Aim: ' + C.aimModeText(sample) + '   |   Filter: ' + (sample && sample.aim && sample.aim.filter_enabled ? 'aan' : 'uit') +
+    var stt = 'Aim: ' + C.aimModeText(sample) + '   |   Filter: ' + (sample && sample.aim && sample.aim.filter_enabled ? 'on' : 'off') +
               '   |   ' + (streamHz > 30 ? 'stream ' + streamHz + ' Hz' : 'stream 30 Hz') + ', ontvangen ' + Math.round(hz) + ' frames/s';
     if (stt !== pLast.status) { setText('pr-status', stt); pLast.status = stt; }
     if (!$('pr-msg').hidden && t > pMsgUntil) show('pr-msg', false);
@@ -602,7 +602,7 @@
   // ---- Navigatie ----
   function closeUi() {
     closing = true;
-    $('overlay-text').textContent = 'Kalibratiescherm wordt gesloten...';
+    $('overlay-text').textContent = 'Closing the calibration screen...';
     show('overlay', true);
     api('/api/calibrate/ui', { action: 'close' });
   }
@@ -640,8 +640,8 @@
   function updateOverlay() {
     var d = ST[state];
     var msg = '';
-    if (!streamUp) msg = 'Geen verbinding met de daemon.\nWe proberen het opnieuw...';
-    else if (d && d.move && link !== 'fresh') msg = 'Geen Move verbonden.\nDruk op de PS-knop van de Move.';
+    if (!streamUp) msg = 'No connection to the daemon.\nTrying again...';
+    else if (d && d.move && link !== 'fresh') msg = 'No Move connected.\nPress the PS button on the Move.';
     var o = $('overlay');
     if (closing) return;
     if (msg) { setText('overlay-text', msg); o.hidden = false; } else o.hidden = true;
@@ -672,7 +672,7 @@
     var nl = sample && sample.link ? sample.link : 'disconnected';
     if (nl !== link) { link = nl; updateOverlay(); }
     var pill = $('pill-move');
-    var txt = link === 'fresh' ? 'Move: verbonden' : 'Move: niet verbonden';
+    var txt = link === 'fresh' ? 'Move: connected' : 'Move: not connected';
     if (pill.textContent !== txt) { pill.textContent = txt; pill.className = 'pill ' + (link === 'fresh' ? 'ok' : 'bad'); }
     var pl = $('pill-link');
     if (pl.textContent !== 'Daemon: ok') { pl.textContent = 'Daemon: ok'; pl.className = 'pill ok'; }
@@ -743,7 +743,7 @@
           later(mapAdvance, 500);
           mapStart = now() + 10 * MAP_TIMEOUT_MS;  // timer pauzeren tot de volgende
         } else {
-          setText('map-msg', 'Meerdere knoppen tegelijk (' + res.names.map(function (n) { return C.LABEL[n]; }).join(', ') + '). Probeer opnieuw.');
+          setText('map-msg', 'Several buttons at once (' + res.names.map(function (n) { return C.LABEL[n]; }).join(', ') + '). Try again.');
           mapStart = now();
         }
       }
@@ -798,7 +798,7 @@
       // De sessie is buiten ons om geëindigd (verbinding verbroken, afgebroken).
       var lr = m.last_result;
       magWasActive = false;
-      if (lr && lr.aborted) { go('mag_intro'); setText('mag-intro-err', 'Kalibratie afgebroken: ' + lr.aborted + '. Start opnieuw.'); show('mag-intro-err', true); return; }
+      if (lr && lr.aborted) { go('mag_intro'); setText('mag-intro-err', 'Calibration cancelled: ' + lr.aborted + '. Start again.'); show('mag-intro-err', true); return; }
     }
     var pr = C.magProgress(m);
     setText('mag-pct', String(pr.pct));
@@ -819,11 +819,11 @@
       var h;
       if (tp.level === 'te_snel') h = 'Veel te snel: draai rustig, zonder te schudden.';
       else if (tp.level === 'snel') h = 'Een tikje rustiger draaien.';
-      else if (m.ready) h = 'Genoeg! Druk op de trekker om af te ronden, of draai nog even door.';
-      else if ((m.elapsed_s || 0) >= (m.min_seconds || 40) && pr.cov < 1) h = 'Draai ook ondersteboven, loop naar het plafond en de vloer, en rol om de loop.';
-      else if (tp.level === 'stil' && (m.elapsed_s || 0) > 3) h = 'Blijf draaien: houd het geweer in beweging.';
-      else if (pr.time < 1 && pr.cov >= 1) h = 'Dekking is goed; draai nog door tot de tijd (40 s) om is.';
-      else h = 'Goed bezig. Draai langzaam alle kanten op.';
+      else if (m.ready) h = 'Enough! Pull the trigger to finish, or keep turning a little longer.';
+      else if ((m.elapsed_s || 0) >= (m.min_seconds || 40) && pr.cov < 1) h = 'Turn upside down too, point at the ceiling and the floor, and roll around the barrel.';
+      else if (tp.level === 'stil' && (m.elapsed_s || 0) > 3) h = 'Keep turning: keep the gun moving.';
+      else if (pr.time < 1 && pr.cov >= 1) h = 'Coverage is good; keep turning until the time (40 s) is up.';
+      else h = 'Good work. Turn slowly in all directions.';
       setText('mag-hint', h);
     }
     if (t - lastDraw > 50) {
@@ -846,7 +846,7 @@
     } else if (state === 'btn_map') {
       var el1 = t - mapStart;
       $('map-timer').style.width = Math.max(0, Math.min(100, 100 - el1 / MAP_TIMEOUT_MS * 100)) + '%';
-      if (el1 >= MAP_TIMEOUT_MS) { setText('map-msg', 'Geen druk gezien: overgeslagen.'); mapStart = now() + 10 * MAP_TIMEOUT_MS; later(mapAdvance, 600); }
+      if (el1 >= MAP_TIMEOUT_MS) { setText('map-msg', 'No press seen: skipped.'); mapStart = now() + 10 * MAP_TIMEOUT_MS; later(mapAdvance, 600); }
     } else if (state === 'mag_run') {
       renderMag(t);
     }

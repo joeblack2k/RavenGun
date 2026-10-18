@@ -1,0 +1,500 @@
+{
+  "title": "Operation G.H.O.S.T.",
+  "nas_folder": "OAV6DU~3",
+  "platform": "Sega RingWide (32-bit)",
+  "exe": "gs2.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "general.dongleregion",
+      "name_en": "Dongle Region",
+      "type": "enum",
+      "values": [
+        "JAPAN",
+        "USA",
+        "JAP2N",
+        "EXPORT",
+        "CHINA"
+      ],
+      "default": "JAPAN",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "DongleRegion",
+        "also_in_ini": {
+          "section": "General",
+          "key": "DongleRegion"
+        }
+      },
+      "description_en": "Region reported by the emulated dongle. Changes language, currency and test-menu defaults.",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "general.pcbregion",
+      "name_en": "Pcb Region",
+      "type": "enum",
+      "values": [
+        "JAPAN",
+        "USA",
+        "JAP2N",
+        "EXPORT",
+        "CHINA"
+      ],
+      "default": "JAPAN",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "PcbRegion",
+        "also_in_ini": {
+          "section": "General",
+          "key": "PcbRegion"
+        }
+      },
+      "description_en": "Region reported by the emulated PCB. Keep equal to DongleRegion.",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "general.freeplay",
+      "name_en": "Free Play",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "FreePlay",
+        "also_in_ini": {
+          "section": "General",
+          "key": "FreePlay"
+        }
+      },
+      "description_en": "Free play: no coin needed to start.",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "ffb_blaster.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "FFB Blaster",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "FFB Blaster",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Load the FFB Blaster plugin for force feedback to a wheel or gun device. RavenGun does not use this.",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "general.enable_outputs",
+      "name_en": "Enable Outputs",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "Enable Outputs",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Enable Outputs"
+        }
+      },
+      "description_en": "Load the outputblaster DLL (only if present in the game folder) so game lamps/outputs are forwarded.",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "general.hidecursor",
+      "name_en": "Hide Cursor",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "HideCursor",
+        "also_in_ini": {
+          "section": "General",
+          "key": "HideCursor"
+        }
+      },
+      "description_en": "Hide the mouse cursor over the game window.",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "OG",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:OG"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "OG",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/OG.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "gs2.fullscreen",
+      "name_en": "Fullscreen",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "FullScreen"
+      },
+      "description_en": "Fullscreen (OpGhost_ResChanger.txt: set to 0 before patching the resolution).",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.difficulty",
+      "name_en": "Difficulty",
+      "type": "int",
+      "default": 2,
+      "min": 0,
+      "max": 4,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "Difficulty"
+      },
+      "description_en": "Game difficulty level.",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.life",
+      "name_en": "Player life",
+      "type": "int",
+      "default": 8,
+      "min": 1,
+      "max": 20,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "Life"
+      },
+      "description_en": "Starting life count.",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.armor",
+      "name_en": "Armor",
+      "type": "int",
+      "default": 1,
+      "min": 0,
+      "max": 5,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "Armor"
+      },
+      "description_en": "Armor setting.",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.enable_blood",
+      "name_en": "Blood",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "EnableBlood"
+      },
+      "description_en": "Show blood effects.",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.enable_sound",
+      "name_en": "Sound",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "EnableSound"
+      },
+      "description_en": "Enable sound.",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.sound_volume",
+      "name_en": "Sound volume",
+      "type": "int",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "SoundVolume"
+      },
+      "description_en": "Sound volume (0-100).",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.movie_volume",
+      "name_en": "Movie volume",
+      "type": "int",
+      "default": 75,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "MovieVolume"
+      },
+      "description_en": "Movie volume (0-100).",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.language",
+      "name_en": "Language",
+      "type": "enum",
+      "default": "en",
+      "values": [
+        "en",
+        "jp"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "Language"
+      },
+      "description_en": "Game language (en shown in the dump).",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.enable_jvs",
+      "name_en": "JVS enabled",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "EnableJvs"
+      },
+      "description_en": "Use the JVS I/O board. Keep on: the emulated board is the input path.",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    },
+    {
+      "key": "gs2.enable_recoil",
+      "name_en": "Recoil output",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "gs2.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "BBS",
+        "key": "EnableRecoil"
+      },
+      "description_en": "Send recoil to the gun output (RavenGun can turn this into Move rumble).",
+      "source": [
+        "gamemap:gs2.ini"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [],
+    "notes_en": "root/profile.xml and root/motion.db are game data; no save location is named in the findings or the dump. game.bat runs mxGetHwInfo.exe first; the TeknoParrot core does not replace that check (see digest)."
+  }
+}

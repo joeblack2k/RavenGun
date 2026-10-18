@@ -47,9 +47,9 @@ done
 [[ -n $PSM_PIN && -n $VERSION ]] || { echo "Kan versie of PSMoveAPI-pin niet uit CMakeLists.txt lezen" >&2; exit 1; }
 cd "$ROOT"
 if [[ -z $PATCHES ]]; then
-  for c in "$ROOT/patches" "$ROOT/../ravengun-patches/patches" "$HOME/projects/ravengun-patches/patches"; do [[ -d $c ]] && { PATCHES="$c"; break; }; done
+  PATCHES="$ROOT/patches"
 fi
-[[ -d $PATCHES ]] || { echo "Geen patches-map gevonden; geef --patches MAP (de map patches/ van de repo ravengun-patches)" >&2; exit 1; }
+[[ -d $PATCHES ]] || { echo "Geen patches-map gevonden; geef --patches MAP (de map patches/ van RavenGun)" >&2; exit 1; }
 PATCHES="$(cd "$PATCHES" && pwd -P)"
 if [[ -n "$(git status --porcelain --untracked-files=no)" && $DIRTY -eq 0 ]]; then
   echo "Er zijn niet-gecommitte wijzigingen; het archief bevat alleen HEAD. Commit ze, of gebruik --allow-dirty." >&2; exit 1

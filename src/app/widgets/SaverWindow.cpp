@@ -40,29 +40,29 @@ SaverStatus Bad(const QString& why) {
 
 QString Ago(qint64 secs) {
     if (secs < 90)
-        return QStringLiteral("zojuist");
+        return QStringLiteral("just now");
     const qint64 mins = secs / 60;
     if (mins < 60)
-        return QStringLiteral("%1 min geleden").arg(mins);
-    return QStringLiteral("%1 uur %2 min geleden").arg(mins / 60).arg(mins % 60);
+        return QStringLiteral("%1 min ago").arg(mins);
+    return QStringLiteral("%1 h %2 min ago").arg(mins / 60).arg(mins % 60);
 }
 
 QString StateText(const QString& state) {
     if (state == QStringLiteral("goed"))
-        return QStringLiteral("Het gaat goed");
+        return QStringLiteral("Going well");
     if (state == QStringLiteral("slecht"))
-        return QStringLiteral("Het gaat niet goed");
-    return QStringLiteral("Bezig, nog geen uitslag");
+        return QStringLiteral("Not going well");
+    return QStringLiteral("In progress, no result yet");
 }
 
 QString GameText(SaverGame g) {
     switch (g) {
-        case SaverGame::None: return QStringLiteral("Er draait nu geen spel");
-        case SaverGame::Visible: return QStringLiteral("Er draait nu een spel (dat is nog geen uitslag)");
-        case SaverGame::Hidden: return QStringLiteral("Er draait nu een spel, zonder beeld (dat is nog geen uitslag)");
+        case SaverGame::None: return QStringLiteral("No game is running now");
+        case SaverGame::Visible: return QStringLiteral("A game is running (that is not a result yet)");
+        case SaverGame::Hidden: return QStringLiteral("A game is running, without a picture (that is not a result yet)");
         case SaverGame::Unknown: break;
     }
-    return QStringLiteral("Onbekend of er nu een spel draait");
+    return QStringLiteral("Unknown whether a game is running now");
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -115,9 +115,9 @@ QColor StateColor(const QString& state) {
 }
 
 QString PillText(const QString& state) {
-    if (state == QStringLiteral("goed")) return QStringLiteral("HET GAAT GOED");
-    if (state == QStringLiteral("slecht")) return QStringLiteral("HET GAAT NIET GOED");
-    return QStringLiteral("BEZIG, NOG GEEN UITSLAG");
+    if (state == QStringLiteral("goed")) return QStringLiteral("GOING WELL");
+    if (state == QStringLiteral("slecht")) return QStringLiteral("NOT GOING WELL");
+    return QStringLiteral("IN PROGRESS, NO RESULT YET");
 }
 
 void Card(QPainter& p, const QRect& r, const QColor& border = QColor(0x24, 0x2b, 0x3b)) {
@@ -206,27 +206,27 @@ Drawn DrawBoard(QPainter& p, int W, const BoardData& d, double pulse, const QLis
     p.drawEllipse(QRectF(2, y + 14, 14, 14));
     const int clockW = 330;
     const int hl = Text(p, 28, y + 4, W - clockW - 28, Font(24, true), running ? amber : soft, GameText(d.game));
-    Text(p, 28, y + 4 + hl + 2, W - clockW - 28, Font(20), dim, QStringLiteral("RAVENGUN statusbord"));
+    Text(p, 28, y + 4 + hl + 2, W - clockW - 28, Font(20), dim, QStringLiteral("RAVENGUN status board"));
     const int ch = Text(p, W - clockW, y - 8, clockW, Font(72, true), soft, Clock(d.now), Qt::AlignRight);
     QString upd;
     QColor updColor = dim;
     if (s.ok && s.updated > 0) {
         const qint64 age = d.now - s.updated;
-        upd = QStringLiteral("bijgewerkt %1 (%2)").arg(Ago(age), Clock(s.updated));
+        upd = QStringLiteral("updated %1 (%2)").arg(Ago(age), Clock(s.updated));
         if (age > SaverWindow::kStaleStatusSecs) {
-            upd = QStringLiteral("LET OP: oud, bijgewerkt %1 (%2)").arg(Ago(age), Clock(s.updated));
+            upd = QStringLiteral("NOTE: old, updated %1 (%2)").arg(Ago(age), Clock(s.updated));
             updColor = amber;
         }
     }
     if (!upd.isEmpty())
-        Text(p, W - 700, y - 8 + ch, 700, Font(24, !upd.startsWith(QStringLiteral("bijgew"))), updColor, upd, Qt::AlignRight);
+        Text(p, W - 700, y - 8 + ch, 700, Font(24, !upd.startsWith(QStringLiteral("updat"))), updColor, upd, Qt::AlignRight);
     y += 150;
 
     if (!s.ok) {
         const QRect r(0, y, W, 250);
         if (cards) Card(p, r, WithAlpha(amber, 120));
-        Text(p, 48, y + 36, W - 96, Font(72, true), amber, QStringLiteral("Geen status beschikbaar"));
-        Text(p, 48, y + 140, W - 96, Font(34), soft, QStringLiteral("Reden: %1.").arg(s.error), Qt::AlignLeft, 3);
+        Text(p, 48, y + 36, W - 96, Font(72, true), amber, QStringLiteral("No status available"));
+        Text(p, 48, y + 140, W - 96, Font(34), soft, QStringLiteral("Reason: %1.").arg(s.error), Qt::AlignLeft, 3);
         out.height = y + 250;
         return out;
     }
@@ -254,8 +254,8 @@ Drawn DrawBoard(QPainter& p, int W, const BoardData& d, double pulse, const QLis
 
     if (s.steps > 0) {
         QString lab = QStringLiteral("STAP %1 VAN %2").arg(s.step).arg(s.steps);
-        if (s.step == s.steps) lab += QStringLiteral("  ·  de laatste stap");
-        else if (s.steps - s.step == 1) lab += QStringLiteral("  ·  bijna klaar");
+        if (s.step == s.steps) lab += QStringLiteral("  ·  the last step");
+        else if (s.steps - s.step == 1) lab += QStringLiteral("  ·  almost there");
         cy += Text(p, pad, cy, W - 2 * pad, Font(24, true), soft, lab) + 10;
         const int gap = 10, bw = W - 2 * pad, h = 18;
         const double seg = (bw - gap * (s.steps - 1)) / double(s.steps);
@@ -443,38 +443,38 @@ SaverStatus SaverWindow::ParseStatus(const QString& text) {
             continue;
         const int colon = line.indexOf(QLatin1Char(':'));
         if (colon <= 0)
-            return Bad(QStringLiteral("regel %1 is geen 'sleutel: waarde'").arg(nr));
+            return Bad(QStringLiteral("line %1 is not 'key: value'").arg(nr));
         const QString key = line.left(colon).trimmed().toLower();
         const QString value = line.mid(colon + 1).trimmed();
         if (!known.contains(key))
-            return Bad(QStringLiteral("regel %1: onbekende sleutel '%2'").arg(nr).arg(key));
+            return Bad(QStringLiteral("line %1: unknown key '%2'").arg(nr).arg(key));
         if (kv.contains(key))
-            return Bad(QStringLiteral("regel %1: '%2' staat er twee keer").arg(nr).arg(key));
+            return Bad(QStringLiteral("line %1: '%2' appears twice").arg(nr).arg(key));
         if (value.size() > (key == QStringLiteral("vraag") ? kMaxQuestion : kMaxValue))
-            return Bad(QStringLiteral("regel %1: '%2' is te lang om in een oogopslag te lezen").arg(nr).arg(key));
+            return Bad(QStringLiteral("line %1: '%2' is too long to read at a glance").arg(nr).arg(key));
         kv.insert(key, value);
     }
     if (kv.isEmpty())
-        return Bad(QStringLiteral("het statusbestand is leeg"));
+        return Bad(QStringLiteral("the status file is empty"));
     for (const QString& need : {QStringLiteral("spel"), QStringLiteral("bezig"), QStringLiteral("stand")})
         if (kv.value(need).isEmpty())
-            return Bad(QStringLiteral("'%1' ontbreekt of is leeg").arg(need));
+            return Bad(QStringLiteral("'%1' is missing or empty").arg(need));
 
     SaverStatus s;
     s.game = kv.value(QStringLiteral("spel"));
     s.doing = kv.value(QStringLiteral("bezig"));
     s.state = kv.value(QStringLiteral("stand")).toLower();
     if (s.state != QStringLiteral("goed") && s.state != QStringLiteral("slecht") && s.state != QStringLiteral("bezig"))
-        return Bad(QStringLiteral("'stand' is '%1'; het moet goed, slecht of bezig zijn").arg(s.state));
+        return Bad(QStringLiteral("'stand' is '%1'; it must be goed, slecht or bezig").arg(s.state));
     if (kv.contains(QStringLiteral("stap"))) {
-        static const QRegularExpression rx(QStringLiteral("^(\\d{1,2})\\s*(?:van|/)\\s*(\\d{1,2})$"));
+        static const QRegularExpression rx(QStringLiteral("^(\\d{1,2})\\s*(?:van|of|/)\\s*(\\d{1,2})$"));
         const QRegularExpressionMatch m = rx.match(kv.value(QStringLiteral("stap")).toLower());
         if (!m.hasMatch())
-            return Bad(QStringLiteral("'stap' is '%1'; schrijf het als '3 van 5'").arg(kv.value(QStringLiteral("stap"))));
+            return Bad(QStringLiteral("'stap' is '%1'; write it as '3 of 5'").arg(kv.value(QStringLiteral("stap"))));
         s.step = m.captured(1).toInt();
         s.steps = m.captured(2).toInt();
         if (s.step < 1 || s.steps < 1 || s.step > s.steps)
-            return Bad(QStringLiteral("'stap' is %1 van %2; dat kan niet").arg(s.step).arg(s.steps));
+            return Bad(QStringLiteral("'stap' is %1 of %2; that cannot be").arg(s.step).arg(s.steps));
     }
     s.purpose = kv.value(QStringLiteral("doel"));
     s.question = kv.value(QStringLiteral("vraag"));
@@ -484,7 +484,7 @@ SaverStatus SaverWindow::ParseStatus(const QString& text) {
             if (!item.trimmed().isEmpty())
                 list->append(item.trimmed());
         if (list->size() > kMaxItems)
-            return Bad(QStringLiteral("'%1' heeft %2 punten; meer dan %3 lees je niet in een oogopslag").arg(key).arg(list->size()).arg(kMaxItems));
+            return Bad(QStringLiteral("'%1' has %2 items; more than %3 is too much to read at a glance").arg(key).arg(list->size()).arg(kMaxItems));
     }
     s.ok = true;
     return s;
@@ -493,10 +493,10 @@ SaverStatus SaverWindow::ParseStatus(const QString& text) {
 SaverStatus SaverWindow::LoadStatus(const QString& path) {
     const QFileInfo fi(path);
     if (!fi.exists())
-        return Bad(QStringLiteral("het statusbestand ontbreekt"));
+        return Bad(QStringLiteral("the status file is missing"));
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly))
-        return Bad(QStringLiteral("het statusbestand is niet te lezen"));
+        return Bad(QStringLiteral("the status file cannot be read"));
     const QByteArray bytes = f.read(64 * 1024);
     SaverStatus s = ParseStatus(QString::fromUtf8(bytes));
     s.updated = fi.lastModified().toSecsSinceEpoch();
@@ -559,42 +559,42 @@ QStringList SaverWindow::Lines(const SaverStatus& s, SaverGame g, qint64 now) {
     out << GameText(g);
     const QString clock = QDateTime::fromSecsSinceEpoch(now).time().toString(QStringLiteral("HH:mm"));
     if (!s.ok) {
-        out << QStringLiteral("Geen status beschikbaar");
-        out << QStringLiteral("Reden: %1.").arg(s.error);
+        out << QStringLiteral("No status available");
+        out << QStringLiteral("Reason: %1.").arg(s.error);
         out << clock;
         return out;
     }
     if (!s.question.isEmpty())
-        out << QStringLiteral("Vraag voor jou: %1").arg(s.question);
+        out << QStringLiteral("Question for you: %1").arg(s.question);
     out << QStringLiteral("%1: %2").arg(s.game, s.doing);
     QString how = StateText(s.state);
     if (s.steps > 0) {
-        how += QStringLiteral(" · stap %1 van %2").arg(s.step).arg(s.steps);
+        how += QStringLiteral(" · step %1 of %2").arg(s.step).arg(s.steps);
         if (s.step == s.steps)
-            how += QStringLiteral(" · de laatste stap");
+            how += QStringLiteral(" · the last step");
         else if (s.steps - s.step == 1)
-            how += QStringLiteral(" · bijna klaar");
+            how += QStringLiteral(" · almost there");
     }
     out << how;
     if (!s.purpose.isEmpty())
-        out << QStringLiteral("Waarvoor: %1").arg(s.purpose);
+        out << QStringLiteral("Purpose: %1").arg(s.purpose);
     if (!s.done.isEmpty())
-        out << QStringLiteral("Al gedaan: %1").arg(s.done.join(QStringLiteral(" · ")));
+        out << QStringLiteral("Done: %1").arg(s.done.join(QStringLiteral(" · ")));
     if (!s.todo.isEmpty())
-        out << QStringLiteral("Nog te doen: %1").arg(s.todo.join(QStringLiteral(" · ")));
+        out << QStringLiteral("To do: %1").arg(s.todo.join(QStringLiteral(" · ")));
     if (!s.goals.isEmpty())
-        out << QStringLiteral("Doelen: %1").arg(s.goals.join(QStringLiteral(" · ")));
+        out << QStringLiteral("Goals: %1").arg(s.goals.join(QStringLiteral(" · ")));
     // "Er draait een spel" is iets anders dan "het spel is gehaald": gehaald is het pas na 5 minuten attract of spel.
     if (!s.passed.isEmpty())
-        out << QStringLiteral("Gehaald (5 minuten attract of spel): %1").arg(s.passed.join(QStringLiteral(" · ")));
+        out << QStringLiteral("Passed (5 minutes attract or play): %1").arg(s.passed.join(QStringLiteral(" · ")));
     const qint64 age = s.updated > 0 ? now - s.updated : -1;
     const QString at = s.updated > 0 ? QDateTime::fromSecsSinceEpoch(s.updated).time().toString(QStringLiteral("HH:mm")) : QString();
     if (age < 0)
         out << clock;
     else if (age > kStaleStatusSecs)
-        out << QStringLiteral("%1 · LET OP: deze status is oud, bijgewerkt %2 (%3)").arg(clock, Ago(age), at);
+        out << QStringLiteral("%1 · NOTE: this status is old, updated %2 (%3)").arg(clock, Ago(age), at);
     else
-        out << QStringLiteral("%1 · bijgewerkt %2 (%3)").arg(clock, Ago(age), at);
+        out << QStringLiteral("%1 · updated %2 (%3)").arg(clock, Ago(age), at);
     return out;
 }
 

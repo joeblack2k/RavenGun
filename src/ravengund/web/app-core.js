@@ -1,30 +1,30 @@
 'use strict';
-// RavenGun-app: pure logica zonder DOM (testbaar met node, tests/js/app_core_test.js).
-// De pagina (app.js) gebruikt dit als window.RGApp. Geen externe bronnen.
+// RavenGun app: pure logic without DOM (testable with node, tests/js/app_core_test.js).
+// The page (app.js) uses this as window.RGApp. No external resources.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.RGApp = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
 
-  // ---- Tabbladen ----
+  // ---- Tabs ----
   var TABS = [
-    { id: 'overzicht', label: 'Overzicht' },
-    { id: 'richten', label: 'Richten' },
-    { id: 'trillen', label: 'Trillen' },
-    { id: 'knoppen', label: 'Knoppen' },
-    { id: 'led', label: 'LED en camera' },
+    { id: 'overzicht', label: 'Overview' },
+    { id: 'richten', label: 'Aiming' },
+    { id: 'trillen', label: 'Rumble' },
+    { id: 'knoppen', label: 'Buttons' },
+    { id: 'led', label: 'LED and camera' },
     { id: 'games', label: 'Games' },
     { id: 'controllers', label: 'Controllers' },
-    { id: 'info', label: 'Info (technisch)' }
+    { id: 'info', label: 'Info (technical)' }
   ];
-  // Tabbladen met een spelerkeuze bovenaan (de instellingen gelden per controller).
+  // Tabs with a player choice at the top (the settings apply per controller).
   var PLAYER_TABS = ['overzicht', 'richten', 'trillen', 'knoppen', 'led'];
   function hasPlayerBar(tab) { return PLAYER_TABS.indexOf(tab) >= 0; }
   function isTab(id) {
     for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) return true;
     return false;
   }
-  // Voorrang: de hash in de URL, dan het onthouden tabblad, anders het overzicht.
+  // Priority: the hash in the URL, then the remembered tab, otherwise the overview.
   function pickTab(hash, stored) {
     var h = String(hash || '').replace(/^#\/?/, '');
     if (isTab(h)) return h;
@@ -32,22 +32,22 @@
     return 'overzicht';
   }
 
-  // ---- Getallen ----
+  // ---- Numbers ----
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
-  // Nederlandse weergave: komma als decimaalteken.
+  // English display: a dot as the decimal separator.
   function fmtNl(v, digits) {
     if (typeof v !== 'number' || !isFinite(v)) return '-';
     var d = digits === undefined ? 1 : digits;
-    return v.toFixed(d).replace('.', ',');
+    return v.toFixed(d);
   }
-  // Rond af op `sig` significante cijfers (voor logaritmische schuifjes).
+  // Round to `sig` significant digits (for logarithmic sliders).
   function niceRound(v, sig) {
     if (!isFinite(v) || v === 0) return v;
     var p = Math.pow(10, (sig || 2) - 1 - Math.floor(Math.log10(Math.abs(v))));
     return Math.round(v * p) / p;
   }
   function percent255(v) { return Math.round(clamp(v, 0, 255) / 255 * 100); }
-  // Logaritmische schaal: positie 0..steps <-> waarde lo..hi.
+  // Logarithmic scale: position 0..steps <-> value lo..hi.
   function logScale(lo, hi, steps) {
     var a = Math.log(lo), b = Math.log(hi);
     return {
@@ -57,31 +57,31 @@
     };
   }
 
-  // ---- Batterij ----
-  // Codes van PSMove_Battery_Level (zes niveaus plus laden en vol aan de lader); nooit een verzonnen percentage.
+  // ---- Battery ----
+  // Codes of PSMove_Battery_Level (six levels plus charging and full on the charger); never an invented percentage.
   var BATT_LEVELS = {
-    min: { seg: 1, level: 'low', label: 'Bijna leeg', detail: 'minder dan 20%' },
-    ge20: { seg: 2, level: 'mid', label: 'Laag', detail: 'minstens 20%' },
-    ge40: { seg: 3, level: 'ok', label: 'Halfvol', detail: 'minstens 40%' },
-    ge60: { seg: 4, level: 'ok', label: 'Goed', detail: 'minstens 60%' },
-    ge80: { seg: 5, level: 'ok', label: 'Bijna vol', detail: 'minstens 80%' },
-    max: { seg: 5, level: 'ok', label: 'Vol', detail: '100%' }
+    min: { seg: 1, level: 'low', label: 'Almost empty', detail: 'less than 20%' },
+    ge20: { seg: 2, level: 'mid', label: 'Low', detail: 'at least 20%' },
+    ge40: { seg: 3, level: 'ok', label: 'Half full', detail: 'at least 40%' },
+    ge60: { seg: 4, level: 'ok', label: 'Good', detail: 'at least 60%' },
+    ge80: { seg: 5, level: 'ok', label: 'Almost full', detail: 'at least 80%' },
+    max: { seg: 5, level: 'ok', label: 'Full', detail: '100%' }
   };
-  // percent: optioneel getal 0..100 (Navigation Controller); dan staat het percentage in de tekst.
+  // percent: optional number 0..100 (Navigation Controller); then the percentage is shown in the text.
   function batteryView(code, connected, percent) {
-    if (!connected) return { segments: 0, level: 'none', label: 'Onbekend', detail: 'niet verbonden', charging: false };
-    if (code === 'charging') return { segments: 5, level: 'charging', label: 'Laadt', detail: '', charging: true };
-    if (code === 'charged') return { segments: 5, level: 'full', label: 'Vol', detail: 'aan de lader', charging: false };
+    if (!connected) return { segments: 0, level: 'none', label: 'Unknown', detail: 'not connected', charging: false };
+    if (code === 'charging') return { segments: 5, level: 'charging', label: 'Charging', detail: '', charging: true };
+    if (code === 'charged') return { segments: 5, level: 'full', label: 'Full', detail: 'on the charger', charging: false };
     var b = BATT_LEVELS[code];
-    if (!b) return { segments: 0, level: 'none', label: 'Onbekend', detail: '', charging: false };
+    if (!b) return { segments: 0, level: 'none', label: 'Unknown', detail: '', charging: false };
     var detail = typeof percent === 'number' && percent >= 0 ? percent + '%' : b.detail;
     return { segments: b.seg, level: b.level, label: b.label, detail: detail, charging: false };
   }
 
-  // ---- Schuifjes: debounce met bevestiging ----
-  // input(v): tijdens het slepen; hoogstens een verzoek per `delay` ms en altijd de laatste waarde.
-  // commit(v): na loslaten; meteen versturen. Er loopt nooit meer dan een verzoek tegelijk. onDone(resp, v)
-  // volgt pas als er geen nieuwere waarde meer wacht, zodat de bevestiging de werkelijke waarde uit de daemon toont.
+  // ---- Sliders: debounce with confirmation ----
+  // input(v): while dragging; at most one request per `delay` ms and always the latest value.
+  // commit(v): after release; send immediately. There is never more than one request at a time. onDone(resp, v)
+  // follows only when no newer value is waiting, so the confirmation shows the actual value from the daemon.
   function createLiveSender(o) {
     var st = o.setTimeout || setTimeout, ct = o.clearTimeout || clearTimeout;
     var delay = o.delay === undefined ? 150 : o.delay;
@@ -112,41 +112,41 @@
     };
   }
 
-  // ---- Knoppenindeling ----
+  // ---- Button layout ----
   var BUTTONS = [
-    { id: 'move', label: 'Move-knop (grote knop voorop)', group: 'move' },
-    { id: 'cross', label: 'Kruis', group: 'move' },
-    { id: 'circle', label: 'Cirkel', group: 'move' },
-    { id: 'square', label: 'Vierkant', group: 'move' },
-    { id: 'triangle', label: 'Driehoek', group: 'move' },
+    { id: 'move', label: 'Move button (large button on the front)', group: 'move' },
+    { id: 'cross', label: 'Cross', group: 'move' },
+    { id: 'circle', label: 'Circle', group: 'move' },
+    { id: 'square', label: 'Square', group: 'move' },
+    { id: 'triangle', label: 'Triangle', group: 'move' },
     { id: 'select', label: 'Select', group: 'move' },
     { id: 'start', label: 'Start', group: 'move' },
-    { id: 'pump', label: 'Pomp', group: 'sharp' },
-    { id: 'ss_rl', label: 'RL-knop', group: 'sharp' },
-    { id: 'ss_fire', label: 'Vuurknop', group: 'sharp' },
-    { id: 'sel1', label: 'Vuurstand 1', group: 'sharp' },
-    { id: 'sel2', label: 'Vuurstand 2', group: 'sharp' },
-    { id: 'sel3', label: 'Vuurstand 3', group: 'sharp' },
+    { id: 'pump', label: 'Pump', group: 'sharp' },
+    { id: 'ss_rl', label: 'RL button', group: 'sharp' },
+    { id: 'ss_fire', label: 'Fire button', group: 'sharp' },
+    { id: 'sel1', label: 'Fire mode 1', group: 'sharp' },
+    { id: 'sel2', label: 'Fire mode 2', group: 'sharp' },
+    { id: 'sel3', label: 'Fire mode 3', group: 'sharp' },
     { id: 'nav_l1', label: 'L1', group: 'nav' },
     { id: 'nav_l2', label: 'L2', group: 'nav' },
-    { id: 'nav_cross', label: 'Kruis', group: 'nav' },
-    { id: 'nav_circle', label: 'Cirkel', group: 'nav' },
-    { id: 'nav_ps', label: 'PS-knop', group: 'nav' },
-    { id: 'nav_l3', label: 'Stick indrukken (L3)', group: 'nav' },
-    { id: 'nav_up', label: 'Pijltje omhoog', group: 'nav' },
-    { id: 'nav_down', label: 'Pijltje omlaag', group: 'nav' },
-    { id: 'nav_left', label: 'Pijltje links', group: 'nav' },
-    { id: 'nav_right', label: 'Pijltje rechts', group: 'nav' },
-    { id: 'nav_stick_up', label: 'Stick omhoog', group: 'nav' },
-    { id: 'nav_stick_down', label: 'Stick omlaag', group: 'nav' },
-    { id: 'nav_stick_left', label: 'Stick naar links', group: 'nav' },
-    { id: 'nav_stick_right', label: 'Stick naar rechts', group: 'nav' }
+    { id: 'nav_cross', label: 'Cross', group: 'nav' },
+    { id: 'nav_circle', label: 'Circle', group: 'nav' },
+    { id: 'nav_ps', label: 'PS button', group: 'nav' },
+    { id: 'nav_l3', label: 'Stick press (L3)', group: 'nav' },
+    { id: 'nav_up', label: 'Arrow up', group: 'nav' },
+    { id: 'nav_down', label: 'Arrow down', group: 'nav' },
+    { id: 'nav_left', label: 'Arrow left', group: 'nav' },
+    { id: 'nav_right', label: 'Arrow right', group: 'nav' },
+    { id: 'nav_stick_up', label: 'Stick up', group: 'nav' },
+    { id: 'nav_stick_down', label: 'Stick down', group: 'nav' },
+    { id: 'nav_stick_left', label: 'Stick left', group: 'nav' },
+    { id: 'nav_stick_right', label: 'Stick right', group: 'nav' }
   ];
   var KEY_LABELS = {
-    '5': 'Coin (toets 5)', '1': 'Start speler 1 (toets 1)', '2': 'Start speler 2 (toets 2)', f2: 'Test (toets F2)', f3: 'Service (toets F3)',
-    esc: 'Esc', enter: 'Enter', space: 'Spatiebalk', tab: 'Tab', backspace: 'Backspace',
-    up: 'Pijl omhoog', down: 'Pijl omlaag', left: 'Pijl links', right: 'Pijl rechts',
-    lshift: 'Linker Shift', lctrl: 'Linker Ctrl', lalt: 'Linker Alt'
+    '5': 'Coin (key 5)', '1': 'Start player 1 (key 1)', '2': 'Start player 2 (key 2)', f2: 'Test (key F2)', f3: 'Service (key F3)',
+    esc: 'Esc', enter: 'Enter', space: 'Space', tab: 'Tab', backspace: 'Backspace',
+    up: 'Arrow up', down: 'Arrow down', left: 'Arrow left', right: 'Arrow right',
+    lshift: 'Left Shift', lctrl: 'Left Ctrl', lalt: 'Left Alt'
   };
   var MAIN_KEYS = ['5', '1', '2', 'f2', 'f3'];
   var OTHER_KEYS = ['esc', 'enter', 'space', 'tab', 'backspace', 'up', 'down', 'left', 'right', 'lshift', 'lctrl', 'lalt',
@@ -154,16 +154,16 @@
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
   function keyLabel(k) {
     if (KEY_LABELS[k]) return KEY_LABELS[k];
-    return 'Toets ' + k.toUpperCase();
+    return 'Key ' + k.toUpperCase();
   }
-  // Keuzelijst: groepen met opties { value, label }.
+  // Choice list: groups with options { value, label }.
   function actionGroups() {
     var g = [
-      { label: 'Schieten en spelen', options: [
-        { value: 'none', label: 'Niets doen' }, { value: 'reload', label: 'Herladen' }, { value: 'grenade', label: 'Granaat' },
-        { value: 'aux1', label: 'Extra knop 1' }, { value: 'aux2', label: 'Extra knop 2' }, { value: 'recenter', label: 'Centreren' }] },
-      { label: 'Spelmenu (toetsenbord)', options: MAIN_KEYS.map(function (k) { return { value: 'key:' + k, label: keyLabel(k) }; }) },
-      { label: 'Overige toetsen', options: OTHER_KEYS.map(function (k) { return { value: 'key:' + k, label: keyLabel(k) }; }) }
+      { label: 'Shooting and playing', options: [
+        { value: 'none', label: 'Do nothing' }, { value: 'reload', label: 'Reload' }, { value: 'grenade', label: 'Grenade' },
+        { value: 'aux1', label: 'Extra button 1' }, { value: 'aux2', label: 'Extra button 2' }, { value: 'recenter', label: 'Center' }] },
+      { label: 'Game menu (keyboard)', options: MAIN_KEYS.map(function (k) { return { value: 'key:' + k, label: keyLabel(k) }; }) },
+      { label: 'Other keys', options: OTHER_KEYS.map(function (k) { return { value: 'key:' + k, label: keyLabel(k) }; }) }
     ];
     return g;
   }
@@ -173,7 +173,7 @@
       for (var j = 0; j < gs[i].options.length; j++) if (gs[i].options[j].value === a) return gs[i].options[j].label;
     return a;
   }
-  // Alleen de knoppen waarvan de actie verschilt van de basis.
+  // Only the buttons whose action differs from the base.
   function mapChanges(base, edit) {
     var out = {}, n = 0;
     BUTTONS.forEach(function (b) {
@@ -182,11 +182,11 @@
     });
     return { changes: out, count: n };
   }
-  // Eenvoudige tekst voor "Move-knop -> functie".
+  // Simple text for "Move button -> function".
   function mapSummary(map) {
     return BUTTONS.map(function (b) { return b.label + ' -> ' + actionLabel(map[b.id] || 'none'); });
   }
-  // Welke knoppen zijn nu ingedrukt? (namen uit sample.buttons.down); T geldt als trekker.
+  // Which buttons are pressed now? (names from sample.buttons.down); T counts as the trigger.
   function pressedSet(down, trigger) {
     var s = {};
     (down || []).forEach(function (n) { s[n] = true; });
@@ -194,33 +194,33 @@
     return s;
   }
 
-  // ---- Driftcorrectie ----
+  // ---- Drift correction ----
   var FUSION_CHOICES = [
-    { id: 'vqf_mag', label: 'Kompas (aanbevolen)', help: 'Gebruikt het kompas in de Move om te voorkomen dat het richtpunt langzaam wegdraait.' },
-    { id: 'vqf', label: 'Zonder kompas (nieuwe methode)', help: 'Voor als het kompas last heeft van metaal of magneten in de buurt.' },
-    { id: 'mahony_mag', label: 'Kompas (oude methode)', help: 'De eerdere manier met kompas. Alleen nuttig om te vergelijken.' },
-    { id: 'mahony', label: 'Alleen gyro', help: 'Geen kompas: het richtpunt kan langzaam wegdrijven. Centreer dan vaker.' }
+    { id: 'vqf_mag', label: 'Compass (recommended)', help: 'Uses the compass in the Move to stop the aim point from drifting slowly.' },
+    { id: 'vqf', label: 'Without compass (new method)', help: 'For when the compass is disturbed by nearby metal or magnets.' },
+    { id: 'mahony_mag', label: 'Compass (old method)', help: 'The earlier compass method. Only useful for comparison.' },
+    { id: 'mahony', label: 'Gyro only', help: 'No compass: the aim point can drift slowly. Center more often.' }
   ];
   function fusionLabel(id) {
     for (var i = 0; i < FUSION_CHOICES.length; i++) if (FUSION_CHOICES[i].id === id) return FUSION_CHOICES[i].label;
     return id || '-';
   }
 
-  // ---- Uitvoerklok ----
+  // ---- Output clock ----
   function clockChoices(current) {
     var base = [0, 125, 250, 500];
     var list = base.slice();
     if (typeof current === 'number' && isFinite(current) && list.indexOf(current) < 0) { list.push(current); list.sort(function (a, b) { return a - b; }); }
-    return list.map(function (hz) { return { hz: hz, label: hz === 0 ? 'Uit' : hz + ' Hz' }; });
+    return list.map(function (hz) { return { hz: hz, label: hz === 0 ? 'Off' : hz + ' Hz' }; });
   }
 
   // ---- Games ----
-  // status: { state, text, profile, message }. Wat de interface per toestand toont en toestaat.
+  // status: { state, text, profile, message }. What the interface shows and allows per state.
   function gameStateView(st) {
     st = st || {};
     var busy = st.state === 'starting' || st.state === 'waiting_move' || st.state === 'stopping';
     var tone = st.state === 'running' ? 'ok' : st.state === 'failed' ? 'bad' : busy ? 'warn' : 'info';
-    var text = st.text || 'Onbekend';
+    var text = st.text || 'Unknown';
     if (st.state === 'failed' && st.message) text += ' ' + st.message;
     return {
       text: text, tone: tone, busy: busy,
@@ -228,7 +228,7 @@
       canStop: st.state === 'running' || st.state === 'starting' || st.state === 'waiting_move' || !!st.stoppable
     };
   }
-  // Voor een kaart van een game: staat deze game centraal in de huidige toestand?
+  // For a game card: is this game central in the current state?
   function gameCardState(st, profile) {
     var cur = st && st.profile === profile;
     var state = (st && st.state) || 'idle';
@@ -238,41 +238,41 @@
     };
   }
 
-  // ---- Samenvatting in gewone taal (Overzicht) ----
+  // ---- Plain-language summary (Overview) ----
   function plainSettings(status) {
     var cfg = (status && status.config) || {};
     var f = cfg.filter || {}, a = cfg.aim || {}, fu = cfg.fusion || {};
     var rum = (status && status.controller && status.controller.rumble) || {};
     var clk = (status && status.output && status.output.live && status.output.live.clock) || {};
     var lines = [];
-    lines.push(['Cursor gladstrijken', f.enabled ? 'aan' : 'uit']);
-    lines.push(['Driftcorrectie', fusionLabel(fu.mode)]);
-    lines.push(['Vooruitkijken', typeof a.predict_ms === 'number' ? fmtNl(a.predict_ms, 0) + ' ms' : '-']);
-    lines.push(['Trillen', rum.enabled ? 'aan, sterkte ' + percent255(rum.strength) + '%' : 'uit']);
-    if (status && status.yaw_trim) lines.push(['Leren van centreren', status.yaw_trim.learning ? 'aan' : 'uit']);
-    if (typeof clk.enabled === 'boolean') lines.push(['Uitvoerklok', clk.enabled ? clk.hz + ' Hz' : 'uit']);
+    lines.push(['Smooth cursor', f.enabled ? 'on' : 'off']);
+    lines.push(['Drift correction', fusionLabel(fu.mode)]);
+    lines.push(['Prediction', typeof a.predict_ms === 'number' ? fmtNl(a.predict_ms, 0) + ' ms' : '-']);
+    lines.push(['Rumble', rum.enabled ? 'on, strength ' + percent255(rum.strength) + '%' : 'off']);
+    if (status && status.yaw_trim) lines.push(['Learn from centering', status.yaw_trim.learning ? 'on' : 'off']);
+    if (typeof clk.enabled === 'boolean') lines.push(['Output clock', clk.enabled ? clk.hz + ' Hz' : 'off']);
     return lines;
   }
 
-  // ---- Spelers en controllers ----
+  // ---- Players and controllers ----
   var MAX_PLAYERS = 4;
-  // Het onthouden spelernummer (1..4), anders 1.
+  // The remembered player number (1..4), otherwise 1.
   function pickPlayer(stored) {
     var n = Number(stored);
     return n >= 1 && n <= MAX_PLAYERS && Math.floor(n) === n ? n : 1;
   }
-  // Keuzes voor de spelerbalk uit status.assignment.players: [{player, controller: naam|null}]. Speler 1 staat er altijd;
-  // spelers zonder Move alleen als ze gekozen zijn (dan ziet de gebruiker dat er geen Move is).
+  // Choices for the player bar from status.assignment.players: [{player, controller: name|null}]. Player 1 is always there;
+  // players without a Move only when selected (then the user sees that there is no Move).
   function playerOptions(players, current) {
     var out = [];
     (players || []).forEach(function (p) {
       if (p.player === 1 || p.controller || p.player === current)
-        out.push({ player: p.player, label: 'Speler ' + p.player, sub: p.controller || 'geen Move' });
+        out.push({ player: p.player, label: 'Player ' + p.player, sub: p.controller || 'no Move' });
     });
-    if (!out.length) out.push({ player: 1, label: 'Speler 1', sub: 'geen Move' });
+    if (!out.length) out.push({ player: 1, label: 'Player 1', sub: 'no Move' });
     return out;
   }
-  // Voegt de gekozen speler toe aan een verzoek (een kopie; het origineel blijft ongewijzigd).
+  // Adds the selected player to a request (a copy; the original stays unchanged).
   function withPlayer(body, player) {
     var o = {};
     Object.keys(body || {}).forEach(function (k) { o[k] = body[k]; });
@@ -280,41 +280,41 @@
     return o;
   }
   function controllerTypeLabel(type) { return type === 'navigation' ? 'Navigation Controller' : 'Move'; }
-  // "Laatst gezien" in gewone taal; nowS en unixS in seconden.
+  // "Last seen" in plain language; nowS and unixS in seconds.
   function lastSeenText(unixS, nowS) {
-    if (typeof unixS !== 'number' || !(unixS > 0)) return 'nog nooit';
+    if (typeof unixS !== 'number' || !(unixS > 0)) return 'never';
     var d = Math.max(0, Math.round(nowS - unixS));
-    if (d < 90) return 'zojuist';
-    if (d < 3600) return Math.round(d / 60) + ' minuten geleden';
-    if (d < 2 * 3600) return 'een uur geleden';
-    if (d < 86400) return Math.round(d / 3600) + ' uur geleden';
-    if (d < 2 * 86400) return 'gisteren';
-    return Math.round(d / 86400) + ' dagen geleden';
+    if (d < 90) return 'just now';
+    if (d < 3600) return Math.round(d / 60) + ' minutes ago';
+    if (d < 2 * 3600) return 'an hour ago';
+    if (d < 86400) return Math.round(d / 3600) + ' hours ago';
+    if (d < 2 * 86400) return 'yesterday';
+    return Math.round(d / 86400) + ' days ago';
   }
-  // Batterij van een controller uit de lijst (/api/controllers): dezelfde weergave als bij de Move.
+  // Battery of a controller from the list (/api/controllers): the same display as for the Move.
   function controllerBattery(c) {
     var b = (c && c.battery) || {};
     return batteryView(b.code, !!(c && c.connected && b.known), typeof b.percent === 'number' ? b.percent : undefined);
   }
-  // De koppelwizard: stap (0 kabel erin, 1 koppelen, 2 kabel eruit, 3 PS-knop, 4 klaar), wat er te zien en te doen is.
-  var PAIR_STEPS = ['Kabel erin', 'Koppelen', 'Kabel eruit', 'PS-knop'];
+  // The pairing wizard: step (0 cable in, 1 pair, 2 cable out, 3 PS button, 4 done), what is shown and what to do.
+  var PAIR_STEPS = ['Cable in', 'Pairing', 'Cable out', 'PS button'];
   function pairView(p) {
     p = p || {};
     var st = p.state || 'idle';
-    var v = { state: st, step: 0, tone: 'info', busy: !!p.busy, active: !!p.active, canStart: false, startLabel: 'Nieuwe controller koppelen',
+    var v = { state: st, step: 0, tone: 'info', busy: !!p.busy, active: !!p.active, canStart: false, startLabel: 'Pair a new controller',
       canConfirm: false, confirmLabel: '', canCancel: false, showInstall: false, text: p.instruction || '', message: p.message || '' };
     switch (st) {
       case 'wait_usb': v.step = 0; v.canCancel = true; break;
-      case 'already_paired': v.step = 1; v.canConfirm = true; v.confirmLabel = 'Opnieuw koppelen'; v.canCancel = true; v.tone = 'warn'; break;
+      case 'already_paired': v.step = 1; v.canConfirm = true; v.confirmLabel = 'Pair again'; v.canCancel = true; v.tone = 'warn'; break;
       case 'set_master': case 'register': v.step = 1; v.busy = true; v.canCancel = false; break;
-      case 'need_helper': v.step = 1; v.showInstall = true; v.canConfirm = true; v.confirmLabel = 'Opnieuw proberen'; v.canCancel = true; v.tone = 'warn'; break;
+      case 'need_helper': v.step = 1; v.showInstall = true; v.canConfirm = true; v.confirmLabel = 'Try again'; v.canCancel = true; v.tone = 'warn'; break;
       case 'wait_unplug': v.step = 2; v.canCancel = true; break;
       case 'wait_bluetooth': v.step = 3; v.canCancel = true; break;
-      case 'done': v.step = 4; v.tone = 'ok'; v.canStart = true; v.startLabel = 'Nog een controller koppelen'; break;
-      case 'failed': v.step = 0; v.tone = 'bad'; v.canStart = true; v.startLabel = 'Opnieuw beginnen'; break;
+      case 'done': v.step = 4; v.tone = 'ok'; v.canStart = true; v.startLabel = 'Pair another controller'; break;
+      case 'failed': v.step = 0; v.tone = 'bad'; v.canStart = true; v.startLabel = 'Start again'; break;
       default: v.step = 0; v.canStart = true;  // idle, cancelled
     }
-    if (st === 'cancelled' || st === 'idle') v.text = 'Sluit een nieuwe Move of Navigation Controller met een USB-kabel aan en druk op Nieuwe controller koppelen.';
+    if (st === 'cancelled' || st === 'idle') v.text = 'Connect a new Move or Navigation Controller with a USB cable and press Pair a new controller.';
     return v;
   }
 

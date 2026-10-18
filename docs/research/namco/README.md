@@ -474,7 +474,23 @@ naast de runtime-lader staan was een eis van de gesloten kern.
 ## HOTD Scarlet Dawn (EmulationProfile `ALLSHOTDSD`, 64-bit UE4, twee exe's)
 
 *Besluit eigenaar 2026-10-17: RavenGun mag de platformgegevens van `amdaemon.exe` zelf leveren.*
-*Stand 2026-10-17 (bench 21:48): kandidaat via ravengund gestart, beide exe's laden onze kern en rg-allsio.dll. Wit beeld en fout 4105; NIET speelbaar. Kandidaat: `docs/research/namco/patches/HOTDSD/`.*
+### Actuele stand — 18 oktober 2026
+
+**Gedeeltelijk werkend zonder TeknoParrot, nog niet volledig speelbaar verklaard.** Deze metingen vervangen de oudere blokkadestatus hieronder; die blijft staan als onderzoekshistorie.
+
+- Gewone RavenGun-start van AMDaemon en Hodzero met eigen gebouwde OpenParrot-kern en `rg-allsio.dll`. Gecontroleerd startplan `direct-HOTDSD-20261018-174739.plan.json`: `tp = ""`, `core_source = "ravengun"`, `tp_files = []`. Mappingcontrole van beide processen toont onze DLL en eigen OpenParrot-build; de proprietary runtime-map bleef hernoemd naar `.verborgen`. Dit was geen volledige bestandsisolatie.
+- Afzonderlijke synchrone COM1-sensoradapter in Hodzero, naast de overlapped USB-IO-adapter in AMDaemon. Werkelijke seriële instelling: 38400/8O1. Sensorprotocol, fragmentatie, checksum en assen: **237 controles, 0 fouten**.
+- Het spel consumeerde aanvankelijk de lege muiscoördinaten (selector 1). Effectieve gebruikersconfiguratie: `AppData/Local/Hodzero/Saved/Config/WindowsNoEditor/Game.ini`, sectie `/Script/Hodzero.AppGameInstance`, `DevelopSetting_PlayerGunDevice=0`. Daarna selector **0** in de werkelijke coördinatenfunctie gemeten; de seriële en gekalibreerde richtcoördinaten worden gevuld.
+- Echte spelersrondes met Entry → StageSelect → Stage0 → GameOver gelogd. Middensalvo: zichtbare schoteffecten, hulzen en een zombie met **AMAZING**. Losse links/rechts-proeven op het continue-scherm tellen niet als schietbewijs; de meerpuntscontrole is nog niet afgerond.
+- **Duurproef 18:16:49–18:21:56 +02:00 (5:07):** Hodzero PID 3353404 en AMDaemon PID 3353347 bleven dezelfde processen, zonder debugger of bediening in dat interval. Screenshots per minuut; minuut 3 toont agent ranking, minuut 5 de attract-titel. Bestaande sessie, géén verse startproef. Bewijs: `/tmp/rg-hotdsd-independent-proof-{start,minute-1,minute-2,minute-3,minute-4,minute-5}.png`; meetlog `/tmp/deepcode-background/bash-9165c6ca-7ef9-4e09-acfc-ba1269552e00.log` (tijdelijke lokale artefacten).
+- Automatische moduscorrectie toegevoegd achter expliciete opt-in `RG_ALLSIO_GUN_CONFIG=1` (alleen bij sensoradapter in Hodzero). Op gewone herstart getest vanaf modus 1: modus werd 0, een andere testsectie bleef behouden en `Game.ini.ravengun-backup` bevatte de oorspronkelijke modus 1. Dit is nog kandidaatcode; gebruikersconfiguratie niet handmatig vervangen of kalibratie wissen.
+- Start is **niet betrouwbaar reproduceerbaar**: hostrapport `0x0080` en native Start-handler aangetoond, maar niet iedere puls begint een ronde. Laatste handlerproef kwam in **Mode Select** (`rg-hotdsd-handler-start.png`), met debugger; geen duurproef van deze nieuwe build.
+
+**Nog doen:** betrouwbare Start/menu/selectie, gerichte treffers links/midden/rechts in een echte ronde, fysieke PS Move, P2 en extra knoppen, plus een verse gewone start en duurproef van de uiteindelijke levering. Actieve lokale kandidaat blijft `Status = unknown`; oude `working`-metadata van de gesloten kern is géén bewijs voor deze route.
+
+### Historie — 17 oktober 2026
+
+*Kandidaat via ravengund gestart, beide exe's laden onze kern en rg-allsio.dll. Wit beeld en fout 4105; toen NIET speelbaar. Kandidaat: `docs/research/namco/patches/HOTDSD/`.*
 
 **Actuele meting.** `direct-HOTDSD-20261017-214823.log`: registerimport en preload slagen, de besturingspijp levert 64 bytes. `OSVersion` op de hoofdsleutel `HKLM\System\SEGA\SystemProperty` wordt via `RegQueryValueExA` gelezen (`0x14022edc0`), daarna als `%u_%u_%u` ontleed. De expliciet synthetische benchwaarde `1_0_0` verwijdert de bijbehorende fout. `amLibGetMainSerialId` (`0x140234030`) gebruikt `GetComputerNameA` en eist 15 tekens. `RG_ALLSIO_MAIN_ID=RAVENGUN0000001` haakt alleen de daemon-API aan; de hostnaam en gedeelde Wine-computernaam veranderen niet. De serial-id-fout verdwijnt. De validator verwerpt ongeldige waarden en behoudt dan de echte API; 179 protocol-/identiteitscontroles slagen.
 

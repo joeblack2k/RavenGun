@@ -14,8 +14,8 @@
 
   // Nederlandse namen en symbolen voor de weergave.
   var LABEL = {
-    triangle: 'Driehoek', circle: 'Cirkel', cross: 'Kruis', square: 'Vierkant', select: 'Select', start: 'Start',
-    ps: 'PS', move: 'Move-knop', t: 'Trekker'
+    triangle: 'Triangle', circle: 'Circle', cross: 'Cross', square: 'Square', select: 'Select', start: 'Start',
+    ps: 'PS', move: 'Move button', t: 'Trigger'
   };
 
   // ---- Knoppen: flanken uit cumulatieve tellers, met debounce ----
@@ -137,8 +137,8 @@
   // verstoort versnelling de dipcontrole en smeert de meting.
   var TEMPO = { still: 8, good_max: 120, fast_max: 220 };
   function classifyTempo(dps) {
-    if (dps === null || !isFinite(dps)) return { level: 'onbekend', ok: false, text: 'geen gyro' };
-    if (dps < TEMPO.still) return { level: 'stil', ok: false, text: 'Draai verder' };
+    if (dps === null || !isFinite(dps)) return { level: 'onbekend', ok: false, text: 'no gyro' };
+    if (dps < TEMPO.still) return { level: 'stil', ok: false, text: 'Keep turning' };
     if (dps <= TEMPO.good_max) return { level: 'goed', ok: true, text: 'Goed tempo' };
     if (dps <= TEMPO.fast_max) return { level: 'snel', ok: false, text: 'Iets rustiger' };
     return { level: 'te_snel', ok: false, text: 'Veel te snel' };
@@ -272,25 +272,25 @@
 
   // Uitkomst van calib_mag stop -> oordeel voor de tv. Gebruikt de 'problems' van de daemon letterlijk.
   function fitVerdict(r) {
-    if (!r || r.aborted) return { level: 'fail', headline: 'Afgebroken', tips: [(r && r.aborted) ? 'Reden: ' + r.aborted : 'Geen resultaat'] };
+    if (!r || r.aborted) return { level: 'fail', headline: 'Cancelled', tips: [(r && r.aborted) ? 'Reason: ' + r.aborted : 'No result'] };
     var tips = (r.problems || []).slice();
-    if (r.ok && r.saved) return { level: 'ok', headline: 'Geslaagd', tips: tips };
+    if (r.ok && r.saved) return { level: 'ok', headline: 'Passed', tips: tips };
     if (r.marginal && r.saved) {
-      return { level: 'marginal', headline: 'Marginaal, wel opgeslagen', tips: tips.length ? tips : ['De kalibratie is bruikbaar maar niet scherp; herhaal hem als je de tijd hebt.'] };
+      return { level: 'marginal', headline: 'Marginal, but saved', tips: tips.length ? tips : ['The calibration is usable but not sharp; repeat it when you have time.'] };
     }
-    if (!tips.length) tips.push('De fit is niet goed genoeg om op te slaan. Probeer het opnieuw.');
-    if (r.save_error) tips.push('Opslaan mislukt: ' + r.save_error);
-    return { level: 'fail', headline: 'Mislukt', tips: tips };
+    if (!tips.length) tips.push('The fit is not good enough to save. Try again.');
+    if (r.save_error) tips.push('Saving failed: ' + r.save_error);
+    return { level: 'fail', headline: 'Failed', tips: tips };
   }
 
   // Aanvullende, concrete handelingstip bij een probleemtekst van de daemon.
   function actionTip(problem) {
     var p = String(problem || '').toLowerCase();
-    if (p.indexOf('dekking') >= 0) return 'Draai ruimer: ook ondersteboven, loop naar het plafond en naar de vloer, en rollen om de loop.';
+    if (p.indexOf('dekking') >= 0) return 'Turn wider: upside down too, point at the ceiling and the floor, and roll around the barrel.';
     if (p.indexOf('homogeen') >= 0 || p.indexOf('verstoor') >= 0 || p.indexOf('veld') >= 0)
-      return 'Ga verder weg van metaal, speakers en de tv (minstens 1 meter) en doe het opnieuw.';
-    if (p.indexOf('samples') >= 0 || p.indexOf('gedraaid') >= 0) return 'Draai langer en rustig door; houd het geweer niet stil.';
-    if (p.indexOf('dip') >= 0 || p.indexOf('versnelling') >= 0) return 'Draai langzamer en zonder te schudden.';
+      return 'Move further away from metal, speakers and the TV (at least 1 metre) and try again.';
+    if (p.indexOf('samples') >= 0 || p.indexOf('gedraaid') >= 0) return 'Keep turning longer and calmly; do not hold the gun still.';
+    if (p.indexOf('dip') >= 0 || p.indexOf('versnelling') >= 0) return 'Turn more slowly and without shaking.';
     return '';
   }
 
@@ -445,9 +445,9 @@
   function aimModeText(sample) {
     var m = sample && sample.tracking_mode;
     var c = sample && sample.aim && sample.aim.center_source;
-    var mt = m === 'orientation' ? 'oriëntatie (voorlopig)' : (m === 'hybrid' ? 'hybride' : (m === 'geometric_ray' ? 'geometrische straal' :
-             (m === 'optical_diagnostic' ? 'optisch (diagnose)' : (m ? String(m) : 'onbekend'))));
-    var ct = c === 'auto_initial' ? 'auto-midden' : (c === 'user' ? 'midden door jou gezet' : 'nog geen midden');
+    var mt = m === 'orientation' ? 'orientation (provisional)' : (m === 'hybrid' ? 'hybrid' : (m === 'geometric_ray' ? 'geometric ray' :
+             (m === 'optical_diagnostic' ? 'optical (diagnostic)' : (m ? String(m) : 'unknown'))));
+    var ct = c === 'auto_initial' ? 'auto-centered' : (c === 'user' ? 'centered by you' : 'not centered yet');
     return mt + ', ' + ct;
   }
 

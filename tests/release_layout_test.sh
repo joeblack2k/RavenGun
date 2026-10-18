@@ -51,14 +51,16 @@ P="$T/patches"
 mkdir -p "$P/GameA/dropin" "$P/GameA/data/x" "$P/GameA/seed" "$P/GameA/logs-run1" "$P/GameA/bewijs-1" "$P/_defaults" "$P/GameB"
 for f in GameA/game.ini GameA/patches.ini GameA/native.json GameA/options.json GameA/unity.json GameA/rio-invoer.ini GameA/README.md GameA/dropin/dropin.ini \
          GameA/dropin/lib.so GameA/data/x/y.rules GameA/seed/CFG.dat _defaults/OpenParrot.patches.ini GameB/game.ini; do echo x > "$P/$f"; done
+mkdir -p "$P/GameA/dropin/ravengun-hasp/memory" "$P/GameA/data/shaders" "$P/GameA/dropin/SAVE"
 for f in GameA/NOTES.md GameA/shot.png GameA/run.log GameA/meet.sh GameA/meet.py GameA/uitvoer.txt GameA/logs-run1/a.log GameA/bewijs-1/b.png TOP-LEVEL.md probe.py; do echo x > "$P/$f"; done
+for f in GameA/dropin/ravengun-hasp/memory/dump GameA/dropin/ravengun-hasp/dongle.json GameA/data/shaders/game.shader GameA/dropin/SAVE/io.sav; do echo private > "$P/$f"; done
 
 "$REPO/tools/dev/release-assemble.sh" "$S" "$T/comp" "$P" > "$T/assemble.log" 2>&1 || { cat "$T/assemble.log" >&2; fail "release-assemble.sh faalde"; }
 
 # --- indeling van het archief -------------------------------------------------------------------------------------------------------
 [[ -z "$(find "$S" -name 'install*.sh' -o -name 'install' | grep .)" ]] || fail "er zit een installatiescript in het archief: $(find "$S" -name 'install*.sh')"
 TOP="$(cd "$S" && ls -A | LC_ALL=C sort | tr '\n' ' ')"
-[[ $TOP == "LICENSE README.md RavenGun.desktop bin lib share " ]] || fail "bovenste niveau klopt niet: $TOP"
+[[ $TOP == "LICENSE README.md RavenGun.desktop bin lib patches share " ]] || fail "bovenste niveau klopt niet: $TOP"
 [[ -x $S/RavenGun.desktop ]] || fail "RavenGun.desktop is niet uitvoerbaar (Dolphin start hem anders niet)"
 [[ -x $S/bin/ravengun ]] || fail "bin/ravengun ontbreekt"
 cmp -s "$REPO/README.md" "$S/README.md" || fail "README.md is niet die van de repo"
@@ -113,12 +115,14 @@ done
 [[ ! -e $S/share/ravengun/components/hasp/Halo\ Fireteam ]] || fail "dongle-gegevens in het archief"
 
 # --- patches: alleen de levering ---------------------------------------------------------------------------------------------------
-D="$S/share/ravengun/patches"
+D="$S/patches"
+[[ -d $D && ! -L $D ]] || fail "patches/ moet een echte map naast bin/ zijn"
+[[ "$(readlink "$S/share/ravengun/patches")" == ../../patches ]] || fail "relatieve compatibiliteitskoppeling ontbreekt"
 for f in GameA/game.ini GameA/patches.ini GameA/native.json GameA/options.json GameA/unity.json GameA/rio-invoer.ini GameA/README.md GameA/dropin/dropin.ini GameA/dropin/lib.so \
          GameA/data/x/y.rules GameA/seed/CFG.dat _defaults/OpenParrot.patches.ini GameB/game.ini; do
   [[ -f $D/$f ]] || fail "patches: $f ontbreekt in het archief"
 done
-for f in GameA/NOTES.md GameA/shot.png GameA/run.log GameA/meet.sh GameA/meet.py GameA/uitvoer.txt GameA/logs-run1 GameA/bewijs-1 TOP-LEVEL.md probe.py; do
+for f in GameA/NOTES.md GameA/shot.png GameA/run.log GameA/meet.sh GameA/meet.py GameA/uitvoer.txt GameA/logs-run1 GameA/bewijs-1 TOP-LEVEL.md probe.py GameA/dropin/ravengun-hasp GameA/data/shaders GameA/dropin/SAVE; do
   [[ ! -e $D/$f ]] || fail "patches: dossierbestand $f zit in het archief"
 done
 [[ -z "$(find "$D" -type d -empty)" ]] || fail "patches: lege mappen"
@@ -132,7 +136,7 @@ if [[ -d "$REPO/patches" ]]; then
   BEWIJS="$(cd "$R" && find . -type f \( -name '*.png' -o -name '*.log' -o -name '*.md' ! -name README.md \) | grep -v '/dropin/\|/data/\|/seed/' || true)"
   [[ -z $BEWIJS ]] || { echo "$BEWIJS" | head >&2; fail "echte patches: bewijsbestanden meegekomen"; }
   [[ -f $R/LGI/game.ini ]] || fail "echte patches: LGI/game.ini ontbreekt"
-  NODIG="$(cd "$REPO/patches/" && find -L . -type f | sed 's|^\./||' | grep -E '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md)$|^[^/]+/(dropin|data|seed)/' | wc -l)"
+  NODIG="$(python3 -I -c 'import importlib.util,os,sys; s=importlib.util.spec_from_file_location("ship",sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); root=sys.argv[2]; print(sum(bool(m.LEVERING.match(r)) and not m.user_supplied(r) for dp,_,fs in os.walk(root) for f in fs for r in [os.path.relpath(os.path.join(dp,f),root)]))' "$REPO/tools/dev/ship-patches.py" "$REPO/patches")"
   GEKOPIEERD="$(cd "$R" && find . -type f | wc -l)"
   [[ $NODIG -eq $GEKOPIEERD ]] || fail "echte patches: $GEKOPIEERD bestanden gekopieerd, $NODIG verwacht"
   echo "(echte patches: $GEKOPIEERD bestanden in de levering)"

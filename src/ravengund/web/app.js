@@ -35,11 +35,11 @@
       return j;
     });
   }
-  function errText(j) { return j && j.error ? j.error.message : 'onbekende fout'; }
-  function errMsg(e) { return e && e.message === 'Failed to fetch' ? 'het programma op de achtergrond is niet bereikbaar' : (e && e.message) || 'onbekende fout'; }
+  function errText(j) { return j && j.error ? j.error.message : 'unknown error'; }
+  function errMsg(e) { return e && e.message === 'Failed to fetch' ? 'the background program is not reachable' : (e && e.message) || 'unknown error'; }
   function setConn(ok) {
     var c = $('conn');
-    c.textContent = ok ? 'verbonden' : 'niet bereikbaar';
+    c.textContent = ok ? 'connected' : 'not reachable';
     c.className = 'pill ' + (ok ? 'ok' : 'bad');
   }
   function el(tag, cls, text) {
@@ -49,7 +49,7 @@
     return e;
   }
   function fmt(v, d) { return A.fmtNl(v, d); }
-  function yn(b) { return b ? 'ja' : 'nee'; }
+  function yn(b) { return b ? 'yes' : 'no'; }
   function fill(dl, rows) {
     dl.textContent = '';
     rows.forEach(function (r) {
@@ -83,7 +83,7 @@
     e.classList.remove('invalid');
     var v = raw === '' ? NaN : Number(raw);
     if (!isFinite(v) || v < lo || v > hi || (integer && Math.floor(v) !== v)) {
-      errs.push(name + ' moet ' + (integer ? 'een geheel getal' : 'een getal') + ' tussen ' + lo + ' en ' + hi + ' zijn');
+      errs.push(name + ' must ' + (integer ? 'an integer' : 'a number') + ' between ' + lo + ' and ' + hi + '');
       e.classList.add('invalid');
       return null;
     }
@@ -100,7 +100,7 @@
       return j;
     }).catch(function () {
       if (btn) btn.disabled = false;
-      errEl.textContent = 'het programma op de achtergrond is niet bereikbaar';
+      errEl.textContent = 'the background program is not reachable';
     });
   }
   function getStatus() {
@@ -131,7 +131,7 @@
     });
     var mine = null;
     players.forEach(function (x) { if (x.player === player) mine = x; });
-    $('pb-note').textContent = mine && !mine.controller ? 'Deze speler heeft nog geen Move: wijzigingen gelden voor nieuwe controllers.' : '';
+    $('pb-note').textContent = mine && !mine.controller ? 'This player has no Move yet: changes apply to new controllers.' : '';
   }
   function choosePlayer(n) {
     player = A.pickPlayer(n);
@@ -204,7 +204,7 @@
         // Bevestiging: de werkelijke waarde uit de daemon (die kan afwijken van wat gevraagd is).
         var a = o.actual(j.result, v);
         if (typeof a === 'number' && isFinite(a)) { known = a; if (!dragging) show(a); }
-        message('Toegepast', 'ok');
+        message('Applied', 'ok');
       },
       onError: function (e) {
         message(errMsg(e), 'bad');
@@ -276,23 +276,23 @@
       lastSample = p;
       var pos = p.position || {};
       var streaming = cam.enabled && cam.state === 'streaming';
-      if (!cam.enabled) { glyph($('ov-cam-icon'), 'no', '✖'); $('ov-cam-state').textContent = 'Camera staat uit'; $('ov-cam-state').className = 'big warn'; $('ov-cam-sub').textContent = ''; }
-      else if (!streaming) { glyph($('ov-cam-icon'), 'bad', '✖'); $('ov-cam-state').textContent = 'Camera werkt niet'; $('ov-cam-state').className = 'big bad'; $('ov-cam-sub').textContent = cam.error || 'Is de camera aangesloten?'; }
+      if (!cam.enabled) { glyph($('ov-cam-icon'), 'no', '✖'); $('ov-cam-state').textContent = 'Camera is off'; $('ov-cam-state').className = 'big warn'; $('ov-cam-sub').textContent = ''; }
+      else if (!streaming) { glyph($('ov-cam-icon'), 'bad', '✖'); $('ov-cam-state').textContent = 'Camera is not working'; $('ov-cam-state').className = 'big bad'; $('ov-cam-sub').textContent = cam.error || 'Is the camera connected?'; }
       else if (pos.valid) { glyph($('ov-cam-icon'), 'yes', '✔'); $('ov-cam-state').textContent = 'Ziet de bol'; $('ov-cam-state').className = 'big ok'; $('ov-cam-sub').textContent = ''; }
-      else { glyph($('ov-cam-icon'), 'warn', '✖'); $('ov-cam-state').textContent = 'Ziet de bol niet'; $('ov-cam-state').className = 'big warn'; $('ov-cam-sub').textContent = c.connected ? 'Houd de Move in beeld van de camera.' : 'De bol licht alleen op als de Move aan staat.'; }
+      else { glyph($('ov-cam-icon'), 'warn', '✖'); $('ov-cam-state').textContent = 'Does not see the ball'; $('ov-cam-state').className = 'big warn'; $('ov-cam-sub').textContent = c.connected ? 'Keep the Move in view of the camera.' : 'The ball only lights up when the Move is on.'; }
       // Lightgun
       var armed = !!(s.output && s.output.armed);
       glyph($('ov-gun-icon'), armed ? 'yes' : 'no', armed ? '✔' : '✖');
       $('ov-gun-state').textContent = armed ? 'Klaar' : 'Uit';
       $('ov-gun-state').className = 'big ' + (armed ? 'ok' : 'warn');
-      $('ov-gun-btn').textContent = armed ? 'Uitzetten' : 'Aanzetten';
+      $('ov-gun-btn').textContent = armed ? 'Turn off' : 'Turn on';
       $('ov-gun-btn').className = armed ? 'secondary' : '';
       // Game
       var g = gm.ok ? gm.result.status : null;
       var gv = A.gameStateView(g);
       var running = g && g.state === 'running';
       glyph($('ov-game-icon'), running ? 'yes' : (g && g.state === 'failed' ? 'bad' : 'no'), running ? '▶' : (g && g.state === 'failed' ? '✖' : '—'));
-      var gt = running ? (g.profile ? gameName(g.profile) + ' draait' : 'Er draait een game') : (g && g.state === 'idle' ? 'Geen game actief' : (g ? g.text : '-'));
+      var gt = running ? (g.profile ? gameName(g.profile) + ' is running' : 'A game is running') : (g && g.state === 'idle' ? 'No game active' : (g ? g.text : '-'));
       $('ov-game-state').textContent = gt;
       $('ov-game-state').className = 'big ' + (running ? 'ok' : (g && g.state === 'failed' ? 'bad' : ''));
       $('ov-game-sub').textContent = g && g.state === 'failed' && g.message ? g.message : (gv.busy ? gv.text : '');
@@ -317,8 +317,8 @@
     if (!shown.length) {
       var e = el('article', 'card status ovctrl');
       e.appendChild(el('h2', '', 'Controllers'));
-      e.appendChild(el('p', 'big warn', 'Nog geen controller'));
-      var a = el('a', 'button secondary', 'Controller koppelen');
+      e.appendChild(el('p', 'big warn', 'No controller yet'));
+      var a = el('a', 'button secondary', 'Pair controller');
       a.href = '#/controllers';
       var pa = el('p', 'actions'); pa.appendChild(a); e.appendChild(pa);
       box.appendChild(e);
@@ -328,14 +328,14 @@
       var card = el('article', 'card status ovctrl');
       var h = el('h2');
       if (c.type === 'move') h.appendChild(ledChip(c.led && c.led.rgb, 'led-chip'));
-      h.appendChild(document.createTextNode(c.name + (c.player ? ' · speler ' + c.player : '')));
+      h.appendChild(document.createTextNode(c.name + (c.player ? ' · player ' + c.player : '')));
       card.appendChild(h);
       var bw = el('div', 'batwrap');
       var bv = A.controllerBattery(c);
       drawBattery(bw, bv);
       card.appendChild(bw);
-      card.appendChild(el('p', 'big ' + (c.connected ? 'ok' : 'warn'), c.connected ? 'Verbonden' : 'Niet verbonden'));
-      var sub = c.connected ? batteryText(bv, true) : (c.type === 'move' ? 'Zet de Move aan met de PS-knop.' : 'Niet in gebruik.');
+      card.appendChild(el('p', 'big ' + (c.connected ? 'ok' : 'warn'), c.connected ? 'Connected' : 'Niet verbonden'));
+      var sub = c.connected ? batteryText(bv, true) : (c.type === 'move' ? 'Turn the Move on with the PS button.' : 'Not in use.');
       if (c.type === 'move' && c.connected && c.player === player && lastSample && lastSample.ext && lastSample.ext.connected) sub += '. Sharp Shooter aangesloten.';
       card.appendChild(el('p', 'sub', A.controllerTypeLabel(c.type) + '. ' + sub));
       box.appendChild(card);
@@ -343,8 +343,8 @@
   }
   $('ov-gun-btn').addEventListener('click', function (e) {
     var armed = lastStatus && lastStatus.output && lastStatus.output.armed;
-    if (!armed && !window.confirm('De lightgun aanzetten? Games krijgen dan muisbeweging en knoppen van de Move.')) return;
-    submit(armed ? '/api/disarm' : '/api/arm', {}, $('ov-gun-err'), armed ? 'Lightgun staat uit' : 'Lightgun staat aan', e.target, refreshOverview);
+    if (!armed && !window.confirm('Turn on the lightgun? Games then receive mouse movement and buttons from the Move.')) return;
+    submit(armed ? '/api/disarm' : '/api/arm', {}, $('ov-gun-err'), armed ? 'Lightgun is off' : 'Lightgun is on', e.target, refreshOverview);
   });
   $('btn-center').addEventListener('click', function (e) {
     var m = $('center-msg');
@@ -353,8 +353,8 @@
     api('/api/recenter', P({})).then(function (j) {
       e.target.disabled = false;
       if (j.ok) { m.textContent = 'Gecentreerd.'; setTimeout(function () { m.textContent = ''; }, 2500); }
-      else { m.className = 'msg bad'; m.textContent = j.httpStatus === 503 ? 'Centreren lukt nog niet: is de Move van speler ' + player + ' aan en verbonden?' : errText(j); }
-    }).catch(function () { e.target.disabled = false; m.className = 'msg bad'; m.textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+      else { m.className = 'msg bad'; m.textContent = j.httpStatus === 503 ? 'Centering failed: is the Move of player ' + player + ' on and connected?' : errText(j); }
+    }).catch(function () { e.target.disabled = false; m.className = 'msg bad'; m.textContent = 'The background program is not reachable.'; });
   });
 
   // ---- Richten ----
@@ -366,49 +366,49 @@
   function buildRichten() {
     var err = $('rich-err');
     switches.filter = makeSwitch($('sw-filter'), {
-      label: 'Richtpunt gladstrijken', help: 'Haalt het trillen van je hand uit de cursor.', errEl: err,
+      label: 'Smooth aim point', help: 'Removes hand shake from the cursor.', errEl: err,
       apply: function (on) { return call('/api/filter', P({ enabled: on })).then(function (j) { return j.result.enabled; }); }
     });
     var sl = $('sl-richten');
     sliders.predict = makeSlider(sl, {
-      name: 'Vooruitkijken', help: 'De cursor kijkt zoveel milliseconden vooruit, zodat hij niet achterloopt op je hand. 0 is uit.',
+      name: 'Prediction', help: 'The cursor looks this many milliseconds ahead so it does not lag behind your hand. 0 is off.',
       min: 0, max: 100, step: 1, fmt: function (v) { return fmt(v, 0) + ' ms'; },
       send: function (v) { return call('/api/aim', P({ predict_ms: v })); },
       actual: function (r) { return r.predict_ms; }
     });
     sliders.mincut = makeSlider(sl, {
-      name: 'Rust bij stilhouden', help: 'Lager = een rustiger richtpunt, maar het volgt je hand wat trager.',
+      name: 'Rest when holding still', help: 'Lower = a steadier aim point, but it follows your hand more slowly.',
       scale: A.logScale(0.05, 5, 1000), fmt: function (v) { return fmt(v, 2); },
       send: function (v) { return call('/api/filter', P({ min_cutoff_hz: v })); },
       actual: function (r) { return r.min_cutoff_hz; }
     });
     sliders.beta = makeSlider(sl, {
-      name: 'Reactiesnelheid bij snel richten', help: 'Hoger = minder vertraging als je snel zwaait, maar iets onrustiger.',
+      name: 'Response speed when aiming fast', help: 'Higher = less lag when you swing fast, but a little less steady.',
       min: 0, max: 100, step: 1, fmt: function (v) { return fmt(v, 0); },
       send: function (v) { return call('/api/filter', P({ beta: v })); },
       actual: function (r) { return r.beta; }
     });
     var adv = $('sl-richten-adv');
     sliders.hedge = makeSlider(adv, {
-      name: 'Draaihoek tot de rand, links en rechts', help: 'Hoeveel graden je de Move draait van het midden tot de zijkant van het scherm. Kleiner = gevoeliger.',
-      min: 1, max: 89, step: 1, fmt: function (v) { return fmt(v, 0) + ' graden'; },
+      name: 'Rotation to the edge, left and right', help: 'How many degrees you turn the Move from the center to the side of the screen. Smaller = more sensitive.',
+      min: 1, max: 89, step: 1, fmt: function (v) { return fmt(v, 0) + ' degrees'; },
       send: function (v) { return call('/api/aim', P({ h_edge_deg: v })); },
       actual: function (r) { return r.h_edge_deg; }
     });
     sliders.vedge = makeSlider(adv, {
-      name: 'Draaihoek tot de rand, boven en onder', help: 'Zelfde, voor omhoog en omlaag.',
-      min: 1, max: 89, step: 1, fmt: function (v) { return fmt(v, 0) + ' graden'; },
+      name: 'Rotation to the edge, up and down', help: 'The same, for up and down.',
+      min: 1, max: 89, step: 1, fmt: function (v) { return fmt(v, 0) + ' degrees'; },
       send: function (v) { return call('/api/aim', P({ v_edge_deg: v })); },
       actual: function (r) { return r.v_edge_deg; }
     });
     sliders.dcut = makeSlider(adv, {
-      name: 'Snelheidsfilter', help: 'Hoe vloeiend de snelheid van je hand wordt gemeten (afsnijfrequentie in Hz).',
+      name: 'Velocity filter', help: 'How smoothly your hand velocity is measured (cutoff frequency in Hz).',
       min: 1, max: 100, step: 1, fmt: function (v) { return fmt(v, 0) + ' Hz'; },
       send: function (v) { return call('/api/filter', P({ d_cutoff_hz: v })); },
       actual: function (r) { return r.d_cutoff_hz; }
     });
     sliders.extrap = makeSlider(adv, {
-      name: 'Doorlopen bij een haperende verbinding', help: 'Hoe lang de cursor doorloopt als de Move even geen gegevens stuurt (daarna blijft hij staan).',
+      name: 'Keep going on a stuttering connection', help: 'How long the cursor keeps moving when the Move briefly sends no data (after that it stops).',
       min: 0, max: 100, step: 1, fmt: function (v) { return fmt(v, 0) + ' ms'; },
       send: function (v) { return call('/api/clock', { extrapolate_ms: v }); },
       actual: function (r) { return r.extrapolate_ms; }
@@ -431,13 +431,13 @@
       });
     });
     switches.learn = makeSwitch($('sw-learn'), {
-      label: 'Leren van centreren', help: 'Elke keer dat je centreert leert de Move bij hoe hij wegdraait en corrigeert dat zelf.', errEl: $('fusion-err'),
+      label: 'Learn from centering', help: 'Every time you center, the Move learns how it drifts and corrects it itself.', errEl: $('fusion-err'),
       apply: function (on) { return call('/api/fusion', P({ recenter_learning: on })).then(function (j) { return j.result.recenter_learning; }); }
     });
     $('rich-reset').addEventListener('click', function (e) {
       var d = defaults || {};
       var f = d.filter || {}, a = d.aim || {};
-      if (!d.filter) { $('rich-err').textContent = 'De standaardwaarden zijn niet beschikbaar.'; return; }
+      if (!d.filter) { $('rich-err').textContent = 'The defaults are not available.'; return; }
       $('rich-err').textContent = '';
       e.target.disabled = true;
       call('/api/filter', P({ enabled: f.enabled, min_cutoff_hz: f.min_cutoff_hz, beta: f.beta, d_cutoff_hz: f.d_cutoff_hz }))
@@ -467,7 +467,7 @@
         box.appendChild(lab);
         r.addEventListener('change', function () {
           $('clock-err').textContent = '';
-          call('/api/clock', { clock_hz: c.hz }).then(function (j) { renderClock(j.result.clock_hz); toast('Uitvoerklok: ' + (c.hz ? c.hz + ' Hz' : 'uit')); },
+          call('/api/clock', { clock_hz: c.hz }).then(function (j) { renderClock(j.result.clock_hz); toast('Output clock: ' + (c.hz ? c.hz + ' Hz' : 'off')); },
             function (e) { $('clock-err').textContent = errMsg(e); refreshRichten(true); });
         });
       });
@@ -496,13 +496,13 @@
     }).catch(function () {});
   }
   $('cal-open').addEventListener('click', function (e) {
-    submit('/api/calibrate/ui', { action: 'open' }, $('cal-err'), 'Kalibratiescherm geopend op de tv', e.target, refreshCal);
+    submit('/api/calibrate/ui', { action: 'open' }, $('cal-err'), 'Calibration screen opened on the TV', e.target, refreshCal);
   });
   $('cal-practice').addEventListener('click', function (e) {
-    submit('/api/calibrate/ui', { action: 'open', step: 'practice' }, $('cal-err'), 'Oefenscherm geopend op de tv', e.target, refreshCal);
+    submit('/api/calibrate/ui', { action: 'open', step: 'practice' }, $('cal-err'), 'Practice screen opened on the TV', e.target, refreshCal);
   });
   $('cal-close').addEventListener('click', function (e) {
-    submit('/api/calibrate/ui', { action: 'close' }, $('cal-err'), 'Scherm gesloten', e.target, refreshCal);
+    submit('/api/calibrate/ui', { action: 'close' }, $('cal-err'), 'Screen closed', e.target, refreshCal);
   });
 
   // ---- Live richtpunt en bol (stroom) ----
@@ -518,8 +518,8 @@
     g.moveTo(0, h / 2); g.lineTo(w, h / 2);
     g.stroke();
     var a = last && last.aim;
-    if (!a || !a.valid) { $('aim-note').textContent = 'Zet de Move aan om te zien waar hij wijst.'; return; }
-    $('aim-note').textContent = a.off_screen ? 'buiten het scherm' : '';
+    if (!a || !a.valid) { $('aim-note').textContent = 'Turn on the Move to see where it points.'; return; }
+    $('aim-note').textContent = a.off_screen ? 'off screen' : '';
     function dot(x, y, color, r) {
       var px = Math.max(0, Math.min(1, x)) * w, py = Math.max(0, Math.min(1, y)) * h;
       g.fillStyle = color;
@@ -535,14 +535,14 @@
     g.strokeRect(0.5, 0.5, w - 1, h - 1);
     var p = last && last.position;
     if (!p || !p.valid) {
-      $('cam-see').textContent = 'Nee, de bol is niet in beeld';
+      $('cam-see').textContent = 'No, the ball is not in view';
       $('cam-see').className = 'big warn';
-      $('mini-note').textContent = 'Alleen een stip, nooit een camerabeeld.' + (p && p.reason && p.reason !== 'none' ? ' (' + p.reason + ')' : '');
+      $('mini-note').textContent = 'Only a dot, never a camera image.' + (p && p.reason && p.reason !== 'none' ? ' (' + p.reason + ')' : '');
       return;
     }
-    $('cam-see').textContent = 'Ja, de bol is in beeld';
+    $('cam-see').textContent = 'Yes, the ball is in view';
     $('cam-see').className = 'big ok';
-    $('mini-note').textContent = 'Alleen een stip, nooit een camerabeeld.';
+    $('mini-note').textContent = 'Only a dot, never a camera image.';
     var r = Math.max(5, (p.radius_px / p.image_w) * w);
     g.strokeStyle = '#5ad19a';
     g.lineWidth = 2;
@@ -571,13 +571,13 @@
   function buildTrillen() {
     var err = $('rum-err');
     switches.rumble = makeSwitch($('sw-rumble'), {
-      label: 'Trillen aan', help: 'Zet het trillen van de Move bij schieten aan of uit.', errEl: err,
+      label: 'Rumble on', help: 'Turn the Move rumble when shooting on or off.', errEl: err,
       apply: function (on) { return call('/api/rumble', P({ enabled: on })).then(function (j) { return j.result.enabled; }); }
     });
     var sl = $('sl-trillen');
     function pct(v) { return A.percent255(v) + ' %'; }
     sliders.rstrength = makeSlider(sl, {
-      name: 'Sterkte', help: 'Hoe hard de Move trilt bij een schot.', min: 0, max: 255, step: 1, fmt: pct,
+      name: 'Strength', help: 'How hard the Move rumbles on a shot.', min: 0, max: 255, step: 1, fmt: pct,
       send: function (v) { return call('/api/rumble', P({ strength: Math.round(v) })); }, actual: function (r) { return r.strength; }
     });
     sliders.rpulse = makeSlider(sl, {
@@ -585,12 +585,12 @@
       send: function (v) { return call('/api/rumble', P({ pulse_ms: Math.round(v) })); }, actual: function (r) { return r.pulse_ms; }
     });
     sliders.rrepeat = makeSlider(sl, {
-      name: 'Ritme bij vasthouden', help: 'Hoe vaak de Move trilt als je de trekker ingedrukt houdt. 0 is een enkele trilling per schot.',
+      name: 'Rhythm while holding', help: 'How often the Move rumbles while you hold the trigger. 0 is a single pulse per shot.',
       min: 0, max: 30, step: 1, fmt: function (v) { return v === 0 ? 'enkel' : fmt(v, 0) + ' per seconde'; },
       send: function (v) { return call('/api/rumble', P({ repeat_hz: v })); }, actual: function (r) { return r.repeat_hz; }
     });
     sliders.rpump = makeSlider(sl, {
-      name: 'Sterkte bij de pomp', help: 'Hoe hard de Move trilt als je de Sharp Shooter pompt. 0 is uit.', min: 0, max: 255, step: 1, fmt: pct,
+      name: 'Pump strength', help: 'How hard the Move rumbles when you pump the Sharp Shooter. 0 is off.', min: 0, max: 255, step: 1, fmt: pct,
       send: function (v) { return call('/api/rumble', P({ pump_strength: Math.round(v) })); }, actual: function (r) { return r.pump_strength; }
     });
     $('rum-test').addEventListener('click', function (e) {
@@ -601,7 +601,7 @@
         e.target.disabled = false;
         if (j.ok) { m.textContent = 'Testpuls gestuurd.'; setTimeout(function () { m.textContent = ''; }, 2500); }
         else err.textContent = j.httpStatus === 503 ? 'Geen trilling: ' + errText(j) : errText(j);
-      }).catch(function () { e.target.disabled = false; err.textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+      }).catch(function () { e.target.disabled = false; err.textContent = 'The background program is not reachable.'; });
     });
   }
   function refreshTrillen() {
@@ -654,15 +654,15 @@
     box.appendChild(el('p', 'btnsep', 'Vaste knoppen'));
     row('t', 'Trekker', 'Schieten (vast)');
     row('ps', 'PS-knop', 'Centreren (vast)');
-    box.appendChild(el('p', 'btnsep', 'Knoppen van de Move'));
+    box.appendChild(el('p', 'btnsep', 'Move buttons'));
     A.BUTTONS.forEach(function (b) {
       if (b.group === 'move') row(b.id, b.label);
     });
-    box.appendChild(el('p', 'btnsep', 'Knoppen van de Sharp Shooter (alleen als hij aangesloten is)'));
+    box.appendChild(el('p', 'btnsep', 'Sharp Shooter buttons (only when connected)'));
     A.BUTTONS.forEach(function (b) {
       if (b.group === 'sharp') row(b.id, b.label);
     });
-    box.appendChild(el('p', 'btnsep', 'Knoppen van de Navigation Controller (als die bij deze speler hoort)'));
+    box.appendChild(el('p', 'btnsep', 'Navigation Controller buttons (when it belongs to this player)'));
     A.BUTTONS.forEach(function (b) {
       if (b.group === 'nav') row(b.id, b.label);
     });
@@ -687,7 +687,7 @@
       if (btnRows[b.id]) btnRows[b.id].classList.toggle('changed', ch.changes[b.id] !== undefined);
     });
     $('btn-savebar').hidden = ch.count === 0;
-    $('btn-pending').textContent = ch.count === 1 ? '1 wijziging nog niet opgeslagen' : ch.count + ' wijzigingen nog niet opgeslagen';
+    $('btn-pending').textContent = ch.count === 1 ? '1 change not saved yet' : ch.count + ' changes not saved yet';
   }
   function copyMap(m) { var o = {}; A.BUTTONS.forEach(function (b) { o[b.id] = m[b.id] || 'none'; }); return o; }
   function loadKnoppen(force) {
@@ -703,7 +703,7 @@
     var down = A.pressedSet(last && last.buttons && last.buttons.down, last ? last.trigger : 0);
     Object.keys(btnRows).forEach(function (id) { btnRows[id].classList.toggle('down', !!down[id]); });
     var linked = last && last.link && last.link !== 'disconnected' && last.link !== 'lost';
-    $('btn-live').textContent = linked ? 'De Move van speler ' + player + ' is verbonden: druk op een knop om te zien welke regel oplicht.' : 'Zet de Move van speler ' + player + ' aan (PS-knop) om de knoppen uit te proberen.';
+    $('btn-live').textContent = linked ? 'The Move of player ' + player + ' is connected: press a button to see which row lights up.' : 'Turn on the Move of player ' + player + ' (PS button) to try the buttons.';
   }
   $('btn-save').addEventListener('click', function (e) {
     var ch = A.mapChanges(btnBase, btnEdit);
@@ -713,7 +713,7 @@
       btnBase = copyMap(r.map || {});
       btnEdit = copyMap(btnBase);
       applyEditToSelects();
-      $('btn-msg').textContent = r.saved ? 'Opgeslagen. De nieuwe indeling werkt meteen.' : 'De nieuwe indeling werkt, maar is niet bewaard' + (r.save_error ? ': ' + r.save_error : '') + '.';
+      $('btn-msg').textContent = r.saved ? 'Saved. The new layout works immediately.' : 'The new layout works, but was not saved' + (r.save_error ? ': ' + r.save_error : '') + '.';
       $('btn-msg').className = r.saved ? 'msg' : 'msg bad';
       toast('Knoppen opgeslagen');
     });
@@ -721,11 +721,11 @@
   $('btn-undo').addEventListener('click', function () { btnEdit = copyMap(btnBase); applyEditToSelects(); $('btn-err').textContent = ''; });
   $('btn-defaults').addEventListener('click', function () {
     var d = defaults && defaults.gun_buttons && defaults.gun_buttons.map;
-    if (!d) { $('btn-err').textContent = 'De standaardindeling is niet beschikbaar.'; return; }
+    if (!d) { $('btn-err').textContent = 'The default layout is not available.'; return; }
     btnEdit = copyMap(d);
     applyEditToSelects();
     $('btn-err').textContent = '';
-    $('btn-msg').textContent = 'Standaardindeling klaargezet: kies Opslaan om hem te gebruiken.';
+    $('btn-msg').textContent = 'Default layout prepared: choose Save to use it.';
     $('btn-msg').className = 'msg';
   });
 
@@ -749,7 +749,7 @@
       chip.style.background = rgbCss(p.rgb[0], p.rgb[1], p.rgb[2]);
       var t = el('span');
       t.appendChild(document.createTextNode(p.label));
-      t.appendChild(el('small', '', p.hue_deg === null ? 'camera ziet de bol niet' : ''));
+      t.appendChild(el('small', '', p.hue_deg === null ? 'camera does not see the ball' : ''));
       b.appendChild(chip); b.appendChild(t);
       b.addEventListener('click', function () { applyLed({ preset: p.name }, $('led-err'), b); });
       box.appendChild(b);
@@ -760,15 +760,15 @@
     box.textContent = '';
     box.hidden = false;
     var tr = r.tracker;
-    box.appendChild(el('p', '', 'De LED staat op ' + (r.led.custom ? 'een eigen kleur' : r.led.preset) + '.'));
+    box.appendChild(el('p', '', 'The LED is set to ' + (r.led.custom ? 'a custom colour' : r.led.preset) + '.'));
     box.appendChild(el('p', '', tr.changed
-      ? 'De camera zoekt nu naar die kleur' + (tr.applied_live ? '.' : ' (geldt bij de volgende start: de camera is niet actief).')
-      : 'De zoekkleur van de camera is niet veranderd.'));
+      ? 'The camera now looks for that colour' + (tr.applied_live ? '.' : ' (applies on the next start: the camera is not active).')
+      : 'The camera search colour has not changed.'));
     r.warnings.forEach(function (w) { box.appendChild(el('p', 'warnbox', w)); });
-    box.appendChild(el('p', 'muted', r.saved ? 'Bewaard.' : 'Niet bewaard' + (r.save_error ? ': ' + r.save_error : '') + '.'));
+    box.appendChild(el('p', 'muted', r.saved ? 'Saved.' : 'Not saved' + (r.save_error ? ': ' + r.save_error : '') + '.'));
   }
   function applyLed(body, errEl, btn) {
-    submit('/api/led', P(body), errEl, 'LED ingesteld voor speler ' + player, btn, function (r) {
+    submit('/api/led', P(body), errEl, 'LED set for player ' + player, btn, function (r) {
       activeLed = r.led.rgb;
       renderPresets();
       showLedResult(r);
@@ -823,12 +823,12 @@
     });
     var sl = $('sl-camera');
     sliders.cexp = makeSlider(sl, {
-      name: 'Belichting', help: 'Hoe lang de camera licht opvangt. Te hoog: de bol wordt wit. Alleen als de belichting niet automatisch is.',
+      name: 'Exposure', help: 'How long the camera captures light. Too high: the ball turns white. Only when exposure is not automatic.',
       min: 0, max: 255, step: 1, fmt: function (v) { return fmt(v, 0); },
       send: function (v) { return camApply({ exposure: Math.round(v) }); }, actual: function (r) { return r.controls.exposure; }
     });
     sliders.cgain = makeSlider(sl, {
-      name: 'Gain', help: 'Versterking van het camerabeeld. Houd dit laag. Alleen als de gain niet automatisch is.',
+      name: 'Gain', help: 'Amplification of the camera image. Keep this low. Only when gain is not automatic.',
       min: 0, max: 63, step: 1, fmt: function (v) { return fmt(v, 0); },
       send: function (v) { return camApply({ gain: Math.round(v) }); }, actual: function (r) { return r.controls.gain; }
     });
@@ -849,8 +849,8 @@
       if (!j.ok) return;
       var cam = j.result, fr = cam.frames || {}, m = cam.mode || {};
       var live = cam.enabled && cam.state === 'streaming';
-      $('cam-state').textContent = !cam.enabled ? 'De camera staat uit (de daemon draait zonder camera).' :
-        (live ? 'Camera werkt: ' + fmt(fr.fps_5s, 0) + ' beelden per seconde.' : 'De camera werkt nu niet' + (cam.error ? ': ' + cam.error : '') + '.');
+      $('cam-state').textContent = !cam.enabled ? 'The camera is off (the daemon runs without a camera).' :
+        (live ? 'Camera working: ' + fmt(fr.fps_5s, 0) + ' frames per second.' : 'The camera is not working now' + (cam.error ? ': ' + cam.error : '') + '.');
       if (!live) return;
       var ex = findCtrl(cam, function (n) { return n.indexOf('exposure') >= 0 && n.indexOf('auto') < 0; });
       var ga = findCtrl(cam, function (n) { return n.indexOf('gain') >= 0 && n.indexOf('auto') < 0; });
@@ -911,7 +911,7 @@
       box.appendChild(card);
       gameCards[g.profile] = { card: card, state: state, play: play, stop: stop };
     });
-    if (!list.length) box.appendChild(el('p', 'muted', 'Er zijn geen games gevonden.'));
+    if (!list.length) box.appendChild(el('p', 'muted', 'No games found.'));
   }
   function updateGames(status) {
     var v = A.gameStateView(status);
@@ -937,7 +937,7 @@
       gamesCache = r;
       var sig = JSON.stringify(r.games);
       if (sig !== gamesSig) { gamesSig = sig; buildGames(r.games); }
-      $('game-hint').textContent = r.available ? 'Spelen zet de lightgun aan en start de game. Heb je de Move nog niet aangezet, druk dan op de PS-knop.' : (r.message || '');
+      $('game-hint').textContent = r.available ? 'Play turns the lightgun on and starts the game. If you have not switched on the Move yet, press the PS button.' : (r.message || '');
       updateGames(r.status);
     }).catch(function () {});
   }
@@ -949,7 +949,7 @@
       if (!j.ok) $('game-err').textContent = errText(j);
       else updateGames(j.result);
       refreshGames();
-    }).catch(function () { gameBusy = false; $('game-err').textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+    }).catch(function () { gameBusy = false; $('game-err').textContent = 'The background program is not reachable.'; });
   }
   function gameStop(btn) {
     $('game-err').textContent = '';
@@ -959,7 +959,7 @@
       if (!j.ok) $('game-err').textContent = errText(j);
       else updateGames(j.result);
       refreshGames();
-    }).catch(function () { btn.disabled = false; $('game-err').textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+    }).catch(function () { btn.disabled = false; $('game-err').textContent = 'The background program is not reachable.'; });
   }
   $('game-stop-all').addEventListener('click', function (e) { gameStop(e.target); });
 
@@ -979,8 +979,8 @@
     $('pair-text').textContent = v.text;
     $('pair-text').className = 'big ' + (v.tone === 'ok' ? 'ok' : v.tone === 'bad' ? 'bad' : v.tone === 'warn' ? 'warn' : '');
     var sub = v.message;
-    if (v.state === 'done' && p && p.player) sub = 'De controller is speler ' + p.player + '. Je kunt de naam en de speler hieronder aanpassen.';
-    if (v.busy) sub = sub || 'Even geduld...';
+    if (v.state === 'done' && p && p.player) sub = 'The controller is player ' + p.player + '. You can change the name and player below.';
+    if (v.busy) sub = sub || 'Please wait...';
     $('pair-msg').textContent = sub;
     $('pair-install').hidden = !v.showInstall;
     $('pair-cmd').textContent = (p && p.helper && p.helper.install_command) || (helper && helper.install_command) || '';
@@ -998,7 +998,7 @@
       if (!j.ok) { $('pair-err').textContent = errText(j); return; }
       renderPair(j.result, null);
       restartCtrlPoll();
-    }).catch(function () { if (btn) btn.disabled = false; $('pair-err').textContent = 'Het programma op de achtergrond is niet bereikbaar.'; });
+    }).catch(function () { if (btn) btn.disabled = false; $('pair-err').textContent = 'The background program is not reachable.'; });
   }
   $('pair-start').addEventListener('click', function (e) { pairAction('start', e.target); });
   $('pair-confirm').addEventListener('click', function (e) { pairAction('confirm', e.target); });
@@ -1020,19 +1020,19 @@
     var bv = A.controllerBattery(c);
     var dl = el('dl');
     var rows = [
-      ['Speler', c.removed ? 'geen (verwijderd)' : (c.player ? (c.type === 'move' ? 'speler ' + c.player : 'hoort bij speler ' + c.player) : 'geen'), ''],
-      ['Verbonden', c.connected ? 'ja' + (c.connection === 'usb' ? ' (USB)' : '') : 'nee', c.connected ? 'ok' : 'warn'],
-      ['Batterij', c.connected ? bv.label + (bv.detail ? ' (' + bv.detail + ')' : '') : '-', bv.level === 'low' ? 'bad' : ''],
-      ['Laatst gezien', c.connected ? 'nu' : A.lastSeenText(c.last_seen_unix, nowS), ''],
-      ['Gekoppeld aan deze pc', c.paired ? 'ja' : 'nee', c.paired ? '' : 'warn']
+      ['Player', c.removed ? 'none (removed)' : (c.player ? (c.type === 'move' ? 'player ' + c.player : 'belongs to player ' + c.player) : 'none'), ''],
+      ['Connected', c.connected ? 'yes' + (c.connection === 'usb' ? ' (USB)' : '') : 'no', c.connected ? 'ok' : 'warn'],
+      ['Battery', c.connected ? bv.label + (bv.detail ? ' (' + bv.detail + ')' : '') : '-', bv.level === 'low' ? 'bad' : ''],
+      ['Last seen', c.connected ? 'now' : A.lastSeenText(c.last_seen_unix, nowS), ''],
+      ['Paired to this PC', c.paired ? 'yes' : 'no', c.paired ? '' : 'warn']
     ];
-    if (c.overrides) rows.push(['Eigen instellingen', c.overrides + ' afwijkend van de standaard', '']);
+    if (c.overrides) rows.push(['Custom settings', c.overrides + ' different from the default', '']);
     fill(dl, rows);
     card.appendChild(dl);
     var err = el('p', 'err');
     err.setAttribute('role', 'alert');
     if (!c.known) {
-      card.appendChild(el('p', 'hint', 'Bluetooth kent deze controller, maar RavenGun nog niet. Zet hem aan met de PS-knop.'));
+      card.appendChild(el('p', 'hint', 'Bluetooth knows this controller, but RavenGun does not yet. Turn it on with the PS button.'));
     }
     if (c.known && !c.removed) {
       // Naam en speler.
@@ -1047,18 +1047,18 @@
       save.type = 'button';
       save.addEventListener('click', function () {
         var v = inp.value.trim();
-        if (!v) { err.textContent = 'Geef een naam van 1 tot 32 tekens.'; return; }
+        if (!v) { err.textContent = 'Enter a name of 1 to 32 characters.'; return; }
         ctrlEditing[c.key] = false;
         ctrlUpdate(c, { name: v }, 'Naam bewaard', err, save);
       });
       form.appendChild(save);
       card.appendChild(form);
-      var pl = el('label', '', c.type === 'move' ? 'Speler (een bezette speler wordt geruild)' : 'Hoort bij speler');
+      var pl = el('label', '', c.type === 'move' ? 'Player (an occupied player is swapped)' : 'Belongs to player');
       var sel = el('select');
-      for (var i = 1; i <= A.MAX_PLAYERS; i++) sel.appendChild(new Option('Speler ' + i, String(i)));
+      for (var i = 1; i <= A.MAX_PLAYERS; i++) sel.appendChild(new Option('Player ' + i, String(i)));
       sel.value = String(c.player || 1);
       sel.addEventListener('change', function () {
-        ctrlUpdate(c, { new_player: Number(sel.value) }, 'Spelernummer aangepast', err, sel);
+        ctrlUpdate(c, { new_player: Number(sel.value) }, 'Player number changed', err, sel);
       });
       pl.appendChild(sel);
       card.appendChild(pl);
@@ -1067,10 +1067,10 @@
     if (c.type === 'move' && c.known && !c.removed) {
       var blink = el('button', 'secondary', 'Knipperen');
       blink.type = 'button';
-      blink.title = 'De LED van deze Move knippert 3 seconden wit, zodat je ziet welke het is.';
+      blink.title = 'The LED of this Move blinks white for 3 seconds so you can see which one it is.';
       blink.addEventListener('click', function () {
         err.textContent = '';
-        submit('/api/controllers/blink', { controller: c.key }, err, 'De LED knippert', blink);
+        submit('/api/controllers/blink', { controller: c.key }, err, 'The LED blinks', blink);
       });
       acts.appendChild(blink);
     }
@@ -1078,7 +1078,7 @@
       var reset = el('button', 'secondary', 'Standaardinstellingen');
       reset.type = 'button';
       reset.addEventListener('click', function () {
-        if (!window.confirm('De eigen instellingen van ' + c.name + ' wissen? Dan gelden weer de standaardinstellingen.')) return;
+        if (!window.confirm('Clear the custom settings of ' + c.name + '? The defaults apply again.')) return;
         ctrlUpdate(c, { reset_settings: true }, 'Standaardinstellingen hersteld', err, reset);
       });
       acts.appendChild(reset);
@@ -1090,7 +1090,7 @@
     // Verwijderen met bevestiging: instellingen bewaren of wissen.
     var conf = el('div', 'confirm');
     conf.hidden = true;
-    conf.appendChild(el('p', '', c.name + ' verwijderen? De controller wordt bij Bluetooth ontkoppeld. Bewaar je de instellingen, dan krijgt hij ze terug als je hem opnieuw koppelt.'));
+    conf.appendChild(el('p', '', c.name + ' remove? The controller is unpaired from Bluetooth. If you keep the settings, it gets them back when you pair it again.'));
     var ca = el('p', 'actions');
     var keep = el('button', 'danger', 'Verwijderen, instellingen bewaren');
     var forget = el('button', 'danger', 'Verwijderen en instellingen wissen');
@@ -1126,13 +1126,13 @@
         box.textContent = '';
         var nowS = Date.now() / 1000;
         r.controllers.forEach(function (c) { box.appendChild(buildCtrlCard(c, nowS)); });
-        if (!r.controllers.length) box.appendChild(el('p', 'muted', 'Nog geen controllers. Koppel er een met de knop hierboven.'));
+        if (!r.controllers.length) box.appendChild(el('p', 'muted', 'No controllers yet. Pair one with the button above.'));
       }
       var notes = [];
-      if (!r.adapter.found) notes.push('Er is geen Bluetooth-adapter gevonden' + (r.adapter.error ? ' (' + r.adapter.error + ')' : '') + '.');
-      if (!r.helper.installed) notes.push('Koppelen vraagt eenmalig een hulpprogramma met beheerrechten; de wizard laat zien hoe.');
+      if (!r.adapter.found) notes.push('No Bluetooth adapter found' + (r.adapter.error ? ' (' + r.adapter.error + ')' : '') + '.');
+      if (!r.helper.installed) notes.push('Pairing needs a helper with administrator rights once; the wizard shows how.');
       $('ctrl-hint').textContent = (notes.length ? notes.join(' ') + ' ' : '') +
-        'Elke Move is een speler met een eigen pistool in de game en eigen instellingen. Een Navigation Controller hoort bij een speler: zijn knoppen kies je bij Knoppen van die speler.';
+        'Each Move is a player with its own gun in the game and its own settings. A Navigation Controller belongs to a player: you choose its buttons under Buttons for that player.';
     }).catch(function () { setConn(false); });
   }
   function restartCtrlPoll() {
@@ -1145,11 +1145,11 @@
   function moveRows(s) {
     var c = s.controller;
     return [
-      ['Verbonden', c.connected ? 'ja' : 'nee, geen Move gevonden', c.connected ? 'ok' : 'warn'],
+      ['Connected', c.connected ? 'ja' : 'no, no Move found', c.connected ? 'ok' : 'warn'],
       ['Model', c.model || '-'],
       ['Verbinding', c.connection || '-'],
-      ['Controller-ID (afgeschermd)', c.id || '-'],
-      ['Kalibratie in de controller', c.connected ? yn(c.has_calibration) : '-'],
+      ['Controller ID (masked)', c.id || '-'],
+      ['Calibration in the controller', c.connected ? yn(c.has_calibration) : '-'],
       ['Magnetometer', c.magnetometer],
       ['Batterij', c.connected ? c.battery.text : '-'],
       ['Verbonden sinds', c.connected ? dur(c.connected_s) : '-'],
@@ -1158,7 +1158,7 @@
   }
   function camRows(s) {
     var cam = s.camera || {}, d = cam.device || {}, m = cam.mode || {};
-    if (!cam.enabled) return [['Camera', 'uit (--no-camera)', 'muted']];
+    if (!cam.enabled) return [['Camera', 'off (--no-camera)', 'muted']];
     return [
       ['Camera: toestand', cam.state, cam.state === 'streaming' ? 'ok' : 'warn'],
       ['Camera: model', d.card || '-'],
@@ -1170,21 +1170,21 @@
   function outRows(o) {
     var d = o.device || {};
     return [
-      ['Lightgun aan', o.armed ? 'ja (stuurt invoer)' : 'nee (stuurt niets)', o.armed ? 'warn' : ''],
+      ['Lightgun on', o.armed ? 'yes (sends input)' : 'no (sends nothing)', o.armed ? 'warn' : ''],
       ['Apparaat', d.name || '-'],
       ['Vaste link', d.stable_link || '-'],
-      ['Event-node', d.created ? (d.event_node || '-') : 'nog niet aangemaakt (eerste keer aanzetten maakt het)'],
+      ['Event-node', d.created ? (d.event_node || '-') : 'not created yet (turning it on the first time creates it)'],
       ['USB-id', d.vendor ? d.vendor + ':' + d.product : '-']
     ];
   }
   function fusionRows(f) {
     if (!f) return [];
     return [
-      ['Schatter (in de sample)', f.mode],
+      ['Estimator (in the sample)', f.mode],
       ['Yaw-bron', f.yaw_source === 'magnetometer' ? 'kompas-gecorrigeerd' : 'gyro', f.yaw_source === 'magnetometer' ? 'ok' : ''],
       ['Magnetometer', f.magnetometer + (f.mag_locked ? ', vergrendeld' : ''), f.magnetometer === 'disturbed' ? 'warn' : ''],
-      ['Openstaande yaw-fout', fmt(f.yaw_pending_deg, 2) + ' graden'],
-      ['Correctie', fmt(f.correction_rate_deg_s, 3) + ' graden/s (grens ' + fmt(f.correction_limit_deg_s, 3) + '), totaal ' + fmt(f.correction_total_deg, 2) + ' graden'],
+      ['Pending yaw error', fmt(f.yaw_pending_deg, 2) + ' degrees'],
+      ['Correctie', fmt(f.correction_rate_deg_s, 3) + ' graden/s (grens ' + fmt(f.correction_limit_deg_s, 3) + '), totaal ' + fmt(f.correction_total_deg, 2) + ' degrees'],
       ['Verticale bias (magnetometer)', fmt(f.vertical_bias_deg_s, 3) + ' graden/s']
     ];
   }
@@ -1202,8 +1202,8 @@
       fill($('inf-dev'), moveRows(s).concat(camRows(s)));
       fill($('inf-daemon'), [
         ['Looptijd', dur(inf.daemon.uptime_s)], ['PID', String(inf.daemon.pid)],
-        ['Webpoort', inf.daemon.web_port ? String(inf.daemon.web_port) : 'uit'],
-        ['LAN-toegang', inf.daemon.web_lan ? 'aan (token vereist)' : 'uit (alleen deze computer)']
+        ['Web port', inf.daemon.web_port ? String(inf.daemon.web_port) : 'off'],
+        ['LAN access', inf.daemon.web_lan ? 'on (token required)' : 'off (this computer only)']
       ]);
       var iv = r.interval_ms || {}, hp = s.processing_us || {};
       fill($('inf-imu'), [
@@ -1211,10 +1211,10 @@
         ['Interval p50 / p95 / max (ms)', fmt(iv.p50, 2) + ' / ' + fmt(iv.p95, 2) + ' / ' + fmt(iv.max, 1)],
         ['Gaten (volgnummer overgeslagen)', String(r.dropped_by_seq)],
         ['Lange tussenpozen (50 tot 250 ms)', String(r.long_dt_50_250ms)],
-        ['Gaten niet geintegreerd', String(r.gaps_not_integrated)],
+        ['Gaps not integrated', String(r.gaps_not_integrated)],
         ['Verwerking p50 / p95 / max (µs)', fmt(hp.p50, 0) + ' / ' + fmt(hp.p95, 0) + ' / ' + fmt(hp.max, 0)]
       ]);
-      if (!cam.enabled) fill($('inf-cam'), [['Camera', 'uit (--no-camera)', 'muted']]);
+      if (!cam.enabled) fill($('inf-cam'), [['Camera', 'off (--no-camera)', 'muted']]);
       else {
         var pu = cam.processing_us || {}, age = cam.age_at_processing_ms || {}, q = cam.queue || {};
         fill($('inf-cam'), [
@@ -1228,8 +1228,8 @@
       var tr = s.yaw_trim || {};
       var trackRows = [
         ['Driftcorrectie (ingesteld)', A.fusionLabel(s.config.fusion.mode)],
-        ['Filter (ingesteld)', s.config.filter.enabled ? 'aan' : 'uit'],
-        ['Leren van centreren', tr.learning ? 'aan' : 'uit'],
+        ['Filter (configured)', s.config.filter.enabled ? 'on' : 'off'],
+        ['Learn from centering', tr.learning ? 'on' : 'off'],
         ['Geleerde correctie', typeof tr.trim_deg_s === 'number' ? fmt(tr.trim_deg_s, 3) + ' graden/s' : '-'],
         ['Centreerdrukken gezien / geleerd', (tr.presses !== undefined ? tr.presses : '-') + ' / ' + (tr.learned !== undefined ? tr.learned : '-')]
       ];
@@ -1244,7 +1244,7 @@
         var i = res[3].result.info;
         if (res[3].result.values) $('web-port').value = $('web-port').matches(':focus') ? $('web-port').value : res[3].result.values.web.port;
         fill($('cfg-info'), [
-          ['Bestand', i.available ? i.path : 'geen (--no-config)'], ['Aanwezig', yn(i.file_present)],
+          ['File', i.available ? i.path : 'none (--no-config)'], ['Present', yn(i.file_present)],
           ['Toestand', i.state, i.state === 'loaded' ? 'ok' : (i.state === 'missing' ? '' : 'warn')], ['Schemaversie', String(i.schema)]
         ]);
         var msgs = [];
@@ -1254,8 +1254,8 @@
         setHidden($('cfg-msg'), !msgs.length, msgs.join('. '));
       }
       fill($('web-now'), [
-        ['Actieve poort', inf.daemon.web_port ? String(inf.daemon.web_port) : 'uit'],
-        ['LAN-toegang', inf.daemon.web_lan ? 'aan (token vereist)' : 'uit (alleen deze computer)']
+        ['Active port', inf.daemon.web_port ? String(inf.daemon.web_port) : 'off'],
+        ['LAN access', inf.daemon.web_lan ? 'on (token required)' : 'off (this computer only)']
       ]);
       if (res[4].ok) showOutput(res[4].result);
     }).catch(function () { setConn(false); });
@@ -1264,8 +1264,8 @@
     var p = o.pattern || {}, pos = o.position || {};
     var rows = outRows(o);
     rows.push(['Laatste positie', typeof pos.nx === 'number' ? fmt(pos.nx, 3) + ', ' + fmt(pos.ny, 3) : '-']);
-    rows.push(['Knoppen ingedrukt', o.buttons_down && o.buttons_down.length ? o.buttons_down.join(', ') : 'geen']);
-    rows.push(['Toetsen ingedrukt', o.keys_down && o.keys_down.length ? o.keys_down.join(', ') : 'geen']);
+    rows.push(['Buttons pressed', o.buttons_down && o.buttons_down.length ? o.buttons_down.join(', ') : 'none']);
+    rows.push(['Keys pressed', o.keys_down && o.keys_down.length ? o.keys_down.join(', ') : 'none']);
     fill($('out-state'), rows);
     var prow = [['Toestand', p.state || '-']];
     if (p.kind) prow.push(['Patroon', p.kind + (p.steps ? ' (stap ' + p.step + ' van ' + p.steps + ')' : '')]);
@@ -1285,43 +1285,43 @@
     }
   }
   $('out-arm').addEventListener('click', function (e) {
-    if (!window.confirm('De lightgun inschakelen? Games krijgen dan muisbeweging en knoppen van de Move.')) return;
-    submit('/api/arm', {}, $('out-err'), 'Lightgun staat aan', e.target, refreshInfo);
+    if (!window.confirm('Enable the lightgun? Games then receive mouse movement and buttons from the Move.')) return;
+    submit('/api/arm', {}, $('out-err'), 'Lightgun is on', e.target, refreshInfo);
   });
   $('out-disarm').addEventListener('click', function (e) {
-    submit('/api/disarm', {}, $('out-err'), 'Lightgun staat uit', e.target, refreshInfo);
+    submit('/api/disarm', {}, $('out-err'), 'Lightgun is off', e.target, refreshInfo);
   });
   Array.prototype.forEach.call(document.querySelectorAll('.pat'), function (b) {
     b.addEventListener('click', function () {
       var name = b.getAttribute('data-pattern');
       var body = { pattern: name };
       if (name === 'grid' || name === 'corners') body.dwell_ms = 600;
-      submit('/api/test-pattern', body, $('pat-err'), name === 'stop' ? 'Patroon gestopt' : 'Patroon gestart', b, refreshInfo);
+      submit('/api/test-pattern', body, $('pat-err'), name === 'stop' ? 'Pattern stopped' : 'Pattern started', b, refreshInfo);
     });
   });
   $('f-output').addEventListener('submit', function (e) {
     e.preventDefault();
     var errs = [];
     var body = { invert_x: $('o-ix').checked, invert_y: $('o-iy').checked };
-    body.scale_x = num('o-sx', 0.05, 20, 'Schaal X', errs);
-    body.scale_y = num('o-sy', 0.05, 20, 'Schaal Y', errs);
-    body.offset_x = num('o-ox', -1, 1, 'Verschuiving X', errs);
-    body.offset_y = num('o-oy', -1, 1, 'Verschuiving Y', errs);
-    body.viewport_x0 = num('o-x0', 0, 1, 'Beeld links', errs);
-    body.viewport_y0 = num('o-y0', 0, 1, 'Beeld boven', errs);
-    body.viewport_x1 = num('o-x1', 0, 1, 'Beeld rechts', errs);
-    body.viewport_y1 = num('o-y1', 0, 1, 'Beeld onder', errs);
+    body.scale_x = num('o-sx', 0.05, 20, 'Scale X', errs);
+    body.scale_y = num('o-sy', 0.05, 20, 'Scale Y', errs);
+    body.offset_x = num('o-ox', -1, 1, 'Offset X', errs);
+    body.offset_y = num('o-oy', -1, 1, 'Offset Y', errs);
+    body.viewport_x0 = num('o-x0', 0, 1, 'Image left', errs);
+    body.viewport_y0 = num('o-y0', 0, 1, 'Image top', errs);
+    body.viewport_x1 = num('o-x1', 0, 1, 'Image right', errs);
+    body.viewport_y1 = num('o-y1', 0, 1, 'Image bottom', errs);
     $('o-err').textContent = errs.join('. ');
     if (errs.length) return;
-    submit('/api/output', body, $('o-err'), 'Toegepast', e.target.querySelector('button'), refreshInfo);
+    submit('/api/output', body, $('o-err'), 'Applied', e.target.querySelector('button'), refreshInfo);
   });
   $('f-web').addEventListener('submit', function (e) {
     e.preventDefault();
     var errs = [];
-    var port = num('web-port', 1, 65535, 'Poort', errs, true);
+    var port = num('web-port', 1, 65535, 'Port', errs, true);
     $('web-err').textContent = errs.join('. ');
     if (errs.length) return;
-    submit('/api/web', { port: port }, $('web-err'), 'Poort bewaard (geldt na een herstart)', e.target.querySelector('button'), refreshInfo);
+    submit('/api/web', { port: port }, $('web-err'), 'Port saved (applies after a restart)', e.target.querySelector('button'), refreshInfo);
   });
 
   // ---- Navigatie ----

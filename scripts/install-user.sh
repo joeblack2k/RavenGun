@@ -81,7 +81,7 @@ if [[ "$(basename "$(dirname "$ROOT")")" == share && -x "$ROOT/../../bin/ravengu
     rm -rf "$STAGE"; STAGE=""
   else
     say "Copying $SRC_PREFIX to $PREFIX"
-    for d in bin lib share; do [[ -d $SRC_PREFIX/$d ]] && cp -a "$SRC_PREFIX/$d" "$STAGE/$d"; done
+    for d in bin lib share patches; do [[ -d $SRC_PREFIX/$d ]] && cp -a "$SRC_PREFIX/$d" "$STAGE/$d"; done
   fi
 else
   # Vanuit de repo: cmake --install. De app-build eerst, daarna de gewone build (die gaat voor bij dubbele bestanden).
@@ -98,16 +98,10 @@ fi
 if [[ -n $STAGE ]]; then
   [[ -x $STAGE/bin/ravengund && -x $STAGE/bin/ravengunctl ]] || die "ravengund or ravengunctl is missing in the tree to install"
   [[ -f $STAGE/share/ravengun/scripts/tp-add-game.py && -d $STAGE/share/ravengun/packaging ]] || die "the data folder (share/ravengun, with packaging/) is missing in the tree to install"
-  # De patches per game staan in hun eigen repo (ravengun-patches), niet in die van de loader: het is
-  # gebruikersinhoud en de loader hoort schoon te zijn. Ze zijn dus optioneel -- staat de map er (een
-  # ontwikkelcheckout met een koppeling ernaartoe), dan gaan ze mee; zo niet, dan zegt de installer
-  # waar ze horen.
-  if [[ -d $STAGE/share/ravengun/patches ]]; then
-    say "Patches per game: meegeleverd uit de checkout."
-  else
-    echo "Note: no patches/ in this tree -- the per-game patches live in their own repo (ravengun-patches)." >&2
-    echo "      Put them in ~/.local/share/ravengun/patches, or set RAVENGUN_PATCHES_DIR to a checkout." >&2
-  fi
+  # Nieuwe leveringen bevatten patches/ direct in de applicatiemap; de relatieve
+  # koppeling in de datamap behoudt compatibiliteit. Oude archieven blijven leesbaar.
+  [[ -d $STAGE/share/ravengun/patches ]] || die "the bundled patches/ folder is missing"
+  say "Per-game patches are bundled with the application; user settings stay separate."
   # Eisen van deze build (door make-release.sh vastgelegd): de glibc van de container waarin gebouwd is.
   if [[ -f $STAGE/share/ravengun/REQUIRES ]]; then
     need="$(sed -n 's/^glibc[ =>]*//p' "$STAGE/share/ravengun/REQUIRES" | head -1)"

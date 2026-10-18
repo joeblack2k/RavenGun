@@ -109,6 +109,29 @@ class Fixtures(unittest.TestCase):
         self.assertEqual(pl.validate_game_folder(d), [])
         self.assertEqual(pl.research_set(d), [])
 
+    def test_publieke_export_en_privebehoud(self):
+        d = maak_game(self.root, "Goed")
+        private = "Goed/dropin/ravengun-hasp/memory/dump"
+        write(os.path.join(self.root, private), "private")
+        write(os.path.join(d, "dropin/dropin.ini"), "[proef.dll]\nTo = .\n[" + private.split("/dropin/", 1)[1] + "]\nTo = .\n")
+        public = os.path.join(self.tmp, "public")
+        self.assertGreater(pl._ship.ship(self.root, public), 0)
+        self.assertFalse(os.path.exists(os.path.join(public, private)))
+        self.assertEqual(pl.validate_game_folder(os.path.join(public, "Goed")), [])
+        user = os.path.join(self.tmp, "user")
+        write(os.path.join(user, private), "owner")
+        write(os.path.join(user, "Goed/dropin/dropin.ini"), "[proef.dll]\nTo = custom\n")
+        self.assertEqual(pl._ship.preserve_user(self.root, user), 0)
+        with open(os.path.join(user, private)) as f:
+            self.assertEqual(f.read(), "owner")
+        with open(os.path.join(user, "Goed/dropin/dropin.ini")) as f:
+            text = f.read()
+        self.assertIn("To = custom", text)
+        self.assertIn("[ravengun-hasp/memory/dump]", text)
+        self.assertEqual(pl._ship.preserve_user(self.root, user), 0)
+        with open(os.path.join(user, "Goed/dropin/dropin.ini")) as f:
+            self.assertEqual(f.read(), text)
+
     # ---- levering compleet ------------------------------------------------------------------------------------------
 
     def test_een_dropin_zonder_het_bestand_faalt(self):
@@ -225,7 +248,7 @@ class EchteBoom(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.loader = gs.loader_dir()
-        cls.repo = os.environ.get("RAVENGUN_PATCHES_DIR") or os.path.join(os.path.dirname(ROOT), "ravengun-patches", "patches")
+        cls.repo = os.environ.get("RAVENGUN_PATCHES_DIR") or ""  # oude checkout alleen op expliciet verzoek vergelijken
         cls.rep = pl.check_roots(cls.loader, cls.repo)
         for n in cls.rep["notes"]:
             print("patches-indeling: " + n, file=sys.stderr)

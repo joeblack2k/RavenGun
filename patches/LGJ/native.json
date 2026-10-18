@@ -1,0 +1,39 @@
+{
+  "title": "Let's Go Jungle! Lost on the Island of Spice!",
+  "enabled": true,
+  "status": "werkt",
+  "note": "WERKT 2026-10-15: dubbelklik, 5,5 min gespeeld in muismodus (bench-captures/LGJ); doorgiftefix 0003. Lindbergh-route (docs/lindbergh.md) zoals Rambo: lindbergh.so en librg-stackalign.so in LD_PRELOAD, libCg 2.0 van de laag, JVS naar het bord Lindbergh van de daemon, zink. Profiel 2026-10-15; nog niet gemeten.",
+  "arch": "i386",
+  "launcher": "gamescope",
+  "route": "jvs",
+  "lindbergh": {
+    "id": "0xc697c4fb",
+    "ini": "@patches/LGJ/lindbergh.ini",
+    "jvs": "passthrough",
+    "libcg": true,
+    "stackalign": true
+  },
+  "mounts": [
+    {
+      "src": "@nas/Let's Go Jungle Lost on the Island of Spice",
+      "dst": "/lb",
+      "mode": "overlay"
+    }
+  ],
+  "libdirs": [
+    {
+      "src": "@lib32",
+      "dst": "/rg/lib32"
+    }
+  ],
+  "env": {
+    "MESA_LOADER_DRIVER_OVERRIDE": "zink",
+    "LIBGL_KOPPER_DRI2": "1",
+    "SDL_AUDIO_CHANNELS": "2"
+  },
+  "exe": "/lb/lgj_final",
+  "cwd": "/lb",
+  "home": "/lb",
+  "args": [],
+  "res": "1360x768"
+}

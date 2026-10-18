@@ -98,6 +98,7 @@ class AimStream : public QObject {
     Q_OBJECT
 public:
     explicit AimStream(QString socketPath = {}, QObject* parent = nullptr);
+    ~AimStream() override;
     void start();
     void stop();
     bool isActive() const { return sock_.state() == QLocalSocket::ConnectedState; }

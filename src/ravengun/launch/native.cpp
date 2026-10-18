@@ -38,6 +38,13 @@ std::string nas_for(const std::string& s, const NativePaths& p) {
 }
 
 std::string expand(std::string s, const NativePaths& p) {
+    // Bestanden die niet verspreid worden (eigen dongledata, shaders) blijven in
+    // de gebruikerslaag. Ook @patches-verwijzingen in meegeleverde profielen vinden ze daar.
+    if (s.starts_with("@patches/") && !p.user_patches.empty()) {
+        const std::string user = p.user_patches + s.substr(8);
+        std::error_code ec;
+        if (fs::exists(user, ec)) return user;
+    }
     const std::string nas = nas_for(s, p);
     const std::pair<const char*, const std::string*> keys[] = {{"@nas", &nas},       {"@tpui", &p.tpui},   {"@data", &p.data},
                                                                {"@lib32", &p.lib32}, {"@build", &p.build}, {"@patches", &p.patches}};

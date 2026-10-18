@@ -234,6 +234,13 @@ AimStream::AimStream(QString socketPath, QObject* parent)
     connect(&sock_, &QLocalSocket::readyRead, this, &AimStream::onReadyRead);
 }
 
+AimStream::~AimStream() {
+    // QLocalSocket kan tijdens zijn destructor disconnected uitsturen. De state_
+    // is dan al vernietigd: verbreek de callbacks voordat de leden verdwijnen.
+    QObject::disconnect(&sock_, nullptr, this, nullptr);
+    stop();
+}
+
 void AimStream::start() {
     running_ = true;
     reconnect_.start();

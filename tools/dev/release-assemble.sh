@@ -5,7 +5,7 @@
 # Gebruik: release-assemble.sh BOOM ONDERDELEN PATCHES [--readme BESTAND]
 #   BOOM        de archiefmap (bevat bin/, lib/, share/ravengun/ van cmake --install); wordt aangevuld
 #   ONDERDELEN  map met een submap per onderdeel-id (openparrot/, jvsbridge/, ...); komt in share/ravengun/components/
-#   PATCHES     de patches-map (ravengun-patches/patches); alleen de levering gaat mee (tools/dev/ship-patches.py)
+#   PATCHES     de patches-map uit de RavenGun-checkout; alleen de levering gaat mee (tools/dev/ship-patches.py)
 #
 # Resultaat in BOOM: RavenGun.desktop (dubbelklik in Dolphin start bin/ravengun), README.md, LICENSE, bin/, lib/, share/. Geen
 # installatiescript: de app doet de installatie (stap "Install RavenGun" van de wizard).
@@ -31,7 +31,11 @@ done
 
 # De patches per game: alleen de levering.
 [[ -d $PATCHES ]] || { echo "patches-map ontbreekt: $PATCHES" >&2; exit 1; }
-python3 -I "$HERE/ship-patches.py" "$PATCHES" "$D/patches"
+# Geen oude echte datamap of achtergebleven privébestanden naast de nieuwe levering.
+[[ "$(realpath -m "$PATCHES")" != "$(realpath -m "$S/patches")" ]] || { echo "patches-bron en release-doel zijn gelijk" >&2; exit 1; }
+rm -rf "$D/patches" "$S/patches"
+python3 -I "$HERE/ship-patches.py" "$PATCHES" "$S/patches"
+ln -s ../../patches "$D/patches"
 
 # Vaste rechten: mappen 755; bestanden 755 als ze uitvoerbaar zijn, anders 644. Het startbestand moet uitvoerbaar zijn.
 find "$S" -type d -exec chmod 755 {} +

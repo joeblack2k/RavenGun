@@ -693,20 +693,15 @@ endif()
 # De datamap. Niet mee: build-app.sh (bouwt uit de bronboom). Ontwikkel- en benchgereedschap staat in tools/dev/ en wordt nooit geinstalleerd.
 install(DIRECTORY scripts/ DESTINATION ${RAVENGUN_DATADIR}/scripts USE_SOURCE_PERMISSIONS
   PATTERN "build-app.sh" EXCLUDE PATTERN "__pycache__" EXCLUDE)
-# Instellingen en patches per game (docs/per-game-patches.md). Die staan in hun EIGEN repo
-# (ravengun-patches), niet in die van de loader: het is gebruikersinhoud en de loader hoort schoon
-# te zijn. Een verse kloon heeft deze map dus niet, en dan wordt er niets geinstalleerd -- de loader
-# vindt de patches via $RAVENGUN_PATCHES_DIR, een geinstalleerde kopie in de datamap, of de
-# gebruikerslaag (~/.local/share/ravengun/patches). Staat de map er wel (een ontwikkelcheckout met
-# een koppeling ernaartoe), dan gaan ze mee zoals altijd.
+# Profielen en eigen drop-ins staan in dezelfde repository als de applicatie.
+# Installatie: <prefix>/patches, direct naast bin/, lib/ en share/.
+# De relatieve compatibiliteitskoppeling houdt bestaande lezers en gebruikerslagen werkend.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
-  # Eerst de koppeling herleiden: install(DIRECTORY) kopieert een symlink als symlink, en de relatieve
-  # koppeling "patches -> ../ravengun-patches/patches" wijst vanuit de installatie nergens heen. Dan ziet
-  # de daemon geen enkele game.ini en valt elke game terug op de route evdev (gemeten 2026-10-12).
+  # Gebruik het echte bronpad, ook als de hele checkout via een workspacekoppeling wordt geopend.
   get_filename_component(RAVENGUN_PATCHES_SRC "${CMAKE_CURRENT_SOURCE_DIR}/patches" REALPATH)
   # Mee: ALLEEN wat de lader, de daemon en de app lezen, plus de README per game. Dat is een vaste lijst:
   #   <Game>/*.ini (game.ini, patches.ini, ...), <Game>/native.json (het native profiel, docs/native-profiel.md), <Game>/options.json (opties en memory card voor de app, docs/game-opties.md),
-  #   <Game>/dongle.json, <Game>/README.md, en alles onder <Game>/dropin/ en <Game>/data/ (bestanden die het native profiel in
+  #   <Game>/README.md, en eigen bestanden onder <Game>/dropin/ en <Game>/data/ (bestanden die het native profiel in
   #   de sandbox zet, zoals data/udev-rules.d van NERF en Jurassic Park; zonder die map weigert de daemon de start) en
   #   <Game>/seed/ (zaaigoed voor de schrijflaag van de Wine-routes, src/ravengun/games/seed.hpp: de geweerkalibratie van Gaia Attack 4).
   #   (_defaults/ en _template/ zijn mappen op dezelfde hoogte als een game en vallen onder dezelfde regels.)
@@ -717,15 +712,25 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
   # zodra iemand een nieuwe bewijsmap een nieuwe naam geeft (probe/, logs-*/, measurements/, probes/, ...), en dan
   # breekt de installatietest op iets wat geen lek is. Een nieuw soort bestand dat de lader WEL moet lezen komt hier bij.
   string(REGEX REPLACE "([][+.*()^$?|\\\\])" "\\\\\\1" _rg_patches_rx "${RAVENGUN_PATCHES_SRC}")
-  install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION ${RAVENGUN_DATADIR}/patches
+  install(DIRECTORY "${RAVENGUN_PATCHES_SRC}/" DESTINATION patches
     FILES_MATCHING
     REGEX "^${_rg_patches_rx}/[^/]+/([^/]+\\.ini|native\\.json|unity\\.json|options\\.json|dongle\\.json|README\\.md)$"
     REGEX "^${_rg_patches_rx}/[^/]+/dropin/"
     REGEX "^${_rg_patches_rx}/[^/]+/data/"
-    REGEX "^${_rg_patches_rx}/[^/]+/seed/")
+    REGEX "^${_rg_patches_rx}/[^/]+/seed/"
+    # Ook lokaal genegeerde privébestanden mogen niet via cmake --install lekken.
+    PATTERN "ravengun-hasp" EXCLUDE
+    PATTERN "memory" EXCLUDE
+    PATTERN "shaders" EXCLUDE
+    PATTERN "SAVE" EXCLUDE
+    PATTERN "dongle.json" EXCLUDE
+    PATTERN "dongle.*.json" EXCLUDE
+    PATTERN "heap.tsv" EXCLUDE
+    PATTERN "WkWin32.dll" EXCLUDE
+    REGEX "/FarCryParadiseLost/dropin/(systemcfg\\.lua|Systemcfgoverride\\.lua|Arcade_Calibration\\.txt)$" EXCLUDE)
   # FILES_MATCHING laat de mappen zelf wel aanmaken, ook als er niets in komt. Lege mappen (de bewijsmappen) weer weg.
   install(CODE "
-    set(_rg_p \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${RAVENGUN_DATADIR}/patches\")
+    set(_rg_p \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/patches\")
     foreach(_rg_ronde RANGE 12)
       file(GLOB_RECURSE _rg_d LIST_DIRECTORIES true \"\${_rg_p}/*\")
       set(_rg_weg FALSE)
@@ -743,8 +748,15 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
       endif()
     endforeach()
   ")
+  install(CODE "
+    set(_rg_compat \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${RAVENGUN_DATADIR}/patches\")
+    if(EXISTS \"\${_rg_compat}\" OR IS_SYMLINK \"\${_rg_compat}\")
+      file(REMOVE_RECURSE \"\${_rg_compat}\")
+    endif()
+    file(CREATE_LINK \"../../patches\" \"\${_rg_compat}\" SYMBOLIC)
+  ")
 else()
-  message(STATUS "geen patches/-map: die staan in de repo ravengun-patches (zie docs/geen-dongle-in-de-loader.md)")
+  message(FATAL_ERROR "patches/-map ontbreekt: profielen horen bij de applicatiecheckout")
 endif()
 install(DIRECTORY packaging/ DESTINATION ${RAVENGUN_DATADIR}/packaging USE_SOURCE_PERMISSIONS
   PATTERN "containers/qt-app" EXCLUDE PATTERN "containers/release" EXCLUDE PATTERN "release" EXCLUDE PATTERN "icons/halo.png" EXCLUDE

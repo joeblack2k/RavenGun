@@ -45,6 +45,8 @@ for f in bin/ravengund bin/ravengunctl bin/ravengun share/ravengun/scripts/tp-ad
          share/ravengun/docs/user-guide.md share/ravengun/LICENSE share/ravengun/THIRD_PARTY.md share/ravengun/VERSION; do
   [[ -e $P/$f ]] || fail "ontbreekt in de installatie: $f"
 done
+[[ -d $P/patches && ! -L $P/patches ]] || fail "patches/ moet direct in de applicatiemap staan"
+[[ "$(readlink "$D/patches")" == ../../patches ]] || fail "relatieve compatibiliteitskoppeling ontbreekt"
 [[ ! -e $D/scripts/build-app.sh && ! -e $D/scripts/make-release.sh ]] || fail "ontwikkelscripts horen niet in de installatie"
 [[ ! -e $D/packaging/containers/qt-app ]] || fail "packaging/containers/qt-app hoort niet in de installatie"
 ls "$P"/lib/libpsmoveapi.so >/dev/null 2>&1 && HAVE_PSM=1 || HAVE_PSM=0
@@ -75,7 +77,10 @@ if [[ -d "$REPO/patches" ]]; then
   LEEG="$(find "$D/patches" -type d -empty)"
   [[ -z "$LEEG" ]] || { echo "$LEEG" | head >&2; fail "lege mappen in de geinstalleerde patches"; }
   # Niets kwijt: elk bestand dat de lader leest staat er, met dezelfde inhoud.
-  NODIG="$(cd "$SRC" && find . -type f | sed 's|^\./||' | grep -E '^[^/]+/([^/]+\.ini|native\.json|unity\.json|options\.json|dongle\.json|README\.md)$|^[^/]+/(dropin|data|seed)/' | sort)"
+  # Vergelijk CMake met de publieke exporter, inclusief uitsluiting van lokale privébestanden.
+  python3 -I "$REPO/tools/dev/ship-patches.py" "$SRC" "$T/expected-patches" >/dev/null || fail "patch-export mislukt"
+  NODIG="$(cd "$T/expected-patches" && find . -type f | sed 's|^\./||' | sort)"
+  [[ ! -e $P/patches/Halo/dropin/ravengun-hasp && ! -e $P/patches/JurassicPark/data/shaders ]] || fail "privébestanden meegeleverd"
   [[ -n "$NODIG" ]] || fail "de patches-map bevat geen enkele game.ini"
   while IFS= read -r f; do
     cmp -s "$SRC/$f" "$D/patches/$f" || fail "ontbreekt of wijkt af in de installatie: patches/$f"
@@ -122,6 +127,7 @@ kill "$ENGINE_PID"; wait "$ENGINE_PID" 2>/dev/null; ENGINE_PID=""
 "${E[@]}" "$REPO/scripts/install-user.sh" --no-start --build-dir "$BUILD" --app-build-dir "$APPBUILD" > "$T/install2.log" 2>&1 || { cat "$T/install2.log" >&2; fail "tweede installatie (bijwerken) faalde"; }
 P2="$H/.local/opt/ravengun2"
 "${E[@]}" "$D/scripts/install-user.sh" --prefix "$P2" --no-start > "$T/install3.log" 2>&1 || { cat "$T/install3.log" >&2; fail "installatie vanuit een geïnstalleerde boom faalde"; }
+[[ -d $P2/patches && ! -L $P2/patches && -f $P2/share/ravengun/patches/LGI/game.ini ]] || fail "patches/ niet meegekomen naar tweede prefix"
 [[ -x $P2/bin/ravengund && -f $P2/share/ravengun/scripts/tp-add-game.py ]] || fail "de gekopieerde installatie is onvolledig"
 grep -qx "ExecStart=$P2/bin/ravengund" "$U/ravengund.service" || fail "de unit wijst na de tweede installatie niet naar $P2"
 OUT="$("${E[@]}" QT_QPA_PLATFORM=offscreen "$P2/bin/ravengun" --print-paths 2>&1)"

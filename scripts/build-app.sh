@@ -29,11 +29,8 @@ mkdir -p "$BUILD"
 
 TARGETS="ravengun_app"
 [[ $TEST -eq 1 ]] && TARGETS="ravengun_app ravengun_app_tests ravengun_components_tests ravengun_app_widget_tests"
-# De repo wordt (op hetzelfde pad) gemount, plus de patches-repo als patches/ daarheen wijst (../ravengun-patches/patches; anders
-# is de koppeling in de container leeg en falen de app-tests die de meegeleverde game.ini lezen). Geen netwerk, image ongewijzigd.
+# Eén checkout bevat nu ook patches/. Geen tweede repository of extra mount nodig.
 MOUNTS=(-v "$ROOT:$ROOT")
-PATCHES_REAL="$(realpath -e "$ROOT/patches" 2>/dev/null || true)"
-[[ -n "$PATCHES_REAL" && "$PATCHES_REAL" != "$ROOT"/* ]] && MOUNTS+=(-v "$PATCHES_REAL:$PATCHES_REAL:ro")
 podman run --rm --network=none --userns=keep-id "${MOUNTS[@]}" -w "$ROOT" -e HOME=/tmp "$IMAGE" sh -c "
   set -e
   cmake -S '$ROOT' -B '$BUILD' -G Ninja -DCMAKE_BUILD_TYPE=Release -DRAVENGUN_BUILD_DAEMON=OFF -DRAVENGUN_BUILD_CAMPROBE=OFF >/dev/null

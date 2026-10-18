@@ -8,7 +8,8 @@
 //   uit de besturingspijp TeknoParrotPipe (het AllsUsbIo-rapport dat onze daemon al schrijft). Deze DLL doet dat zelf.
 //
 // HOE
-//   De lader laadt deze DLL via TP_PRELOAD_DLL in elk proces van het spel; hij doet alleen iets in amdaemon.exe. Bij het laden zet hij in de
+//   De lader laadt deze DLL via TP_PRELOAD_DLL in elk proces. amdaemon krijgt HID; Hodzero krijgt optioneel de aparte COM1-gunsensor.
+//   Bij het laden zet hij in de
 //   importtabel van de daemon om: hid.dll (HidD_GetHidGuid, GetManufacturerString, GetProductString, GetInputReport, SetOutputReport),
 //   setupapi.dll (SetupDiGetClassDevsW, EnumDeviceInterfaces, GetDeviceInterfaceDetailW, DestroyDeviceInfoList: alleen de HID-GUID, de echte
 //   HID-apparaten van de machine blijven onzichtbaar voor de daemon) en kernel32 (CreateFileW voor ons pad, ReadFile / WriteFile /
@@ -22,6 +23,8 @@
 //   RG_ALLSIO_PIPE       naam van de besturingspijp (standaard \\.\pipe\TeknoParrotPipe)
 //   RG_ALLSIO_PERIOD_MS  periode van het ingangsrapport (standaard 2)
 //   RG_ALLSIO_MAIN_ID   optionele 15-teken moederbordidentiteit, alleen in amdaemon
+//   RG_ALLSIO_GUN_SENSOR=1  synchrone COM1 uit HOTDSDPipe, uitsluitend in Hodzero
+//   RG_ALLSIO_GUN_CONFIG=1  zet alleen de lokale Unreal-gunmodus op GUN (0), met eenmalige backup
 //   RG_ALLSIO_OFF=1      niets doen
 //
 // Clean-room: alleen de openbare HID-/SetupAPI-interfaces en wat we zelf aan amdaemon.exe en onze eigen besturingspijp hebben gemeten.
@@ -38,6 +41,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <cwchar>
 
 #include "allsio_proto.h"
 
@@ -121,6 +125,242 @@ void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
         }
     }
     return nullptr;
+}
+
+// --- Afzonderlijke synchrone COM1-sensor in Hodzero (geen daemon-HID-handvatten) ---
+rg_allsio::GunSensor g_sensor;
+HANDLE g_sensor_handle = nullptr, g_sensor_map = nullptr;
+const uint8_t* g_sensor_view = nullptr;
+DCB g_sensor_dcb = {};
+COMMTIMEOUTS g_sensor_timeouts = {};
+DWORD g_sensor_map_retry = 0;
+LONG g_sensor_writes = 0;
+using CreateFileAFn = decltype(&CreateFileA);
+CreateFileAFn g_sensor_create = &CreateFileA;
+decltype(&ReadFile) g_sensor_read = &ReadFile;
+decltype(&WriteFile) g_sensor_write = &WriteFile;
+decltype(&CloseHandle) g_sensor_close = &CloseHandle;
+decltype(&GetCommState) g_sensor_getstate = &GetCommState;
+decltype(&SetCommState) g_sensor_setstate = &SetCommState;
+decltype(&GetCommTimeouts) g_sensor_gettimeouts = &GetCommTimeouts;
+decltype(&SetCommTimeouts) g_sensor_settimeouts = &SetCommTimeouts;
+
+// Alleen aanroepen onder g_cs. Lees uitsluitend: RavenGun is eigenaar/schrijver.
+const uint8_t* sensor_input() {
+    if (g_sensor_view) return g_sensor_view;
+    const DWORD now = GetTickCount();
+    if (g_sensor_map_retry && now - g_sensor_map_retry < 1000) return nullptr;
+    g_sensor_map_retry = now;
+    // HOTDSDPipe is de byte-indeling; rg-jvsbridge publiceert deze onder de vaste mappingnaam.
+    g_sensor_map = OpenFileMappingA(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
+    if (!g_sensor_map) return nullptr;
+    g_sensor_view = static_cast<const uint8_t*>(MapViewOfFile(g_sensor_map, FILE_MAP_READ, 0, 0, 64));
+    if (!g_sensor_view) { CloseHandle(g_sensor_map); g_sensor_map = nullptr; }
+    else rg_log("gunsensor: HOTDSDPipe geopend (alleen lezen)");
+    return g_sensor_view;
+}
+
+HANDLE WINAPI sensor_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa,
+                                 DWORD disp, DWORD flags, HANDLE tmpl) {
+    if (!name || (_stricmp(name, "COM1") != 0 && _stricmp(name, "\\\\.\\COM1") != 0))
+        return g_sensor_create(name, access, share, sa, disp, flags, tmpl);
+    if (disp != OPEN_EXISTING || (flags & FILE_FLAG_OVERLAPPED)) {
+        SetLastError(ERROR_INVALID_PARAMETER); return INVALID_HANDLE_VALUE;
+    }
+    EnterCriticalSection(&g_cs);
+    if (g_sensor_handle) {
+        LeaveCriticalSection(&g_cs);
+        SetLastError(ERROR_SHARING_VIOLATION); return INVALID_HANDLE_VALUE;
+    }
+    g_sensor_handle = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE h = g_sensor_handle;
+    g_sensor.close();
+    g_sensor_dcb = {};
+    g_sensor_dcb.DCBlength = sizeof(DCB);
+    g_sensor_dcb.BaudRate = CBR_9600;
+    g_sensor_dcb.fBinary = TRUE;
+    g_sensor_dcb.ByteSize = 8;
+    g_sensor_timeouts = {};
+    LeaveCriticalSection(&g_cs);
+    rg_log("gunsensor: COM1 geopend -> %p", h);
+    return h ? h : INVALID_HANDLE_VALUE;
+}
+
+BOOL WINAPI sensor_CloseHandle(HANDLE h) {
+    EnterCriticalSection(&g_cs);
+    if (g_sensor_handle && h == g_sensor_handle) {
+        g_sensor_handle = nullptr;
+        g_sensor.close();
+        if (g_sensor_view) UnmapViewOfFile(g_sensor_view);
+        if (g_sensor_map) CloseHandle(g_sensor_map);
+        g_sensor_view = nullptr; g_sensor_map = nullptr; g_sensor_map_retry = 0;
+        rg_log("gunsensor: COM1 gesloten");
+    }
+    const BOOL ok = g_sensor_close(h);
+    LeaveCriticalSection(&g_cs);
+    return ok;
+}
+
+BOOL WINAPI sensor_ReadFile(HANDLE h, LPVOID buf, DWORD len, LPDWORD got, LPOVERLAPPED ov) {
+    EnterCriticalSection(&g_cs);
+    if (!g_sensor_handle || h != g_sensor_handle) {
+        LeaveCriticalSection(&g_cs);
+        return g_sensor_read(h, buf, len, got, ov);
+    }
+    if (got) *got = 0;
+    if ((!buf && len) || !got || ov) {
+        LeaveCriticalSection(&g_cs); SetLastError(ERROR_INVALID_PARAMETER); return FALSE;
+    }
+    *got = static_cast<DWORD>(g_sensor.read(static_cast<uint8_t*>(buf), len));
+    LeaveCriticalSection(&g_cs);
+    return TRUE;
+}
+
+BOOL WINAPI sensor_WriteFile(HANDLE h, LPCVOID buf, DWORD len, LPDWORD written, LPOVERLAPPED ov) {
+    EnterCriticalSection(&g_cs);
+    if (!g_sensor_handle || h != g_sensor_handle) {
+        LeaveCriticalSection(&g_cs);
+        return g_sensor_write(h, buf, len, written, ov);
+    }
+    if (written) *written = 0;
+    if ((!buf && len) || !written || ov) {
+        LeaveCriticalSection(&g_cs); SetLastError(ERROR_INVALID_PARAMETER); return FALSE;
+    }
+    const bool ok = !len || g_sensor.write(static_cast<const uint8_t*>(buf), len, sensor_input());
+    if (ok) *written = len;
+    if (++g_sensor_writes <= 30 || !ok) {
+        char hex[80];
+        hexline(hex, sizeof hex, static_cast<const uint8_t*>(buf), len < 16 ? len : 16);
+        rg_log("gunsensor: schrijf %s -> %s, antwoord %lu bytes, invoer %s", hex, ok ? "ok" : "onbekend",
+               static_cast<unsigned long>(g_sensor.pending()), g_sensor_view ? "ja" : "nee");
+    }
+    LeaveCriticalSection(&g_cs);
+    if (!ok) SetLastError(ERROR_INVALID_DATA);
+    return ok ? TRUE : FALSE;
+}
+
+BOOL WINAPI sensor_GetCommState(HANDLE h, LPDCB state) {
+    EnterCriticalSection(&g_cs);
+    if (!g_sensor_handle || h != g_sensor_handle) {
+        LeaveCriticalSection(&g_cs); return g_sensor_getstate(h, state);
+    }
+    // GetCommState vult DCBlength zelf; Hodzero geeft een nulgevulde DCB door.
+    const bool ok = state != nullptr;
+    if (ok) *state = g_sensor_dcb;
+    LeaveCriticalSection(&g_cs);
+    if (!ok) SetLastError(ERROR_INVALID_PARAMETER);
+    return ok ? TRUE : FALSE;
+}
+BOOL WINAPI sensor_SetCommState(HANDLE h, LPDCB state) {
+    EnterCriticalSection(&g_cs);
+    if (!g_sensor_handle || h != g_sensor_handle) {
+        LeaveCriticalSection(&g_cs); return g_sensor_setstate(h, state);
+    }
+    const bool ok = state && state->DCBlength == sizeof(DCB) && state->ByteSize == 8 &&
+                    (state->Parity == NOPARITY || state->Parity == ODDPARITY) && state->StopBits == ONESTOPBIT;
+    if (state) rg_log("gunsensor: SetCommState lengte=%lu baud=%lu bits=%u parity=%u stop=%u -> %s",
+                      static_cast<unsigned long>(state->DCBlength), static_cast<unsigned long>(state->BaudRate),
+                      static_cast<unsigned>(state->ByteSize), static_cast<unsigned>(state->Parity),
+                      static_cast<unsigned>(state->StopBits), ok ? "ok" : "ongeldig");
+    if (ok) g_sensor_dcb = *state;
+    LeaveCriticalSection(&g_cs);
+    if (!ok) SetLastError(ERROR_INVALID_PARAMETER);
+    return ok ? TRUE : FALSE;
+}
+BOOL WINAPI sensor_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS timeouts) {
+    EnterCriticalSection(&g_cs);
+    if (!g_sensor_handle || h != g_sensor_handle) {
+        LeaveCriticalSection(&g_cs); return g_sensor_gettimeouts(h, timeouts);
+    }
+    if (timeouts) *timeouts = g_sensor_timeouts;
+    LeaveCriticalSection(&g_cs);
+    if (!timeouts) SetLastError(ERROR_INVALID_PARAMETER);
+    return timeouts ? TRUE : FALSE;
+}
+BOOL WINAPI sensor_SetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS timeouts) {
+    EnterCriticalSection(&g_cs);
+    if (!g_sensor_handle || h != g_sensor_handle) {
+        LeaveCriticalSection(&g_cs); return g_sensor_settimeouts(h, timeouts);
+    }
+    if (timeouts) g_sensor_timeouts = *timeouts;
+    LeaveCriticalSection(&g_cs);
+    if (!timeouts) SetLastError(ERROR_INVALID_PARAMETER);
+    return timeouts ? TRUE : FALSE;
+}
+
+// Unreal leest deze gebruikersconfiguratie, niet Saved naast de exe op de NAS.
+// Alleen op expliciet verzoek van het profiel; andere sleutels en kalibratie blijven intact.
+bool configure_sensor_mode() {
+    wchar_t path[MAX_PATH];
+    const DWORD len = GetEnvironmentVariableW(L"LOCALAPPDATA", path, MAX_PATH);
+    const wchar_t suffix[] = L"\\Hodzero\\Saved\\Config\\WindowsNoEditor\\Game.ini";
+    if (!len || len >= MAX_PATH || len + std::wcslen(suffix) + 1 > MAX_PATH) {
+        rg_log("gunsensor: LOCALAPPDATA ontbreekt of is te lang; gunconfiguratie niet gewijzigd");
+        return false;
+    }
+    std::wcscat(path, suffix);
+    for (wchar_t* part = path + len + 1; *part; ++part) {
+        if (*part != L'\\') continue;
+        *part = 0;
+        const BOOL made = CreateDirectoryW(path, nullptr);
+        const DWORD error = GetLastError();
+        *part = L'\\';
+        if (!made && error != ERROR_ALREADY_EXISTS) {
+            rg_log("gunsensor: configuratiemap niet te maken, fout %lu", static_cast<unsigned long>(error));
+            return false;
+        }
+    }
+    const wchar_t* section = L"/Script/Hodzero.AppGameInstance";
+    const wchar_t* key = L"DevelopSetting_PlayerGunDevice";
+    wchar_t value[16];
+    GetPrivateProfileStringW(section, key, L"", value, 16, path);
+    if (std::wcscmp(value, L"0") == 0) {
+        rg_log("gunsensor: gebruikersconfiguratie staat al op GUN (0)");
+        return true;
+    }
+    // Bewaar de oorspronkelijke gebruikersconfiguratie eenmalig, ook als een latere start opnieuw wijzigt.
+    wchar_t backup[MAX_PATH];
+    const int n = _snwprintf(backup, MAX_PATH, L"%ls.ravengun-backup", path);
+    if (n < 0 || n >= MAX_PATH) return false;
+    if (GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES && !CopyFileW(path, backup, TRUE) && GetLastError() != ERROR_FILE_EXISTS) {
+        rg_log("gunsensor: backup niet te maken; configuratie niet gewijzigd");
+        return false;
+    }
+    if (!WritePrivateProfileStringW(section, key, L"0", path)) {
+        rg_log("gunsensor: GUN (0) niet te bewaren, fout %lu", static_cast<unsigned long>(GetLastError()));
+        return false;
+    }
+    rg_log("gunsensor: gebruikersconfiguratie op GUN (0) gezet; overige instellingen behouden");
+    return true;
+}
+
+void install_sensor_hooks() {
+    struct Hook { const char* name; void* replacement; void** original; };
+    const Hook hooks[] = {
+        {"CreateFileA", reinterpret_cast<void*>(&sensor_CreateFileA), reinterpret_cast<void**>(&g_sensor_create)},
+        {"ReadFile", reinterpret_cast<void*>(&sensor_ReadFile), reinterpret_cast<void**>(&g_sensor_read)},
+        {"WriteFile", reinterpret_cast<void*>(&sensor_WriteFile), reinterpret_cast<void**>(&g_sensor_write)},
+        {"CloseHandle", reinterpret_cast<void*>(&sensor_CloseHandle), reinterpret_cast<void**>(&g_sensor_close)},
+        {"GetCommState", reinterpret_cast<void*>(&sensor_GetCommState), reinterpret_cast<void**>(&g_sensor_getstate)},
+        {"SetCommState", reinterpret_cast<void*>(&sensor_SetCommState), reinterpret_cast<void**>(&g_sensor_setstate)},
+        {"GetCommTimeouts", reinterpret_cast<void*>(&sensor_GetCommTimeouts), reinterpret_cast<void**>(&g_sensor_gettimeouts)},
+        {"SetCommTimeouts", reinterpret_cast<void*>(&sensor_SetCommTimeouts), reinterpret_cast<void**>(&g_sensor_settimeouts)},
+    };
+    HMODULE exe = GetModuleHandleW(nullptr);
+    size_t installed = 0;
+    for (const auto& hook : hooks) {
+        void* old = patch_iat(exe, "kernel32.dll", hook.name, hook.replacement);
+        rg_log("gunsensor import %s: %s", hook.name, old ? "omgezet" : "ontbreekt");
+        if (!old) break;
+        *hook.original = old;
+        ++installed;
+    }
+    if (installed != sizeof hooks / sizeof hooks[0]) {
+        // Geen gedeeltelijke adapter die een event-handvat aan echte seriële APIs doorgeeft.
+        for (size_t i = 0; i < installed; ++i)
+            patch_iat(exe, "kernel32.dll", hooks[i].name, *hooks[i].original);
+        rg_log("gunsensor: installatie teruggedraaid; vereiste import ontbreekt");
+    } else rg_log("gunsensor: synchrone COM1-adapter actief in Hodzero, pid %lu", static_cast<unsigned long>(GetCurrentProcessId()));
 }
 
 // --- SetupAPI: de HID-GUID geeft precies een apparaat, het onze ----------------------------------------------------------------------
@@ -475,12 +715,12 @@ DWORD WINAPI tick_thread(LPVOID) {
     return 0;
 }
 
-bool is_daemon() {
+bool is_process(const wchar_t* name) {
     wchar_t exe[MAX_PATH];
     if (!GetModuleFileNameW(nullptr, exe, MAX_PATH)) return false;
     const wchar_t* base = wcsrchr(exe, L'\\');
     base = base ? base + 1 : exe;
-    return _wcsicmp(base, L"amdaemon.exe") == 0;
+    return _wcsicmp(base, name) == 0;
 }
 
 }  // namespace
@@ -497,9 +737,17 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         wchar_t* slash = wcsrchr(buf, L'\\');
         if (slash) *slash = 0;
         _snwprintf(g_log_path, MAX_PATH, L"%ls\\rg-allsio.log", buf);
-        if (!is_daemon()) return TRUE;   // het spel zelf (Hodzero-Win64-Shipping.exe) laadt de DLL ook: daar niets doen
         char env[256];
         if (GetEnvironmentVariableA("RG_ALLSIO_OFF", env, sizeof env) > 0 && env[0] == '1') { rg_log("RG_ALLSIO_OFF=1: niets doen"); return TRUE; }
+        if (is_process(L"Hodzero-Win64-Shipping.exe")) {
+            if (GetEnvironmentVariableA("RG_ALLSIO_GUN_SENSOR", env, sizeof env) == 1 && env[0] == '1') {
+                if (GetEnvironmentVariableA("RG_ALLSIO_GUN_CONFIG", env, sizeof env) == 1 && env[0] == '1' && !configure_sensor_mode())
+                    return FALSE;
+                install_sensor_hooks();
+            }
+            return TRUE;
+        }
+        if (!is_process(L"amdaemon.exe")) return TRUE;
         if (GetEnvironmentVariableA("RG_ALLSIO_PIPE", env, sizeof env) > 0 && env[0]) std::snprintf(g_pipe_name, sizeof g_pipe_name, "%s", env);
         if (GetEnvironmentVariableA("RG_ALLSIO_PERIOD_MS", env, sizeof env) > 0 && env[0]) {
             const long v = std::strtol(env, nullptr, 10);

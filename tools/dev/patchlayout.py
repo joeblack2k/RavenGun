@@ -13,11 +13,16 @@ patches-repo naar de eigen patches/ van de loader verhuizen (en terug); het sche
 Gebruik:  patchlayout.py [WORTEL ...]     controleert de gamemappen onder elke wortel (standaard: de meegeleverde lagen van gamesettings.patch_layers(), niet de gebruikerslaag).
 """
 import configparser
+import importlib.util
 import fnmatch
 import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scripts"))   # gamesettings; python3 -I neemt de scriptmap niet mee
+
+_ship_spec = importlib.util.spec_from_file_location("ship_patches", os.path.join(os.path.dirname(__file__), "ship-patches.py"))
+_ship = importlib.util.module_from_spec(_ship_spec)
+_ship_spec.loader.exec_module(_ship)
 
 REQUIRED = ("game.ini",)
 # hasp-haken.ini is de adreslijst die de HASP-ELF-hook bij het draaien leest (RAVENGUN_HASP_ELF_ADRESLIJST,
@@ -164,7 +169,10 @@ def validate_game_folder(game_dir, check_profile=True):
         else:
             try:
                 for sectie, pad in dropin_references(game_dir):
-                    if not os.path.exists(pad):
+                    # Deze secties beschrijven bestanden die de eigenaar in de gebruikerslaag
+                    # moet leveren; de publieke checkout bevat bewust geen dongledumps of saves.
+                    private = _ship.user_supplied(os.path.basename(game_dir) + "/dropin/" + sectie)
+                    if not os.path.exists(pad) and not private:
                         uit.append(("dropin-missing-file", "%s: dropin.ini noemt [%s] maar dropin/%s bestaat niet" % (game_dir, sectie, sectie)))
             except ValueError as e:
                 uit.append(("dropin-bad-ini", "%s: %s" % (game_dir, e)))

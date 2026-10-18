@@ -670,7 +670,9 @@ void AppWidgetTest::aimStreamFallback() {
         QCOMPARE(requests.size(), supportsLite ? 1 : 2);
         QVERIFY(requests.first().contains(QStringLiteral("\"lite\":true")));
         if (!supportsLite) QVERIFY(!requests.last().contains(QStringLiteral("lite")));
-        s.stop();
+        QObject::disconnect(&s, nullptr, this, nullptr);
+        // Vernietig een nog verbonden stream met echte QString-data in state_.
+        // De socket mag geen callback op reeds vernietigde leden uitvoeren.
     }
 }
 
@@ -858,10 +860,10 @@ void AppWidgetTest::saverWindow() {
 
     // Zonder statusbestand zegt het bord dat er geen status is -- niet iets dat op "goed" lijkt.
     w.Reposition();
-    QCOMPARE(w.ShownLines().value(0), QStringLiteral("Onbekend of er nu een spel draait"));
-    QCOMPARE(w.ShownLines().value(1), QStringLiteral("Geen status beschikbaar"));
-    QVERIFY(w.ShownLines().value(2).contains(QStringLiteral("het statusbestand ontbreekt")));
-    QVERIFY(!w.ShownLines().join(QLatin1Char('\n')).contains(QStringLiteral("goed")));
+    QCOMPARE(w.ShownLines().value(0), QStringLiteral("Unknown whether a game is running now"));
+    QCOMPARE(w.ShownLines().value(1), QStringLiteral("No status available"));
+    QVERIFY(w.ShownLines().value(2).contains(QStringLiteral("the status file is missing")));
+    QVERIFY(!w.ShownLines().join(QLatin1Char('\n')).contains(QStringLiteral("Going well")));
 
     // Met een geldig statusbestand staat alles er in gewone taal.
     write(QStringLiteral("saver-status.txt"),
@@ -871,14 +873,14 @@ void AppWidgetTest::saverWindow() {
     write(QStringLiteral("saver-game.txt"), QStringLiteral("onzichtbaar\n"));
     w.Reposition();
     const QStringList lines = w.ShownLines();
-    QCOMPARE(lines.value(0), QStringLiteral("Er draait nu een spel, zonder beeld (dat is nog geen uitslag)"));
+    QCOMPARE(lines.value(0), QStringLiteral("A game is running, without a picture (that is not a result yet)"));
     QCOMPARE(lines.value(1), QStringLiteral("Halo: Richten en schieten testen"));
-    QCOMPARE(lines.value(2), QStringLiteral("Het gaat goed · stap 4 van 5 · bijna klaar"));
-    QCOMPARE(lines.value(3), QStringLiteral("Waarvoor: Zien of de trekker in het spel aankomt"));
-    QCOMPARE(lines.value(4), QStringLiteral("Al gedaan: Beeld op de tv · Kalibratie overgeslagen"));
-    QCOMPARE(lines.value(5), QStringLiteral("Nog te doen: Twee minuten spelen"));
-    QCOMPARE(lines.value(6), QStringLiteral("Gehaald (5 minuten attract of spel): Rabbids"));
-    QVERIFY(lines.value(7).contains(QStringLiteral("bijgewerkt zojuist")));
+    QCOMPARE(lines.value(2), QStringLiteral("Going well · step 4 of 5 · almost there"));
+    QCOMPARE(lines.value(3), QStringLiteral("Purpose: Zien of de trekker in het spel aankomt"));
+    QCOMPARE(lines.value(4), QStringLiteral("Done: Beeld op de tv · Kalibratie overgeslagen"));
+    QCOMPARE(lines.value(5), QStringLiteral("To do: Twee minuten spelen"));
+    QCOMPARE(lines.value(6), QStringLiteral("Passed (5 minutes attract or play): Rabbids"));
+    QVERIFY(lines.value(7).contains(QStringLiteral("updated just now")));
 
     // Het scherm blijft vrijwel helemaal zwart (OLED): het bord is tekst, geen vlak.
     const QImage img = w.grab().toImage();
@@ -910,53 +912,53 @@ void AppWidgetTest::saverStatusParsing() {
     QVERIFY2(ok.ok, qPrintable(ok.error));
     QCOMPARE(ok.game, QStringLiteral("Halo"));
     QCOMPARE(ok.steps, 0);
-    QCOMPARE(SaverWindow::Lines(ok, SaverGame::None, 1000).value(2), QStringLiteral("Bezig, nog geen uitslag"));
+    QCOMPARE(SaverWindow::Lines(ok, SaverGame::None, 1000).value(2), QStringLiteral("In progress, no result yet"));
     QVERIFY(SaverWindow::ParseStatus(good + QStringLiteral("stap: 5/5\n")).ok);
     QCOMPARE(SaverWindow::Lines(SaverWindow::ParseStatus(good + QStringLiteral("stap: 5 van 5\n")), SaverGame::None, 1000).value(2),
-             QStringLiteral("Bezig, nog geen uitslag · stap 5 van 5 · de laatste stap"));
+             QStringLiteral("In progress, no result yet · step 5 of 5 · the last step"));
     QCOMPARE(SaverWindow::Lines(SaverWindow::ParseStatus(QStringLiteral("spel: X\nbezig: Y\nstand: slecht\n")), SaverGame::None, 1000).value(2),
-             QStringLiteral("Het gaat niet goed"));
+             QStringLiteral("Not going well"));
 
     const QList<QPair<QString, QString>> bad = {
-        {QString(), QStringLiteral("leeg")},
-        {QStringLiteral("\n# alleen commentaar\n"), QStringLiteral("leeg")},
-        {QStringLiteral("Luigi's Mansion starten via onze eigen app\n"), QStringLiteral("geen 'sleutel: waarde'")},
-        {QStringLiteral("spel: Halo\nbezig: Testen\n"), QStringLiteral("'stand' ontbreekt")},
-        {QStringLiteral("spel: Halo\nstand: goed\n"), QStringLiteral("'bezig' ontbreekt")},
-        {QStringLiteral("bezig: Testen\nstand: goed\n"), QStringLiteral("'spel' ontbreekt")},
-        {QStringLiteral("spel:\nbezig: Testen\nstand: goed\n"), QStringLiteral("'spel' ontbreekt")},
-        {good.left(good.size() - 6) + QStringLiteral("prima\n"), QStringLiteral("goed, slecht of bezig")},
-        {good + QStringLiteral("stap: 6 van 5\n"), QStringLiteral("dat kan niet")},
-        {good + QStringLiteral("stap: 0 van 5\n"), QStringLiteral("dat kan niet")},
-        {good + QStringLiteral("stap: derde\n"), QStringLiteral("3 van 5")},
-        {good + QStringLiteral("kleur: groen\n"), QStringLiteral("onbekende sleutel 'kleur'")},
-        {good + QStringLiteral("spel: Rabbids\n"), QStringLiteral("twee keer")},
-        {good + QStringLiteral("doel: ") + QString(200, QLatin1Char('x')) + QStringLiteral("\n"), QStringLiteral("te lang")},
-        {good + QStringLiteral("nog: a;b;c;d;e;f;g;h;i\n"), QStringLiteral("9 punten")},
-        {QStringLiteral("{\"spel\": \"Halo\"}\n"), QStringLiteral("onbekende sleutel")},
+        {QString(), QStringLiteral("empty")},
+        {QStringLiteral("\n# alleen commentaar\n"), QStringLiteral("empty")},
+        {QStringLiteral("Luigi's Mansion starten via onze eigen app\n"), QStringLiteral("not 'key: value'")},
+        {QStringLiteral("spel: Halo\nbezig: Testen\n"), QStringLiteral("'stand' is missing or empty")},
+        {QStringLiteral("spel: Halo\nstand: goed\n"), QStringLiteral("'bezig' is missing or empty")},
+        {QStringLiteral("bezig: Testen\nstand: goed\n"), QStringLiteral("'spel' is missing or empty")},
+        {QStringLiteral("spel:\nbezig: Testen\nstand: goed\n"), QStringLiteral("'spel' is missing or empty")},
+        {good.left(good.size() - 6) + QStringLiteral("prima\n"), QStringLiteral("goed, slecht or bezig")},
+        {good + QStringLiteral("stap: 6 van 5\n"), QStringLiteral("that cannot be")},
+        {good + QStringLiteral("stap: 0 van 5\n"), QStringLiteral("that cannot be")},
+        {good + QStringLiteral("stap: derde\n"), QStringLiteral("3 of 5")},
+        {good + QStringLiteral("kleur: groen\n"), QStringLiteral("unknown key 'kleur'")},
+        {good + QStringLiteral("spel: Rabbids\n"), QStringLiteral("appears twice")},
+        {good + QStringLiteral("doel: ") + QString(200, QLatin1Char('x')) + QStringLiteral("\n"), QStringLiteral("too long")},
+        {good + QStringLiteral("nog: a;b;c;d;e;f;g;h;i\n"), QStringLiteral("9 items")},
+        {QStringLiteral("{\"spel\": \"Halo\"}\n"), QStringLiteral("unknown key")},
     };
     for (const auto& [text, why] : bad) {
         const ui::SaverStatus s = SaverWindow::ParseStatus(text);
         QVERIFY2(!s.ok, qPrintable(text));
         QVERIFY2(s.error.contains(why), qPrintable(s.error + QStringLiteral(" <- ") + why));
         const QStringList lines = SaverWindow::Lines(s, SaverGame::None, 1000);
-        QCOMPARE(lines.value(1), QStringLiteral("Geen status beschikbaar"));
-        QVERIFY(!lines.join(QLatin1Char('\n')).contains(QStringLiteral("Het gaat goed")));
+        QCOMPARE(lines.value(1), QStringLiteral("No status available"));
+        QVERIFY(!lines.join(QLatin1Char('\n')).contains(QStringLiteral("Going well")));
     }
 
     // Een bestand dat ontbreekt.
     QTemporaryDir dir;
     const ui::SaverStatus missing = SaverWindow::LoadStatus(dir.path() + QStringLiteral("/bestaat-niet.txt"));
     QVERIFY(!missing.ok);
-    QVERIFY(missing.error.contains(QStringLiteral("ontbreekt")));
+    QVERIFY(missing.error.contains(QStringLiteral("missing")));
 
     // Een oude status wordt als oud gemeld, niet als actueel.
     ui::SaverStatus old = ok;
     old.updated = 1000;
-    QVERIFY(SaverWindow::Lines(old, SaverGame::None, 1000 + 60).last().contains(QStringLiteral("bijgewerkt zojuist")));
-    QVERIFY(SaverWindow::Lines(old, SaverGame::None, 1000 + 20 * 60).last().contains(QStringLiteral("bijgewerkt 20 min geleden")));
+    QVERIFY(SaverWindow::Lines(old, SaverGame::None, 1000 + 60).last().contains(QStringLiteral("updated just now")));
+    QVERIFY(SaverWindow::Lines(old, SaverGame::None, 1000 + 20 * 60).last().contains(QStringLiteral("updated 20 min ago")));
     const QString stale = SaverWindow::Lines(old, SaverGame::None, 1000 + 3 * 3600).last();
-    QVERIFY2(stale.contains(QStringLiteral("LET OP: deze status is oud")), qPrintable(stale));
+    QVERIFY2(stale.contains(QStringLiteral("NOTE: this status is old")), qPrintable(stale));
 
     // Draait er nu een spel? Alleen een vers bestand met een bekend woord telt; anders weten we het niet.
     QCOMPARE(SaverWindow::ParseGame(QStringLiteral("geen\n")), SaverGame::None);
@@ -972,8 +974,8 @@ void AppWidgetTest::saverStatusParsing() {
     QCOMPARE(SaverWindow::LoadGame(g.fileName(), now), SaverGame::None);
     QCOMPARE(SaverWindow::LoadGame(g.fileName(), now + 120), SaverGame::Unknown);          // niemand houdt het bij
     QCOMPARE(SaverWindow::LoadGame(dir.path() + QStringLiteral("/nee.txt"), now), SaverGame::Unknown);
-    QCOMPARE(SaverWindow::Lines(ok, SaverGame::Unknown, 1000).value(0), QStringLiteral("Onbekend of er nu een spel draait"));
-    QCOMPARE(SaverWindow::Lines(ok, SaverGame::None, 1000).value(0), QStringLiteral("Er draait nu geen spel"));
+    QCOMPARE(SaverWindow::Lines(ok, SaverGame::Unknown, 1000).value(0), QStringLiteral("Unknown whether a game is running now"));
+    QCOMPARE(SaverWindow::Lines(ok, SaverGame::None, 1000).value(0), QStringLiteral("No game is running now"));
 }
 
 void AppWidgetTest::saverQuestionAndFeed() {
@@ -990,8 +992,8 @@ void AppWidgetTest::saverQuestionAndFeed() {
     QCOMPARE(q.question, QStringLiteral("Met of zonder kalibratie?"));
     QCOMPARE(q.goals, (QStringList{QStringLiteral("Alles halen"), QStringLiteral("Wiki")}));
     const QStringList lines = SaverWindow::Lines(q, SaverGame::None, 1000);
-    QCOMPARE(lines.value(1), QStringLiteral("Vraag voor jou: Met of zonder kalibratie?"));
-    QVERIFY(lines.join(QLatin1Char('\n')).contains(QStringLiteral("Doelen: Alles halen · Wiki")));
+    QCOMPARE(lines.value(1), QStringLiteral("Question for you: Met of zonder kalibratie?"));
+    QVERIFY(lines.join(QLatin1Char('\n')).contains(QStringLiteral("Goals: Alles halen · Wiki")));
     QVERIFY(!SaverWindow::ParseStatus(base + QStringLiteral("vraag: ") + QString(301, QLatin1Char('x')) + QLatin1Char('\n')).ok);
     QVERIFY(SaverWindow::ParseStatus(base + QStringLiteral("vraag: ") + QString(250, QLatin1Char('x')) + QLatin1Char('\n')).ok);
     QVERIFY(!SaverWindow::ParseStatus(base + QStringLiteral("vraag: a\nvraag: b\n")).ok);
@@ -1015,7 +1017,7 @@ void AppWidgetTest::saverQuestionAndFeed() {
     QVERIFY(w.SaveSnapshot(png, QSize(1920, 1080)));
     const QImage img(png);
     QCOMPARE(img.size(), QSize(1920, 1080));
-    QVERIFY(w.ShownLines().value(1).startsWith(QStringLiteral("Vraag voor jou")));
+    QVERIFY(w.ShownLines().value(1).startsWith(QStringLiteral("Question for you")));
     qint64 lit = 0;
     for (int y = 0; y < img.height(); ++y)
         for (int x = 0; x < img.width(); ++x) lit += qGray(img.pixel(x, y)) > 16 ? 1 : 0;
@@ -1024,7 +1026,7 @@ void AppWidgetTest::saverQuestionAndFeed() {
     // Een oude status: dezelfde snapshot werkt en toont geen vraag.
     writeFile(state.path() + QStringLiteral("/ravengun/saver-status.txt"), base.toUtf8());
     QVERIFY(w.SaveSnapshot(png, QSize(1280, 720)));
-    QVERIFY(!w.ShownLines().join(QLatin1Char('\n')).contains(QStringLiteral("Vraag voor jou")));
+    QVERIFY(!w.ShownLines().join(QLatin1Char('\n')).contains(QStringLiteral("Question for you")));
     qunsetenv("XDG_STATE_HOME");
 }
 

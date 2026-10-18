@@ -1,0 +1,338 @@
+{
+  "title": "Terminator Salvation",
+  "nas_folder": "Terminator Salvation ",
+  "platform": "Raw Thrills Linux PC Based (32-bit ELF, unmodified)",
+  "exe": "game",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "general.disablecursor",
+      "name_en": "Disable Cursor",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "General",
+        "field": "DisableCursor",
+        "also_in_ini": {
+          "section": "General",
+          "key": "DisableCursor"
+        }
+      },
+      "description_en": "Hide the mouse cursor over the game window.",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "general.use_custom_resolution",
+      "name_en": "Use Custom Resolution",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "General",
+        "field": "Use Custom Resolution",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Custom Resolution"
+        }
+      },
+      "description_en": "Use the width/height below instead of the default resolution.",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "general.custom_resolution_width",
+      "name_en": "Custom Resolution Width",
+      "type": "int",
+      "default": 1360,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "General",
+        "field": "Custom Resolution Width",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Custom Resolution Width"
+        }
+      },
+      "description_en": "Horizontal resolution in pixels when custom resolution is on.",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "general.custom_resolution_height",
+      "name_en": "Custom Resolution Height",
+      "type": "int",
+      "default": 768,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "General",
+        "field": "Custom Resolution Height",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Custom Resolution Height"
+        }
+      },
+      "description_en": "Vertical resolution in pixels when custom resolution is on.",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "ffb_blaster.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "FFB Blaster",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "FFB Blaster",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Load the FFB Blaster plugin for force feedback to a wheel or gun device. RavenGun does not use this.",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "gun.automatic",
+      "name_en": "Automatic",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "GUN",
+        "field": "Automatic",
+        "also_in_ini": {
+          "section": "GUN",
+          "key": "Automatic"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Automatic' (the profile gives no description).",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "gun.forcereticle",
+      "name_en": "Force Reticle",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "Terminator",
+        "category": "GUN",
+        "field": "ForceReticle",
+        "also_in_ini": {
+          "section": "GUN",
+          "key": "ForceReticle"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'ForceReticle' (the profile gives no description).",
+      "source": [
+        "tp_profile:Terminator"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "Terminator",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.gamescope",
+      "name_en": "Run inside gamescope",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/Terminator.env",
+        "name": "TP_GAMESCOPE",
+        "companion": "TP_GAMESCOPE_PATH=/usr/bin/gamescope"
+      },
+      "description_en": "Wrap the Wine call in gamescope to get a borderless fullscreen picture (used for Terminator Salvation).",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "t4user",
+        "path": "T4User",
+        "base": "game_dir",
+        "kind": "savegame",
+        "description_en": "Raw Thrills user store: aud/hiscores.00x.aud, hiscoresexpert.00x.aud, audit*.aud, adjust*.aud, coin*.aud (three redundant copies .000/.001/.002), plus adj/, coinaud/, log/, messages/, querycache/.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets highscores, audits, coin counters and operator adjustments. The game recreates the files; delete the three copies of a file together.",
+        "source": [
+          "findings/nvram_inventory.md (keyword hits only)",
+          "gamemap:T4User"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "state",
+        "path": "GeneralPurposeStateMachine.txt",
+        "base": "game_dir",
+        "kind": "state",
+        "description_en": "Small state file rewritten by the game on every run.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Recreated on next start.",
+        "source": [
+          "repo:packaging/games-status.md"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "dongle_dir",
+        "path": "hasp",
+        "base": "game_dir",
+        "kind": "protected_data",
+        "description_en": "Folder with 32-byte dongle entries used by the emulated dongle layer.",
+        "safe_to_erase": "no",
+        "erase_effect_en": "Do not erase; the game needs it to start.",
+        "source": [
+          "findings/readfirst.md"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "notes_en": "Terminator 1.25 US is the version the TeknoParrot core expects."
+  }
+}

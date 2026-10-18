@@ -1,0 +1,8 @@
+dinput8.dll = rg-dinput8 (GPL-3.0), RavenGuns eigen DirectInput8 met de geweren als joysticks
+bron:
+  20ba76f0de7a8179cba509db850d85696cb7d66b37199d1094cdecfe20063b09  tools/rg-dinput8/rg_dinput8.c
+  5612a91c7d743fa6b467c9bc7fb4c5a2236b81ae9c96eb69bd8411ae9fc47cb7  tools/rg-dinput8/rg_dinput8_kern.c
+  986cacee67498e00b4a36770dfb1b8b1f306a00c79ea4b34eaed10a782a913d9  tools/rg-dinput8/rg_dinput8_kern.h
+toolchain: i686-w64-mingw32-gcc (GCC) 16.2.0 (sysroot /home/deck/.cache/ravengun-mingw/sysroot)
+uitvoer:
+  34c3c705ef6b191e98c3b2f703519f9d3da9f08711665011daf148ce07a650b0  dinput8.dll

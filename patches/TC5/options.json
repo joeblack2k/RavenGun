@@ -1,0 +1,643 @@
+{
+  "title": "Time Crisis 5",
+  "nas_folder": "Time Crisis 5",
+  "platform": "Namco ES3X (UE3, 64-bit)",
+  "exe": "TC5/Binaries/Win64/TimeCrisisGame-Win64-Shipping.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.freeplay",
+      "name_en": "Free Play",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "FreePlay",
+        "also_in_ini": {
+          "section": "General",
+          "key": "FreePlay"
+        }
+      },
+      "description_en": "Free play: no coin needed to start.",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "crosshair.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Crosshair",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "Crosshair",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Draw a custom crosshair image (P1.png, P2.png ... in the game folder).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "crosshair.use_custom",
+      "name_en": "Use Custom",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Crosshair",
+        "field": "Use Custom",
+        "also_in_ini": {
+          "section": "Crosshair",
+          "key": "Use Custom"
+        }
+      },
+      "description_en": "Place P1.png into TC5\\Binaries\\Win64",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "border.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Border",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "Border",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Draw a custom border image.",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "border.scale",
+      "name_en": "Scale",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Border",
+        "field": "Scale",
+        "also_in_ini": {
+          "section": "Border",
+          "key": "Scale"
+        }
+      },
+      "description_en": "Scale image to resolution",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.render_hook",
+      "name_en": "Render Hook",
+      "type": "enum",
+      "values": [
+        "EndScene",
+        "Present"
+      ],
+      "default": "Present",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Render Hook",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Render Hook"
+        }
+      },
+      "description_en": "Direct3D 9 function hooked to draw the custom crosshair and border.",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.use_custom_resolution",
+      "name_en": "Use Custom Resolution",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Use Custom Resolution",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Custom Resolution"
+        }
+      },
+      "description_en": "Use the width/height below instead of the default resolution.",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.custom_resolution_width",
+      "name_en": "Custom Resolution Width",
+      "type": "int",
+      "default": 1920,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Custom Resolution Width",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Custom Resolution Width"
+        }
+      },
+      "description_en": "Horizontal resolution in pixels when custom resolution is on. Default width is 1920.",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.custom_resolution_height",
+      "name_en": "Custom Resolution Height",
+      "type": "int",
+      "default": 1080,
+      "min": 320,
+      "max": 7680,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Custom Resolution Height",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Custom Resolution Height"
+        }
+      },
+      "description_en": "Vertical resolution in pixels when custom resolution is on. Default height is 1080.",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.player_2",
+      "name_en": "Player 2",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Player 2",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2"
+        }
+      },
+      "description_en": "For LAN Play, one side has to be Player 2",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.player_1_ip",
+      "name_en": "Player 1 IP",
+      "type": "string",
+      "default": "192.168.178.1",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Player 1 IP",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 IP"
+        }
+      },
+      "description_en": "For LAN Play, put in the IP of Player 1",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "arguments.text_language",
+      "name_en": "Text Language",
+      "type": "enum",
+      "values": [
+        "English",
+        "Spanish",
+        "Portuguese",
+        "Russian",
+        "Thai",
+        "Korean",
+        "Italian",
+        "Indonesian"
+      ],
+      "default": "English",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Arguments",
+        "field": "Text Language",
+        "also_in_ini": {
+          "section": "Arguments",
+          "key": "Text Language"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Text Language' (the profile gives no description).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "arguments.voice_language",
+      "name_en": "Voice Language",
+      "type": "enum",
+      "values": [
+        "English",
+        "Japanese"
+      ],
+      "default": "English",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Arguments",
+        "field": "Voice Language",
+        "also_in_ini": {
+          "section": "Arguments",
+          "key": "Voice Language"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Voice Language' (the profile gives no description).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "arguments.custom_arguments",
+      "name_en": "Custom Arguments",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Arguments",
+        "field": "Custom Arguments",
+        "also_in_ini": {
+          "section": "Arguments",
+          "key": "Custom Arguments"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Custom Arguments' (the profile gives no description).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "score.enable_submission",
+      "name_en": "Enable Submission",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Score",
+        "field": "Enable Submission",
+        "also_in_ini": {
+          "section": "Score",
+          "key": "Enable Submission"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Enable Submission' (the profile gives no description).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "score.enable_gui",
+      "name_en": "Enable GUI",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Score",
+        "field": "Enable GUI",
+        "also_in_ini": {
+          "section": "Score",
+          "key": "Enable GUI"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Enable GUI' (the profile gives no description).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "score.enable_capture",
+      "name_en": "Enable Capture",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "TC5",
+        "category": "Score",
+        "field": "Enable Capture",
+        "also_in_ini": {
+          "section": "Score",
+          "key": "Enable Capture"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Enable Capture' (the profile gives no description).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "TC5",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/TC5.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "arg.text_language",
+      "name_en": "Text language",
+      "type": "enum",
+      "default": "English",
+      "values": [
+        "English",
+        "Spanish",
+        "Portuguese",
+        "Russian",
+        "Thai",
+        "Korean",
+        "Italian",
+        "Indonesian"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "teknoparrot.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Arguments",
+        "key": "Text Language"
+      },
+      "description_en": "Language of on-screen text (profile field Arguments/Text Language).",
+      "source": [
+        "tp_profile:TC5"
+      ]
+    },
+    {
+      "key": "engine.base_input",
+      "name_en": "Double shot from mouse",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "TC5/Engine/Config/BaseInput.ini",
+        "base": "game_dir",
+        "format": "ini_line_comment",
+        "key": "Bindings=(Name=\"LeftMouseButton\",Command=\"Fire\")"
+      },
+      "description_en": "README tip: comment out the LeftMouseButton/RightMouseButton Fire bindings to remove double shots from the mouse.",
+      "source": [
+        "gamemap:README.txt"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "ranking_c",
+        "path": "TeknoParrot/c/TCSaveData/RankingData.bin",
+        "base": "game_dir",
+        "kind": "highscores",
+        "description_en": "Ranking data on the emulated C: drive.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Clears rankings.",
+        "source": [
+          "findings/nvram_inventory.md",
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "ranking_f",
+        "path": "TeknoParrot/f/TC5RankingData.bin",
+        "base": "game_dir",
+        "kind": "highscores",
+        "description_en": "Ranking data on the emulated F: drive (a directory with the same name holds the file).",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Clears rankings.",
+        "source": [
+          "findings/nvram_inventory.md"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "bookkeeping",
+        "path": "TeknoParrot/{f,g}/TC5BookKeeping.bin",
+        "base": "game_dir",
+        "kind": "bookkeeping",
+        "description_en": "Bookkeeping on F: and G:.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets audits.",
+        "source": [
+          "findings/nvram_inventory.md",
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "credit_data",
+        "path": "TeknoParrot/{f,g}/TC5CreditData.bin",
+        "base": "game_dir",
+        "kind": "credits",
+        "description_en": "Credit data.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Clears stored credits.",
+        "source": [
+          "findings/nvram_inventory.md"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "player_save",
+        "path": "TeknoParrot/{f,g}/TC5PlayerGameSaveData.bin",
+        "base": "game_dir",
+        "kind": "savegame",
+        "description_en": "Per-player game save data.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Deletes player progress.",
+        "source": [
+          "findings/nvram_inventory.md",
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "testmode",
+        "path": "TeknoParrot/{f,g}/TC5TestModeData.bin",
+        "base": "game_dir",
+        "kind": "operator_settings",
+        "description_en": "Test-menu settings.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets operator settings to defaults.",
+        "source": [
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "notes_en": "Dongle runtime libraries (hasp_windows_x64_*.dll) in the game folder are not user data."
+  }
+}

@@ -16,7 +16,8 @@ oplossing aanpassen betekende code wijzigen. Gebruikers konden niets toevoegen z
 ## Indeling
 
 ```
-<datadir>/patches/                 meegeleverd (repo: patches/; geïnstalleerd: share/ravengun/patches/), alleen-lezen
+<app>/patches/                     meegeleverd, in dezelfde repository als de applicatie; niet voor gebruikerswijzigingen
+                                  share/ravengun/patches -> ../../patches (relatieve compatibiliteitskoppeling)
   _defaults/<Type>.ini             standaard per soort (TeknoParrot, OpenParrot, ElfLdr2, Unity, Native)
   _defaults/<Type>.patches.ini     gedeelde patchdefinities voor dat soort (zie "patches.ini")
   <Game>/
@@ -59,8 +60,7 @@ leest `RAVENGUN_PATCHES_DIR` of `RAVENGUN_USER_PATCHES_DIR` zelf (`tests/test_pa
   blijft vindbaar als er een ontwikkel-checkout is. Daardoor kunnen gamemappen van de patches-repo naar de loader verhuizen (of
   terug) zonder dat er iets verandert.
 - Een laag die niet bestaat valt weg; de volgorde van de rest blijft. Is dezelfde map (na `realpath`) tweemaal een laag, dan telt hij
-  een keer, op de hoogste plek. Op een ontwikkelmachine is `patches/` van de loader een koppeling naar de patches-repo; dat is
-  daarmee onschadelijk.
+  een keer, op de hoogste plek. De meegeleverde `patches/` staat sinds 18 oktober 2026 rechtstreeks in de applicatierepository; een aparte patchescheckout is niet meer nodig.
 - Een zoektocht die de **eerste treffer** neemt (een bestand, een drop-in) loopt omgekeerd: 3, dan 2, dan 1.
 - `_defaults/<Type>.ini` en `.patches.ini` komen uit de meegeleverde lagen (1 en 3), in die volgorde; de gebruikerslaag levert er geen.
 - Gevolg om te weten: staat `RAVENGUN_PATCHES_DIR` in de omgeving van de app of de service, dan overrulen de waarden daar de

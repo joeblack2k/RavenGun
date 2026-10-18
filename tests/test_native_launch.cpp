@@ -426,6 +426,24 @@ int main() {
         CHECK(!pl.identity.empty() && pl.identity[0] == "gegevens=" + q.user_patches + "/Per/native.json");
     }
 
+    // @patches-bestanden: eigen bestanden blijven buiten de applicatiemap;
+    // een aanwezige gebruikerskopie wint, ontbrekende bestanden komen uit de levering.
+    {
+        NativePaths q = p;
+        const std::string text = R"({"games":{"Private":{"enabled":true,"exe":"/pm/game","mounts":[
+            {"src":"@patches/Private/data/shader","dst":"/shader","mode":"ro"},
+            {"src":"@patches/Private/data/default","dst":"/default","mode":"ro"}]}}})";
+        write(q.patches + "/Private/data/shader", "shipped");
+        write(q.user_patches + "/Private/data/shader", "owner");
+        NativeProfile pp;
+        CHECK(load_profile(text, "Private", q, pp, err));
+        CHECK(pp.mounts[0].src == q.user_patches + "/Private/data/shader");
+        CHECK(pp.mounts[1].src == q.patches + "/Private/data/default");
+        fs::remove(q.user_patches + "/Private/data/shader");
+        CHECK(load_profile(text, "Private", q, pp, err));
+        CHECK(pp.mounts[0].src == q.patches + "/Private/data/shader");
+    }
+
     // De spelmappen van de app: "@nas/<Map>" komt uit de eerste spelmap waarin <Map> staat (ook een niveau dieper); een vaste
     // spelmap (nas, RAVENGUN_NAS_TP) gaat voor; staat de map nergens, dan de eerste (de fout volgt bij de mount).
     {

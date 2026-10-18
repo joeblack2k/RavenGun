@@ -38,6 +38,10 @@ Not every game works. See [docs/compatibility.md](docs/compatibility.md) for wha
 4. The first start opens the **setup wizard**. On its first page press **Install RavenGun**. No password and no changes to the read-only system partition are needed: RavenGun copies itself to `~/.local/opt/ravengun`, adds a menu entry and a desktop icon, starts the engine (the background service) at every login and restarts from the installed copy. You can delete the unpacked folder afterwards.
 5. Follow the rest of the wizard. The steps are Install RavenGun, Permissions (one password prompt), Engine, Components (the wizard installs the RavenGun runtime pieces that come in the archive, such as the OpenParrot build and the per-game patches, and downloads Wine, DXVK and BepInEx with a checksum; TeknoParrot and the Steam redistributables come from your own files), Games (your game folder) and Steam (adds RavenGun to Steam).
 
+The application folder contains `bin/`, `lib/`, **`patches/`** and `share/`. Game profiles and RavenGun's own drop-ins are maintained in this same repository and installed together. `share/ravengun/patches` is only a relative compatibility link to `../../patches`, not another copy.
+
+Your settings, saves, Wine prefixes and overrides remain outside the application folder. Per-game overrides in `~/.local/share/ravengun/patches/` survive updates. Private dongle data and game-derived files are not included; games that need them still require your own files.
+
 ## Game Mode
 
 When the wizard is done, restart into Game Mode and start **RavenGun** from your Steam library (under Non-Steam games). It opens the full-screen menu: aim the Move at a game and shoot to select it, shoot again to start it. The PS button centers the aim. When a game ends you are back in the menu.

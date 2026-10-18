@@ -121,6 +121,67 @@ void test_ingang() {
     for (size_t i = 1; i < kReport; ++i) CHECK(rpt[i] == 0);
 }
 
+void test_gunsensor() {
+    GunSensor sensor;
+    uint8_t shm[64] = {}, out[32] = {};
+    const uint8_t reset = 4, poll = 8;
+    CHECK(!sensor.write(&poll, 1, shm));
+    CHECK(sensor.pending() == 0);
+    CHECK(sensor.write(&reset, 1, shm));
+    CHECK(sensor.pending() == 2);
+    CHECK(sensor.read(out, 1) == 1 && out[0] == 0);
+    CHECK(sensor.read(out, sizeof out) == 1 && out[0] == 0xff);
+    CHECK(sensor.read(out, sizeof out) == 0);
+    CHECK(sensor.write(reinterpret_cast<const uint8_t*>("S P"), 3, shm));
+    CHECK(sensor.pending() == 0);
+    CHECK(!sensor.write(&poll, 1, shm));
+    CHECK(sensor.write(reinterpret_cast<const uint8_t*>("2\r\n"), 3, shm));
+    CHECK(sensor.read(out, sizeof out) == 2 && out[0] == 0x75 && out[1] == 0x8a);
+    for (char freq = '0'; freq <= '3'; ++freq) {
+        uint8_t command[] = {'S', ' ', 'F', static_cast<uint8_t>(freq), '\r', '\n'};
+        CHECK(sensor.write(command, sizeof command, shm));
+        CHECK(sensor.read(out, sizeof out) == 2 && out[0] == 0x75 && out[1] == 0x8a);
+    }
+    shm[12] = 0; shm[16] = 255; shm[20] = 255; shm[24] = 0;
+    shm[8] = 3;
+    CHECK(sensor.write(&poll, 1, shm));
+    CHECK(sensor.pending() == 11);
+    CHECK(sensor.read(out, 4) == 4);
+    // Een deelread blijft dezelfde momentopname, ook als de bron verandert.
+    std::memset(shm, 128, sizeof shm);
+    CHECK(sensor.read(out + 4, sizeof out - 4) == 7);
+    CHECK(out[0] == 0 && out[1] == 0 && out[2] == 0 && out[3] == 0);
+    CHECK(out[4] == 3 && out[5] == 0xff && out[6] == 3 && out[7] == 0xff);
+    CHECK(out[8] == 0xf0 && out[9] == 0);
+    CHECK(out[10] == GunSensor::checksum(out, 10));
+    unsigned sum = 0;
+    for (size_t i = 0; i < 11; ++i) sum += out[i];
+    CHECK((sum & 255) == 255);
+    shm[8] = 1;
+    GunSensor::frame(shm, out);
+    CHECK(out[0] == 2 && out[1] == 2 && out[2] == 1 && out[3] == 0xfd);
+    CHECK(out[8] == 0x20);
+    shm[8] = 2;
+    GunSensor::frame(shm, out);
+    CHECK(out[8] == 0x10);
+    GunSensor::frame(nullptr, out);
+    CHECK(out[8] == 0xc0 && out[10] == GunSensor::checksum(out, 10));
+    CHECK(sensor.write(&poll, 1, nullptr));
+    sensor.purge();
+    CHECK(sensor.pending() == 0);
+    CHECK(sensor.write(&poll, 1, shm));
+    CHECK(!sensor.write(reinterpret_cast<const uint8_t*>("S F4\r\n"), 6, shm));
+    CHECK(sensor.pending() == 0);
+    CHECK(!sensor.write(reinterpret_cast<const uint8_t*>("S P1\r\n"), 6, shm));
+    CHECK(!sensor.write(nullptr, 1, shm));
+    CHECK(!sensor.write(&poll, 0, shm));
+    const uint8_t overflow[17] = {'S',' ','P','2','a','a','a','a','a','a','a','a','a','a','a','a','a'};
+    CHECK(!sensor.write(overflow, sizeof overflow, shm));
+    sensor.close();
+    CHECK(!sensor.write(&poll, 1, shm));
+    CHECK(sensor.pending() == 0);
+}
+
 }  // namespace
 
 int main() {
@@ -130,6 +191,7 @@ int main() {
     test_pad();
     test_verzoeken();
     test_ingang();
+    test_gunsensor();
     std::printf("%d controles, %d fouten\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

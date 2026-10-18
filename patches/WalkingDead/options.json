@@ -1,0 +1,184 @@
+{
+  "title": "The Walking Dead",
+  "nas_folder": "Walking Dead",
+  "platform": "Raw Thrills Linux PC Based (32-bit ELF, unmodified)",
+  "exe": "game",
+  "options": [
+    {
+      "key": "adj.freeplay",
+      "name_en": "Free play",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/walkingdead/pmuser/adj/save/playerCost/freeplay.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "freeplay",
+        "edit_outside_game": true
+      },
+      "description_en": "Free play: no credits needed to start a game. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/walkingdead/data/prod/adj/game/defs/playerCost/freeplay.txt",
+        "elf strings: freeplay, playerCost"
+      ]
+    },
+    {
+      "key": "adj.game_cost",
+      "name_en": "Game cost (cents)",
+      "type": "int",
+      "default": 100,
+      "min": 0,
+      "max": 10000,
+      "step": 25,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/walkingdead/pmuser/adj/save/playerCost/gameCost.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "gameCost",
+        "edit_outside_game": true
+      },
+      "description_en": "Price of one game in cents (100 = one dollar). With coin value 25 a game costs four coins. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/walkingdead/data/prod/adj/game/defs/playerCost/gameCost.txt",
+        "elf strings: gameCost"
+      ]
+    },
+    {
+      "key": "adj.continue_cost",
+      "name_en": "Continue cost (cents)",
+      "type": "int",
+      "default": 100,
+      "min": 0,
+      "max": 10000,
+      "step": 25,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/walkingdead/pmuser/adj/save/playerCost/continueCost.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "continueCost",
+        "edit_outside_game": true
+      },
+      "description_en": "Price of one continue in cents (100 = one dollar). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/walkingdead/data/prod/adj/game/defs/playerCost/continueCost.txt"
+      ]
+    },
+    {
+      "key": "adj.coin1_value",
+      "name_en": "Coin 1 value (cents)",
+      "type": "int",
+      "default": 25,
+      "min": 0,
+      "max": 10000,
+      "step": 25,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/walkingdead/pmuser/adj/save/coin/coin1Value.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "coin1Value",
+        "edit_outside_game": true
+      },
+      "description_en": "Value of coin mechanism 1 in cents (25 = one quarter). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/walkingdead/data/prod/adj/core/defs/coin/coin1Value.txt",
+        "write layer: g6/walkingdead/pmuser/adj/save/coin/coin1Value.{0,1,2}.txt"
+      ]
+    },
+    {
+      "key": "adj.game_volume",
+      "name_en": "Game volume",
+      "type": "int",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/walkingdead/pmuser/adj/save/sound/gameVolume.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "gameVolume",
+        "edit_outside_game": true
+      },
+      "description_en": "Game sound volume (0-100). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/walkingdead/data/prod/adj/core/defs/sound/gameVolume.txt",
+        "elf strings: gameVolume"
+      ]
+    },
+    {
+      "key": "adj.attract_volume",
+      "name_en": "Attract volume",
+      "type": "int",
+      "default": 25,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/walkingdead/pmuser/adj/save/sound/attractVolume.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "attractVolume",
+        "edit_outside_game": true
+      },
+      "description_en": "Attract-mode volume (0-100). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/walkingdead/data/prod/adj/core/defs/sound/attractVolume.txt",
+        "elf strings: attractVolume"
+      ]
+    },
+    {
+      "key": "adj.subtitles",
+      "name_en": "Subtitles",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "game_config_file",
+        "path": "g6/walkingdead/pmuser/adj/save/gameOptions/subtitles.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "subtitles",
+        "edit_outside_game": true
+      },
+      "description_en": "Show subtitles. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g6/walkingdead/data/prod/adj/game/defs/gameOptions/subtitles.txt",
+        "gamemap:g6/walkingdead/data/prod/adj/game/defs/gameOptions/{jp,cn,cnx,it}/subtitles.txt (regional defaults)"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "pmuser",
+        "path": "g6/walkingdead/pmuser",
+        "base": "game_dir",
+        "kind": "savegame",
+        "description_en": "Raw Thrills user store: operator adjustments, audits, highscores and logs. Not in the dump; created at first run.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets scores, audits and adjustments.",
+        "source": [
+          "gamemap:g6/walkingdead/pmuser"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "adj_defs",
+        "path": "g6/walkingdead/data/prod/adj",
+        "base": "game_dir",
+        "kind": "protected_data",
+        "description_en": "Adjustment definitions (encrypted/binary in this dump).",
+        "safe_to_erase": "no",
+        "erase_effect_en": "Game content, not user data.",
+        "source": [
+          "gamemap:g6/walkingdead/data/prod/adj"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "notes_en": ""
+  }
+}

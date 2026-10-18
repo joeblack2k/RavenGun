@@ -1,0 +1,266 @@
+{
+  "title": "Jurassic Park Arcade",
+  "nas_folder": "Jurassic Park",
+  "platform": "Raw Thrills Linux PC Based (32-bit ELF, rewritten)",
+  "exe": "game",
+  "options": [
+    {
+      "key": "adj.difficulty",
+      "name_en": "Difficulty",
+      "type": "int",
+      "default": 3,
+      "min": 0,
+      "max": 10,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/game/difficulty.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "difficulty",
+        "edit_outside_game": true
+      },
+      "description_en": "Game difficulty (0-10). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/game/defs/game/difficulty.txt"
+      ],
+      "note_en": "Raw Thrills adjustment store: files carry a checksum header, change it in the in-game TEST menu, not by editing the file."
+    },
+    {
+      "key": "adj.friendly_fire",
+      "name_en": "Friendly fire",
+      "type": "enum",
+      "default": 2,
+      "values": [
+        0,
+        1,
+        2
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/game/friendlyFire.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "friendly_fire",
+        "edit_outside_game": true
+      },
+      "description_en": "Friendly fire level (0-2). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/game/defs/game/friendlyFire.txt"
+      ]
+    },
+    {
+      "key": "adj.game_volume",
+      "name_en": "Game volume",
+      "type": "int",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/sound/gameVolume.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "game_volume",
+        "edit_outside_game": true
+      },
+      "description_en": "Game sound volume (0-100). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/game/defs/sound/gameVolume.txt"
+      ]
+    },
+    {
+      "key": "adj.attract_volume",
+      "name_en": "Attract volume",
+      "type": "int",
+      "default": 25,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/sound/attractVolume.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "attract_volume",
+        "edit_outside_game": true
+      },
+      "description_en": "Attract-mode volume (0-100). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/game/defs/sound/attractVolume.txt"
+      ]
+    },
+    {
+      "key": "adj.rumble",
+      "name_en": "Gun rumble",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/hardware/rumble.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "rumble",
+        "edit_outside_game": true
+      },
+      "description_en": "Enable gun rumble output. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/game/defs/hardware/rumble.txt"
+      ]
+    },
+    {
+      "key": "adj.vibrate_guns",
+      "name_en": "Vibrate guns",
+      "type": "int",
+      "default": 1,
+      "min": 0,
+      "max": 4,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/hardware/vibrateGuns.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "vibrate_guns",
+        "edit_outside_game": true
+      },
+      "description_en": "Gun vibration mode (0-4). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/game/defs/hardware/vibrateGuns.txt"
+      ]
+    },
+    {
+      "key": "adj.freeplay",
+      "name_en": "Free play",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/playerCost/freeplay.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "freeplay",
+        "edit_outside_game": true
+      },
+      "description_en": "Free play. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/game/defs/playerCost/freeplay.txt"
+      ]
+    },
+    {
+      "key": "adj.coin1_value",
+      "name_en": "Coin 1 value (cents)",
+      "type": "int",
+      "default": 25,
+      "min": 0,
+      "max": 2000000000,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/coin/coin1Value.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "coin1_value",
+        "edit_outside_game": true
+      },
+      "description_en": "Value of coin mechanism 1, divisor 100. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/core/defs/coin/coin1Value.txt",
+        "findings/nvram_inventory.md"
+      ]
+    },
+    {
+      "key": "adj.max_credits",
+      "name_en": "Maximum credits",
+      "type": "int",
+      "default": 30,
+      "min": 10,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/coin/maxCredits.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "max_credits",
+        "edit_outside_game": true
+      },
+      "description_en": "Credit cap (10-100). Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/core/defs/coin/maxCredits.txt",
+        "findings/nvram_inventory.md"
+      ]
+    },
+    {
+      "key": "adj.subtitles",
+      "name_en": "Subtitles",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "game_config_file",
+        "path": "pmuser/adj/save/game/subtitles.{0,1,2}.txt",
+        "base": "native_layer",
+        "format": "rtdt_adjval",
+        "key": "subtitles",
+        "edit_outside_game": true
+      },
+      "description_en": "Show subtitles. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "source": [
+        "gamemap:g5/dino/data/adj/game/defs/game/subtitles.txt"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "adj_save",
+        "path": "pmuser/adj/save",
+        "base": "game_dir",
+        "kind": "operator_settings",
+        "description_en": "Operator adjustments, one file per value in three copies (.0 .1 .2) with a checksum header.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets all operator adjustments to their defaults. Delete the three copies together.",
+        "source": [
+          "findings/nvram_inventory.md",
+          "gamemap:pmuser/adj/save"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "highscores",
+        "path": "pmuser/aud/save/highscores.{0,1,2}.xml",
+        "base": "game_dir",
+        "kind": "highscores",
+        "description_en": "Highscore tables (three copies, UTF-16 XML with checksum header).",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Clears all highscores.",
+        "source": [
+          "gamemap:pmuser/aud/save"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "logs",
+        "path": "pmuser/gamelog.txt",
+        "base": "game_dir",
+        "kind": "log",
+        "description_en": "Game log and error log.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Nothing lost.",
+        "source": [
+          "gamemap:pmuser"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "integrity_manifest",
+        "path": "dinocrc.txt",
+        "base": "game_dir",
+        "kind": "protected_data",
+        "description_en": "File integrity manifest (path, size, CRC32 per data file) used by the integrity check; not user data.",
+        "safe_to_erase": "no",
+        "erase_effect_en": "Do not edit unless the data files change; a mismatch triggers the integrity-test failure.",
+        "source": [
+          "findings/15_game_share.md (section 3.2)"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "notes_en": "Version required by the core: Jurassic Park Motion 1.08 / OS 01.06 (version.txt)."
+  }
+}

@@ -2214,10 +2214,13 @@ void AppCoreTest::installSelfInstall() {
     const InstallLayout layout = fakeLayout(home, prefix);
     QCOMPARE(layout.desktopDir, home + QStringLiteral("/Desktop"));
     const QString release = makeFakeRelease(base + QStringLiteral("/release"));
+    writeFile(release + QStringLiteral("/patches/Example/game.ini"), "[Game]\nProfile = Example\n");
+    QVERIFY(QFile::link(QStringLiteral("../../patches"), release + QStringLiteral("/share/ravengun/patches")));
     // Gebruikersgegevens die een installatie nooit mag aanraken.
     writeFile(layout.configDir + QStringLiteral("/library.json"), "{\"mijn\":1}\n");
     writeFile(layout.stateDir + QStringLiteral("/logs/oud.log"), "log\n");
     writeFile(layout.userDataDir + QStringLiteral("/runtime/tp.txt"), "tp\n");
+    writeFile(layout.userDataDir + QStringLiteral("/patches/Example/game.ini"), "[Owner]\nKeep = yes\n");
 
     QStringList lines;
     Install::InstallOptions opt;
@@ -2229,6 +2232,10 @@ void AppCoreTest::installSelfInstall() {
     QCOMPARE(r.prefix, prefix);
     // De boom staat er, uitvoerbaar, met de symlink; geen tijdelijke mappen ernaast.
     QVERIFY(Install::isRavenGunTree(prefix));
+    QVERIFY(QFileInfo(prefix + QStringLiteral("/patches")).isDir());
+    QVERIFY(!QFileInfo(prefix + QStringLiteral("/patches")).isSymLink());
+    QCOMPARE(readAll(prefix + QStringLiteral("/share/ravengun/patches/Example/game.ini")), QStringLiteral("[Game]\nProfile = Example\n"));
+    QCOMPARE(QFileInfo(prefix + QStringLiteral("/share/ravengun/patches")).symLinkTarget(), prefix + QStringLiteral("/patches"));
     for (const char* b : {"ravengun", "ravengund", "ravengunctl", "ravengun-setup-helper"}) QVERIFY(QFileInfo(prefix + QStringLiteral("/bin/") + QLatin1String(b)).isExecutable());
     QVERIFY(QFileInfo(prefix + QStringLiteral("/lib/libpsmoveapi.so.1")).isSymLink());
     QCOMPARE(QDir(QFileInfo(prefix).path()).entryList({QStringLiteral("ravengun.*")}, QDir::Dirs | QDir::NoDotAndDotDot).size(), 0);
@@ -2257,17 +2264,22 @@ void AppCoreTest::installSelfInstall() {
     QCOMPARE(readAll(layout.configDir + QStringLiteral("/library.json")), QStringLiteral("{\"mijn\":1}\n"));
     QCOMPARE(readAll(layout.stateDir + QStringLiteral("/logs/oud.log")), QStringLiteral("log\n"));
     QCOMPARE(readAll(layout.userDataDir + QStringLiteral("/runtime/tp.txt")), QStringLiteral("tp\n"));
+    QCOMPARE(readAll(layout.userDataDir + QStringLiteral("/patches/Example/game.ini")), QStringLiteral("[Owner]\nKeep = yes\n"));
     QVERIFY(!lines.isEmpty());
 
     // Bijwerken met een nieuwere boom terwijl de engine draait en er geen game is: een bestand dat weg is, is weg; herstart (zonder --now).
     QFile::remove(base + QStringLiteral("/systemctl.log"));
     { QFile f(base + QStringLiteral("/active")); QVERIFY(f.open(QIODevice::WriteOnly)); }
     makeFakeRelease(base + QStringLiteral("/release"), QStringLiteral("v2"));
+    writeFile(release + QStringLiteral("/patches/Example/game.ini"), "[Game]\nProfile = Example\n");
+    QVERIFY(QFile::link(QStringLiteral("../../patches"), release + QStringLiteral("/share/ravengun/patches")));
     writeFile(base + QStringLiteral("/release/bin/nieuw"), "x");
     r = Install::installTree(release, layout, opt, {});
     QVERIFY2(r.ok, qPrintable(r.error));
     QVERIFY(readAll(prefix + QStringLiteral("/share/ravengun/VERSION")).startsWith(QStringLiteral("v2")));
     QVERIFY(QFileInfo(prefix + QStringLiteral("/bin/nieuw")).exists());
+    QVERIFY(QFileInfo(prefix + QStringLiteral("/share/ravengun/patches/Example/game.ini")).isFile());
+    QCOMPARE(readAll(layout.userDataDir + QStringLiteral("/patches/Example/game.ini")), QStringLiteral("[Owner]\nKeep = yes\n"));
     const QString log2 = readLog(base);
     QVERIFY(log2.contains(QStringLiteral("--user enable ravengund.service\n")) && !log2.contains(QStringLiteral("--now")));
     QVERIFY(log2.contains(QStringLiteral("--user restart ravengund.service\n")));
