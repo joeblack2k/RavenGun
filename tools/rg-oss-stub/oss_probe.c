@@ -71,3 +71,16 @@ int main(int argc, char **argv)
     }
     return 0;
 }
+
+#ifdef BREAK_GTOD
+/* Zoals de exe van Target: Terror Gold: hij exporteert een eigen gettimeofday (via ftime) die de tv-velden vult maar geen 0
+ * teruggeeft. Door symbool-interpositie ziet libpulse (pa_gettimeofday: assert(gettimeofday() == 0)) die in plaats van die van libc.
+ * Bouwen met -DBREAK_GTOD -rdynamic. */
+int gettimeofday(void *tv, void *tz)
+{
+    (void)tz;
+    ((long *)tv)[0] = 1;
+    ((long *)tv)[1] = 2000;
+    return 12345;
+}
+#endif
