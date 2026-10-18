@@ -5,7 +5,7 @@
 # github.com/BepInEx; de zip wordt met sha256 gecontroleerd en uitgepakt naar <data>/bepinex/<versie>/<x64|x86>. Niets ervan komt in git.
 # Een versie die al uitgepakt staat wordt overgeslagen.
 #
-#   scripts/fetch-bepinex.sh [VERSIE]     standaard 5.4.21.0 (beide bitbreedtes)
+#   scripts/fetch-bepinex.sh [VERSIE]     standaard 5.4.21.0; ook 5.4.23.2 (beide bitbreedtes)
 set -euo pipefail
 
 VERSIE="${1:-5.4.21.0}"
@@ -17,8 +17,14 @@ case "$VERSIE" in
   5.4.21.0)
     SHA[x64]=2af69fe0aaf821e95c4cd3e4d53860e667c54648f97dca6f971a5bcd3c22aa34
     SHA[x86]=f89f3f6b97e8f486ec8eeea489415d058233240fd6de79b3cbdd90e601fa6bbf
-    TAG=v5.4.21 ;;
-  *) echo "fetch-bepinex: versie $VERSIE is niet vastgelegd (alleen 5.4.21.0); voeg de sha256 van de release toe" >&2; exit 1 ;;
+    TAG=v5.4.21; NAAM=BepInEx_ARCH_$VERSIE ;;
+  # 5.4.23.2 (doorstop 4.3.0): de release die Night Hunter - After Dark 2 zelf meelevert (byte-voor-byte gelijk aan de NAS-map, gemeten
+  # 2026-10-18). De doorstop 3 van 5.4.21.0 laadde bij die game (Unity 5.5.3) niet.
+  5.4.23.2)
+    SHA[x64]=f752ce4e838f4c305b9da1404b6745f2cff23b8bfd494f79f0c84d0a01f59b46
+    SHA[x86]=7dd51193587a86c11a58530aeeb4789b15763cc6cf2c55e71785cef4ef214253
+    TAG=v5.4.23.2; NAAM=BepInEx_win_ARCH_$VERSIE ;;
+  *) echo "fetch-bepinex: versie $VERSIE is niet vastgelegd (5.4.21.0, 5.4.23.2); voeg de sha256 van de release toe" >&2; exit 1 ;;
 esac
 
 mkdir -p "$DEST/zip"
@@ -29,7 +35,7 @@ for arch in x64 x86; do
   fi
   zip="$DEST/zip/BepInEx_${arch}_$VERSIE.zip"
   if [[ ! -s $zip ]] || ! echo "${SHA[$arch]}  $zip" | sha256sum -c --status; then
-    url="https://github.com/BepInEx/BepInEx/releases/download/$TAG/BepInEx_${arch}_$VERSIE.zip"
+    url="https://github.com/BepInEx/BepInEx/releases/download/$TAG/${NAAM/ARCH/$arch}.zip"
     echo "fetch-bepinex: download $url"
     curl -fsSL --retry 3 -o "$zip.part" "$url"
     echo "${SHA[$arch]}  $zip.part" | sha256sum -c --status || { rm -f "$zip.part"; echo "fetch-bepinex: sha256 van $arch klopt niet" >&2; exit 1; }
