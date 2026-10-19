@@ -685,7 +685,7 @@ if(RAVENGUN_BUILD_TESTS)
     # De tijdelijke map komt in de builddir, nooit in /tmp. Skip (77) zonder python3 of rsync.
     add_test(NAME ravengun_make_portable
       COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/make_portable_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
-    set_tests_properties(ravengun_make_portable PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+    set_tests_properties(ravengun_make_portable PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 400)
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
     add_test(NAME ravengund_ipc
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")

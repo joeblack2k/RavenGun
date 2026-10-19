@@ -30,19 +30,25 @@
 # User/ wordt in User.new opgebouwd en pas na alle controles op zijn plek gezet (een
 # rename). Een mislukte of onderbroken run laat dus nooit een halve User/ achter en
 # een bestaande User/ blijft bij een fout ongemoeid. De wissel gebeurt niet zolang een
-# proces User/ gebruikt (mount, werkmap, open bestand; portable_tools.py busy), en de oude
-# User/ blijft daarna als User.old staan tot de volgende geslaagde run.
+# proces User/ gebruikt (mount, werkmap, open bestand; portable_tools.py busy). De oude
+# User/ blijft daarna als User.old staan: een gewone verversing laat hem staan (met een
+# regel over zijn grootte); alleen de volgende --reset-user of --drop-old gooit hem weg, aan
+# het begin en alleen als niets hem gebruikt. bin/, lib/ en share/ worden als <naam>.new
+# gebouwd en via <naam>.old gewisseld. Eén run tegelijk per map (flock op .make-portable.lock).
+# De rechten die het script in de bron tijdelijk opent, staan in .portable-perms.journal in de
+# map; een volgende run zet ze terug als een run hard afgebroken werd (SIGKILL, stroom weg).
 #
-# Gebruik: scripts/make-portable.sh [--reset-user] [DOEL]
+# Gebruik: scripts/make-portable.sh [--reset-user] [--drop-old] [DOEL]
 #   --reset-user  bouw heel User/ opnieuw op (anders blijft User/ staan en verversen
-#                 we alleen bin/, lib/ en share/ravengun/patches). De oude User/ blijft
-#                 tot het eind staan en daarna als User.old; er is dus ruimte voor twee
-#                 kopieën nodig (drie als er nog een User.old van de vorige keer staat).
+#                 we alleen bin/, lib/ en share/ravengun/patches). Een User.old van de
+#                 vorige keer gaat eerst weg (telt dus als vrije ruimte); de huidige User/
+#                 blijft tot het eind staan en daarna als User.old: ruimte voor twee kopieën.
+#   --drop-old    gooi User.old weg (als niets hem gebruikt), ook bij een gewone verversing.
 #   DOEL          de map om te vullen (standaard dist/RavenGun); wordt aangemaakt. Hij moet
-#                 nieuw of leeg zijn, of al een portabele map (ravengun.sh of .ravengun-portable),
-#                 en mag niet de thuismap, de runtime, de installatie, de configuratie of de
-#                 repo zijn (of een ouder daarvan), en er ook niet in liggen (behalve onder
-#                 <repo>/dist).
+#                 nieuw of leeg zijn, of al een portabele map (.ravengun-portable, of een
+#                 ravengun.sh met de kopregel van de starter), en mag niet de thuismap, de
+#                 runtime, de installatie, de configuratie of de repo zijn (of een ouder
+#                 daarvan), en er ook niet in liggen (behalve onder <repo>/dist).
 # Voor de test (tests/make_portable_test.sh) overschrijfbaar via de omgeving:
 #   RG_PORTABLE_INSTALL, RG_PORTABLE_RUNTIME, RG_PORTABLE_CONFIG, RG_PORTABLE_TUI_PROTON,
 #   RG_PORTABLE_PATCHES (een patches-map om te leveren in plaats van git archive HEAD),
@@ -54,11 +60,19 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST=""
 RESET_USER=0
+DROP_OLD=0
+# De hele kop van dit script (alle commentaarregels vanaf regel 2 tot de eerste regel code).
+usage() {
+    awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
+}
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --reset-user) RESET_USER=1; shift ;;
-        -h|--help) sed -n '2,42p' "$0"; exit 0 ;;
-        *) DEST="$1"; shift ;;
+        --drop-old) DROP_OLD=1; shift ;;
+        -h|--help) usage; exit 0 ;;
+        -*) echo "make-portable: onbekende optie: $1" >&2; usage >&2; exit 2 ;;
+        *) [[ -z "$DEST" ]] || { echo "make-portable: meer dan één DOEL: $DEST en $1" >&2; usage >&2; exit 2; }
+           DEST="$1"; shift ;;
     esac
 done
 DEST="${DEST:-$ROOT/dist/RavenGun}"
@@ -88,9 +102,10 @@ BUILD_USER=0             # 1 als User/ in deze run opnieuw opgebouwd wordt
 # ~/.steam (root, sdk32, bin32, ...) en ~/.steampath zijn koppelingen naar ~/.local/share/Steam.
 HOME_ROOTS=("$HOME/.local" "$HOME/.config/ravengun" "$HOME/.steam" "$HOME/.steampath"
             "$RUNTIME" "$INSTALL" "$CONFIG" "$TUI_PROTON" "$ROOT")
-MARK="$DEST/.ravengun-portable"   # deze map is van make-portable (naast ravengun.sh)
-SRC_MODE_M=()   # oorspronkelijke rechten van wat fix_perms read in de bron opende ...
-SRC_MODE_P=()   # ... en de paden; restore_src_perms zet ze terug
+MARK="$DEST/.ravengun-portable"   # deze map is van make-portable
+STARTER_LINE="# Starter van de portabele RavenGun-map"   # kopregel van ravengun.sh (write_launcher)
+LOCK="$DEST/.make-portable.lock"     # één run tegelijk per map
+JOURNAL="$DEST/.portable-perms.journal"   # rechten die fix_perms read in de bron opende (restore_src_perms)
 
 die() { echo "make-portable: $*" >&2; exit 1; }
 
@@ -115,8 +130,10 @@ guard_dest() {
     done
     if [[ -e "$DEST" ]]; then
         [[ -d "$DEST" ]] || die "doelmap $DEST bestaat en is geen map"
-        if [[ -n "$(ls -A -- "$DEST" 2>/dev/null)" && ! -e "$DEST/ravengun.sh" && ! -e "$MARK" ]]; then
-            die "doelmap $DEST is niet leeg en is geen portabele RavenGun-map (geen ravengun.sh of .ravengun-portable); kies een nieuwe of lege map"
+        # Bewijs: het merkbestand, of een ravengun.sh die echt onze starter is (de kopregel), niet elk bestand met die naam.
+        if [[ -n "$(ls -A -- "$DEST" 2>/dev/null)" && ! -e "$MARK" ]] &&
+           ! [[ -f "$DEST/ravengun.sh" && "$(head -n 5 -- "$DEST/ravengun.sh" 2>/dev/null)" == *"$STARTER_LINE"* ]]; then
+            die "doelmap $DEST is niet leeg en is geen portabele RavenGun-map (geen .ravengun-portable en geen ravengun.sh van de starter); kies een nieuwe of lege map"
         fi
     fi
 }
@@ -132,12 +149,14 @@ fi
 # herhalen tot er niets meer te herstellen valt.
 #   fix_perms read  PAD...  alleen lezen nodig (de bron): bestanden u+r, mappen u+rx. Nooit u+w:
 #                           Wine vertaalt een ontbrekend schrijfbit naar "alleen lezen", dus een
-#                           chmod u+w op een live prefix verandert de game stilletjes. De oorspronkelijke
-#                           rechten worden onthouden; restore_src_perms zet ze na het kopiëren terug (een
-#                           mode-000-werkmap van een overlay blijft zo echt 000, niet 500).
+#                           chmod u+w op een live prefix verandert de game stilletjes. Vóór elke chmod komt
+#                           (inode, oude rechten, nieuwe rechten, pad) in het journaal $JOURNAL in de map;
+#                           restore_src_perms zet ze na het kopiëren terug (een mode-000-werkmap van een
+#                           overlay blijft zo echt 000, niet 500), en een volgende run doet dat als deze
+#                           hard afgebroken werd.
 #   fix_perms write PAD...  de boom wordt weggegooid of is van ons: u+rwX.
 fix_perms() {
-    local mode="$1" d i k
+    local mode="$1" d i k m n
     local -a bd bf paths
     shift
     for d in "$@"; do
@@ -151,13 +170,18 @@ fix_perms() {
                 (( ${#bd[@]} )) && { chmod u+rwx -- "${bd[@]}" 2>/dev/null || true; }
                 (( ${#bf[@]} )) && { chmod u+rw -- "${bf[@]}" 2>/dev/null || true; }
             else
-                # paren (rechten, pad): eerst onthouden, dan u+rX (mappen u+rx, bestanden u+r)
-                mapfile -d '' -t bd < <(find "$d" \( \( -type d ! -perm -u+rx \) -o \( -type f ! -perm -u+r \) \) -printf '%m\0%p\0' 2>/dev/null || true)
+                # (soort, inode, rechten, pad): eerst in het journaal, dan u+rX (mappen u+rx, bestanden u+r, en u+x
+                # als iemand x heeft: precies wat chmod u+rX doet, zodat restore de nieuwe rechten kan herkennen)
+                mapfile -d '' -t bd < <(find "$d" \( \( -type d ! -perm -u+rx \) -o \( -type f ! -perm -u+r \) \) -printf '%y\0%i\0%m\0%p\0' 2>/dev/null || true)
                 (( ${#bd[@]} )) || break
                 paths=()
-                for ((k = 0; k + 1 < ${#bd[@]}; k += 2)); do
-                    SRC_MODE_M+=("${bd[k]}"); SRC_MODE_P+=("${bd[k + 1]}"); paths+=("${bd[k + 1]}")
+                for ((k = 0; k + 3 < ${#bd[@]}; k += 4)); do
+                    m=$((8#${bd[k + 2]}))
+                    if [[ "${bd[k]}" == d ]] || (( m & 8#111 )); then n=$((m | 8#500)); else n=$((m | 8#400)); fi
+                    printf '%s\0%o\0%o\0%s\0' "${bd[k + 1]}" "$m" "$n" "${bd[k + 3]}" >> "$JOURNAL"
+                    paths+=("${bd[k + 3]}")
                 done
+                sync -- "$JOURNAL" 2>/dev/null || true
                 chmod u+rX -- "${paths[@]}" 2>/dev/null || true
             fi
         done
@@ -165,14 +189,24 @@ fix_perms() {
     return 0
 }
 
-# De rechten die fix_perms read in de bron veranderde terugzetten, binnenste eerst (in omgekeerde volgorde: een buitenste
-# map die weer 000 wordt, zou de binnenste onbereikbaar maken).
+# De rechten uit het journaal terugzetten, binnenste eerst (in omgekeerde volgorde: een buitenste map die weer 000 wordt, zou
+# de binnenste onbereikbaar maken). Alleen als het pad nog hetzelfde inode heeft en nog precies de rechten die wij zetten; is er
+# intussen iets veranderd (een game, de gebruiker), dan blijft het zoals het is, met een melding. Daarna weg met het journaal.
 restore_src_perms() {
-    local k
-    for ((k = ${#SRC_MODE_P[@]} - 1; k >= 0; k--)); do
-        chmod -- "${SRC_MODE_M[k]}" "${SRC_MODE_P[k]}" 2>/dev/null || true
+    local k cur skipped=0
+    local -a e
+    [[ -f "$JOURNAL" ]] || return 0
+    mapfile -d '' -t e < "$JOURNAL"
+    for ((k = ${#e[@]} - 4; k >= 0; k -= 4)); do
+        cur="$(stat -c '%i %a' -- "${e[k + 3]}" 2>/dev/null || true)"
+        if [[ -n "$cur" && "${cur%% *}" == "${e[k]}" ]] && (( 8#${cur#* } == 8#${e[k + 2]} )); then
+            chmod -- "${e[k + 1]}" "${e[k + 3]}" 2>/dev/null || true
+        else
+            skipped=$((skipped + 1))
+            (( skipped <= 10 )) && echo "make-portable: let op: rechten van ${e[k + 3]} niet teruggezet (verdwenen of intussen veranderd)" >&2
+        fi
     done
-    SRC_MODE_M=(); SRC_MODE_P=()
+    rm -f -- "$JOURNAL"
 }
 
 # Een boom weggooien, nadat de rechten hersteld zijn (anders faalt rm onder set -e en
@@ -186,17 +220,55 @@ remove_tree() {
     done
 }
 
-# Bij elke afloop die niet geslaagd is (fout, Ctrl-C, set -e) de halve User.new opruimen.
+# bin/, lib/ en share/: een onderbroken wissel herstellen. Ontbreekt <naam>, dan komt <naam>.old terug; <naam>.new gaat alleen
+# weg als <naam> er (weer) staat, en een overgebleven <naam>.old ook. Bij het begin van een run en in de EXIT-val.
+recover_app_dirs() {
+    local x
+    for x in "$DEST/bin" "$DEST/lib" "$DEST/share"; do
+        if [[ ! -e "$x" && ! -L "$x" && -d "$x.old" ]]; then
+            echo "make-portable: $(basename "$x")/ ontbrak; $(basename "$x").old teruggezet" >&2
+            mv -T -- "$x.old" "$x" || continue
+        fi
+        if [[ -e "$x" || -L "$x" ]]; then
+            remove_tree "$x.new" "$x.old"
+        fi
+    done
+}
+
+# <naam>.new op de plek van <naam>: eerst <naam> opzij (<naam>.old), dan .new erin, dan pas .old weg. Een onderbreking laat zo
+# nooit een halve <naam> achter; de twee renames worden niet door Ctrl-C onderbroken.
+swap_in() {
+    local x="$DEST/$1"
+    remove_tree "$x.old"
+    trap '' INT TERM
+    if [[ -e "$x" || -L "$x" ]]; then
+        mv -T -- "$x" "$x.old" || { trap 'exit 130' INT; trap 'exit 143' TERM; die "$1/ opzij zetten mislukt"; }
+    fi
+    if ! mv -T -- "$x.new" "$x"; then
+        [[ -d "$x.old" && ! -e "$x" ]] && mv -T -- "$x.old" "$x"
+        trap 'exit 130' INT; trap 'exit 143' TERM
+        die "$1.new op zijn plek zetten mislukt; de vorige $1/ is teruggezet"
+    fi
+    trap 'exit 130' INT; trap 'exit 143' TERM
+    remove_tree "$x.old"
+}
+
+# Bij elke afloop die niet geslaagd is (fout, Ctrl-C, set -e) de halve User.new opruimen; een halve wissel van bin/lib/share
+# herstellen. Alleen als deze run de map vastheeft (anders is het de User.new van een andere run).
 cleanup() {
     local rc=$?
-    restore_src_perms || true
-    if [[ "$BUILDING" == 1 ]]; then
-        echo "make-portable: niet afgemaakt; $NEWUSER wordt opgeruimd (een bestaande User/ blijft staan)" >&2
-        remove_tree "$NEWUSER" || true
+    if [[ "$LOCKED" == 1 ]]; then
+        restore_src_perms || true
+        if [[ "$BUILDING" == 1 ]]; then
+            echo "make-portable: niet afgemaakt; $NEWUSER wordt opgeruimd (een bestaande User/ blijft staan)" >&2
+            remove_tree "$NEWUSER" || true
+        fi
+        remove_tree "$PATCH_TMP" || true
+        recover_app_dirs || true
     fi
-    remove_tree "$PATCH_TMP" "$DEST/bin.new" "$DEST/lib.new" "$DEST/share.new" || true
     exit "$rc"
 }
+LOCKED=0
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -214,8 +286,7 @@ refresh_app() {
         [[ -e "$INSTALL/$d" ]] || continue
         remove_tree "$DEST/$d.new"
         cp -a "$INSTALL/$d" "$DEST/$d.new"
-        remove_tree "$DEST/$d"
-        mv "$DEST/$d.new" "$DEST/$d"
+        swap_in "$d"
     done
     remove_tree "$DEST/share.new"
     if [[ -e "$INSTALL/share" ]]; then
@@ -225,6 +296,8 @@ refresh_app() {
     else
         mkdir -p "$DEST/share.new"
     fi
+    # Het merkbestand van cmake --install (cmake/PatchesLayout.cmake) hoort bij een installatie, niet in de map.
+    rm -f -- "$DEST/share.new/ravengun/.patches-installatie"
     if [[ -z "$src" ]]; then
         git -C "$ROOT" rev-parse --verify -q HEAD >/dev/null 2>&1 ||
             die "$ROOT is geen git-checkout met commits; de profielen komen uit HEAD (of zet RG_PORTABLE_PATCHES)"
@@ -241,8 +314,8 @@ refresh_app() {
         mkdir -p "$DEST/share.new/ravengun"
         python3 -I "$ROOT/tools/dev/ship-patches.py" "$src" "$DEST/share.new/ravengun/patches"
     fi
-    remove_tree "$PATCH_TMP" "$DEST/share"
-    mv -T -- "$DEST/share.new" "$DEST/share"
+    remove_tree "$PATCH_TMP"
+    swap_in share
 }
 
 # 2. Voor het kopiëren van de runtime: rsync aanwezig en genoeg ruimte? Dit gebeurt
@@ -257,10 +330,6 @@ preflight_user() {
         echo "make-portable: te weinig ruimte in $DEST: nodig ~$((need / 1048576)) MB, vrij $((avail / 1048576)) MB" >&2
         if [[ -d "$USERDIR" ]]; then
             echo "make-portable: de oude User/ blijft tot het eind staan; gooi hem zelf weg als je hem niet meer nodig hebt en draai opnieuw" >&2
-        fi
-        if [[ -e "$OLDUSER" ]]; then
-            echo "make-portable: ook User.old (de User/ van vóór de vorige --reset-user) neemt ruimte in; als er niets meer vanuit draait:" >&2
-            echo "  chmod -R u+rwX '$OLDUSER' && rm -rf '$OLDUSER'" >&2
         fi
         exit 1
     fi
@@ -294,6 +363,9 @@ copy_runtime() {
         # waarschuwingen; wat na de rsync in de bron ontstond wordt gemeld, niet vergeleken.
         rsync -aX --info=nonreg0 "$path" "$dst/" || rc=$?
         rsync_ok "$rc" || die "$name kopiëren mislukt (rsync-code $rc); de bestaande map blijft ongemoeid"
+        if [[ "$rc" == 24 ]]; then
+            echo "make-portable: let op: tijdens het kopiëren van $name verdwenen bestanden uit de bron (rsync-code 24, een draaiende game?); die ontbreken in de kopie" >&2
+        fi
         python3 -I "$TOOLS" whiteouts --scope auto --rsync-rc "$rc" "$path" "$dst/$name" ||
             die "de overlay-toestand (whiteouts/xattrs) van $name is niet te reproduceren; de bestaande map blijft ongemoeid"
         echo "  gekopieerd: $name"
@@ -425,14 +497,20 @@ for name in ('library.json', 'config.json'):
         try:
             with open(tmp, 'w', encoding='utf-8') as f:
                 f.write(text)
+                f.flush()
+                os.fsync(f.fileno())
             os.chmod(tmp, os.stat(p).st_mode & 0o7777)
             os.replace(tmp, p)
-        except OSError:
-            # map niet schrijfbaar: p is hierboven al als gewoon bestand (geen koppeling) in de map gecontroleerd
-            if os.path.lexists(tmp):
-                os.unlink(tmp)
-            with open(p, 'w', encoding='utf-8') as f:
-                f.write(text)
+        except OSError as e:
+            # nooit p zelf beschrijven (een volle schijf zou hem afkappen): p blijft zoals hij was
+            try:
+                if not os.path.isdir(tmp):
+                    os.unlink(tmp)
+            except OSError:
+                pass
+            print('ravengun: paden in {} niet bijgewerkt ({}); het bestand is ongewijzigd'.format(p, e.strerror or e),
+                  file=sys.stderr)
+            continue
         print('  paden: {} bijgewerkt'.format(p))
 PYEOF
 )"
@@ -442,8 +520,10 @@ rewrite_config_paths() {
     python3 -I -c "$PATHFIX_PY" "$DEST" "$ACTUAL_USER/config/ravengun"
 }
 
-# 8. De starter: zet de omgeving op de map en kies een binary.
+# 8. De starter: zet de omgeving op de map en kies een binary. Via een tijdelijk bestand en mv -T, nooit door een koppeling heen.
 write_launcher() {
+    local tmp="$DEST/.ravengun.sh.new"
+    rm -f -- "$tmp"
     {
         cat <<'EOF'
 #!/usr/bin/env bash
@@ -465,7 +545,7 @@ export XDG_CACHE_HOME="$HERE/User/cache"
 export XDG_DATA_HOME="$HERE/User/share"
 export PATH="$HERE/bin:$PATH"
 # Verhuisd? Zet de absolute paden in de configuratie weer op deze map.
-python3 -I - "$HERE" "$HERE/User/config/ravengun" <<'PYEOF' >/dev/null 2>&1 || true
+python3 -I - "$HERE" "$HERE/User/config/ravengun" <<'PYEOF' >/dev/null || true
 EOF
         printf '%s\n' "$PATHFIX_PY"
         cat <<'EOF'
@@ -479,8 +559,9 @@ case "$mode" in
     *)      exec "$HERE/bin/$mode" "$@" ;;
 esac
 EOF
-    } > "$DEST/ravengun.sh"
-    chmod +x "$DEST/ravengun.sh"
+    } > "$tmp"
+    chmod 755 "$tmp"
+    mv -T -- "$tmp" "$DEST/ravengun.sh"
 }
 
 # Is de map vrij: gebruikt geen proces (dat we kunnen lezen) hem? Een mount ervan of erin (ook als bind in een sandbox),
@@ -490,18 +571,42 @@ is_free() {
 }
 
 # --- uitvoeren -----------------------------------------------------------------
+# User.old weggooien als niets hem gebruikt. 0: weg (of er was er geen), 1: in gebruik (niets aangeraakt), 2: weggooien mislukt
+# (de reden staat erboven). Draait in een ||-context (set -e staat daar uit), dus elke stap controleert zelf.
+drop_old_user() {
+    [[ -e "$OLDUSER" || -L "$OLDUSER" ]] || return 0
+    is_free "$OLDUSER" || return 1
+    echo "make-portable: User.old (de User/ van vóór de vorige --reset-user) wordt weggegooid"
+    fix_perms write "$OLDUSER"
+    rm -rf -- "$OLDUSER" || true
+    if [[ -e "$OLDUSER" || -L "$OLDUSER" ]]; then
+        echo "make-portable: User.old weggooien lukte niet helemaal (zie de melding van rm hierboven)" >&2
+        return 2
+    fi
+    return 0
+}
+
 echo "make-portable: $INSTALL -> $DEST"
 mkdir -p "$DEST"
 [[ -e "$MARK" ]] || echo "map van scripts/make-portable.sh (docs/portable.md)" > "$MARK"
+# Eén run tegelijk: een tweede run op dezelfde map zou de User.new van de eerste weggooien.
+command -v flock >/dev/null || die "flock ontbreekt (util-linux)"
+exec 9>"$LOCK"
+flock -n 9 || die "er draait al een make-portable op $DEST (slot $LOCK); wacht tot die klaar is"
+LOCKED=1
 
-# Resten van een eerdere onderbroken run: halfgeruilde User/ terugzetten en tijdelijke
-# mappen weg (met herstel van de rechten, anders faalt rm). User.old (de vorige User/ na een
-# geslaagde --reset-user) blijft staan tot het eind van deze run, als die slaagt.
+# Resten van een eerdere onderbroken run. Eerst de bronrechten uit een achtergebleven journaal (een hard afgebroken run), dan
+# een halfgeruilde User/ terugzetten, een halve wissel van bin/lib/share herstellen en tijdelijke mappen weg.
+if [[ -f "$JOURNAL" ]]; then
+    echo "make-portable: een vorige run is afgebroken; de rechten in de bron uit $JOURNAL terugzetten"
+    restore_src_perms
+fi
 if [[ ! -d "$USERDIR" && -d "$OLDUSER" ]]; then
     echo "make-portable: User/ ontbrak maar User.old bestaat (onderbroken wissel); terugzetten"
     mv -T -- "$OLDUSER" "$USERDIR"
 fi
-remove_tree "$NEWUSER" "$DEST/bin.new" "$DEST/lib.new" "$DEST/share.new" "$PATCH_TMP"
+recover_app_dirs
+remove_tree "$NEWUSER" "$PATCH_TMP"
 # Geen fix_perms op de bestaande User/: die blijft ongemoeid (de games maken er mode-000
 # overlay-mapjes in); bij --reset-user wordt hij aan het eind User.old.
 
@@ -511,6 +616,22 @@ if [[ ! -d "$USERDIR" || "$RESET_USER" == 1 ]]; then
     if [[ -d "$USERDIR" ]] && ! is_free "$USERDIR"; then
         die "User/ is in gebruik (zie hierboven: een game of programma draait vanuit de map); stop het en draai opnieuw"
     fi
+fi
+# User.old: weg aan het begin van een --reset-user (de naam is straks nodig, en zijn ruimte telt zo mee in de ruimtecontrole)
+# of met --drop-old; anders blijft hij staan.
+if [[ -e "$OLDUSER" || -L "$OLDUSER" ]]; then
+    if [[ "$BUILD_USER" == 1 || "$DROP_OLD" == 1 ]]; then
+        rc=0; drop_old_user || rc=$?
+        case "$rc" in
+            0) ;;
+            1) die "User.old (de User/ van vóór de vorige --reset-user) is nog in gebruik (zie hierboven); stop wat er vanuit draait en draai opnieuw" ;;
+            *) die "User.old weggooien mislukt; ruim hem zelf op (chmod -R u+rwX '$OLDUSER' && rm -rf '$OLDUSER') en draai opnieuw" ;;
+        esac
+    else
+        echo "make-portable: User.old (de User/ van vóór de vorige --reset-user, $(du -sh -- "$OLDUSER" 2>/dev/null | cut -f1)) blijft staan; weggooien met --drop-old"
+    fi
+fi
+if [[ "$BUILD_USER" == 1 ]]; then
     preflight_user      # rsync en ruimte, vóór er iets veranderd is
 fi
 
@@ -539,24 +660,13 @@ if [[ "$BUILD_USER" == 1 ]]; then
     rewrite_config_paths
 fi
 
-# De vorige User.old (van een eerdere --reset-user) mag nu weg, als niets hem nog gebruikt.
-drop_old_user() {
-    [[ -e "$OLDUSER" || -L "$OLDUSER" ]] || return 0
-    if is_free "$OLDUSER"; then
-        echo "make-portable: de vorige User.old wordt weggegooid"
-        remove_tree "$OLDUSER"
-    else
-        return 1
-    fi
-}
-
 if [[ "$BUILD_USER" == 1 ]]; then
     # De wissel. Niet zolang een proces User/ gebruikt: een game die vanuit de map draait zou zijn schrijflaag, prefix en
     # saves onder zich zien verdwijnen. Twee renames, tijdens welke we niet onderbroken willen worden.
     if [[ -d "$USERDIR" ]] && ! is_free "$USERDIR"; then
         die "User/ is in gebruik (zie hierboven); de wissel gaat niet door. Stop wat er vanuit de map draait en draai opnieuw"
     fi
-    drop_old_user || die "User.old (de vorige User/) is nog in gebruik (zie hierboven); de wissel gaat niet door"
+    [[ ! -e "$OLDUSER" && ! -L "$OLDUSER" ]] || die "User.old staat er (weer); de wissel gaat niet door"
     trap '' INT TERM
     if [[ -d "$USERDIR" ]]; then
         mv -T -- "$USERDIR" "$OLDUSER" || die "User/ opzij zetten (User.old) mislukt; User/ blijft staan"
@@ -574,11 +684,9 @@ if [[ "$BUILD_USER" == 1 ]]; then
     trap 'exit 130' INT
     trap 'exit 143' TERM
     if [[ -d "$OLDUSER" ]]; then
-        echo "make-portable: de vorige User/ staat als User.old ernaast tot de volgende geslaagde run (een game die er nog"
-        echo "  vanuit draait houdt zo zijn schrijflaag, prefix en saves); weggooien: chmod -R u+rwX '$OLDUSER' && rm -rf '$OLDUSER'"
+        echo "make-portable: de vorige User/ staat als User.old ernaast (een game die er nog vanuit draait houdt zo zijn schrijflaag,"
+        echo "  prefix en saves); hij blijft tot de volgende --reset-user of een run met --drop-old"
     fi
-else
-    drop_old_user || echo "make-portable: User.old is nog in gebruik (zie hierboven) en blijft staan" >&2
 fi
 
 echo "make-portable: klaar: $DEST (start met $DEST/ravengun.sh app)"

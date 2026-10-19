@@ -11,6 +11,10 @@
 # ~/.steam als weg naar ~/.local, een te groot bestand, geen grootte bij een toegestane cache, overlays alleen waar ze leven,
 # een bron die na de rsync verandert (een draaiende game), en de wissel bij --reset-user: niet als User/ in gebruik is, User.old
 # blijft tot de volgende geslaagde run, en een mislukte tweede mv zet de oude User/ terug.
+# Ronde 4: User.old blijft bij een gewone verversing (alleen --reset-user of --drop-old gooit hem weg, aan het begin en alleen als
+# hij vrij is), rsync-code 24 wordt gemeld, de bronrechten via een journaal (ook na SIGKILL, met inodecontrole), de wissel van
+# bin/lib/share via <naam>.old, het slot per map, --help/onbekende optie, een fifo als koppelingsdoel, het bewijs van een
+# portabele map, de starter en de padherschrijving nooit door een koppeling of in place, en geen merkbestand van de installatie.
 #
 # Gebruik: make_portable_test.sh <repo> [builddir]    (de tijdelijke map komt in builddir, nooit in /tmp)
 set -u
@@ -37,6 +41,7 @@ INS="$H/.local/opt/ravengun"; RUN="$H/.local/share/ravengun"; CFG="$H/.config/ra
 mkdir -p "$INS/bin" "$INS/lib" "$INS/share/ravengun" "$RUN/runtime" "$RUN/tp.verborgen/sub/dir" "$RUN/tp.verborgen/other" \
          "$H/.local/share/otherdir" "$CFG" "$NAS/game" "$T/fakebin"
 printf '#!/bin/sh\n' > "$INS/bin/ravengund"; chmod 755 "$INS/bin/ravengund"
+echo merk > "$INS/share/ravengun/.patches-installatie"     # G9: van cmake --install; hoort niet in de map
 echo v1 > "$INS/bin/ravengun"; chmod 755 "$INS/bin/ravengun"; echo lib > "$INS/lib/libx.so"
 echo echt > "$RUN/runtime/real.txt"
 echo FOUT > "$RUN/tp.verborgen/file.txt"          # de valkuil: zelfde bestandsnaam, hoger in de boom
@@ -128,6 +133,24 @@ for a in "\$@"; do
 done
 exit \$rc
 NEP
+# Een rsync die echt kopieert en dan 24 teruggeeft (bestanden verdwenen), en een die het script hard afschiet (SIGKILL: geen
+# EXIT-val, zoals stroom weg).
+cat > "$T/fakebin/rsync-24" <<NEP
+#!/bin/sh
+"$REAL_RSYNC" "\$@" || exit \$?
+exit 24
+NEP
+cat > "$T/fakebin/rsync-kill" <<NEP
+#!/bin/sh
+kill -KILL "\$PPID"; exit 0
+NEP
+# Een mv die faalt als hij share.new op de plek van share/ wil zetten (de tweede mv van de wissel van share/).
+cat > "$T/fakebin/mv-share" <<NEP
+#!/bin/sh
+for a in "\$@"; do last="\$a"; done
+case "\$*" in *share.new*) [ "\${last##*/}" = share ] && exit 1 ;; esac
+exec "$REAL_MV" "\$@"
+NEP
 # Een mv die faalt als hij User.new op de plek van User/ wil zetten (de tweede mv van de wissel).
 cat > "$T/fakebin/mv-fout" <<NEP
 #!/bin/sh
@@ -142,8 +165,8 @@ ONDER() {  # ONDER <nep-programma> <args>: draai het script met een rsync (of mv
     mkdir -p "$T/pad-$fake"; ln -sf "$T/fakebin/$fake" "$T/pad-$fake/$naam"
     PATH="$T/pad-$fake:$PATH" run "$@"
 }
-run() {
-    HOME="$H" RG_PORTABLE_PATCHES="$P" bash "$SCRIPT" "$@" > "$T/uit.txt" 2>&1
+run() {   # met een tijdslimiet: een fout die blijft hangen (een fifo) wordt een gewone fout
+    HOME="$H" RG_PORTABLE_PATCHES="$P" timeout 120 bash "$SCRIPT" "$@" > "$T/uit.txt" 2>&1
 }
 # De mode-000-controles zijn zinloos als root (die negeert de rechten).
 [[ "$(id -u)" == 0 ]] && echo "let op: als root zijn de mode-000-controles niet scherp"
@@ -168,6 +191,9 @@ O="$T/out"; U="$O/User/share/ravengun"
 [[ -f "$O/share/ravengun/patches/Game/game.ini" ]] || fail "de levering ontbreekt in share/ravengun/patches"
 [[ -e "$O/share/ravengun/patches/Game/notes.txt" || -e "$O/share/ravengun/patches/losbestand.txt" ]] && fail "dossier of los bestand uit de werkmap is meegekomen"
 [[ -e "$O/User.new" || -e "$O/User.old" ]] && fail "User.new of User.old is blijven staan"
+[[ -e "$O/share/ravengun/.patches-installatie" ]] && fail "G9: het merkbestand van cmake --install is in de map meegekomen"
+[[ -e "$O/.portable-perms.journal" ]] && fail "G7: het rechtenjournaal is na een geslaagde run blijven staan"
+[[ -e "$O/bin.old" || -e "$O/share.old" || -e "$O/share.new" ]] && fail "G3: bin.old, share.old of share.new is blijven staan"
 [[ "$(cat "$U/runtime/real.txt" 2>/dev/null)" == echt ]] || fail "de runtime is niet gekopieerd"
 [[ -f "$U/overlay/work/work/f" ]] || fail "de mode-000-map is niet mee gekopieerd"
 first_out="$(cat "$T/uit.txt")"
@@ -289,9 +315,13 @@ run --reset-user "$O" || fail "reset mislukte: $(cat "$T/uit.txt")"
 # F4: de oude User/ blijft als User.old staan (een game die er nog vanuit draait houdt zijn schrijflaag), en dat wordt gemeld
 [[ "$(cat "$O/User.old/share/ravengun/MARK" 2>/dev/null)" == MARK ]] || fail "F4: de oude User/ staat niet als User.old"
 grep -q "User.old" "$T/uit.txt" || fail "F4: niet gemeld dat de oude User/ als User.old blijft"
-# ... tot de volgende geslaagde run
+# G2: een gewone verversing laat User.old staan (de enige kopie van de saves van vóór de reset) en meldt zijn grootte
 run "$O" || fail "run na de reset mislukte: $(cat "$T/uit.txt")"
-[[ -e "$O/User.old" ]] && fail "F4: User.old is na de volgende geslaagde run niet opgeruimd"
+[[ "$(cat "$O/User.old/share/ravengun/MARK" 2>/dev/null)" == MARK ]] || fail "G2: een gewone verversing gooide User.old weg"
+grep -q "User.old.*blijft staan" "$T/uit.txt" || fail "G2: geen regel dat User.old blijft staan: $(cat "$T/uit.txt")"
+# ... en --drop-old gooit hem weg
+run --drop-old "$O" || fail "run met --drop-old mislukte: $(cat "$T/uit.txt")"
+[[ -e "$O/User.old" ]] && fail "G2: --drop-old liet User.old staan"
 ok "--reset-user"
 
 # --- 7b. F4: geen wissel zolang een proces User/ gebruikt (werkmap, open bestand, mount); User/ blijft heel -------------------
@@ -323,6 +353,104 @@ ONDER mv-fout --reset-user "$O" && fail "F4: de wissel met een falende mv slaagd
 [[ -e "$O/User.new" ]] && fail "F4: User.new is na de mislukte wissel blijven staan"
 grep -q "teruggezet" "$T/uit.txt" || fail "F4: het terugzetten is niet gemeld: $(cat "$T/uit.txt")"
 ok "mislukte wissel zet User/ terug"
+
+# --- 7d. G2: een volgende --reset-user gooit de vrije User.old eerst weg; een User.old in gebruik stopt de run meteen ---------
+run --reset-user "$O" || fail "G2: reset (1) mislukte: $(cat "$T/uit.txt")"
+[[ "$(cat "$O/User.old/share/ravengun/MARK2" 2>/dev/null)" == MARK2 ]] || fail "G2: de vorige User/ staat niet als User.old"
+(cd "$O/User.old/share" && exec sleep 60) & BPID=$!
+run --reset-user "$O" && fail "G2: reset ging door terwijl User.old in gebruik is"
+grep -q "User.old.*in gebruik" "$T/uit.txt" || fail "G2: geen melding dat User.old in gebruik is: $(cat "$T/uit.txt")"
+grep -q "gebruikersmap opbouwen" "$T/uit.txt" && fail "G2: de controle op User.old kwam pas na het opbouwen"
+[[ "$(cat "$O/User.old/share/ravengun/MARK2" 2>/dev/null)" == MARK2 ]] || fail "G2: de User.old in gebruik is aangetast"
+kill "$BPID" 2>/dev/null; wait "$BPID" 2>/dev/null
+run --reset-user "$O" || fail "G2: tweede reset met een vrije User.old mislukte: $(cat "$T/uit.txt")"
+grep -q "User.old.*wordt weggegooid" "$T/uit.txt" || fail "G2: het weggooien van User.old is niet gemeld"
+[[ -d "$O/User.old" && ! -e "$O/User.old/share/ravengun/MARK2" ]] || fail "G2: User.old is niet de User/ van vlak voor deze reset"
+ok "User.old-beleid"
+
+# --- 7e. G2: rsync-code 24 (bestanden verdwenen) wordt gemeld, ook zonder overlay-meldingen ----------------------------------
+ONDER rsync-24 "$T/out24" || fail "G2: run met rsync-code 24 mislukte: $(cat "$T/uit.txt")"
+grep -q "rsync-code 24" "$T/uit.txt" || fail "G2: rsync-code 24 is niet gemeld"
+remove_out() { chmod -R u+rwX "$1" 2>/dev/null; rm -rf "$1"; }
+remove_out "$T/out24"
+
+# --- 7f. G7: SIGKILL tijdens het kopiëren: de bronrechten staan in het journaal en de volgende run zet ze terug -------------------
+if [[ "$(id -u)" != 0 ]]; then
+    ONDER rsync-kill --reset-user "$O" && fail "G7: de afgeschoten run slaagde"
+    [[ -f "$O/.portable-perms.journal" ]] || fail "G7: na SIGKILL is er geen rechtenjournaal"
+    [[ "$(stat -c %a "$RUN/overlay/work")" == 500 ]] || fail "G7: de bron is niet geopend (verwacht 500): $(stat -c %a "$RUN/overlay/work")"
+    chmod 700 "$RUN/overlay/work/work"          # intussen door iemand anders veranderd: niet terugzetten
+    run "$O" || fail "G7: de run na een SIGKILL mislukte: $(cat "$T/uit.txt")"
+    grep -q "afgebroken" "$T/uit.txt" || fail "G7: het herstel uit het journaal is niet gemeld"
+    [[ "$(stat -c %a "$RUN/overlay/work")" == 0 ]] || fail "G7: de bronrechten zijn na een SIGKILL niet teruggezet: $(stat -c %a "$RUN/overlay/work")"
+    chmod 100 "$RUN/overlay/work"
+    [[ "$(stat -c %a "$RUN/overlay/work/work")" == 700 ]] || fail "G7: een intussen veranderde map is toch teruggezet"
+    grep -q "niet teruggezet" "$T/uit.txt" || fail "G7: het overslaan van de veranderde map is niet gemeld"
+    chmod 000 "$RUN/overlay/work/work"; chmod 000 "$RUN/overlay/work"
+    [[ ! -e "$O/.portable-perms.journal" && ! -e "$O/User.new" ]] || fail "G7: journaal of User.new van de afgeschoten run is blijven staan"
+    [[ -d "$O/User" ]] || fail "G7: User/ is weg na de afgeschoten run"
+fi
+
+# --- 7g. G3: mislukt de tweede mv van de wissel van share/, dan staat de vorige share/ er heel -----------------------------------
+ONDER mv-share "$O" && fail "G3: de wissel van share/ met een falende mv slaagde"
+[[ -f "$O/share/ravengun/patches/Game/game.ini" && ! -e "$O/share.old" && ! -e "$O/share.new" ]] ||
+    fail "G3: na een mislukte wissel is share/ niet heel, of share.old/share.new bleef staan: $(ls -A "$O")"
+grep -q "teruggezet" "$T/uit.txt" || fail "G3: het terugzetten is niet gemeld: $(cat "$T/uit.txt")"
+# een onderbroken wissel (share/ opzij, nog niet terug): de volgende run zet share.old terug voordat hij iets weggooit
+mv "$O/share" "$O/share.old"; mkdir -p "$O/share.new/half"
+run "$O" || fail "G3: run na een onderbroken wissel mislukte: $(cat "$T/uit.txt")"
+grep -q "share.old teruggezet" "$T/uit.txt" || fail "G3: share.old is niet teruggezet"
+[[ -f "$O/share/ravengun/patches/Game/game.ini" && ! -e "$O/share.old" && ! -e "$O/share.new" ]] || fail "G3: na het herstel klopt share/ niet"
+ok "wissel van bin/lib/share"
+
+# --- 7h. G8: één run tegelijk per map; --help heel; een onbekende optie is geen DOEL; een fifo als doel hangt niet -----------
+mkdir -p "$O/User.new"; echo eerste > "$O/User.new/van-de-eerste-run"
+exec 8>"$O/.make-portable.lock"; flock 8
+run "$O" && fail "G8: een tweede run op dezelfde map ging door"
+grep -q "draait al" "$T/uit.txt" || fail "G8: geen melding over de lopende run: $(cat "$T/uit.txt")"
+[[ "$(cat "$O/User.new/van-de-eerste-run" 2>/dev/null)" == eerste ]] || fail "G8: de tweede run gooide de User.new van de eerste weg"
+exec 8>&-
+rm -rf "$O/User.new"
+HOME="$H" bash "$SCRIPT" --help > "$T/help.txt" 2>&1 || fail "G8: --help faalde"
+grep -q "RG_PORTABLE_MAX_EXTRACT" "$T/help.txt" && grep -q -- "--drop-old" "$T/help.txt" || fail "G8: --help toont de kop niet helemaal"
+grep -q "set -euo" "$T/help.txt" && fail "G8: --help toont ook code"
+(cd "$T" && run --reset-usr "$O"); rc=$?
+[[ $rc == 2 ]] && grep -q "onbekende optie" "$T/uit.txt" || fail "G8: een onbekende optie gaf geen gebruiksfout (rc=$rc): $(head -3 "$T/uit.txt")"
+[[ -e "$T/--reset-usr" ]] && fail "G8: de onbekende optie werd als DOEL aangemaakt"
+mkfifo "$S/fifo"; ln -s "$S/fifo" "$RUN/naar-fifo"
+run "$T/outfifo" && fail "G8: een koppeling naar een fifo werd uitgepakt"
+grep -q "naar-fifo.*geen gewoon bestand" "$T/uit.txt" || fail "G8: de fifo is niet gemeld (of de run hing): $(tail -3 "$T/uit.txt")"
+rm -f "$RUN/naar-fifo" "$S/fifo"; remove_out "$T/outfifo"
+ok "slot, opties, fifo"
+
+# --- 7i. G4: een map met een vreemde ravengun.sh is geen portabele map; G1: starter en padherschrijving --------------------------
+mkdir -p "$T/Downloads/bin"; echo 'echo hoi' > "$T/Downloads/ravengun.sh"
+run "$T/Downloads" && fail "G4: een map met een vreemde ravengun.sh werd geaccepteerd"
+[[ -d "$T/Downloads/bin" && "$(cat "$T/Downloads/ravengun.sh")" == "echo hoi" && ! -e "$T/Downloads/User" ]] || fail "G4: de vreemde map is aangeraakt"
+# een eerdere map met alleen onze ravengun.sh (zonder merkbestand) blijft geaccepteerd
+rm -f "$O/.ravengun-portable"
+run "$O" || fail "G4: een portabele map met alleen de starter werd geweigerd: $(cat "$T/uit.txt")"
+# de starter wordt vervangen, niet door een koppeling heen geschreven
+echo 'doel buiten de map' > "$T/elders/doel.sh"; cp "$T/elders/doel.sh" "$T/doel.orig"
+rm -f "$O/ravengun.sh"; ln -s "$T/elders/doel.sh" "$O/ravengun.sh"
+run "$O" || fail "G1: run met een starter-koppeling mislukte: $(cat "$T/uit.txt")"
+cmp -s "$T/elders/doel.sh" "$T/doel.orig" || fail "G1: write_launcher schreef door de koppeling ravengun.sh heen"
+[[ -f "$O/ravengun.sh" && ! -L "$O/ravengun.sh" && -x "$O/ravengun.sh" ]] || fail "G1: ravengun.sh is geen gewoon uitvoerbaar bestand"
+# de starter na een verhuizing: lukt het tijdelijke bestand niet (hier: de configuratiemap is niet schrijfbaar), dan blijft
+# config.json byte voor byte zoals hij was (vroeger: in place herschreven, bij een volle schijf afgekapt), met een melding
+# (los van het deel hierboven: is de starter toch een koppeling gebleven, dan eerst weer een gewoon bestand)
+[[ -L "$O/ravengun.sh" ]] && cp --remove-destination -- "$(readlink -f "$O/ravengun.sh")" "$O/ravengun.sh"
+if [[ "$(id -u)" != 0 ]]; then
+    mv "$O" "$T/verhuisd2"
+    CD="$T/verhuisd2/User/config/ravengun"; cp "$CD/config.json" "$T/config.orig"; chmod 555 "$CD"
+    bash "$T/verhuisd2/ravengun.sh" app > /dev/null 2> "$T/starter.err"
+    chmod 755 "$CD"
+    cmp -s "$CD/config.json" "$T/config.orig" || fail "G1: config.json is ondanks een mislukt tijdelijk bestand (in place) herschreven"
+    grep -q "config.json niet bijgewerkt" "$T/starter.err" || fail "G1: de starter meldt niet dat config.json niet bijgewerkt is: $(cat "$T/starter.err")"
+    ls "$CD" | grep -q rgfix && fail "G1: een tijdelijk bestand is blijven staan"
+    mv "$T/verhuisd2" "$O"
+fi
+ok "bewijs van de map, starter en padherschrijving"
 
 # --- 8. een relatieve koppeling die uit de map wijst: exitcode, geen User/ -----------------------------------------------------------
 ln -s ../../../../nas/game "$RUN/ontsnapt"
@@ -396,6 +524,7 @@ mkdir -p "$T/vol"; echo eigen > "$T/vol/eigen.txt"
 run "$T/vol" && fail "F7: een volle map zonder ravengun.sh werd geaccepteerd"
 [[ "$(cat "$T/vol/eigen.txt")" == eigen && ! -e "$T/vol/bin" ]] || fail "F7: de volle vreemde map is aangeraakt"
 run "$R/dist/RavenGun" || fail "F7: <repo>/dist/RavenGun moet mogen: $(cat "$T/uit.txt")"
+remove_out "$R/dist"
 # share/ via share.new: een mislukte kopie van share/ laat de vorige share/ heel
 if [[ "$(id -u)" != 0 ]]; then
     echo x > "$INS/share/ravengun/onleesbaar"; chmod 000 "$INS/share/ravengun/onleesbaar"

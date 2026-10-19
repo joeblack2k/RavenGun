@@ -248,6 +248,10 @@ class Linker:
         self.writable(os.path.dirname(p))
         if os.path.lexists(tmp):
             shutil.rmtree(tmp) if os.path.isdir(tmp) and not os.path.islink(tmp) else os.unlink(tmp)
+        if not stat.S_ISDIR(st.st_mode) and not stat.S_ISREG(st.st_mode):
+            # een fifo zou copy2 laten hangen; apparaten en sockets horen niet in de map
+            self.fail(lf, t, "het doel {} is geen gewoon bestand of map (fifo, apparaat of socket); niet uit te pakken".format(real))
+            return
         if not stat.S_ISDIR(st.st_mode):
             if st.st_size > self.max_extract:
                 self.fail(lf, t, "bestand van {} MB is te groot om uit te pakken (grens {} MB)".format(
