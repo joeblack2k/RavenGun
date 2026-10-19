@@ -1,5 +1,24 @@
 # Dagdienst 19 oktober 2026 — stand voor Jeroen
 
+# Stand 2026-10-19 — de volledige lijst (A)-(G) met tijdvakken
+
+Deze lijst staat bewust bovenaan: hij is eerder in een bericht genoemd en daarna zoekgeraakt. Per punt
+staat wat het is, hoeveel tijd het had, en waar het nu staat. Alle tijdvakken zijn van de leiding.
+
+| punt | wat | tijdvak | stand |
+|---|---|---|---|
+| **(A)** | De schrijflaag (writelayer): mappen waar de game in schrijft worden echte mappen in de view, nooit een koppeling naar de NAS | 90 min | **klaar** en op het echte pad bewezen (8819695 en verder) |
+| **(B)** | De hele proefreeks (`ctest`) groen | 60 min | **klaar**: 94/94, en later uitgebreid met `ravengun_markers` en `ravengun_prefix_setup` |
+| **(C)** | De open punten in de RobinHood I/O-kant (`rg-rhio`) | 90 min | **klaar**: C1-C5, met de bordlezers als bewijs; C4b/C4c zijn teruggedraaid |
+| **(D)** | Robin Hood: wie houdt de sluis, waar wacht de hoofddraad op, en de mutex-haken | 90 min | **laatste 30 min** in deze ronde: mutex-hermeting (5 met haken tegen 5 zonder), daarna parkeren met een notitie |
+| **(E)** | Coopers 9 op onze eigen lader krijgen | 60 min | **geparkeerd**: de crash is van het spel zelf (access violation op 0x4fd8aed0, ook zonder onze kern); de beveiligingslaag is de volgende stap |
+| **(F)** | Mario Kart DX: per-prefix IAuth automatiseren en het zwarte scherm | 90 min | **klaar op de automatisering** ([Launch] PrefixSetup + SecondBare, AMAuthd blijft draaien, WritableConfig.ini komt in de view); het zwarte scherm is gemeten maar niet opgelost -- de renderkant is een eigen ronde |
+| **(G)** | Zes ongeteste profielen, elk 30 min: HOTD4SP, MenInBlack, SegaGameShell, 3DCosplayMahjong, AliensArmageddon, TNXK0O~C. Daarna, als er tijd is: AfterDark, PigsMightFly, LostLandAdventure | 6 x 30 min | **deze ronde**: per spel starten op onze eigen lader en kern (nooit TeknoParrot, nooit op de NAS schrijven), 1 minuut attract met een foto als bewijs, de stand eerlijk in de game.ini, een commit per spel. Vastgelopen na 30 min = parkeren met een notitie en door |
+
+Twee dingen die voor elk punt gelden: een conclusie van de vorm "variant X laat het spel stoppen"
+vraagt minstens vijf starts per variant tegen een basislijn, en wat met één meting of met een
+afleiding is opgeschreven heet een veronderstelling met de meting erbij die hem zou bevestigen.
+
 Besluiten van de eigenaar (ochtend): privégegevens blijven in de release-tarball (geen `--public`),
 mappen waar een game in schrijft horen in de **schrijflaag** (nooit een koppeling naar de NAS), er
 komen geen dongle-dumps of kast-logs (zelf uitzoeken met statische analyse en meten), `iauthdll`

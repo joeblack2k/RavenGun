@@ -1085,3 +1085,51 @@ worden.
 zoekt de image van de exe in `/proc/<pid>/maps`, dumpt 192 bytes op elke gevraagde rva en laat objdump
 er 32-bits code van maken. Pas daarna is te zeggen welke wachtdienst daar met welk handvat wordt
 aangeroepen.
+
+### De A/B-proef: OLD tegen NEW tegen NOSTRIP (2026-10-19 11:51-12:21)
+
+Aanleiding: mijn bisect van de C-ronde had met **één** start per variant geconcludeerd dat twee
+wijzigingen (geen `char bord[8]` maar een omgevingsvariabele, en `-s` bij het bouwen) Robin Hood meteen
+lieten stoppen. De leiding vroeg dat te bewijzen met minstens tien starts per variant, om en om, met
+een foto per start. De varianten: **OLD** = de DLL die op dat moment geinstalleerd stond
+(sha1 `d00986ec`), **NEW** = de DLL van de pass-2-branch (`52193f86`), **NOSTRIP** = dezelfde bron
+zonder `-s` (`299d4ac3`). Per start: de DLL naar de engine-drop-in EN de view, `ravengund` herstarten,
+het muis-geweer opnieuw zetten, 90 s wachten, foto. De `.aan`-markers stonden voor alle varianten
+gelijk (geen). Er zijn 15 geldige starts gedaan (5 per variant; de leiding heeft de proef daarna
+gestopt omdat het beeld al duidelijk was).
+
+| variant | start | sha1 | foto (bytes) | voorbij BOOTING | draait nog | logregels | bordlezers |
+|---|---|---|---|---|---|---|---|
+| OLD | 1 | d00986ec | 23751 | nee | ja | 21143 | 1142 |
+| NEW | 1 | 52193f86 | 23408 | nee | ja | 2919 | 1142 |
+| NOSTRIP | 1 | 299d4ac3 | 23751 | nee | ja | 2938 | 1149 |
+| OLD | 2 | d00986ec | 23751 | nee | ja | 21141 | 1140 |
+| NEW | 2 | 52193f86 | 23581 | nee | ja | 2928 | 1145 |
+| NOSTRIP | 2 | 299d4ac3 | 23751 | nee | ja | 2928 | 1145 |
+| OLD | 3 | d00986ec | 23205 | nee | ja | 21149 | 1148 |
+| NEW | 3 | 52193f86 | 23205 | nee | ja | 2937 | 1148 |
+| NOSTRIP | 3 | 299d4ac3 | 23408 | nee | ja | 2928 | 1145 |
+| OLD | 4 | d00986ec | 23751 | nee | ja | 21146 | 1145 |
+| NEW | 4 | 52193f86 | 23408 | nee | ja | 2919 | 1142 |
+| OLD | 5 | d00986ec | 23408 | nee | ja | 21142 | 1141 |
+| NOSTRIP | 4 | 299d4ac3 | 23751 | nee | ja | 2928 | 1145 |
+| NEW | 5 | 52193f86 | 23205 | nee | ja | 2936 | 1148 |
+| NOSTRIP | 5 | 299d4ac3 | 23205 | nee | ja | 2935 | 1147 |
+
+**Uitslag: NEW is niet slechter dan OLD.** In alle 15 starts bleef de game draaien (`draait=ja`) en het
+aantal bordlezers is per variant hetzelfde (OLD 1140-1148, NEW 1142-1148, NOSTRIP 1145-1149). De
+bewering "NEW / geen `bord[8]` / `-s` laat het spel stoppen" is daarmee **weerlegd**: de oude bisect
+was ruis (één start per variant, en de start is aantoonbaar wisselvallig). NEW en NOSTRIP ontlopen
+elkaar ook niet, dus het strippen is evenmin de oorzaak. Volgens de afspraak ("samenvoegen als NEW
+niet slechter is dan OLD") is de branch samengevoegd.
+
+**Wat de proef NIET zegt.** `voorbij BOOTING` is in 15 van de 15 starts `nee`, **OLD inbegrepen**: geen
+enkele variant komt binnen 90 s voorbij het BOOTING-scherm. Dat criterium zegt hier dus niets over de
+DLL's -- het is precies het (D)-probleem (Robin Hood blijft op I/O CHECKING staan), niet iets wat een
+van de drie DLL's veroorzaakt. Het onderscheid tussen de varianten zit in het logboekprofiel (OLD
+~21.100 regels, NEW/NOSTRIP ~2.900: de nieuwe teller telt de ReadFile-regels mee), en dat profiel
+diende meteen als controle dat de variantwissel echt werkte: elke run draagt de signatuur van zijn
+eigen DLL. Twee runs zijn om die reden afgekeurd en overgedaan (een vervuilde run met het profiel van
+OLD, en een run waarin de game niet liep).
+
+De proefscripts staan in `tools/dev/ab-rhio/` (`ab2.sh`, `maak-tabel.py`, `mutex-hermeten.sh`).
