@@ -980,3 +980,40 @@ heeft **HASP HL statisch gelinkt**, en zo'n beveiligingslaag springt door een ta
 echte dongle klopt. De volgende stap is dus niet de kern maar dat pad: met `winedbg` (of
 `WINEDEBUG=+relay` op een *klein* stuk) de laatste sprong voor `0x4fd8aed0` vinden en kijken welke
 tabel daar gelezen wordt -- precies de "dongle"-route die de leiding al als open item heeft.
+
+### Coopers 9: waar de kapotte functiewijzer vandaan komt (2026-10-19 11:47)
+
+Met `WINEDEBUG=-all,+relay` (29 MB, het spel valt na ~1 s om) is de laatste regel voor de crash:
+
+```
+Ret  PE DLL (module=kernel32.dll, reason=PROCESS_ATTACH, res=02C2FD24) retval=1
+Starting thread proc 00402480 (arg=7FFD1000)
+Call KERNEL32.BaseThreadInitThunk(00000000,00402480,7ffd1000) ret=7bf0e277
+Call ntdll.NtQueryInformationProcess(...)
+Ret  ntdll.NtQueryInformationProcess() retval=00000000
+```
+
+Dat verklaart de registers van de crash precies: `edx=00402480` is de **start van de draad** en
+`ebp=7ffd1000` is het **argument** dat `BaseThreadInitThunk` kreeg. Het spel start dus heel vroeg een
+eigen draad en die valt om.
+
+De code zelf is normaal (objdump op de view-kopie):
+
+* `0x402480` (de draadprocedure) roept `0x4023b0`, `0x401b30`, `0x401fa0` en `0x4014b0` aan -- gewone
+  CRT-achtige initialisatie, geen sprong naar een vreemd adres;
+* `0x401b30` roept **`0x4010d0`** aan en bevat daarna **`call *%edi`** en **`call *%ebx`** -- indirecte
+  aanroepen. `0x4010d0` is precies de functie die de eerdere notitie al aanwees (`0x4010d0 -> call
+  0x45c0b0 -> page fault`).
+
+De crash-registers wijzen de tabel aan: `ebx=ecx=esi=0055e3c8` (een adres in de **beschrijfbare data**
+van de exe) en de fout is een **lees**fout op `4fd8aed0` met `eip=4fd8aed0`. Met andere woorden: de
+code leest een functiewijzer uit de tabel bij `0x55e3c8` en **die wijzer is `0x4fd8aed0`** -- een adres
+in geen enkele module -- en springt erheen. Zonder onze kern (deze meting) is `edi=0`, dus dezelfde
+route loopt ook daar stuk.
+
+Dat is de **beveiligingslaag**: Coopers 9 heeft HASP HL statisch gelinkt (zie de tabel bovenaan dit
+document). Zo'n laag hoort die tabel bij het opstarten te vullen; zonder dongle blijft er rommel staan.
+De weg vooruit is dus niet de kern en niet Wine, maar dat pad: ofwel de tabel laten vullen zoals de
+echte beveiliging doet (daar is een dongle voor nodig, en de eigenaar heeft gezegd dat die er niet
+komt), ofwel de exe op dat punt **patchen** zodat hij de controle overslaat -- dezelfde aanpak als bij
+de andere dongle-spellen in dit document.
