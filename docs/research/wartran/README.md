@@ -528,7 +528,7 @@ profiel de gesloten TeknoParrot-runtime en die is er niet (`rg-direct --plan` ze
 **Over de beveiliging:** de exe is 41 MB (image 0x400000-0x2b2a000) en bevat Aladdin HASP-teksten
 (`classic_check_local_port: invalid HASP ID`, `<hasp4/>`, `nethasptype`, `<haspid>%u</haspid>`), maar
 **niet** de teksten van Robin Hood ("SECURITY CHECK BAD", "GWRH"). Het is dus een andere (nieuwere)
-laag dan bij Robin Hood, en dezelfde acht patches zijn hier niet van toepassing.
+laag dan bij Robin Hood, en dezelfde negen patches zijn hier niet van toepassing.
 
 **Volgende stap (precies):** uitzoeken welke functie op `0x4010e8` hoort te staan en waarom die
 garbage is -- bijvoorbeeld met `WINEDEBUG=+seh` en een breekpunt op `0x4010e8`/`0x45c0b0`, of door
