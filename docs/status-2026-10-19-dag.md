@@ -617,3 +617,60 @@ maken. De uitvoer komt in `tools/rg-rhio/out/rh-dump` (in de repo, maar genegeer
 **Volgende stap voor (D)** (een eigen ronde): die dump draaien en de wachtdienst met zijn handvat
 benoemen, daarna vijf starts met en vijf zonder bordantwoord vergelijken. Wat we nu weten: de game
 leest het bord ongeveer 1140-1149 keer in 90 s en komt niet voorbij BOOTING, in geen van de varianten.
+
+## Levende controle van de pass-2-samenvoeging op het echte pad (13:25 en 13:27)
+
+De leiding vroeg een keer echt te kijken of de samenvoeging op het echte pad doet wat de proeven
+beloven. Alleen de stempel is weggehaald:
+
+```
+rm -f ~/.local/share/ravengun/prefixes/MarioKartDX/.ravengun-prefixsetup/*.done
+```
+
+Er stonden daar vier oude stempels met een cijfernaam (uit de tijd dat elke stap zijn eigen stempel
+kreeg); die zijn mee weggehaald en komen niet terug -- er wordt er nu een geschreven, voor de hele
+lijst. Daarna een start via de daemon (`ravengunctl game start MarioKartDX`).
+
+**Eerste start** (`~/.local/state/ravengun/logs/direct-MarioKartDX-20261019-132528.log`):
+
+```
+prefixstap: run . PreprocessAmAuth.exe -wait (eenmalig per prefix)
+prefixstap: copy prefix:drive_c/windows/WritableConfig.ini WritableConfig.ini (eenmalig per prefix)
+prefixstap: copy prefix:drive_c/windows/WritableConfig.ini AMCUS/WritableConfig.ini (eenmalig per prefix)
+prefixstap: run AMCUS regsvr32.exe /s iauthdll.dll (eenmalig per prefix)
+[13:25:28] prefixstap: .../proton-11.0-2/bin/wine 'Z:\...\views\MarioKartDX\PreprocessAmAuth.exe' -wait (cwd .../views/MarioKartDX)
+[13:25:29] prefixstap: Checking.ErrorCode : 0
+[13:25:29] prefixstap: outPath : WritableConfig.ini
+[13:25:30] prefixstap: Ok!
+[13:25:30] prefixstap: klaar (status 0)
+[13:25:30] prefixstap: kopieren klaar: .../prefixes/MarioKartDX/drive_c/windows/WritableConfig.ini -> .../views/MarioKartDX/WritableConfig.ini
+[13:25:30] prefixstap: kopieren klaar: .../prefixes/MarioKartDX/drive_c/windows/WritableConfig.ini -> .../views/MarioKartDX/AMCUS/WritableConfig.ini
+[13:25:30] prefixstap: .../wine regsvr32.exe /s iauthdll.dll (cwd .../views/MarioKartDX/AMCUS)
+[13:25:30] prefixstap: regsvr32: Successfully registered DLL 'iauthdll.dll'
+[13:25:30] prefixstap: klaar (status 0)
+[13:25:30] prefixstappen: stempel .../prefixes/MarioKartDX/.ravengun-prefixsetup/3b92f495bbfda327.done
+```
+
+En de schrijfmap-regel uit dezelfde log: `schrijfmap: .../views/MarioKartDX/AMCUS is al een echte map
+(stand van de game)` -- dus geen koppeling naar de NAS. Het aantal regels met **"weigert"** in deze log
+is **0**: de fout die de leiding in mijn P1 zag (`--run` weigerde elke start van MarioKartDX met code 2)
+is met de pass-2-samenvoeging weg.
+
+**Tweede start** (`.../direct-MarioKartDX-20261019-132751.log`): alle vier de stappen worden
+overgeslagen.
+
+```
+[13:27:51] prefixstappen: stempel .../3b92f495bbfda327.done staat er; alleen ontbrekende kopieen lopen opnieuw
+[13:27:51] prefixstap: al gedaan (run . PreprocessAmAuth.exe -wait)
+[13:27:51] prefixstap: al gedaan (copy prefix:drive_c/windows/WritableConfig.ini WritableConfig.ini)
+[13:27:51] prefixstap: al gedaan (copy prefix:drive_c/windows/WritableConfig.ini AMCUS/WritableConfig.ini)
+[13:27:51] prefixstap: al gedaan (run AMCUS regsvr32.exe /s iauthdll.dll)
+```
+
+De game liep in beide gevallen (`ravengunctl game status`: "De game draait.").
+
+**De foto** (`docs/screenshots/mariokart-prefixstappen-2026-10-19.png`, 1920x1080, 10.669 bytes) is
+helemaal zwart. Dat is niet het BOOTING/I-O CHECKING-scherm van ongeveer 23 kB maar de bekende zwarte
+toestand van (F): de stappen doen dus wat ze moeten doen (de IAuth-klasse is geregistreerd en
+AMAuthd blijft staan), maar het spel tekent zelf nog niets. Dat is de renderkant van (F), niet deze
+stappen.
