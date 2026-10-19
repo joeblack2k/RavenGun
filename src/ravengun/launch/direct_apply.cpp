@@ -977,15 +977,14 @@ std::vector<std::string> stempel_problemen(const DirectPlan& plan, const DirectP
     bool punt_punt = false;
     for (const std::string& deel : nonempty_split(m, '/'))
         if (deel == "..") punt_punt = true;
-    /* on_nas() klapt dicht voor een pad dat niet bestaat (volg_pad mislukt), en de stempelmap bestaat
-     * bij een VERSE prefix nog niet. Dan keek de controle naar de map zelf en werd elke eerste start
-     * geweigerd -- dat vond de proef met het lege plan.prefix. Bestaat de stempelmap nog niet, dan
-     * kijken we naar de prefix zelf: de map komt daar immers in, en staat de prefix op de NAS, dan
-     * weigeren we alsnog. Bestaat hij wel, dan moet hij zelf lokaal zijn (een koppeling naar de NAS
-     * valt hier ook op, want dan wijst abspath() ergens anders heen). */
-    const bool bestaat = lexists(dirname(m)) || lexists(m);
-    if (pfx.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") || punt_punt ||
-        (bestaat ? on_nas(dirname(m), p) : on_nas(pfx, p)))
+    /* De map waar de stempel in komt mag niet op de NAS liggen. on_nas() volgt het pad zoals de kernel (volg_pad): een
+     * koppeling op de weg wordt gevolgd, ook een losse, en vanaf het eerste deel dat (nog) niet bestaat gaat de rest
+     * letterlijk verder. EEN controle op dirname(m) dekt dus alles: een bestaande stempelmap, een stempelmap die een
+     * koppeling naar de NAS is, een VERSE prefix waarin .ravengun-prefixsetup nog niet bestaat (lokaal: aannemen) en een
+     * prefix die zelf een koppeling naar de NAS is terwijl de stempelmap er nog niet in staat (weigeren). Review 15, ronde 2,
+     * punt 2: hier stond eerst een splitsing "bestaat de map, dan dirname(m), anders de prefix" met de uitleg dat on_nas()
+     * dichtklapt voor een pad dat niet bestaat; dat klopte niet (volg_pad verdraagt ENOENT) en de splitsing deed niets. */
+    if (pfx.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") || punt_punt || on_nas(dirname(m), p))
         return {"de stempel van de prefixstappen (" + m + ") moet in " + map +
                 " liggen, op .done eindigen, geen .. bevatten en niet op de NAS liggen"};
     return {};
