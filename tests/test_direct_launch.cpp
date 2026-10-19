@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -53,6 +54,7 @@ static std::string slurp(const fs::path& p) {
     return ss.str();
 }
 static bool contains(const std::string& s, const std::string& part) { return s.find(part) != std::string::npos; }
+static bool lexists_any(const fs::path& p) { std::error_code ec; return fs::symlink_status(p, ec).type() != fs::file_type::not_found && !ec; }
 
 static const char* kGameIni = R"([Game]
 Profile = Spel
@@ -1744,7 +1746,9 @@ int main() {
             std::vector<std::string> wlog;
             std::string werr2;
 
-            // (1) Een mislukte kopie laat de koppeling staan en niets halfs achter.
+            // (1) Een mislukte kopie laat de koppeling staan en niets halfs achter. Als root helpt chmod 0 niet (root leest alles);
+            // dan slaat deze proef over (de leesfout zelf staat in de pass-2-proeven met een nep-read()).
+            if (::getuid() != 0) {
             const fs::path nas2 = home / "mnt/nas/Spel2/Logs";
             write(nas2 / "goed.log", "inhoud\n");
             write(nas2 / "onleesbaar.log", "geheim\n");
@@ -1763,6 +1767,7 @@ int main() {
             CHECK(!fs::is_symlink(view2) && fs::is_directory(view2));
             CHECK(slurp(view2 / "goed.log") == "inhoud\n");
             CHECK(slurp(nas2 / "goed.log") == "inhoud\n");                 // NAS ongemoeid
+            }
 
             // (2) Een ontbrekend pad onder een ouder die naar de NAS wijst: weigeren.
             const fs::path nas3 = home / "mnt/nas/Spel3";
@@ -1793,7 +1798,8 @@ int main() {
             write(view4 / "AMConfig.ini", "OFFLINE\n");
             CHECK(slurp(nas4 / "AMConfig.ini") == "ALL.NET\n");             // NAS ongemoeid
 
-            // (4) Een mislukte stap (ouder niet beschrijfbaar) laat niets halfs achter.
+            // (4) Een mislukte stap (ouder niet beschrijfbaar) laat niets halfs achter. Niet als root (chmod 0500 houdt root niet tegen).
+            if (::getuid() != 0) {
             const fs::path nas5 = home / "mnt/nas/Spel5/Logs";
             write(nas5 / "a.log", "a\n");
             const fs::path view5 = view / "vast";
@@ -1810,9 +1816,324 @@ int main() {
             CHECK(fs::is_symlink(link5));                                   // de koppeling staat er nog
             ::chmod(view5.c_str(), 0755);
             CHECK(!fs::exists(link5.string() + ".ravengun-tmp"));
+            }
         }
 
         write(ugi2, "[Launch]\nViewCopies = GameRecords1.dat\n");
+    }
+
+    // --- pass 2 van de schrijflaag (2026-10-19) ---------------------------------------------------------------------------------------
+    // (a) Een lokale installatie: ViewWritable doet niets (geen view nodig) en weigert de start niet; een game op de NAS zonder view
+    // weigert wel.
+    {
+        const fs::path lgame = home / "games/Lokaal";
+        write(lgame / "bin/lok.exe", std::string("MZ") + std::string(8, '\0'));
+        write(lgame / "Logs/a.log", "a\n");
+        write(fs::path(p.dirs.shipped) / "Lokaal/game.ini",
+              "[Game]\nProfile = Lokaal\nType = TeknoParrot\nEmulationProfile = WartranTroopers\nExecutable = lok.exe\nIs64Bit = true\n"
+              "GamePath = ~/games/Lokaal/bin/lok.exe\n\n[Launch]\nMode = direct\nViewWritable = Logs\n\n[Input]\nRoute = evdev\n"
+              "Layout = WartranTroopers\n\n[Identify]\nPath = bin/lok.exe\n\n[Config]\nGeneral/Windowed = 1\n\n[ConfigType]\nGeneral/Windowed = Bool\n");
+        DirectPlan lp;
+        std::string lw;
+        DirectOptions mo = o;
+        mo.make_view = true;
+        for (const DirectOptions* opt : {&o, &mo}) {
+            CHECK(plan_direct("Lokaal", p, *opt, lp, lw) == Verdict::Ok);
+            if (!lw.empty()) std::fprintf(stderr, "lokaal: %s\n", lw.c_str());
+            CHECK(lp.view_writable.empty() && lp.game == (lgame / "bin/lok.exe").string());
+            CHECK(std::any_of(lp.notes.begin(), lp.notes.end(), [](const std::string& l) { return contains(l, "lokale installatie"); }));
+        }
+        CHECK(!fs::exists(fs::path(p.views()) / "Lokaal"));
+        // Een ongeldig pad weigert ook bij een lokale installatie.
+        write(fs::path(p.dirs.user) / "Lokaal/game.ini", "[Launch]\nViewWritable = ../buiten\n");
+        CHECK(plan_direct("Lokaal", p, o, lp, lw) == Verdict::Refused && contains(lw, "ViewWritable"));
+        fs::remove(fs::path(p.dirs.user) / "Lokaal/game.ini");
+        // De game op de NAS en (nog) geen view (--plan): weigeren, want dan zou de game op de NAS schrijven.
+        const fs::path nuser = fs::path(p.dirs.user) / "Nas/game.ini";
+        write(nuser, "[Launch]\nViewWritable = Data\n");
+        fs::remove_all(fs::path(p.views()) / "Nas");
+        CHECK(plan_direct("Nas", p, o, lp, lw) == Verdict::Refused && contains(lw, "ViewWritable vraagt een view"));
+        fs::remove(nuser);
+    }
+
+    // (l) A6: de opbouw en de verversing van de view zetten nooit een link IN een schrijfmap en maken van een (lege) echte schrijfmap
+    // nooit weer een link; een ontbrekende schrijfmap komt terug. De vorm van InfinityBladeFX (ViewRealDirs = ViewWritable =
+    // SwordGame/Logs) en een schrijfmap in de wortel.
+    {
+        const fs::path ngame = home / "mnt/nas/Nas Spel";
+        const fs::path nview = fs::path(p.views()) / "Nas";
+        const fs::path nuser = fs::path(p.dirs.user) / "Nas/game.ini";
+        write(ngame / "SwordGame/Logs/Launch.log", "nas-log\n");
+        write(ngame / "SwordGame/Config/a.ini", "a\n");
+        write(ngame / "SwordGame/SaveData/DoNotDelete.txt", "");
+        write(ngame / "SwordGame/Movies/m.bik", "m");
+        write(ngame / "Save/stand.dat", "nas-stand\n");
+        // Zoals InfinityBladeFX sinds pre-merge F5: drie schrijfmappen onder SwordGame/, ViewRealDirs = SwordGame.
+        write(nuser, "[Launch]\nViewRealDirs = SwordGame\nViewWritable = swordgame/logs, SwordGame/Config, SwordGame/SaveData, Save, Leeg\n");
+        fs::remove_all(nview);
+        DirectOptions mo = o;
+        mo.make_view = true;
+        DirectPlan ap;
+        std::string w, err;
+        std::vector<std::string> l;
+        auto start = [&]() {
+            l.clear();
+            err.clear();
+            const bool ok = plan_direct("Nas", p, mo, ap, w) == Verdict::Ok && apply_direct(ap, p, l, err);
+            if (!ok) std::fprintf(stderr, "A6-start: %s %s\n", w.c_str(), err.c_str());
+            return ok;
+        };
+        CHECK(start());
+        CHECK(fs::is_directory(nview / "SwordGame") && !fs::is_symlink(nview / "SwordGame") && fs::is_symlink(nview / "SwordGame/Movies"));
+        CHECK(!fs::is_symlink(nview / "SwordGame/Config") && !fs::is_symlink(nview / "SwordGame/Config/a.ini") &&
+              slurp(nview / "SwordGame/Config/a.ini") == "a\n");
+        CHECK(!fs::is_symlink(nview / "SwordGame/SaveData") && fs::is_regular_file(nview / "SwordGame/SaveData/DoNotDelete.txt"));
+        CHECK(!fs::is_symlink(nview / "SwordGame/Logs") && !fs::is_symlink(nview / "SwordGame/Logs/Launch.log") &&
+              slurp(nview / "SwordGame/Logs/Launch.log") == "nas-log\n");
+        CHECK(!fs::is_symlink(nview / "Save") && slurp(nview / "Save/stand.dat") == "nas-stand\n");
+        CHECK(fs::is_directory(nview / "Leeg") && !fs::is_symlink(nview / "Leeg"));   // niet in de gamemap: een lege echte map
+        // De game schrijft; op de NAS komt er iets bij. Verversen zet daar geen link voor en laat de stand van de game staan.
+        write(nview / "SwordGame/Logs/Launch.log", "eigen\n");
+        write(ngame / "SwordGame/Logs/Launch-backup-1.log", "b\n");
+        write(ngame / "Save/nieuw.dat", "n\n");
+        CHECK(start());
+        CHECK(!fs::exists(nview / "SwordGame/Logs/Launch-backup-1.log") && !fs::is_symlink(nview / "SwordGame/Logs/Launch-backup-1.log"));
+        CHECK(!fs::is_symlink(nview / "Save/nieuw.dat") && !fs::exists(nview / "Save/nieuw.dat"));
+        CHECK(slurp(nview / "SwordGame/Logs/Launch.log") == "eigen\n");
+        // Een leeggemaakte schrijfmap in de wortel blijft een lege echte map (eerder: weer een link, en de volgende start vulde hem
+        // opnieuw van de NAS over de stand van de game heen).
+        fs::remove_all(nview / "Save");
+        fs::create_directory(nview / "Save");
+        CHECK(start());
+        CHECK(fs::is_directory(nview / "Save") && !fs::is_symlink(nview / "Save") && fs::is_empty(nview / "Save"));
+        // Een ontbrekende schrijfmap komt terug: met de inhoud van de gamemap (een link die de start omzet in een echte kopie).
+        fs::remove_all(nview / "SwordGame/Logs");
+        CHECK(start());
+        CHECK(!fs::is_symlink(nview / "SwordGame/Logs") && slurp(nview / "SwordGame/Logs/Launch-backup-1.log") == "b\n" &&
+              !fs::is_symlink(nview / "SwordGame/Logs/Launch.log"));
+        // Alleen de verversing (geen start): ook dan geen link IN een schrijfmap.
+        write(ngame / "SwordGame/Logs/later.log", "l\n");
+        CHECK(plan_direct("Nas", p, mo, ap, w) == Verdict::Ok && !lexists_any(nview / "SwordGame/Logs/later.log"));
+        // Niets op de NAS veranderd.
+        CHECK(slurp(ngame / "SwordGame/Logs/Launch.log") == "nas-log\n" && slurp(ngame / "Save/stand.dat") == "nas-stand\n");
+        CHECK(!fs::exists(ngame / "Leeg") && !fs::exists(ngame / "SwordGame/Logs/teknoparrot.ini"));
+        fs::remove(nuser);
+        fs::remove_all(nview);
+    }
+
+    // (b)-(k) De schrijflaag zelf, met een nep-view en een nep-NAS onder ~/mnt (on_nas() ziet ~/mnt als NAS).
+    {
+        namespace D = ravengun::launch::direct_detail;
+        const fs::path pv = fs::path(p.views()) / "P2";
+        const fs::path pn = home / "mnt/nas/P2";
+        fs::remove_all(pv);
+        fs::remove_all(pn);
+        fs::create_directories(pv);
+        std::vector<std::string> plog;
+        auto plaats = [&](const fs::path& w, std::string& e) {
+            DirectPlan x;
+            x.view_writable = {w.string()};
+            plog.clear();
+            e.clear();
+            return D::place_view_writable(x, p, plog, e);
+        };
+        std::string e;
+
+        // (b) Een case-variant: het profiel zegt SwordGame/Logs, de view heeft swordgame/logs als koppeling naar de NAS. Wine raakt
+        // swordgame/logs; die wordt de echte map, er komt geen tweede bij.
+        write(pn / "SwordGame/Logs/Launch.log", "oud\n");
+        fs::create_directories(pv / "swordgame");
+        fs::create_directory_symlink(pn / "SwordGame/Logs", pv / "swordgame/logs");
+        CHECK(D::resolve_case((pv / "SwordGame/Logs").string()) == (pv / "swordgame/logs").string());
+        CHECK(D::resolve_case((pv / "SwordGame/Nieuw/x").string()) == (pv / "swordgame/Nieuw/x").string());
+        CHECK(!D::schrijfmap_problemen((pv / "SwordGame/Logs").string(), p).empty());   // nog een koppeling: --run weigert
+        CHECK(plaats(pv / "SwordGame/Logs", e));
+        CHECK(!fs::is_symlink(pv / "swordgame/logs") && slurp(pv / "swordgame/logs/Launch.log") == "oud\n" && !fs::exists(pv / "SwordGame"));
+        CHECK(D::schrijfmap_problemen((pv / "SwordGame/Logs").string(), p).empty());
+        CHECK(slurp(pn / "SwordGame/Logs/Launch.log") == "oud\n");
+        // Een zuster in andere hoofdletters die naar de NAS wijst, naast een echte map: weigeren (de game kan beide namen gebruiken).
+        fs::create_directories(pv / "Save");
+        fs::create_directory_symlink(pn / "SwordGame/Logs", pv / "save");
+        CHECK(!plaats(pv / "Save", e) && contains(e, (pv / "save").string()));
+        fs::remove(pv / "save");
+        CHECK(plaats(pv / "Save", e));
+
+        // (c) Een kind dat naar een NAS-MAP wijst in een echte schrijfmap: weigeren, met de verwijzing naar ViewCopies (Haunted
+        // Museum II, data/model); de koppeling naar het bestand ernaast wordt niet half omgezet als de map erna weigert.
+        write(pn / "data/model/m.bin", "m");
+        write(pn / "data/test.ini", "t=1\n");
+        fs::create_directories(pv / "data");
+        fs::create_directory_symlink(pn / "data/model", pv / "data/model");
+        CHECK(!plaats(pv / "data", e) && contains(e, "ViewCopies") && contains(e, "model"));
+        CHECK(fs::is_symlink(pv / "data/model") && slurp(pn / "data/model/m.bin") == "m");
+        fs::create_symlink(pn / "data/test.ini", pv / "data/test.ini");
+        fs::remove(pv / "data/model");
+        CHECK(plaats(pv / "data", e) && !fs::is_symlink(pv / "data/test.ini") && slurp(pv / "data/test.ini") == "t=1\n");
+        write(pv / "data/test.ini", "t=2\n");
+        CHECK(slurp(pn / "data/test.ini") == "t=1\n");                    // rename verving de koppeling, niet het doel
+
+        // (d) Kopiëren: een relatieve koppeling naar een bestand wordt gevolgd vanaf zijn eigen plek (niet de werkmap van de daemon);
+        // een koppeling naar een map weigert en laat de koppeling van de view staan.
+        write(pn / "rel/goed.log", "goed\n");
+        fs::create_symlink("goed.log", pn / "rel/alias.log");
+        fs::create_directory_symlink(pn / "rel", pv / "rel");
+        CHECK(plaats(pv / "rel", e) && slurp(pv / "rel/alias.log") == "goed\n" && !fs::is_symlink(pv / "rel/alias.log"));
+        fs::create_directories(pn / "rel2");
+        fs::create_directory_symlink(pn / "data/model", pn / "rel2/model");
+        fs::create_directory_symlink(pn / "rel2", pv / "rel2");
+        CHECK(!plaats(pv / "rel2", e) && contains(e, "koppeling naar een map"));
+        CHECK(fs::is_symlink(pv / "rel2") && !fs::exists(pv / "rel2.ravengun-tmp"));
+
+        // (e) Een leesfout halverwege (CIFS-soft-mount: EIO): de migratie faalt, de koppeling blijft en er blijft niets halfs achter.
+        write(pn / "eio/groot.bin", std::string(100000, 'x'));
+        fs::create_directory_symlink(pn / "eio", pv / "eio");
+        static int leesbeurt;
+        leesbeurt = 0;
+        D::strict_read_fn = [](int fd, void* b, size_t n) -> ssize_t {
+            if (leesbeurt++ == 0) return ::read(fd, b, std::min<size_t>(n, 1000));
+            errno = EIO;
+            return -1;
+        };
+        CHECK(!plaats(pv / "eio", e) && contains(e, "leesfout"));
+        CHECK(fs::is_symlink(pv / "eio") && !fs::exists(pv / "eio.ravengun-tmp"));
+        // Een te korte lezing zonder fout (de NAS zegt EOF te vroeg): ook weigeren.
+        leesbeurt = 0;
+        D::strict_read_fn = [](int fd, void* b, size_t n) -> ssize_t { return leesbeurt++ == 0 ? ::read(fd, b, std::min<size_t>(n, 10)) : 0; };
+        std::string data, rerr;
+        CHECK(!D::read_file_strict((pn / "eio/groot.bin").string(), data, rerr) && contains(rerr, "niet volledig") && data.empty());
+        D::strict_read_fn = ::read;
+        CHECK(D::read_file_strict((pn / "eio/groot.bin").string(), data, rerr) && data.size() == 100000);
+        CHECK(plaats(pv / "eio", e) && fs::file_size(pv / "eio/groot.bin") == 100000);
+
+        // (f) Een map met spelinhoud (groter dan 256 MiB) wordt niet stil gekopieerd; het grote bestand wordt niet eens gelezen.
+        write(pn / "groot/a.bin", "a");
+        fs::resize_file(pn / "groot/a.bin", 300ull << 20);   // ijl bestand: geen echte ruimte
+        fs::create_directory_symlink(pn / "groot", pv / "groot");
+        CHECK(!plaats(pv / "groot", e) && contains(e, "MiB") && fs::is_symlink(pv / "groot"));
+
+        // (g) Ontbrekend: een lokale ouder -> een lege echte map; een ontbrekende ouder achter een NAS-koppeling -> weigeren (de
+        // controle van de ouder hing eerder af van lexists(ouder)).
+        CHECK(plaats(pv / "nieuw/Logs", e) && fs::is_directory(pv / "nieuw/Logs") && !fs::is_symlink(pv / "nieuw/Logs"));
+        fs::create_directory_symlink(pn / "rel", pv / "naar-nas");
+        CHECK(!plaats(pv / "naar-nas/ontbreekt/Logs", e) && contains(e, "NAS"));
+        CHECK(!fs::exists(pn / "rel/ontbreekt"));
+
+        // (h) Volgorde in apply_direct: de schrijfmap eerst, dan de bestanden. Een bestand in een schrijfmap die nog een koppeling
+        // naar de NAS is, komt zo bij de eerste start lokaal (eerder: "ligt op de NAS", pas bij de volgende start).
+        write(pn / "ord/a.cfg", "a\n");
+        fs::create_directory_symlink(pn / "ord", pv / "ord");
+        {
+            DirectPlan op;
+            op.view_writable = {(pv / "ord").string()};
+            op.files = {{(pv / "ord/teknoparrot.ini").string(), "x=1\n"}};
+            std::vector<std::string> l;
+            std::string err;
+            CHECK(apply_direct(op, p, l, err));
+            if (!err.empty()) std::fprintf(stderr, "volgorde: %s\n", err.c_str());
+            CHECK(!fs::is_symlink(pv / "ord") && slurp(pv / "ord/teknoparrot.ini") == "x=1\n" && !fs::exists(pn / "ord/teknoparrot.ini"));
+        }
+
+#ifdef RG_DIRECT_BIN
+        // (i) rg-direct --run: dezelfde controle als de daemon. Een echte map met een kind dat naar een NAS-bestand wijst (de stand
+        // van InfinityBladeFX: Logs/Launch.log) weigert, ook diep.
+        {
+            write(pn / "run/Launch.log", "nas\n");
+            fs::create_directories(pv / "run/diep");
+            fs::create_symlink(pn / "run/Launch.log", pv / "run/diep/Launch.log");
+            DirectPlan rp;   // het kleinste plan dat plan_from_json aanneemt; de controle komt voor alles
+            rp.argv = {"/bin/false"};
+            rp.cwd = root.string();
+            rp.wine = "/bin/false";
+            rp.pipehelper = "/bin/false";
+            rp.view_writable = {(pv / "run").string()};
+            const fs::path planf = root / "plan-p2.json", logf = root / "run-p2.log";
+            write(planf, plan_to_json(rp));
+            posix_spawn_file_actions_t fa;
+            posix_spawn_file_actions_init(&fa);
+            posix_spawn_file_actions_addopen(&fa, 1, logf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            posix_spawn_file_actions_adddup2(&fa, 1, 2);
+            std::string bin = RG_DIRECT_BIN;
+            std::vector<char*> av{bin.data(), const_cast<char*>("--run"), const_cast<char*>(planf.c_str()), nullptr};
+            std::string h = "HOME=" + home.string(), pth = std::string("PATH=") + (std::getenv("PATH") ? std::getenv("PATH") : "/usr/bin:/bin");
+            std::vector<char*> envp{h.data(), pth.data(), nullptr};
+            pid_t pid = 0;
+            CHECK(posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), envp.data()) == 0);
+            posix_spawn_file_actions_destroy(&fa);
+            int st = 0;
+            waitpid(pid, &st, 0);
+            const std::string log = slurp(logf);
+            CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 2 && contains(log, "--run weigert") && contains(log, "diep/Launch.log"));
+            if (!contains(log, "--run weigert")) std::fprintf(stderr, "--- rg-direct --run (schrijfmap) ---\n%s\n", log.c_str());
+            CHECK(slurp(pn / "run/Launch.log") == "nas\n");
+        }
+#endif
+
+        // (m) Pre-merge F1: een schrijfmap of een echte submap erin die zelf op de NAS ligt (een CIFS-koppelpunt terwijl de ouder
+        // lokaal is) weigert VOOR er iets in geschreven wordt; de koppeling erin blijft een koppeling.
+        {
+            DirectPaths pm = p;
+            pm.mounts = (root / "mounts-f1").string();
+            write(pn / "f1/a.cfg", "nas\n");
+            fs::create_directories(pv / "f1w/sub");
+            fs::create_symlink(pn / "f1/a.cfg", pv / "f1w/sub/a.cfg");
+            fs::create_directories(pv / "f1x");
+            fs::create_symlink(pn / "f1/a.cfg", pv / "f1x/a.cfg");
+            write(pm.mounts, "//nas/sub " + (pv / "f1w/sub").string() + " cifs rw 0 0\n//nas/x " + (pv / "f1x").string() + " cifs rw 0 0\n");
+            for (const fs::path& w : {pv / "f1w", pv / "f1x"}) {
+                DirectPlan x;
+                x.view_writable = {w.string()};
+                std::vector<std::string> l;
+                std::string err;
+                CHECK(!D::place_view_writable(x, pm, l, err) && contains(err, "NAS"));
+            }
+            CHECK(fs::is_symlink(pv / "f1w/sub/a.cfg") && !fs::exists(pv / "f1w/sub/a.cfg.ravengun-tmp"));
+            CHECK(fs::is_symlink(pv / "f1x/a.cfg") && !fs::exists(pv / "f1x/a.cfg.ravengun-tmp"));
+            CHECK(slurp(pn / "f1/a.cfg") == "nas\n");
+        }
+
+        // (n) Pre-merge F3: een kapotte koppeling (het doel bestaat niet) naar de NAS leek lokaal (weakly_canonical geeft dan de
+        // koppeling zelf terug). Een game die erdoor schrijft maakt het bestand op de NAS: weigeren, ook in de controle van --run.
+        {
+            fs::create_directories(pv / "kapot");
+            fs::create_symlink(pn / "bestaat-niet.log", pv / "kapot/x.log");
+            std::string doel;
+            CHECK(D::volg_pad((pv / "kapot/x.log").string(), doel) && doel == (pn / "bestaat-niet.log").string());
+            CHECK(D::on_nas((pv / "kapot/x.log").string(), p) && !D::on_nas((pv / "kapot").string(), p));
+            CHECK(!D::schrijfmap_problemen((pv / "kapot").string(), p).empty());
+            CHECK(!plaats(pv / "kapot", e) && contains(e, "x.log"));
+            CHECK(fs::is_symlink(pv / "kapot/x.log") && !fs::exists(pn / "bestaat-niet.log"));
+            // Relatief en via .. : het doel wordt vanaf de plek van de koppeling gevolgd.
+            fs::create_symlink((pn / "ook-niet").lexically_relative(pv / "kapot"), pv / "kapot/rel.log");
+            CHECK(D::volg_pad((pv / "kapot/rel.log").string(), doel) && doel == (pn / "ook-niet").string());
+        }
+
+        // (o) Pre-merge F4: de koppelingen naar NAS-bestanden in een echte schrijfmap tellen mee in de grens van 256 MiB.
+        {
+            write(pn / "f4/groot.bin", "a");
+            fs::resize_file(pn / "f4/groot.bin", 300ull << 20);
+            fs::create_directories(pv / "f4");
+            fs::create_symlink(pn / "f4/groot.bin", pv / "f4/groot.bin");
+            CHECK(!plaats(pv / "f4", e) && contains(e, "MiB") && fs::is_symlink(pv / "f4/groot.bin"));
+        }
+
+        // (k) A7: twee regels met hetzelfde koppelpunt (autofs boven cifs, zoals op de Deck): de laatste wint. Binnen een
+        // MountTableScope wordt de tabel een keer gelezen.
+        {
+            DirectPaths pm = p;
+            pm.mounts = (root / "mounts-autofs").string();
+            const std::string mp = (root / "nasx").string();
+            write(pm.mounts, "systemd-1 " + mp + " autofs rw 0 0\n//nas/x " + mp + " cifs rw 0 0\n/dev/sda1 / ext4 rw 0 0\n");
+            CHECK(D::on_nas(mp + "/spel/a.exe", pm) && !D::on_nas((root / "elders").string(), pm));
+            write(pm.mounts, "//nas/x " + mp + " cifs rw 0 0\nsystemd-1 " + mp + "/lokaal autofs rw 0 0\n");
+            CHECK(!D::on_nas(mp + "/lokaal/b", pm) && D::on_nas(mp + "/c", pm));
+            {
+                const D::MountTableScope s(pm);
+                write(pm.mounts, "proc /proc proc rw 0 0\n");
+                CHECK(D::on_nas(mp + "/c", pm));   // de tabel van het begin van de stap
+            }
+            CHECK(!D::on_nas(mp + "/c", pm));
+        }
+        fs::remove_all(pv);
     }
 
     fs::remove_all(root);

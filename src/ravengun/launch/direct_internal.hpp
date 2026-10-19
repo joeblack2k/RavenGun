@@ -3,6 +3,8 @@
 // Alleen voor de bestanden van de directe route (direct*.cpp): de helpers die ze delen. Niet voor andere code; de publieke kant is
 // direct.hpp. Alles staat in ravengun::launch::direct_detail; de bestanden halen het binnen met `using namespace direct_detail;`.
 // Wat maar een bestand gebruikt staat daar in een anonieme namespace.
+#include <sys/types.h>
+
 #include <cstdint>
 #include <filesystem>
 #include <map>
@@ -51,11 +53,39 @@ std::string strip_bom(std::string s);
 std::string expand_home(const std::string& p, const std::string& home);
 std::string shrink_home(const std::string& p, const std::string& home);
 std::string getenv_or(const EnvMap& env, const std::string& k, const std::string& def = {});
-bool on_nas(const std::string& path, const DirectPaths& p);
+bool on_nas(const std::string& path, const DirectPaths& p);   // launch-direct.py on_nas(); niet te volgen = NAS
+// Het pad zoals de kernel het volgt, ook door een koppeling waarvan het doel ontbreekt; false = onderweg niet te bekijken (EIO, ESTALE).
+bool volg_pad(const std::string& path, std::string& out);
+// Strenger dan read_file(): elke leesfout telt, en het totaal moet gelijk zijn aan de grootte van fstat() (een afgebroken lezing van
+// de NAS wordt nooit een halve kopie). strict_read_fn is ::read; alleen proeven vervangen hem.
+bool read_file_strict(const std::string& path, std::string& out, std::string& err);
+extern ssize_t (*strict_read_fn)(int, void*, size_t);
+// De koppelpunt-tabel; binnen een MountTableScope leest on_nas() hem maar een keer (apply_direct, rg-direct --run).
+struct MountRow { std::string mountpoint, type; };
+std::vector<MountRow> read_mounts(const std::string& file);
+class MountTableScope {
+public:
+    explicit MountTableScope(const DirectPaths& p);
+    ~MountTableScope();
+    MountTableScope(const MountTableScope&) = delete;
+    MountTableScope& operator=(const MountTableScope&) = delete;
+
+private:
+    std::vector<MountRow> rows_;
+    std::string file_;
+    const std::vector<MountRow>* prev_rows_;
+    const std::string* prev_file_;
+};
 // De schrijflaag (zie direct_apply.cpp): mappen waar de game in schrijft worden echte mappen in de
 // view, met een kopie van de NAS-inhoud; komt het pad daarna nog op de NAS uit, dan weigert de start.
 bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
-                         std::string& err);   // launch-direct.py on_nas()
+                         std::string& err);
+// Het pad zoals Wine het vindt: per onderdeel eerst de precieze naam, anders een naam die alleen in hoofdletters verschilt.
+std::string resolve_case(const std::string& pad);
+// Alleen lezen: alles waardoor een game die in `pad` schrijft op de NAS kan uitkomen (leeg = veilig). De ouder op de NAS, het pad
+// zelf (een koppeling) op de NAS, een kind (diep, ook achter een koppeling naar een lokale map) dat op de NAS uitkomt, en hetzelfde
+// voor een zuster die alleen in hoofdletters verschilt. place_view_writable (de laatste controle) en rg-direct --run gebruiken hem.
+std::vector<std::string> schrijfmap_problemen(const std::string& pad, const DirectPaths& p);
 
 std::string xml_tag(const std::string& xml, const std::string& tag, bool* found = nullptr);   // de tekst van het eerste <tag>
 std::string kv_get(const std::vector<std::pair<std::string, std::string>>& kv, const std::string& k, const std::string& def = {});

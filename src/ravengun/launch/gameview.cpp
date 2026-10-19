@@ -207,6 +207,84 @@ std::string strip_slashes(std::string s) {
     return s;
 }
 
+std::string lower(std::string s) {
+    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
+
+// [Launch] ViewWritable (review 10, A6; pass 2): rel (ten opzichte van de view) is een schrijfmap (`zelf`) of ligt erin (`erin`).
+// Zonder hoofdletters vergeleken: Wine vindt SwordGame/Logs ook als swordgame/logs.
+bool is_schrijfmap(const GameViewSpec& s, const std::string& rel) {
+    const std::string r = lower(strip_slashes(rel));
+    for (const std::string& w : s.writable_dirs)
+        if (!strip_slashes(w).empty() && lower(strip_slashes(w)) == r) return true;
+    return false;
+}
+bool in_schrijfmap(const GameViewSpec& s, const std::string& rel) {
+    const std::string r = lower(strip_slashes(rel));
+    for (const std::string& w : s.writable_dirs) {
+        const std::string ww = lower(strip_slashes(w));
+        if (!ww.empty() && r.compare(0, ww.size() + 1, ww + "/") == 0) return true;
+    }
+    return false;
+}
+
+// Een pad uit ViewRealDirs dat een schrijfmap raakt, houdt op bij de map erboven: de schrijfmap zelf maakt place_view_writable
+// (direct_apply.cpp) een echte map met een volledige KOPIE. maak_keten_lokaal zou er links naar de NAS in zetten.
+std::string keten_tot_schrijfmap(const GameViewSpec& s, const std::string& r) {
+    std::string uit;
+    for (const std::string& deel : split_rel(strip_slashes(r))) {
+        const std::string volgend = uit.empty() ? deel : uit + "/" + deel;
+        if (is_schrijfmap(s, volgend)) return uit;
+        uit = volgend;
+    }
+    return uit;
+}
+
+// De naam in `map` die Wine voor `naam` vindt: precies, anders een die alleen in hoofdletters verschilt; leeg = geen.
+std::string naam_in(const std::string& map, const std::string& naam) {
+    if (lexists(pjoin(map, naam))) return naam;
+    std::vector<std::string> names;
+    listdir(map, names);
+    for (const std::string& e : names)
+        if (lower(e) == lower(naam)) return e;
+    return {};
+}
+
+// Elke schrijfmap waarvan de mappen erboven echte mappen in de view zijn, maar die zelf ontbreekt (pass 2, bevinding 10): heeft de
+// gamemap hem, dan een link naar die map, net als in een nieuwe view (place_view_writable maakt er bij de start een echte map met
+// een volledige kopie van, of weigert de start); heeft de gamemap hem niet, dan een lege echte lokale map. Wat er al staat (een
+// echte map: de stand van de game; of een link) blijft staan. Nooit een link IN een schrijfmap.
+bool zet_schrijfmappen(const GameViewSpec& s, std::vector<std::string>& log, Guard& g) {
+    for (const std::string& w : s.writable_dirs) {
+        const std::vector<std::string> delen = split_rel(strip_slashes(w));
+        if (delen.empty() || std::find(delen.begin(), delen.end(), "..") != delen.end()) continue;   // nooit buiten de view
+        std::string vd = s.view, sd = s.source;
+        bool echt = true;
+        for (size_t k = 0; k + 1 < delen.size() && echt; ++k) {
+            // Een map erboven die ontbreekt of een link is: niet van ons. Een ontbrekende wordt door het verversen een link naar de
+            // gamemap (zet hem in ViewRealDirs om hem echt te maken); place_view_writable weigert als de schrijfmap dan op de NAS uitkomt.
+            const std::string n = naam_in(vd, delen[k]);
+            if (n.empty()) { echt = false; break; }
+            vd = pjoin(vd, n);
+            const std::string sn = naam_in(sd, delen[k]);
+            sd = pjoin(sd, sn.empty() ? delen[k] : sn);
+            echt = !islink(vd) && isdir(vd);
+        }
+        if (!echt || !naam_in(vd, delen.back()).empty()) continue;
+        const std::string sn = naam_in(sd, delen.back());
+        const std::string dp = pjoin(vd, sn.empty() ? delen.back() : sn);   // de naam van de gamemap, zoals een nieuwe view hem heeft
+        if (!sn.empty() && isdir(pjoin(sd, sn))) {
+            if (!do_symlink(pjoin(sd, sn), dp, g)) return false;
+            log.push_back("view: " + strip_slashes(w) + "/ ontbrak; een link naar de gamemap die bij de start een echte kopie wordt (ViewWritable)");
+        } else {
+            if (!do_mkdirs(dp, g)) return false;
+            log.push_back("view: " + strip_slashes(w) + "/ ontbrak; nu een lege echte map (ViewWritable)");
+        }
+    }
+    return true;
+}
+
 }  // namespace
 
 bool make_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<std::string>& log, std::string& err) {
@@ -234,9 +312,12 @@ bool make_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<std:
         log.push_back("view: " + fs::path(d).lexically_relative(s.view).string() + "/ is een echte map met symlinks (de map van de exe hoort lokaal te zijn)");
     for (const std::string& r : s.real_dirs) {
         gedaan.clear();
-        if (!maak_keten_lokaal(s.source, s.view, strip_slashes(r), gedaan, g)) return false;
-        log.push_back("view: " + strip_slashes(r) + "/ is een echte map met symlinks (ViewRealDirs)");
+        const std::string keten = keten_tot_schrijfmap(s, r);
+        if (keten.empty()) continue;
+        if (!maak_keten_lokaal(s.source, s.view, keten, gedaan, g)) return false;
+        log.push_back("view: " + keten + "/ is een echte map met symlinks (ViewRealDirs)");
     }
+    if (!zet_schrijfmappen(s, log, g)) return false;
     if (!s.elfldr2.empty() && !lexists(pjoin(s.view, "ElfLdr2")) && !do_symlink(s.elfldr2, pjoin(s.view, "ElfLdr2"), g)) return false;
     const std::vector<std::string> fout = view_write_errors(s, on_nas);
     if (!fout.empty()) {
@@ -257,20 +338,23 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
     // ViewRealDirs: een pad dat (nog) een link is wordt een echte map met links; daarna ververst zoals de keten naar de exe.
     std::vector<std::pair<std::string, std::string>> echte;
     for (const std::string& r : s.real_dirs) {
+        const std::string keten = keten_tot_schrijfmap(s, r);   // nooit links IN een schrijfmap (A6)
+        if (keten.empty()) continue;
         std::string vd = s.view, sd = s.source;
         bool echt = true;
-        for (const std::string& deel : split_rel(strip_slashes(r))) {
+        for (const std::string& deel : split_rel(keten)) {
             vd = pjoin(vd, deel);
             sd = pjoin(sd, deel);
             if (islink(vd) || !isdir(vd)) echt = false;
         }
         if (!echt) {
             std::vector<std::string> gedaan;
-            if (!maak_keten_lokaal(s.source, s.view, strip_slashes(r), gedaan, g)) return false;
-            log.push_back("view: " + strip_slashes(r) + "/ is een echte map met symlinks geworden (ViewRealDirs)");
+            if (!maak_keten_lokaal(s.source, s.view, keten, gedaan, g)) return false;
+            log.push_back("view: " + keten + "/ is een echte map met symlinks geworden (ViewRealDirs)");
         }
         echte.emplace_back(vd, sd);
     }
+    if (!zet_schrijfmappen(s, log, g)) return false;
     int bij = 0, weg = 0;
     // ViewEmptyDirs op een bestaande view: elk pad wordt een lege echte map. Een symlink gaat weg (alleen de link, nooit wat erachter
     // staat), een ontbrekend pad wordt aangemaakt, een echte map (leeg of met inhoud) blijft zoals hij is. De mappen erboven moeten
@@ -292,13 +376,7 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
     /* Review 10, A6: binnen een schrijfmap ([Launch] ViewWritable) komt nooit een link naar de NAS.
      * Anders zet de verversing bijvoorbeeld SwordGame/Logs/Launch.log weer als link neer en schrijft
      * de game via die link op de NAS. */
-    auto in_writable = [&](const std::string& rel) {
-        for (const std::string& w : s.writable_dirs) {
-            const std::string ww = strip_slashes(w);
-            if (!ww.empty() && (rel == ww || rel.compare(0, ww.size() + 1, ww + "/") == 0)) return true;
-        }
-        return false;
-    };
+    auto in_writable = [&](const std::string& rel) { return is_schrijfmap(s, rel) || in_schrijfmap(s, rel); };
     // Een echte map van de view verversen: links bij voor wat er in de gamemap bij kwam, verdwenen links weg.
     auto ververs = [&](const std::string& vd, const std::string& sd, bool wortel) -> bool {
         std::vector<std::string> names;
@@ -324,10 +402,8 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
                     continue;
                 }
                 if (lexists(dp)) continue;
-                if (in_writable(fs::path(dp).lexically_relative(s.view).generic_string())) {
-                    log.push_back("view: " + e + " valt binnen een schrijfmap; geen link naar de NAS");
-                    continue;
-                }
+                // De schrijfmap zelf zet zet_schrijfmappen(); erin komt nooit een link naar de gamemap.
+                if (in_writable(fs::path(dp).lexically_relative(s.view).generic_string())) continue;
                 if (!do_symlink(pjoin(sd, e), dp, g)) return false;
                 ++bij;
             }

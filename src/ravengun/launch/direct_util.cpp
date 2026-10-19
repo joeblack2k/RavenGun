@@ -145,6 +145,42 @@ bool read_file(const std::string& path, std::string& out) {
     out = ss.str();
     return true;
 }
+
+// Pass 2 (bevinding 4): read_file() ziet een leesfout halverwege niet (een CIFS-soft-mount geeft dan EIO en het stuk tot daar komt
+// terug als "gelukt"). Voor de kopieen van de schrijflaag, die daarna de stand van de game zijn, leest dit met read() tot het einde,
+// controleert elke fout en vergelijkt het totaal met de grootte van fstat(). strict_read_fn is alleen voor de proeven te vervangen.
+ssize_t (*strict_read_fn)(int, void*, size_t) = ::read;
+bool read_file_strict(const std::string& path, std::string& out, std::string& err) {
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) { err = "kan " + path + " niet openen: " + std::strerror(errno); return false; }
+    struct stat st{};
+    if (::fstat(fd, &st) != 0 || !S_ISREG(st.st_mode)) {
+        err = "kan " + path + " niet lezen: " + (S_ISREG(st.st_mode) ? std::string(std::strerror(errno)) : std::string("geen gewoon bestand"));
+        ::close(fd);
+        return false;
+    }
+    std::string data;
+    data.reserve(static_cast<size_t>(st.st_size));
+    char buf[1 << 16];
+    for (;;) {
+        const ssize_t n = strict_read_fn(fd, buf, sizeof buf);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            err = "leesfout in " + path + " na " + std::to_string(data.size()) + " bytes: " + std::strerror(errno);
+            ::close(fd);
+            return false;
+        }
+        if (n == 0) break;
+        data.append(buf, static_cast<size_t>(n));
+    }
+    ::close(fd);
+    if (data.size() != static_cast<size_t>(st.st_size)) {
+        err = "kan " + path + " niet volledig lezen: " + std::to_string(data.size()) + " van " + std::to_string(st.st_size) + " bytes";
+        return false;
+    }
+    out.swap(data);
+    return true;
+}
 std::string strip_bom(std::string s) {
     if (s.size() >= 3 && static_cast<unsigned char>(s[0]) == 0xEF && static_cast<unsigned char>(s[1]) == 0xBB && static_cast<unsigned char>(s[2]) == 0xBF)
         s.erase(0, 3);
@@ -166,24 +202,105 @@ std::string getenv_or(const EnvMap& env, const std::string& k, const std::string
     return it == env.end() ? def : it->second;
 }
 
-// launch-direct.py on_nas(): ~/mnt of een netwerkbestandssysteem (langste koppelpunt in /proc/self/mounts).
-bool on_nas(const std::string& path, const DirectPaths& p) {
-    const std::string real = realpath_(path);
-    if (real.starts_with(pjoin(p.home, "mnt") + "/")) return true;
-    std::ifstream f(p.mounts);
-    if (!f) return false;
-    std::string line, best, fstype;
-    while (std::getline(f, line)) {
+// De koppelpunten uit /proc/self/mounts (of p.mounts). Binnen een MountTableScope wordt de tabel een keer gelezen (pass 2,
+// bevinding 13: maak_kinderen_lokaal en de controle van de schrijfmappen vragen on_nas() per bestand).
+namespace {
+thread_local const std::vector<MountRow>* t_mounts = nullptr;
+thread_local const std::string* t_mounts_file = nullptr;
+}  // namespace
+
+std::vector<MountRow> read_mounts(const std::string& file) {
+    std::vector<MountRow> rows;
+    std::ifstream f(file);
+    std::string line;
+    while (f && std::getline(f, line)) {
         std::istringstream is(line);
         std::string dev, mp, type;
         if (!(is >> dev >> mp >> type)) continue;
         for (size_t at = mp.find("\\040"); at != std::string::npos; at = mp.find("\\040", at + 1)) mp.replace(at, 4, " ");
+        rows.push_back({mp, type});
+    }
+    return rows;
+}
+
+MountTableScope::MountTableScope(const DirectPaths& p)
+    : rows_(read_mounts(p.mounts)), file_(p.mounts), prev_rows_(t_mounts), prev_file_(t_mounts_file) {
+    t_mounts = &rows_;
+    t_mounts_file = &file_;
+}
+MountTableScope::~MountTableScope() {
+    t_mounts = prev_rows_;
+    t_mounts_file = prev_file_;
+}
+
+// Pre-merge F3: volgt een pad zoals de kernel, ook door een koppeling waarvan het doel ontbreekt (weakly_canonical stopt daar en
+// geeft de koppeling zelf terug, dus een kapotte link naar ~/mnt leek lokaal). false = een onderdeel was niet te bekijken (EIO of
+// ESTALE van een haperende CIFS-koppeling, geen rechten, een lus); de aanroeper beslist dan veilig.
+bool volg_pad(const std::string& path, std::string& out) {
+    std::vector<std::string> rest;   // back() is het volgende onderdeel
+    {
+        const std::vector<std::string> d = split(abspath(path), '/');
+        for (auto it = d.rbegin(); it != d.rend(); ++it)
+            if (!it->empty()) rest.push_back(*it);
+    }
+    std::string cur = "/";
+    int sprongen = 0;
+    bool weg = false;   // vanaf hier bestaat niets meer: de rest gaat letterlijk
+    while (!rest.empty()) {
+        const std::string c = rest.back();
+        rest.pop_back();
+        if (c == ".") continue;
+        if (c == "..") {
+            cur = dirname(cur);
+            if (cur.empty()) cur = "/";
+            continue;
+        }
+        const std::string kand = pjoin(cur, c);
+        if (weg) { cur = kand; continue; }
+        struct stat st{};
+        if (::lstat(kand.c_str(), &st) != 0) {
+            if (errno != ENOENT && errno != ENOTDIR) return false;
+            weg = true;
+            cur = kand;
+            continue;
+        }
+        if (!S_ISLNK(st.st_mode)) { cur = kand; continue; }
+        if (++sprongen > 40) return false;
+        char buf[4096];
+        const ssize_t n = ::readlink(kand.c_str(), buf, sizeof buf - 1);
+        if (n < 0) return false;
+        const std::string doel(buf, static_cast<size_t>(n));
+        if (!doel.empty() && doel[0] == '/') cur = "/";
+        const std::vector<std::string> d = split(doel, '/');
+        for (auto it = d.rbegin(); it != d.rend(); ++it)
+            if (!it->empty()) rest.push_back(*it);
+    }
+    out = cur;
+    return true;
+}
+
+// launch-direct.py on_nas(): ~/mnt of een netwerkbestandssysteem (langste koppelpunt in /proc/self/mounts). Een pad dat niet te
+// volgen is (EIO/ESTALE onderweg) telt als NAS: dan wordt er niet geschreven (pre-merge F3; eerder viel realpath_ terug op het
+// pad zelf en leek het lokaal).
+bool on_nas(const std::string& path, const DirectPaths& p) {
+    std::string real;
+    if (!volg_pad(path, real)) return true;
+    if (real.starts_with(pjoin(p.home, "mnt") + "/")) return true;
+    std::vector<MountRow> eigen;
+    const std::vector<MountRow>* rows = t_mounts;
+    if (!rows || !t_mounts_file || *t_mounts_file != p.mounts) {
+        eigen = read_mounts(p.mounts);
+        rows = &eigen;
+    }
+    std::string best, fstype;
+    for (const MountRow& r : *rows) {
+        const std::string& mp = r.mountpoint;
         std::string mps = mp;
         while (!mps.empty() && mps.back() == '/') mps.pop_back();
         /* Review 10, A7: bij twee regels met hetzelfde koppelpunt (autofs boven cifs, zoals op deze
          * Deck) wint de LAATSTE; met ">" bleef de autofs-regel staan en was de uitkomst alleen goed
          * door de ~/mnt-voorwaarde hierboven. */
-        if ((real == mp || real.starts_with(mps + "/")) && mp.size() >= best.size()) { best = mp; fstype = type; }
+        if ((real == mp || real.starts_with(mps + "/")) && mp.size() >= best.size()) { best = mp; fstype = r.type; }
     }
     return fstype == "cifs" || fstype == "smb3" || fstype == "smbfs" || fstype == "nfs" || fstype == "nfs4" || fstype == "fuse.sshfs";
 }

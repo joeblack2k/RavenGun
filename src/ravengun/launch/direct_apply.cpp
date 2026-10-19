@@ -3,6 +3,7 @@
 // het plan als JSON voor rg-direct (plan_to_json, plan_from_json). Zie direct.hpp.
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -14,6 +15,7 @@
 #include <fstream>
 #include <functional>
 #include <map>
+#include <set>
 
 #include "ravengun/json.hpp"
 #include "ravengun/json_parse.hpp"
@@ -77,13 +79,35 @@ bool dropin_materialiseer(const std::string& base, const std::string& dest_in, c
     return true;
 }
 
+// rename() vervangt op `path` alleen de naam: staat daar een koppeling, dan wordt de koppeling zelf vervangen en nooit wat erachter
+// staat (ook niet op de NAS). De tijdelijke naam wordt nooit gevolgd (O_EXCL | O_NOFOLLOW) en blijft na een fout niet achter.
 bool write_atomic(const std::string& path, const std::string& data, std::string& err) {
     const std::string tmp = path + ".ravengun-tmp";
-    {
-        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
-        if (!f || !(f << data) || !f.flush()) { err = tmp + ": niet te schrijven"; return false; }
+    ::unlink(tmp.c_str());   // een oude tijdelijke naam van een afgebroken keer (een bestand, of een koppeling: alleen de link)
+    const int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0666);
+    if (fd < 0) { err = tmp + ": niet te schrijven: " + std::strerror(errno); return false; }
+    size_t klaar = 0;
+    while (klaar < data.size()) {
+        const ssize_t n = ::write(fd, data.data() + klaar, data.size() - klaar);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) {
+            err = tmp + ": niet te schrijven: " + std::strerror(n < 0 ? errno : EIO);
+            ::close(fd);
+            ::unlink(tmp.c_str());
+            return false;
+        }
+        klaar += static_cast<size_t>(n);
     }
-    if (std::rename(tmp.c_str(), path.c_str()) != 0) { err = path + ": " + std::strerror(errno); return false; }
+    if (::close(fd) != 0) {
+        err = tmp + ": niet te schrijven: " + std::strerror(errno);
+        ::unlink(tmp.c_str());
+        return false;
+    }
+    if (::rename(tmp.c_str(), path.c_str()) != 0) {
+        err = path + ": " + std::strerror(errno);
+        ::unlink(tmp.c_str());
+        return false;
+    }
     return true;
 }
 
@@ -357,6 +381,10 @@ bool place_native_dlls(const DirectPlan& pl, const DirectPaths& p, std::vector<s
 }  // namespace
 
 bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+    const MountTableScope koppelpunten(p);   // on_nas() leest /proc/self/mounts een keer voor deze hele stap
+    // De schrijfmappen eerst (pass 2, bevinding 12): bij een eerste start is zo'n map nog een koppeling naar de NAS, en een drop-in of
+    // bestand erin werd dan overgeslagen ("ligt op de NAS") en kwam pas bij de volgende start.
+    if (!place_view_writable(pl, p, log, err)) return false;
     for (const std::string& l : pl.dropin_lines) log.push_back("drop-in: " + l);
     for (const DropinFile& f : pl.dropin_files) {
         std::string msg;
@@ -411,11 +439,20 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
     }
     if (!place_view_links(pl, p, log, err)) return false;
     if (!place_view_copies(pl, p, log, err)) return false;
-    if (!place_view_writable(pl, p, log, err)) return false;
     if (!place_view_ttc_fonts(pl, p, log, err)) return false;
     if (!place_view_mod(pl, p, log, err)) return false;
     if (!place_native_dlls(pl, p, log, err)) return false;
-    return place_stack_copy(pl, p, log, err);
+    if (!place_stack_copy(pl, p, log, err)) return false;
+    // Na alle stappen nog een keer: geen latere stap (een view-link, een mod) mag een koppeling naar de NAS in een schrijfmap zetten.
+    for (const std::string& w : pl.view_writable) {
+        const std::vector<std::string> nog = schrijfmap_problemen(w, p);
+        if (nog.empty()) continue;
+        err = "schrijfmap: " + w + " komt na het plaatsen op de NAS uit:";
+        for (const std::string& x : nog) err += "\n  " + x;
+        log.push_back(err + " -- de game wordt niet gestart");
+        return false;
+    }
+    return true;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -637,38 +674,35 @@ std::vector<std::string> plan_tp_refs(const DirectPlan& pl, const std::string& t
 // [Launch] ViewWritable (besluit eigenaar 2026-10-19): een map waar de game zelf in schrijft wordt
 // in de view een ECHTE map met een kopie van de NAS-inhoud; schrijven komt zo nooit op de NAS uit.
 // Staat er al een echte map, dan blijft die staan -- dat is de stand van de game. Daarna een harde
-// controle: komt het pad nog op de NAS uit, dan weigert de start.
-namespace {
-
-bool kopieer_map(const std::string& bron, const std::string& doel, std::string& err, int diepte = 0) {
-    if (diepte > 8) { err = "te diep: " + bron; return false; }
-    std::error_code ec;
-    std::filesystem::create_directories(doel, ec);
-    if (ec) { err = "kan " + doel + " niet maken: " + ec.message(); return false; }
-    for (const auto& e : std::filesystem::directory_iterator(bron, ec)) {
-        if (ec) break;
-        const std::string van = e.path().string();
-        const std::string naar = pjoin(doel, e.path().filename().string());
-        if (e.is_directory(ec) && !e.is_symlink(ec)) {
-            if (!kopieer_map(van, naar, err, diepte + 1)) return false;
-        } else if (e.is_regular_file(ec)) {
-            std::string data, werr;
-            if (!read_file(van, data)) { err = "kan " + van + " niet lezen"; return false; }
-            if (!write_atomic(naar, data, werr)) { err = werr; return false; }
-        }
-    }
-    return true;
-}
-
-}  // namespace
-
+// controle (schrijfmap_problemen): komt er nog iets op de NAS uit, dan weigert de start.
 namespace direct_detail {
 
 namespace {
 
+// Een schrijfmap is voor kleine dingen (stand, instellingen, logs). Mario Kart DX AMCUS is 9,5 MB; een map met de spelinhoud
+// (Haunted Museum II data/: gigabytes) mag nooit stil van de NAS gekopieerd worden.
+constexpr uintmax_t kMaxSchrijfmapKopie = 256ull << 20;
+
+bool kopieer_bestand_veilig(const std::string& van, const std::string& naar, uintmax_t& totaal, std::string& err) {
+    std::error_code ec;
+    const uintmax_t grootte = std::filesystem::file_size(van, ec);   // eerst de grootte: een te grote map wordt niet eerst gelezen
+    if (ec) { err = "kan " + van + " niet bekijken: " + ec.message(); return false; }
+    if (totaal + grootte > kMaxSchrijfmapKopie) {
+        err = "de kopie wordt groter dan " + std::to_string(kMaxSchrijfmapKopie >> 20) + " MiB (bij " + van + "); een schrijfmap is voor "
+              "kleine bestanden (stand, instellingen, logs) -- zet de bestanden die de game schrijft in [Launch] ViewCopies";
+        return false;
+    }
+    std::string data, werr;
+    if (!read_file_strict(van, data, err)) return false;
+    totaal += data.size();
+    if (!write_atomic(naar, data, werr)) { err = werr; return false; }
+    return true;
+}
+
 /* Een map kopiëren met de hand in plaats van met filesystem: elke fout wordt gezien en gemeld, en de
  * iterator wordt met increment(ec) opgehoogd (een worp in de daemon-draad zou std::terminate zijn). */
-bool kopieer_map_veilig(const std::string& bron, const std::string& doel, std::string& err) {
+bool kopieer_map_veilig(const std::string& bron, const std::string& doel, uintmax_t& totaal, std::string& err, int diepte = 0) {
+    if (diepte > 16) { err = "te diep om te kopiëren: " + bron; return false; }
     std::error_code ec;
     std::filesystem::create_directories(doel, ec);
     if (ec) { err = "kan " + doel + " niet maken: " + ec.message(); return false; }
@@ -677,94 +711,130 @@ bool kopieer_map_veilig(const std::string& bron, const std::string& doel, std::s
     const std::filesystem::directory_iterator eind;
     for (; it != eind; it.increment(ec)) {
         if (ec) { err = "fout bij het lezen van " + bron + ": " + ec.message(); return false; }
-        const std::filesystem::directory_entry& e = *it;
-        std::error_code ec2;
-        const bool is_map = e.is_directory(ec2) && !e.is_symlink(ec2);
-        if (ec2) { err = "kan " + e.path().string() + " niet bekijken: " + ec2.message(); return false; }
-        const std::string van = e.path().string();
-        const std::string naar = pjoin(doel, e.path().filename().string());
-        if (is_map) {
-            if (!kopieer_map_veilig(van, naar, err)) return false;
-        } else if (e.is_regular_file(ec2)) {
-            if (ec2) { err = "kan " + van + " niet bekijken: " + ec2.message(); return false; }
-            std::string data, werr;
-            if (!read_file(van, data)) { err = "kan " + van + " niet lezen"; return false; }
-            if (!write_atomic(naar, data, werr)) { err = werr; return false; }
-        } else {
-            /* Een koppeling of iets anders: het doel volgen en als het een gewoon bestand is de
-             * inhoud kopiëren, anders overslaan (nooit een koppeling naar de NAS overnemen). */
-            std::error_code ec3;
-            const std::string doelpad = std::filesystem::is_symlink(e.path(), ec3)
-                                            ? std::filesystem::read_symlink(e.path(), ec3).string()
-                                            : std::string();
-            if (!doelpad.empty() && std::filesystem::is_regular_file(doelpad, ec3)) {
-                std::string data, werr;
-                if (!read_file(doelpad, data)) { err = "kan " + doelpad + " niet lezen"; return false; }
-                if (!write_atomic(naar, data, werr)) { err = werr; return false; }
+        const std::string van = it->path().string();
+        const std::string naar = pjoin(doel, it->path().filename().string());
+        if (islink(van)) {
+            /* Een koppeling: het doel volgen vanaf de plek van de koppeling (weakly_canonical van het pad zelf; read_symlink geeft
+             * een relatief doel ten opzichte van de werkmap van de daemon). Een bestand wordt een kopie, een map weigert (pass 2,
+             * bevinding 7; stil overslaan liet een gat in de stand). Een koppeling naar niets wordt niet overgenomen. */
+            const std::string echt = realpath_(van);
+            if (isdir(echt)) {
+                err = van + " is een koppeling naar een map (" + echt + "); die wordt niet meegekopieerd -- haal hem uit de schrijfmap "
+                      "of zet de bestanden die de game schrijft in [Launch] ViewCopies";
+                return false;
             }
+            if (isfile(echt) && !kopieer_bestand_veilig(echt, naar, totaal, err)) return false;
+        } else if (isdir(van)) {
+            if (!kopieer_map_veilig(van, naar, totaal, err, diepte + 1)) return false;
+        } else if (isfile(van)) {
+            if (!kopieer_bestand_veilig(van, naar, totaal, err)) return false;
         }
     }
     return true;
 }
 
-/* Wandelt een map door en maakt kinderen die naar de NAS wijzen lokaal (bestand) of meldt ze (map).
- * Zonder dit schrijft een game via zo'n kind alsnog op de NAS (review 10, A5). */
-bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, std::string& err, int diepte = 0) {
-    if (diepte > 8) return true;
+/* Wandelt een map door en maakt kinderen die naar een NAS-bestand wijzen lokaal; een koppeling naar een NAS-map weigert (review 10,
+ * A5; zonder dit schrijft een game via zo'n kind alsnog op de NAS). Geen unlink vooraf: write_atomic zet de kopie met rename() op
+ * de plek van de koppeling (rename vervangt de koppeling zelf, nooit het doel), dus een mislukte kopie laat de koppeling staan.
+ * Een echte submap die zelf op de NAS ligt (een koppelpunt, of direct onder ~/mnt) weigert VOOR er iets in geschreven wordt
+ * (pre-merge F1). De kopieën tellen mee in dezelfde grens als de migratie (totaal, F4). */
+bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, uintmax_t& totaal, std::string& err, int diepte = 0) {
+    if (diepte > 16) { err = "te diep om na te kijken: " + pad; return false; }
+    if (on_nas(pad, p)) { err = pad + " ligt op de NAS (" + realpath_(pad) + "); daar wordt nooit iets geschreven"; return false; }
     std::error_code ec;
     std::filesystem::directory_iterator it(pad, ec);
     if (ec) { err = "kan " + pad + " niet lezen: " + ec.message(); return false; }
     const std::filesystem::directory_iterator eind;
     for (; it != eind; it.increment(ec)) {
         if (ec) { err = "fout bij het lezen van " + pad + ": " + ec.message(); return false; }
-        const std::filesystem::directory_entry& e = *it;
-        std::error_code ec2;
-        const std::string kind = e.path().string();
-        if (e.is_symlink(ec2)) {
-            const std::string doel = realpath_(kind);
-            if (on_nas(doel, p)) {
-                std::error_code ec3;
-                if (std::filesystem::is_regular_file(doel, ec3)) {
-                    std::string data, werr;
-                    if (!read_file(doel, data)) { err = "kan " + doel + " niet lezen"; return false; }
-                    if (::unlink(kind.c_str()) != 0) {
-                        err = "kan de koppeling " + kind + " niet weghalen: " + std::strerror(errno);
-                        return false;
-                    }
-                    if (!write_atomic(kind, data, werr)) { err = werr; return false; }
-                } else {
-                    err = kind + " is een koppeling naar de NAS (" + doel + "); die kan niet veilig "
-                          "lokaal gemaakt worden -- haal hem uit het profiel of vervang hem";
-                    return false;
-                }
+        const std::string kind = it->path().string();
+        if (islink(kind)) {
+            if (!on_nas(kind, p)) continue;   // on_nas volgt ook een koppeling waarvan het doel ontbreekt of niet te bekijken is (F3)
+            std::string doel;
+            if (!volg_pad(kind, doel)) doel = kind;
+            if (!isfile(doel)) {
+                err = kind + " is een koppeling naar " + (isdir(doel) ? "een map" : "iets") + " op de NAS (" + doel + "); die wordt niet "
+                      "lokaal gemaakt (een schrijfmap is geen kopie van de spelinhoud) -- zet de bestanden die de game in deze map "
+                      "schrijft in [Launch] ViewCopies in plaats van de map in ViewWritable";
+                return false;
             }
-        } else if (e.is_directory(ec2) && !ec2) {
-            if (!maak_kinderen_lokaal(kind, p, err, diepte + 1)) return false;
+            if (!kopieer_bestand_veilig(doel, kind, totaal, err)) return false;
+        } else if (isdir(kind)) {
+            if (!maak_kinderen_lokaal(kind, p, totaal, err, diepte + 1)) return false;
         }
     }
     return true;
 }
 
-/* Zoekt een case-variant van pad in dezelfde map (Wine is niet hoofdlettergevoelig): staat er een
- * zuster die hetzelfde is maar naar de NAS wijst, dan moet die behandeld worden (A3). */
-std::string case_variant(const std::string& pad) {
-    const std::string ouder = dirname(pad);
-    const std::string naam = pad.substr(ouder.size() + 1);
+bool zelfde_naam(const std::string& a, const std::string& b) {
+    return a.size() == b.size() && strcasecmp(a.c_str(), b.c_str()) == 0;
+}
+
+// De namen in `map` die alleen in hoofdletters van `naam` verschillen (zonder `naam` zelf), gesorteerd.
+std::vector<std::string> case_zusters(const std::string& map, const std::string& naam) {
+    std::vector<std::string> uit;
     std::error_code ec;
-    std::filesystem::directory_iterator it(ouder, ec);
-    if (ec) return std::string();
-    const std::filesystem::directory_iterator eind;
-    for (; it != eind; it.increment(ec)) {
-        if (ec) return std::string();
-        const std::string kandidaat = it->path().filename().string();
-        if (kandidaat != naam && kandidaat.size() == naam.size() &&
-            strcasecmp(kandidaat.c_str(), naam.c_str()) == 0)
-            return it->path().string();
+    std::filesystem::directory_iterator it(map, ec);
+    if (ec) return uit;
+    for (const std::filesystem::directory_iterator eind; it != eind; it.increment(ec)) {
+        if (ec) break;
+        const std::string k = it->path().filename().string();
+        if (k != naam && zelfde_naam(k, naam)) uit.push_back(k);
     }
-    return std::string();
+    std::sort(uit.begin(), uit.end());
+    return uit;
 }
 
 }  // namespace
+
+std::string resolve_case(const std::string& pad) {
+    std::string cur = "/";
+    const std::vector<std::string> delen = split(abspath(pad), '/');
+    for (size_t i = 0; i < delen.size(); ++i) {
+        if (delen[i].empty()) continue;
+        std::string kand = pjoin(cur, delen[i]);
+        if (!lexists(kand)) {
+            const std::vector<std::string> z = case_zusters(cur, delen[i]);
+            if (z.empty()) {   // bestaat niet in welke vorm ook: de rest zoals opgegeven
+                for (size_t j = i; j < delen.size(); ++j)
+                    if (!delen[j].empty()) cur = pjoin(cur, delen[j]);
+                return cur;
+            }
+            kand = pjoin(cur, z.front());
+        }
+        cur = kand;
+    }
+    return cur;
+}
+
+std::vector<std::string> schrijfmap_problemen(const std::string& opgegeven, const DirectPaths& p) {
+    std::vector<std::string> uit;
+    const std::string pad = resolve_case(opgegeven);
+    const std::string ouder = dirname(pad);
+    // Ook als de ouder (nog) niet bestaat: realpath_ lost het bestaande begin op (een ontbrekend pad achter een NAS-koppeling).
+    if (on_nas(ouder, p)) uit.push_back(ouder + " komt uit op de NAS (" + realpath_(ouder) + ")");
+    std::set<std::string> gezien;
+    std::function<void(const std::string&, int)> kijk = [&](const std::string& x, int diepte) {
+        if (!lexists(x)) return;
+        if (on_nas(x, p)) {
+            uit.push_back(islink(x) ? x + " is een koppeling naar de NAS (" + realpath_(x) + ")" : x + " ligt op de NAS");
+            return;
+        }
+        if (!isdir(x)) return;
+        if (!gezien.insert(realpath_(x)).second) return;   // een lus van koppelingen
+        if (diepte > 16) { uit.push_back(x + ": te diep om na te kijken"); return; }
+        std::error_code ec;
+        std::filesystem::directory_iterator it(x, ec);
+        if (ec) { uit.push_back(x + " is niet te lezen: " + ec.message()); return; }
+        for (const std::filesystem::directory_iterator eind; it != eind; it.increment(ec)) {
+            if (ec) { uit.push_back("fout bij het lezen van " + x + ": " + ec.message()); return; }
+            kijk(it->path().string(), diepte + 1);
+        }
+    };
+    kijk(pad, 0);
+    for (const std::string& z : case_zusters(ouder, basename(pad))) kijk(pjoin(ouder, z), 0);
+    return uit;
+}
 
 bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
                          std::string& err) {
@@ -774,57 +844,70 @@ bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector
             err = "schrijfmap: " + m;
             return false;
         };
-        /* A2/A3: eerst de omgeving controleren, wat er ook staat. De ouder mag nooit op de NAS
-         * uitkomen (een koppeling in een koppelingsmap schrijft anders alsnog op de NAS). */
-        const std::string ouder = dirname(opgegeven);
-        if (lexists(ouder) && on_nas(realpath_(ouder), p))
-            return fout(ouder + " komt uit op de NAS; een game mag daar nooit in schrijven");
-        std::string pad = opgegeven;
+        /* Wine zoekt per onderdeel ook een naam die alleen in hoofdletters verschilt (swordgame/logs voor SwordGame/Logs): de
+         * schrijfmap is het pad dat de game werkelijk raakt. */
+        const std::string pad = resolve_case(opgegeven);
+        uintmax_t totaal = 0;   // een grens voor de hele schrijfmap: de migratie en de kinderen samen
+        if (pad != opgegeven)
+            log.push_back("schrijfmap: " + opgegeven + " heet op schijf " + pad + " (Wine is niet hoofdlettergevoelig); die wordt behandeld");
+        /* A2: de ouder mag nooit op de NAS uitkomen, ook niet als hij (nog) niet bestaat. */
+        const std::string ouder = dirname(pad);
+        if (on_nas(ouder, p)) return fout(ouder + " komt uit op de NAS; een game mag daar nooit in schrijven");
         if (!lexists(pad)) {
-            const std::string variant = case_variant(pad);
-            if (variant.empty()) {
-                log.push_back("schrijfmap: " + pad + " bestaat niet; niets te doen");
-                continue;
-            }
-            log.push_back("schrijfmap: " + pad + " bestaat niet, maar " + variant +
-                          " wel (Wine is niet hoofdlettergevoelig); die wordt behandeld");
-            pad = variant;
-        }
-        if (islink(pad)) {
-            const std::string bron = realpath_(pad);
-            if (on_nas(bron, p)) {
+            std::error_code ec;
+            std::filesystem::create_directories(pad, ec);
+            if (ec) return fout("kan " + pad + " niet maken: " + ec.message());
+            log.push_back("schrijfmap: " + pad + " bestond niet; nu een lege echte map");
+        } else if (islink(pad)) {
+            std::string bron;
+            if (!volg_pad(pad, bron)) bron = realpath_(pad);
+            if (on_nas(pad, p)) {
+                if (!isdir(bron))
+                    return fout(pad + " is een koppeling naar iets op de NAS dat geen map is (" + bron + "); zet een bestand in [Launch] ViewCopies");
                 /* A1: eerst volledig kopiëren naar een tijdelijke map ernaast, en pas als dat gelukt
-                 * is de koppeling weghalen en omwisselen. Een hapering op de NAS laat zo nooit een
-                 * lege of halve map achter die daarna als spelstand bewaard blijft. */
+                 * is de koppeling omwisselen. Een hapering op de NAS laat zo nooit een lege of halve
+                 * map achter die daarna als spelstand bewaard blijft. */
                 const std::string tmp = pad + ".ravengun-tmp";
                 std::error_code ec;
-                std::filesystem::remove_all(tmp, ec);
-                if (!kopieer_map_veilig(bron, tmp, err)) {
+                std::filesystem::remove_all(tmp, ec);   // een koppeling wordt alleen zelf weggehaald, nooit wat erachter staat
+                if (!kopieer_map_veilig(bron, tmp, totaal, err)) {
+                    const std::string waarom = err;
                     std::filesystem::remove_all(tmp, ec);
-                    return fout(err);
+                    return fout(waarom);
                 }
                 if (::unlink(pad.c_str()) != 0) {
+                    const std::string waarom = std::strerror(errno);
                     std::filesystem::remove_all(tmp, ec);
-                    return fout("kan de koppeling " + pad + " niet weghalen: " + std::strerror(errno));
+                    return fout("kan de koppeling " + pad + " niet weghalen: " + waarom);
                 }
                 if (::rename(tmp.c_str(), pad.c_str()) != 0) {
                     const std::string waarom = std::strerror(errno);
+                    // De koppeling terugzetten: dan staat de view weer zoals voor de start en weigert de start (de laatste controle).
+                    if (::symlink(bron.c_str(), pad.c_str()) != 0) log.push_back("schrijfmap: kan de koppeling " + pad + " niet terugzetten");
                     std::filesystem::remove_all(tmp, ec);
                     return fout("kan de kopie niet op zijn plaats zetten (" + pad + "): " + waarom);
                 }
-                log.push_back("schrijfmap: " + pad + " is nu een echte map met een kopie van " + bron);
+                log.push_back("schrijfmap: " + pad + " is nu een echte map met een kopie van " + bron + " (" + std::to_string(totaal) + " bytes)");
             } else {
                 log.push_back("schrijfmap: " + pad + " wijst niet naar de NAS; blijft zoals hij is");
             }
-        } else {
+        } else if (isdir(pad)) {
             log.push_back("schrijfmap: " + pad + " is al een echte map (stand van de game)");
+        } else {
+            return fout(pad + " is geen map; zet een los bestand in [Launch] ViewCopies");
         }
-        if (on_nas(realpath_(pad), p))
-            return fout(pad + " komt uit op de NAS; een game mag daar nooit in schrijven");
-        /* A5: kinderen die naar de NAS wijzen lokaal maken, anders schrijft de game daar alsnog. */
-        if (!maak_kinderen_lokaal(pad, p, err)) return fout(err);
-        if (on_nas(realpath_(pad), p))
-            return fout(pad + " komt uit op de NAS; een game mag daar nooit in schrijven");
+        /* Pre-merge F1: de schrijfmap zelf mag niet op de NAS uitkomen (een koppelpunt, of een pad direct onder ~/mnt terwijl de
+         * ouder lokaal lijkt), voordat er iets in geschreven wordt. */
+        if (on_nas(pad, p)) return fout(pad + " komt uit op de NAS (" + realpath_(pad) + "); een game mag daar nooit in schrijven");
+        /* A5: kinderen die naar een NAS-bestand wijzen lokaal maken, anders schrijft de game daar alsnog. */
+        if (!maak_kinderen_lokaal(pad, p, totaal, err)) return fout(err);
+        /* De laatste controle, dezelfde als rg-direct --run: niets in of naast de schrijfmap komt nog op de NAS uit. */
+        const std::vector<std::string> nog = schrijfmap_problemen(opgegeven, p);
+        if (!nog.empty()) {
+            std::string m = "een game mag nooit op de NAS schrijven, maar:";
+            for (const std::string& x : nog) m += "\n  " + x;
+            return fout(m);
+        }
     }
     return true;
 }

@@ -212,6 +212,18 @@ def fixture(tmp, patches, profiles, gs):
                 os.symlink(os.path.join(nas, name, "AMCUS", "AMConfig.ini"),
                            os.path.join(views, name, "AMCUS", "AMConfig.ini"))
                 write(os.path.join(views, name, "AMCUS", "AMAuthd.exe"), "MZ")
+                # Tot een echt plan (pass 2): de tweede exe (AMAuthd) en de schrijfmap AMCUS doen dan mee. De mod zoals
+                # scripts/fetch-mods.py hem neerzet (stempel = TreeSha256, een lijst met een regel) en DXVK alleen voor deze game
+                # ([Env] RAVENGUN_DXVK in de gebruikerslaag; een gedeelde nep-DXVK zou de plannen van andere games veranderen).
+                mod = os.path.join(home, ".local/share/ravengun/mods", name, "english")
+                write(os.path.join(mod, "tree-sha256"), (g.get("Mod english", "TreeSha256", "") or "") + "\n")
+                write(os.path.join(mod, "files", "files.csv"), "target,file,offset\nData/voorbeeld.pac,voorbeeld.bin,replace\n")
+                write(os.path.join(mod, "files", "voorbeeld.bin"), "x")
+                dxvk = os.path.join(tmp, "dxvk-" + name)
+                for arch in ("x32", "x64"):
+                    for dll in ("d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"):
+                        write(os.path.join(dxvk, arch, dll), "x")
+                extra.append((name, "\n[Env]\nRAVENGUN_DXVK = %s\n" % dxvk))
         # Een tweede exe (HasTwoExecutables): [Identify] Path2, relatief aan dezelfde gamemap als Path.
         path2 = (g.get("Identify", "Path2", "") or "").replace("\\", "/").strip("/")
         if path2 and name not in ("TC5", "Rampage"):
@@ -449,6 +461,17 @@ def main(argv):
         if weg:
             fails += 1
             print("gouden bestanden zonder profiel met [Launch] Mode = direct: %s  <-- FOUT" % ", ".join(weg))
+        # [Launch] ViewWritable werkt alleen op de directe route (pass 2): een profiel met schrijfmappen en een native.json of
+        # unity.json, of zonder Mode = direct, weigert de daemon; dat hoort hier al op te vallen.
+        for name in gs.list_games():
+            g = gs.load_game(name)
+            if not (g.get("Launch", "ViewWritable", "") or "").strip():
+                continue
+            eigen = [f for f in ("native.json", "unity.json") if os.path.isfile(os.path.join(patches, name, f))]
+            if g.launch_mode != "direct" or eigen:
+                fails += 1
+                print("  %-26s [Launch] ViewWritable zonder de directe route (Mode = %s%s)  <-- FOUT"
+                      % (name, g.launch_mode, (", " + ", ".join(eigen)) if eigen else ""))
         with open(os.path.join(a.golden, "_views.json")) as f:
             want_views = json.load(f)
         dv = diff(want_views, got_views)

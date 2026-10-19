@@ -445,6 +445,14 @@ std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std
     return a;
 }
 
+std::string writable_route_refusal(const Config& c, const std::string& profile) {
+    const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
+    const std::string* vw = g.settings.find("Launch", "ViewWritable");
+    if (!vw || trim(*vw).empty()) return {};
+    return "[Launch] ViewWritable = " + trim(*vw) + " werkt alleen op de directe route ([Launch] Mode = direct); de native en de "
+           "Unity-route zetten de schrijfmap niet om en de game zou op de NAS kunnen schrijven. Haal ViewWritable weg of start direct";
+}
+
 bool unity_route(const Config& c, const std::string& profile, const std::string& launch) {
     (void)launch;   // auto en direct gaan allebei over de Unity-route als de game daar bij hoort
     if (!ravengun::launch::unity_game_known(c.unity, profile)) return false;   // patches/<Game>/unity.json, gebruikerslaag eerst
@@ -714,7 +722,9 @@ void GameService::run_start(const std::string& profile, const std::string& launc
     const bool direct = dv == L::Verdict::Ok;
     std::string msg;
     bool own = false;   // een eigen route liep (die kan invoer of een unit achterlaten; stoppen ruimt dat dan op)
-    if (dv == L::Verdict::Refused) msg = profile + ": " + dwhy;
+    const std::string wweiger = native || unity ? writable_route_refusal(c_, profile) : std::string();
+    if (!wweiger.empty()) msg = profile + ": " + wweiger;
+    else if (dv == L::Verdict::Refused) msg = profile + ": " + dwhy;
     else if (cancel_.load()) msg = "de start is afgebroken";
     else if (native || unity || direct) {
         own = true;
