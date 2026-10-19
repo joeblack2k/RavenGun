@@ -264,3 +264,26 @@ onze kern** geladen hoort te worden; de motor heeft geen sleutel om per exe een 
 kern) te kiezen. Dat is de volgende stap -- en die vraagt een motorwijziging, dus die hoort bij de
 leiding of in een volgende ronde. Automatiseren van stap 1 en 2 hoort daar meteen bij: de motor kent
 geen "een keer per prefix"-haak.
+
+## Pass 2 samengevoegd (10:47-10:55) en de drie echte-pad-controles
+
+`git merge --no-ff origin/claude/pass2-writelayer` (7 commits, kop 0beb643) is schoon samengevoegd
+(geen conflicten, geen overlap met mijn rg_rhio/profielwerk), `build` is opnieuw gebouwd, de motor is
+geinstalleerd naar `~/.local/opt/ravengun` en `ravengund` is herstart (met daarna opnieuw de
+muis-geweerinstelling van speler 1, anders wacht de daemon op een controller). **ctest: 94/94.**
+
+`build-app` bouwt hier **niet**: `src/app/core/ArchiveExtract.cpp` vraagt `archive.h` en libarchive
+staat niet op deze machine (geen `pkg-config libarchive`, geen `/usr/include/archive.h`). Dat is een
+omgevingsgat, geen codeprobleem; de daemon komt uit `build` en draait dus de nieuwe motor.
+
+Drie controles op het echte pad, elk met een foto:
+
+| spel | resultaat |
+|---|---|
+| HauntedMuseumII | **start en draait**: foto toont het attractiescherm "WELCOME TO HAUNTED LAND / INSERT COINS / CREDIT 0" |
+| InfinityBladeFX | **start en draait** ("0 / 4 CREDITS"); `SwordGame/Logs` (8 bestanden), `SwordGame/Config` (30) en `SwordGame/SaveData` (1) zijn **echte mappen**, geen koppelingen |
+| BugBusters | **start en draait**: foto toont het attractiescherm (explosie/level); `config/` is een echte map |
+
+De NAS is bij InfinityBladeFX **voor en na identiek**: `ls --full-time` van `SwordGame/Logs`,
+`SwordGame/Config` en `SwordGame/SaveData` geeft dezelfde md5 (8d86580996ab27f2, 78d59f3007f8d07f,
+5e72cde272b6466a) en `find <NAS> -newermt '-8 minutes'` vindt **niets**. Niets weigert.
