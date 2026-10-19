@@ -131,7 +131,26 @@ in `docs/research/wartran/README.md`; de volgende drie stappen staan daar ook.
   engine. `build-app` bouwt hier niet (geen `archive.h`); alleen `ravengund`/`ravengunctl` komen uit
   `build/`.
 
-### Nog open: de schrijflaag vuurt niet in de daemon (eerlijk)
+### OPGELOST: de schrijflaag werkt, en de oorzaak was de controller
+
+De aanleiding was niet de schrijflaag maar de **start**: na een reeks daemon-herstarten was de
+muis-geweerinstelling van speler 1 verdwenen, en de daemon bleef bij het starten wachten op een
+controller ("Zet de PS Move van speler 1 aan"). Er werd dus **geen game gestart**, en daarom zag ik
+geen drop-in in het proces, geen `rg-rhio.log` en geen omgezette map. Met
+`ravengunctl mouse-gun --player 1 --mouse ...` er weer in, start de game wel en is de schrijflaag
+**bewezen op het echte pad**:
+
+* `views/RobinHood/log` is na een gewone start een **echte map met de volledige kopie**
+  (PR0.CFG, PR0.CRC, PR1.CFG, PR1.CRC, PRbk1.dat, PRbk2.dat);
+* `ls --full-time` van de NAS-map `Robin Hood/log` is **voor en na identiek**
+  (02:09:35 en 10-15, geen enkele regel veranderd);
+* de spelstand is daarna teruggezet in de echte map; de NAS is niet aangeraakt.
+
+Daarmee is ook de **runtime-controle van (C)** gedaan: `rg-rhio.log` bestaat weer en de
+`cbInQue`-waarden zijn nu 0 (19920 keer, als er niets klaarstaat), 6, 5 en 7 -- precies wat C1 beoogde
+(het protocol loopt door in plaats van na frame 1 te sterven).
+
+### (Historisch) de eerste verklaring die niet klopte
 
 De functie is proefondervindelijk goed (475 controles, inclusief de volle `apply_direct`), maar in de
 **daemon** wordt `place_view_writable` niet bereikt: met een `fprintf(stderr, ...)` op de eerste regel
