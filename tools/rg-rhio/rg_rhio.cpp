@@ -1370,6 +1370,9 @@ DWORD WINAPI StackKlok(LPVOID) {
 }
 
 void StartStackKlok() {
+    /* Alleen als de stackmeting aanstaat: anders deed de draad elke twee seconden niets, het hele
+     * spel lang (review 14, ronde 2). StackAan wordt een keer bepaald en verandert daarna niet. */
+    if (!StackAan()) return;
     static volatile LONG gedaan = 0;
     if (InterlockedCompareExchange(&gedaan, 1, 0) != 0) return;
     HANDLE d = CreateThread(nullptr, 0, StackKlok, nullptr, 0, nullptr);
