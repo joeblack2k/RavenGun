@@ -1116,12 +1116,15 @@ gestopt omdat het beeld al duidelijk was).
 | NEW | 5 | 52193f86 | 23205 | nee | ja | 2936 | 1148 |
 | NOSTRIP | 5 | 299d4ac3 | 23205 | nee | ja | 2935 | 1147 |
 
-**Uitslag: NEW is niet slechter dan OLD.** In alle 15 getelde starts bleef de game draaien
-(`draait=ja`) en het aantal bordlezers is per variant hetzelfde (OLD 1140-1148, NEW 1142-1148,
-NOSTRIP 1145-1149). De bewering "NEW / geen `bord[8]` / `-s` laat het spel stoppen" is daarmee
-**weerlegd**: de oude bisect was ruis (één start per variant, en de start is aantoonbaar
-wisselvallig). NEW en NOSTRIP ontlopen elkaar ook niet, dus het strippen is evenmin de oorzaak.
-Volgens de afspraak ("samenvoegen als NEW niet slechter is dan OLD") is de branch samengevoegd.
+**Uitslag binnen deze proef: NEW deed het niet slechter dan OLD -- met de beperkingen hieronder.**
+In de 15 getelde starts bleef de game draaien (`draait=ja`) en het aantal bordlezers is per variant
+hetzelfde (OLD 1140-1148, NEW 1142-1148, NOSTRIP 1145-1149). De bewering "NEW / geen `bord[8]` / `-s`
+laat het spel stoppen" is in deze proef dus **niet bevestigd**: de oude bisect was ruis (één start per
+variant, en de start is aantoonbaar wisselvallig). NEW en NOSTRIP ontlopen elkaar ook niet, dus voor
+het strippen is er in deze proef evenmin een aanwijzing. Volgens de afspraak ("samenvoegen als NEW
+niet slechter is dan OLD") is de branch samengevoegd -- met de aantekening dat deze proef alleen kan
+laten zien wat er in de GETELDE starts gebeurde, en dat de weggooi-regel hieronder die grens
+opschuift.
 
 **Hoeveel starts er zijn WEGGEGOOID, en waarom -- dit hoort erbij.** De uitslag "alle 15 bleven
 draaien" is deels waar **door de opzet**: het proefscript gooit een start weg waarin de game niet
@@ -1136,9 +1139,11 @@ draait (die zegt niets over de DLL) en telt hem niet mee. Wat er in werkelijkhei
 Er zijn dus 17 starts gedaan voor 15 getelde. Dat de weggooi-regel bestaat is op zich goed (een start
 waarin de game niet loopt meet niets), maar het betekent wel dat deze proef **niet** kan aantonen dat
 een variant de game *niet* laat stoppen in de gevallen die weggegooid zijn. De eerlijke uitspraak is
-daarom: in 15 van de 17 starts liep de game door, met per variant dezelfde bordlezers; de twee
-weggegooide starts zaten bij NOSTRIP en zijn opnieuw gedaan (de tweede keer met de handmatige
-controle op het logboekprofiel erbij). Een variant die het spel *soms* laat stoppen zou met deze
+daarom: in de 15 GETELDE starts liep de game door, met per variant dezelfde bordlezers. Van de 17
+pogingen zijn er 2 weggegooid, allebei bij NOSTRIP, en een daarvan is juist een start waarin de game
+NIET liep (lege log, 0 bordlezers, een foto van het bureaublad) -- "in 15 van de 17 liep de game door"
+zou dus onjuist zijn. De weggegooide starts zijn overgedaan (de tweede keer met de handmatige controle
+op het logboekprofiel erbij). Een variant die het spel *soms* laat stoppen zou met deze
 opzet deels onzichtbaar blijven; daarvoor is een groter aantal starts nodig, niet een strengere
 weggooi-regel.
 
