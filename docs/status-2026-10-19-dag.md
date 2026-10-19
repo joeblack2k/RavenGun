@@ -55,14 +55,41 @@ die horen bij onze eigen route en staan los van het beeld.
 
 **Eerste proef: gamescope aan** (`direct-MarioKartDX-20261019-190049.log`). Gamescope start wel (67
 regels), maar de game sterft met `X Error of failed request: BadWindow ... X_UnmapWindow` en
-"gamescope: Primary child shut down!", waarna de lader stopt. Gamescope aan maakt het dus **erger**,
-niet beter; de instelling is daarna teruggezet op `false`.
+"gamescope: Primary child shut down!", waarna de lader stopt. Gamescope aan maakt het in deze ENE start erger (hypothese, geen bewijs: de run eindigde in een X-fout voordat er
+ets te zien was); de instelling is daarna teruggezet op `false`.
 
 
 
 
 
 
+
+
+### DE OPLOSSING: RG_WINDOWED=1 (20:08), vijf starts
+
+Review 21 van de leiding vond het: de 18-10-metingen op ONZE kern (`direct-MarioKartDX-20261018-130004`
+en `-133540`) hadden `Presenter: Actual swapchain 1360x768` en geen "Setting display mode", met
+`RG_WINDOWED=1` in de omgeving. Die sleutel is nooit in de repo beland en was op 18-10 verdwenen.
+Zonder `RG_WINDOWED` neemt DXUT de volledig-scherm-route ("Setting display mode" twee keer, geen
+Presenter) -- precies de zwarte runs.
+
+De `Env` van `patches/MarioKartDX/dropin/dropin.ini` is nu de 18-10-set:
+`RG_JVS_COMPORT=COM3;RG_STR_COMPORT=COM1;RG_WINDOWED=1;RG_BNGRW=fake;RG_SHAREK_FAKE=1;RG_DRIVE_FIXUP=F;RAVENGUN_PATCHMEM_FILE=patchmem.txt`.
+
+**Vijf starts via de daemon, op het logboek beoordeeld:**
+
+| start | Presenter | Setting display mode | JVS-pipe verbonden | packets |
+|---|---|---|---|---|
+| 1 | 1 | 0 | 1 | 4008 |
+| 2 | 1 | 0 | 1 | 1881 |
+| 3 | 1 | 0 | 1 | 3988 |
+| 4 | 1 | 0 | 1 | 3969 |
+| 5 | 1 | 0 | 1 | 3902 |
+
+Vijf van vijf dus. De TV-opname van de eerste start (`mk-win-3`, t=90 s) laat het venster van 1360x768
+met het bureaublad eromheen zien -- het spel **tekent** -- met daarin het volgende foutscherm:
+"Please call an attendant", "E19-10 USBドングルエラー1", "USBドングルがありません" (er is geen
+USB-dongel). Dat is dus een **nieuw, verderop** probleem, niet meer het zwarte scherm.
 
 ### De STR-bord-nabootsing bleek het ontbrekende stuk (20:01)
 
@@ -117,15 +144,17 @@ met drive-bord-ID **1**, serienummer **271013-020000**, "**I/Oチェック OK JV
 ### Doorbraak: het scherm is NIET zwart (19:31)
 
 Ik heb het venster van AMAuthd naar voren gehaald en het scherm opnieuw opgenomen
-(`docs/screenshots/mariakartdx-str-pcb-fout-2026-10-19.png`). Wat er dan te zien is, is niet zwart:
+(`docs/screenshots/mariokartdx-str-pcb-fout-2026-10-19.png`). Wat er dan te zien is, is niet zwart:
 achter de console van AMAuthd staat het **eigen foutscherm van het spel**:
 
 - "**... call an attendant.**" (geel op rood),
 - "**STR PCB 通信エラー**" -- STR PCB-communicatiefout,
 - "**STR PCB との通信に異常が発生しました**" (de communicatie met de STR PCB is verstoord).
 
-De zwarte opnames van 10.669 bytes waren dus de **achtergrond van dat foutscherm** op het moment dat de
-banner er nog niet stond; het spel tekent wel degelijk. De oorzaak is nu concreet: het spel krijgt geen
+De zwarte opnames van 10.669 bytes waren NIET de achtergrond van dat foutscherm: dat scherm werd pas 1,5 minuut
+in run `192129` gezien -- de enige run met een Presenter-regel -- terwijl de zwarte runs helemaal nooit
+presenteerden. De verklaring "zwart is de achtergrond voor de banner" houdt dus geen stand (correctie review 21);
+de echte oorzaak was `RG_WINDOWED` (zie de oplossing hierboven). De oorzaak is nu concreet: het spel krijgt geen
 antwoord van zijn **STR PCB** (het stuur-bord). Dat past precies bij de meting uit (3): de brug ziet
 **0 pakketten** en het spel verbindt nooit met de `TeknoParrot_JVS`-pijp.
 
@@ -175,7 +204,7 @@ opname); een desktop-opname is ~1,46 MB.
 |---|---|---|---|---|
 | gamescope aan | `Gamescope = true` | 1.463.488 (bureaublad) | `direct-MarioKartDX-20261019-190049.log` | game sterft op `X Error ... BadWindow (X_UnmapWindow)`, gamescope "Primary child shut down" |
 | `RG_SHAREK_FAKE=0` | in `dropin.ini` | 10.669 (zwart) | `direct-MarioKartDX-20261019-190755.log` | geen crash, geen beeld; de 15-s-toegangsfout uit de oude notitie treedt met de huidige lader niet op |
-| `RG_DRIVE_FIXUP` weg | in `dropin.ini` | 10.669 (zwart) | `direct-MarioKartDX-20261019-190930.log` | geen verschil |
+| `RG_DRIVE_FIXUP` weg | in `dropin.ini` | 10.669 (zwart) | `direct-MarioKartDX-20261019-190930.log` | geen verschil, maar in `191133` waren DRIVE_FIXUP en COMPORT samen veranderd: geen zuivere proef |
 | `RG_JVS_COMPORT` weg | in `dropin.ini` | 10.669 (zwart) | (zelfde sessie) | geen verschil; de brug blijft **0 packets, 0 schakelaarpolls** |
 
 In alle gevallen eindigt het spel-logboek op dezelfde regel: de D3D9-aanmaak
