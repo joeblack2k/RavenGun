@@ -513,6 +513,8 @@ static void test_native_service(const std::string& d) {
         CHECK(writable_route_refusal(k, "Nat").find("alleen op de directe route") != std::string::npos);
         write(k.dirs.user + "/Nat/game.ini", "[Launch]\nViewWritable =\n");
         CHECK(writable_route_refusal(k, "Nat").empty());
+        write(k.dirs.user + "/Nat/game.ini", "[Launch]\nViewLocalFiles = shell\n");   // pass 2, R1: net zo
+        CHECK(writable_route_refusal(k, "Nat").find("ViewLocalFiles = shell werkt alleen op de directe route") != std::string::npos);
         // [Launch] PrefixSetup en SecondBare: alleen de directe route voert ze uit. SecondBare = false is gewoon "uit" en weigert
         // niet; SecondBare = true en elke PrefixSetup wel (review 13, ronde 2, punt 8).
         write(k.dirs.user + "/Nat/game.ini", "[Launch]\nSecondBare = false\n");

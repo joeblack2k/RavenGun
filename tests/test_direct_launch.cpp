@@ -2574,6 +2574,185 @@ int main() {
         CHECK(plan_direct("Vers", pg, o, vp, vwhy) != Verdict::Ok && contains(vwhy, "koppeling"));
     }
 
+    // --- pass 2, R1: [Launch] ViewLocalFiles ------------------------------------------------------------------------------------
+    // Wine verwijdert en hernoemt DOOR een bestands-koppeling heen: wineserver werkt met het echte pad. De logboekrotatie van
+    // SegaGameShell in shell/ (een echte map vol bestands-koppelingen naar de NAS) wiste zo 157 logbestanden op de NAS; alleen de
+    // schrijflaag van bwrap ving dat op. Hier gedaan zoals Wine het doet: weghalen en hernoemen via het ECHTE pad (canonical).
+    {
+        namespace D = ravengun::launch::direct_detail;
+        const fs::path nsh = home / "mnt/nas/VLF/shell";
+        const fs::path vsh = fs::path(p.views()) / "VLF/shell";
+        write(nsh / "Shell.exe", "MZ");
+        write(nsh / "config.ini", "nas-config\n");
+        std::vector<std::string> logs;
+        for (int i = 0; i < 48; ++i) {
+            const std::string n = "Attract - 2610" + std::string(i < 10 ? "0" : "") + std::to_string(i) + ".log";
+            write(nsh / n, "log " + std::to_string(i) + "\n");
+            logs.push_back(n);
+        }
+        write(nsh / "Graphics/a.png", "png");
+        write(nsh / "variables/erlg", "erlg\n");
+        fs::create_directories(vsh);
+        for (const auto& e : fs::directory_iterator(nsh)) {
+            if (e.is_directory()) fs::create_directory_symlink(e.path(), vsh / e.path().filename());
+            else fs::create_symlink(e.path(), vsh / e.path().filename());
+        }
+        write(vsh / "lokaal.txt", "al lokaal\n");                                   // een echt bestand blijft zoals het is
+        fs::create_directories(vsh / "echt");
+        fs::create_symlink(nsh / "config.ini", vsh / "echt/diep.ini");              // niet recursief: een echte submap blijft ongemoeid
+        DirectPlan lp;
+        lp.game = (vsh / "Shell.exe").string();
+        lp.view_local_files = {vsh.string()};
+        {
+            const auto f = D::lokale_bestanden_problemen(vsh.string(), lp.game, p);   // voor het plaatsen: elke bestands-koppeling
+            CHECK(f.size() == logs.size() + 1);
+            CHECK(std::none_of(f.begin(), f.end(), [](const std::string& x) { return contains(x, "Graphics") || contains(x, "Shell.exe"); }));
+        }
+        std::vector<std::string> l;
+        std::string e;
+        CHECK(D::place_view_local_files(lp, p, l, e));
+        if (!e.empty()) std::fprintf(stderr, "ViewLocalFiles: %s\n", e.c_str());
+        bool alle_lokaal = true;
+        for (const std::string& n : logs) alle_lokaal = alle_lokaal && !fs::is_symlink(vsh / n) && fs::is_regular_file(vsh / n);
+        CHECK(alle_lokaal);
+        CHECK(!fs::is_symlink(vsh / "config.ini") && slurp(vsh / "config.ini") == "nas-config\n");
+        CHECK(fs::is_symlink(vsh / "Graphics") && fs::is_symlink(vsh / "variables"));   // map-koppelingen blijven staan
+        CHECK(fs::is_symlink(vsh / "Shell.exe"));                                       // de exe van het plan blijft een koppeling
+        CHECK(fs::is_symlink(vsh / "echt/diep.ini"));                                   // niet recursief
+        CHECK(slurp(vsh / "lokaal.txt") == "al lokaal\n");
+        CHECK(D::lokale_bestanden_problemen(vsh.string(), lp.game, p).empty());
+        // Wat Wine doet (wineserver: het echte pad): de logboekrotatie en een hernoeming. De NAS merkt er niets van.
+        for (const std::string& n : logs) fs::remove(fs::canonical(vsh / n));
+        fs::rename(fs::canonical(vsh / "config.ini"), vsh / "config.bak");
+        bool nas_heel = true;
+        for (const std::string& n : logs) nas_heel = nas_heel && fs::is_regular_file(nsh / n);
+        CHECK(nas_heel);
+        CHECK(slurp(nsh / "config.ini") == "nas-config\n" && !fs::exists(nsh / "config.bak"));
+        // Een tweede keer: niets meer te doen.
+        l.clear();
+        CHECK(D::place_view_local_files(lp, p, l, e) && !l.empty() && contains(l.back(), ": 0 bestands-koppelingen"));
+
+        // Weigeren: de map zelf een koppeling naar de NAS, of de map op de NAS. De koppeling blijft staan, op de NAS komt niets bij.
+        {
+            const fs::path vlink = fs::path(p.views()) / "VLF/link";
+            fs::create_directory_symlink(nsh, vlink);
+            DirectPlan x = lp;
+            x.view_local_files = {vlink.string()};
+            l.clear();
+            CHECK(!D::place_view_local_files(x, p, l, e) && contains(e, "koppeling") && fs::is_symlink(vlink));
+            x.view_local_files = {nsh.string()};
+            CHECK(!D::place_view_local_files(x, p, l, e) && contains(e, "NAS"));
+            CHECK(!D::lokale_bestanden_problemen(vlink.string(), lp.game, p).empty() && !D::lokale_bestanden_problemen(nsh.string(), lp.game, p).empty());
+            CHECK(!fs::exists(nsh / "config.ini.ravengun-tmp"));
+        }
+        // Weigeren VOOR er iets gekopieerd is: een kapotte koppeling naar de NAS (een game zou daardoor een bestand op de NAS
+        // maken), en een map boven de grens van een kopie (stat, niet lezen). Elke andere bestands-koppeling blijft dan een koppeling.
+        {
+            const fs::path vk = fs::path(p.views()) / "VLF/kapot";
+            fs::create_directories(vk);
+            for (int i = 0; i < 32; ++i) fs::create_symlink(nsh / logs[static_cast<size_t>(i)], vk / logs[static_cast<size_t>(i)]);
+            fs::create_symlink(nsh / "bestaat-niet.log", vk / "weg.log");
+            DirectPlan x = lp;
+            x.view_local_files = {vk.string()};
+            l.clear();
+            CHECK(!D::place_view_local_files(x, p, l, e) && contains(e, "weg.log"));
+            bool nog_links = true;
+            for (int i = 0; i < 32; ++i) nog_links = nog_links && fs::is_symlink(vk / logs[static_cast<size_t>(i)]);
+            CHECK(nog_links);
+            fs::remove(vk / "weg.log");
+            {
+                std::ofstream groot(nsh / "groot.bin", std::ios::binary);
+            }
+            fs::resize_file(nsh / "groot.bin", (300ull << 20));   // een ijl bestand: 300 MiB groot, geen ruimte op schijf
+            fs::create_symlink(nsh / "groot.bin", vk / "groot.bin");
+            CHECK(!D::place_view_local_files(x, p, l, e) && contains(e, "MiB"));
+            nog_links = true;
+            for (int i = 0; i < 32; ++i) nog_links = nog_links && fs::is_symlink(vk / logs[static_cast<size_t>(i)]);
+            CHECK(nog_links && fs::is_symlink(vk / "groot.bin"));
+            CHECK(!D::lokale_bestanden_problemen(vk.string(), lp.game, p).empty());
+            fs::remove(nsh / "groot.bin");
+        }
+
+#ifdef RG_DIRECT_BIN
+        // Een kale rg-direct --run (zonder de schrijflaag van bwrap) weigert zolang er in zo'n map een bestands-koppeling naar de NAS
+        // staat; de NAS blijft gelijk.
+        {
+            const fs::path vr = fs::path(p.views()) / "VLF/run";
+            fs::create_directories(vr);
+            fs::create_symlink(nsh / "Shell.exe", vr / "Shell.exe");
+            fs::create_directory_symlink(nsh / "Graphics", vr / "Graphics");
+            fs::create_symlink(nsh / logs[0], vr / logs[0]);
+            DirectPlan rp;
+            rp.argv = {"/bin/false"};
+            rp.cwd = root.string();
+            rp.wine = "/bin/false";
+            rp.pipehelper = "/bin/false";
+            rp.game = (vr / "Shell.exe").string();
+            rp.view_local_files = {vr.string()};
+            const fs::path planf = root / "plan-vlf.json", logf = root / "run-vlf.log";
+            write(planf, plan_to_json(rp));
+            posix_spawn_file_actions_t fa;
+            posix_spawn_file_actions_init(&fa);
+            posix_spawn_file_actions_addopen(&fa, 1, logf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            posix_spawn_file_actions_adddup2(&fa, 1, 2);
+            std::string bin = RG_DIRECT_BIN;
+            std::vector<char*> av{bin.data(), const_cast<char*>("--run"), const_cast<char*>(planf.c_str()), nullptr};
+            std::string h = "HOME=" + home.string(), pth = std::string("PATH=") + (std::getenv("PATH") ? std::getenv("PATH") : "/usr/bin:/bin");
+            std::vector<char*> envp{h.data(), pth.data(), nullptr};
+            pid_t pid = 0;
+            CHECK(posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), envp.data()) == 0);
+            posix_spawn_file_actions_destroy(&fa);
+            int st = 0;
+            waitpid(pid, &st, 0);
+            const std::string log = slurp(logf);
+            CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 2 && contains(log, "--run weigert") && contains(log, logs[0]));
+            CHECK(!contains(log, "Graphics") && !contains(log, "Shell.exe is een koppeling"));
+            if (!contains(log, "--run weigert")) std::fprintf(stderr, "--- rg-direct --run (ViewLocalFiles) ---\n%s\n", log.c_str());
+            CHECK(fs::is_symlink(vr / logs[0]) && slurp(nsh / logs[0]) == "log 0\n");
+        }
+#endif
+
+        // Het plan: ViewLocalFiles ten opzichte van de wortel van de view, met dezelfde padcontrole als ViewWritable; heen en terug
+        // door JSON. Bij de opbouw van de view wordt de map een echte map met links (zoals ViewRealDirs), bij de start lokaal.
+        {
+            const fs::path ngame = home / "mnt/nas/Nas Spel";
+            const fs::path nview = fs::path(p.views()) / "Nas";
+            const fs::path nuser = fs::path(p.dirs.user) / "Nas/game.ini";
+            write(ngame / "shell/a - 1.log", "nas-log\n");
+            write(ngame / "shell/Graphics/g.png", "g");
+            write(ngame / "shell/variables/erlg", "erlg\n");
+            write(nuser, "[Launch]\nViewLocalFiles = shell\nViewWritable = shell/variables\n");
+            fs::remove_all(nview);
+            DirectOptions mo = o;
+            mo.make_view = true;
+            DirectPlan ap;
+            std::string w, err;
+            std::vector<std::string> al;
+            CHECK(plan_direct("Nas", p, mo, ap, w) == Verdict::Ok);
+            if (!w.empty()) std::fprintf(stderr, "ViewLocalFiles-plan: %s\n", w.c_str());
+            CHECK(ap.view_local_files == std::vector<std::string>{(nview / "shell").string()});
+            {
+                DirectPlan back;
+                std::string jerr;
+                CHECK(plan_from_json(plan_to_json(ap), back, jerr) && back.view_local_files == ap.view_local_files);
+            }
+            CHECK(fs::is_directory(nview / "shell") && !fs::is_symlink(nview / "shell") && fs::is_symlink(nview / "shell/a - 1.log"));
+            CHECK(apply_direct(ap, p, al, err));
+            if (!err.empty()) std::fprintf(stderr, "ViewLocalFiles-start: %s\n", err.c_str());
+            CHECK(!fs::is_symlink(nview / "shell/a - 1.log") && slurp(nview / "shell/a - 1.log") == "nas-log\n");
+            CHECK(fs::is_symlink(nview / "shell/Graphics") && !fs::is_symlink(nview / "shell/variables") &&
+                  slurp(nview / "shell/variables/erlg") == "erlg\n");
+            fs::remove(fs::canonical(nview / "shell/a - 1.log"));
+            CHECK(slurp(ngame / "shell/a - 1.log") == "nas-log\n");
+            for (const char* fout : {"../x", "/abs", "a/../../b"}) {
+                write(nuser, std::string("[Launch]\nViewLocalFiles = ") + fout + "\n");
+                CHECK(plan_direct("Nas", p, o, ap, w) == Verdict::Refused && contains(w, "ViewLocalFiles"));
+            }
+            fs::remove(nuser);
+            fs::remove_all(nview);
+        }
+    }
+
     fs::remove_all(root);
     std::printf("direct-launch: %d controles, %d fout\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

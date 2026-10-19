@@ -169,10 +169,12 @@ std::string view_wortel(const std::string& base, const DirectPaths& p) {
 // --- de view ([Launch] View; launch-direct.py plan_view, de opbouw in gameview.cpp) ------------------------------------------------
 // [Launch] ViewWritable: de schrijf mappen (komma of puntkomma gescheiden), voor de verversing van
 // de view (review 10, A6).
+// [Launch] ViewLocalFiles gebruikt dezelfde lezing: die mappen worden bij de opbouw echte mappen met links, net als ViewRealDirs
+// (pass 2, R1), en place_view_local_files maakt de bestands-koppelingen erin bij de start lokaal.
 namespace {
-std::vector<std::string> schrijf_mappen(const gsn::Ini& settings) {
+std::vector<std::string> view_paden(const gsn::Ini& settings, const char* sleutel) {
     std::vector<std::string> uit;
-    std::string in = settings.get("Launch", "ViewWritable");
+    std::string in = settings.get("Launch", sleutel);
     for (char& c : in) if (c == ';') c = ',';
     for (const std::string& r : nonempty_split(in, ',')) {
         std::string t = trim(r);
@@ -184,6 +186,7 @@ std::vector<std::string> schrijf_mappen(const gsn::Ini& settings) {
     }
     return uit;
 }
+std::vector<std::string> schrijf_mappen(const gsn::Ini& settings) { return view_paden(settings, "ViewWritable"); }
 }  // namespace
 
 // Het pad van de game waarmee het plan verder rekent. auto: staat de game op de NAS en is er nog geen view, dan wordt views/<Profiel>
@@ -195,6 +198,7 @@ bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& g
     ViewSetting vs;
     if (!parse_view_setting(settings.get("Launch", "View"), settings.get("Launch", "ViewEmptyDirs"), vs, err, settings.get("Launch", "ViewRealDirs")))
         return false;
+    for (const std::string& r : view_paden(settings, "ViewLocalFiles")) vs.real_dirs.push_back(r);
     if (vs.mode == ViewSetting::Mode::Off) return true;
     const NasFn nas = [&p](const std::string& x) { return on_nas(x, p); };
     const std::string views = p.views();

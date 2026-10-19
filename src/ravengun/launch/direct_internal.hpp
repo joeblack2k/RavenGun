@@ -82,6 +82,15 @@ private:
 // view, met een kopie van de NAS-inhoud; komt het pad daarna nog op de NAS uit, dan weigert de start.
 bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
                          std::string& err);
+// [Launch] ViewLocalFiles: in elke map van pl.view_local_files wordt elk kind dat een bestands-koppeling naar de NAS is een lokale
+// kopie (dezelfde veilige kopie en grens als een schrijfmap); een koppeling naar een map blijft staan, een echte submap wordt niet
+// bekeken. Weigert als de map zelf een koppeling is of op de NAS ligt, of als een kind naar iets anders op de NAS wijst. Eerst
+// wordt alles nagekeken, pas daarna gekopieerd: een weigering laat de map zoals hij was.
+bool place_view_local_files(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err);
+// Alleen lezen, leeg = veilig: wat in een map van [Launch] ViewLocalFiles nog op de NAS uitkomt. De map zelf een koppeling of op de
+// NAS, of een direct kind dat een koppeling naar de NAS is en niet naar een map wijst (de exe van het plan, `exe`, en zijn
+// .ravengun-orig tellen niet). place_view_local_files (de laatste controle) en rg-direct --run gebruiken hem.
+std::vector<std::string> lokale_bestanden_problemen(const std::string& map, const std::string& exe, const DirectPaths& p);
 // Het pad zoals Wine het vindt: per onderdeel eerst de precieze naam, anders een naam die alleen in hoofdletters verschilt.
 std::string resolve_case(const std::string& pad);
 // Alleen lezen: alles waardoor een game die in `pad` schrijft op de NAS kan uitkomen (leeg = veilig). De ouder op de NAS, het pad

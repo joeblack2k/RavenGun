@@ -461,10 +461,15 @@ std::string writable_route_refusal(const Config& c, const std::string& profile) 
                " werkt alleen op de directe route ([Launch] Mode = direct); de Unity- en native-route "
                "voeren geen prefixstappen uit en starten geen tweede exe.";
     }
-    const std::string* vw = g.settings.find("Launch", "ViewWritable");
-    if (!vw || trim(*vw).empty()) return {};
-    return "[Launch] ViewWritable = " + trim(*vw) + " werkt alleen op de directe route ([Launch] Mode = direct); de native en de "
-           "Unity-route zetten de schrijfmap niet om en de game zou op de NAS kunnen schrijven. Haal ViewWritable weg of start direct";
+    // ViewLocalFiles (pass 2, R1) net zo: alleen place_view_local_files van de directe route maakt de bestanden lokaal.
+    for (const char* sleutel : {"ViewWritable", "ViewLocalFiles"}) {
+        const std::string* vw = g.settings.find("Launch", sleutel);
+        if (!vw || trim(*vw).empty()) continue;
+        return std::string("[Launch] ") + sleutel + " = " + trim(*vw) + " werkt alleen op de directe route ([Launch] Mode = direct); de "
+               "native en de Unity-route zetten de mappen niet om en de game zou op de NAS kunnen schrijven. Haal " + sleutel +
+               " weg of start direct";
+    }
+    return {};
 }
 
 bool unity_route(const Config& c, const std::string& profile, const std::string& launch) {

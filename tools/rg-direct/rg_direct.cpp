@@ -1144,7 +1144,7 @@ bool groep_opruimen(pid_t pgid, int naloop_s) {
 // met ~24 koppelingen naar de NAS, en dan weigerde elke start (N1). 0 = in orde, 2 = geweigerd.
 int controle_voor_start(const L::DirectPlan& plan, const L::DirectPaths& wp, const std::string& wie) {
     namespace D = ravengun::launch::direct_detail;
-    if (plan.view_writable.empty() && plan.prefix_setup.empty()) return 0;
+    if (plan.view_writable.empty() && plan.view_local_files.empty() && plan.prefix_setup.empty()) return 0;
     const D::MountTableScope koppelpunten(wp);
     if (const std::string k = D::koppelpunten_fout(wp); !k.empty()) {
         log("schrijfmap: " + wie + " weigert: " + k);
@@ -1156,6 +1156,17 @@ int controle_voor_start(const L::DirectPlan& plan, const L::DirectPaths& wp, con
         log("schrijfmap: " + wie + " weigert " + pad + ": een game mag nooit op de NAS schrijven; start via de daemon (die zet de "
             "schrijfmap om) of los dit op:");
         for (const std::string& f : fout) log("schrijfmap:   " + f);
+        return 2;
+    }
+    /* [Launch] ViewLocalFiles (pass 2, R1): Wine verwijdert en hernoemt door een bestands-koppeling heen. Staat er in zo'n map nog
+     * een bestands-koppeling naar de NAS, dan weigert een kale --run (die heeft geen schrijflaag van bwrap); de daemon maakt ze
+     * eerst lokaal (place_view_local_files). */
+    for (const std::string& pad : plan.view_local_files) {
+        const std::vector<std::string> fout = D::lokale_bestanden_problemen(pad, plan.game, wp);
+        if (fout.empty()) continue;
+        log("lokale bestanden: " + wie + " weigert " + pad + ": Wine verwijdert en hernoemt door een bestands-koppeling heen, en een "
+            "game mag nooit op de NAS schrijven; start via de daemon (die maakt de bestanden lokaal) of los dit op:");
+        for (const std::string& f : fout) log("lokale bestanden:   " + f);
         return 2;
     }
     const std::vector<std::string> fout = D::prefixstappen_problemen(plan, wp);

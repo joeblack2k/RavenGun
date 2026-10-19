@@ -125,6 +125,11 @@ struct DirectPlan {
     // worden in de view een ECHTE map met een kopie van de inhoud van de NAS; schrijven komt zo
     // nooit op de NAS uit (besluit eigenaar 2026-10-19).
     std::vector<std::string> view_writable;
+    // [Launch] ViewLocalFiles: ECHTE mappen in de view waarvan elk kind dat een BESTANDS-koppeling naar de NAS is een lokale kopie
+    // wordt (niet recursief); koppelingen naar een map (alleen-lezen inhoud zoals Graphics/) blijven staan. Wine verwijdert en
+    // hernoemt DOOR een bestands-koppeling heen (wineserver werkt met het echte pad), dus een logboekrotatie in zo'n map raakte
+    // anders de NAS (SegaGameShell, 2026-10-19). Absolute paden in de view; de exe van het plan zelf blijft een koppeling.
+    std::vector<std::string> view_local_files;
     std::vector<DirectSetupStep> prefix_setup;             // [Launch] PrefixSetup
     // Een stempel voor de HELE lijst (review 13, punt 3): pas geschreven als alle stappen gelukt
     // zijn. Per stap stempelen liet eerdere stappen "klaar" staan toen een latere faalde, en de
