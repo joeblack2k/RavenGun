@@ -142,6 +142,14 @@ def fixture(tmp, patches, profiles, gs):
     data = os.path.join(home, ".local/share/ravengun")
     user = os.path.join(data, "patches")
     os.makedirs(user, exist_ok=True)
+    # Een synthetisch profiel dat WEL naar de TeknoParrot-map verwijst. Sinds 2026-10-19 zit er in de
+    # repo geen enkel profiel meer op de gesloten runtime (Coopers 9 was de laatste), en dan meet
+    # `rg-direct --tp-refs` niets meer: de zelfcontrole van dat meetinstrument hieronder zou dan
+    # omvallen terwijl er niets stuk is. Dit profiel staat alleen in de nagemaakte gebruikerslaag.
+    os.makedirs(os.path.join(user, "TPReferentie"), exist_ok=True)
+    with open(os.path.join(user, "TPReferentie", "game.ini"), "w") as f:
+        f.write("[Game]\nName = TP-referentie\nProfile = TPReferentie\nExecutable = game.exe\n"
+                "Type = TeknoParrot\nEmulationProfile = WartranTroopers\n\n[Launch]\nMode = direct\n")
     write(os.path.join(tp, "ParrotData.xml"), PARROT_DATA)
     for rel in ("ElfLdr2/BudgieLoader.exe", "ElfLdr2/x64/BudgieLoader_x64.exe", "OpenParrotx64/OpenParrotLoader64.exe",
                 "OpenParrotWin32/OpenParrotLoader.exe", "TeknoParrot/TeknoParrot.dll", "TeknoParrot/TeknoParrot64.dll",
