@@ -586,3 +586,11 @@ want het vraagt podman).
 komen, maar de I/O-controle wil meer: waarschijnlijk een toestandskader (schakelaars, bord-id). Zoek
 in de exe de lezer van het antwoord (de aanroepen van `ReadFile` zitten in een hulpfunctie; de
 IAT-slot van ReadFile is VA 0x1ec0c8) en kijk welke bytes hij vergelijkt.
+
+**Geprobeerd en geparkeerd (2026-10-19 05:40):** dezelfde haken op `CreateFileMappingA`,
+`OpenFileMappingA` en `MapViewOfFile` -- om te zien welk gedeeld geheugen de I/O-draad van het spel
+leest -- lieten de DLL niet meer laden: het spel startte, maar `rg-rhio.log` bleef leeg (dus geen
+DllMain, dus geen haken). Waarom is niet uitgezocht (tijdbox); de bron is teruggezet naar de versie
+zonder die drie haken en die werkt weer (gemeten: 109 bordopdrachten in 22 seconden, ClearCommError
+omgezet). De vraag welk gedeeld geheugen het bordbeeld levert staat dus nog open, maar met de derde
+meting is duidelijk dat het bord zelf de weg naar de dongle is.
