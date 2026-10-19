@@ -740,3 +740,39 @@ aanstaat. De game liep ("De game draait.").
 Let op: de eerste poging om Robin Hood te starten (14:36) maakte geen nieuw logboek aan en de game
 liep niet; het logboek dat ik toen las was dat van de mutex-hermeting van 13:22, met daarin nog
 "marker rg-rhio-mutex.aan: aanwezig". De tweede poging (14:38) is de geldige meting hierboven.
+
+## De levende controle van de stempelronde (review 16, 15:26 en 15:29)
+
+Alleen de stempel van Mario Kart DX is weggehaald (`rm -f <prefix>/.ravengun-prefixsetup/*.done`), er is
+niets anders aangeraakt. Daarna twee starts via de daemon.
+
+**Eerste start** (`direct-MarioKartDX-20261019-152643.log`):
+
+```
+[15:26:44] prefixstap: Checking.ErrorCode : 0
+[15:26:44] prefixstap: outPath : WritableConfig.ini
+[15:26:45] prefixstap: Ok!
+[15:26:45] prefixstap: klaar (status 0)
+[15:26:45] prefixstap: kopieren klaar: .../prefixes/MarioKartDX/drive_c/windows/WritableConfig.ini -> .../views/MarioKartDX/WritableConfig.ini
+[15:26:45] prefixstap: kopieren klaar: .../prefixes/MarioKartDX/drive_c/windows/WritableConfig.ini -> .../views/MarioKartDX/AMCUS/WritableConfig.ini
+[15:26:45] prefixstap: klaar (status 0)
+[15:26:45] prefixstappen: /home/deck/.local/share/ravengun/wine/proton-11.0-2/bin/wineserver -w (WINEPREFIX=.../prefixes/MarioKartDX)
+[15:26:46] prefixstappen: stempel .../prefixes/MarioKartDX/.ravengun-prefixsetup/3b92f495bbfda327.done
+```
+
+Alle vier de stappen eindigen met "klaar (status 0)", daarna komt de regel met `wineserver -w` (met de
+prefix erbij) en dan de stempelregel; het aantal regels met **"weigert"** is **0** en de game start
+gewoon ("De game draait."). De stempel staat daarna weer op schijf.
+
+**Tweede start** (`direct-MarioKartDX-20261019-152919.log`):
+
+```
+[15:29:19] prefixstappen: stempel .../prefixes/MarioKartDX/.ravengun-prefixsetup/3b92f495bbfda327.done staat er; alleen ontbrekende kopieen lopen opnieuw
+[15:29:19] prefixstap: al gedaan (run . PreprocessAmAuth.exe -wait)
+[15:29:19] prefixstap: al gedaan (copy prefix:drive_c/windows/WritableConfig.ini WritableConfig.ini)
+[15:29:19] prefixstap: al gedaan (copy prefix:drive_c/windows/WritableConfig.ini AMCUS/WritableConfig.ini)
+[15:29:19] prefixstap: al gedaan (run AMCUS regsvr32.exe /s iauthdll.dll)
+```
+
+"al gedaan" voor alle vier, geen `wineserver -w` (die komt alleen NA een run-stap, en er liep er nu
+geen), 0 regels met "weigert", en de game draait.
