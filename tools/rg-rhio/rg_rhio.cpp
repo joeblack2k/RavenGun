@@ -517,6 +517,35 @@ void OpenBordbeeld() {
 /* De toestand in het antwoord zetten. De kaderregel blijft: byte 0 is de code, byte 6 de som van de
  * eerste zes bytes. Bytes 1-5 dragen de toestand: 1 = besturingsbyte (munt/start/trekker), 2 = de
  * richtas van speler 1 (X), 3 = die van speler 1 (Y), 4 en 5 blijven 0. */
+/* Proefstanden (RG_RHIO_TOETS) om te zien of de I/O-controle *invoer* wil in plaats van een vaste
+ * waarde. De bits van de indeling WartranTroopers: munt 1 = bit 2 (0x04), start van speler 1 = bit 6
+ * (0x40), trekker van speler 1 = bit 7 (0x80). De assen staan op offset 12 (p1.x) en 13 (p1.y).
+ *   cyclus  munt 1 s, dan start 1 s, dan trekker 1 s, dan niets (blijft rondgaan)
+ *   nul     besturingsbyte 0x00        vol   besturingsbyte 0xFF
+ *   buiten  richtas van speler 1 op 0x20/0xE0 in plaats van het midden
+ * Zonder deze variabele (of met een lege waarde) komt de toestand gewoon uit het bordbeeld. */
+void ProefToestand(unsigned char* k) {
+    char stand[16];
+    if (GetEnvironmentVariableA("RG_RHIO_TOETS", stand, sizeof stand) == 0 || !stand[0]) return;
+    if (std::strcmp(stand, "nul") == 0) {
+        k[1] = 0x00;
+        return;
+    }
+    if (std::strcmp(stand, "vol") == 0) {
+        k[1] = 0xff;
+        return;
+    }
+    if (std::strcmp(stand, "buiten") == 0) {
+        k[2] = 0x20;
+        k[3] = 0xe0;
+        return;
+    }
+    if (std::strcmp(stand, "cyclus") == 0) {
+        static const unsigned char stappen[4] = {0x04, 0x40, 0x80, 0x00};   /* munt, start, trekker, niets */
+        k[1] = stappen[(GetTickCount() / 1000u) % 4u];
+    }
+}
+
 void VulToestand(unsigned char* k) {
     if (!g_bordbeeld) return;
     const unsigned besturing = *reinterpret_cast<const unsigned*>(g_bordbeeld + 8);
@@ -525,6 +554,7 @@ void VulToestand(unsigned char* k) {
     k[3] = g_bordbeeld[13];
     k[4] = 0;
     k[5] = 0;
+    ProefToestand(k);
 }
 
 void BouwAntwoord() {

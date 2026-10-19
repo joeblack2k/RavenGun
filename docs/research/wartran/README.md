@@ -721,3 +721,26 @@ volgende ronde: (a) de aanroeper van de hulpfunctie volgen (het echte functiebeg
 een `call` naar 0x4902a0 is er niet, dus de proloog staat eerder in het blok) en kijken wat hij met de
 bewaarde bytes 1-4 doet; (b) de daemon een munt/start laten aanbieden terwijl het spel op de controle
 staat -- misschien wil de controle een toestandsverandering zien in plaats van een vaste waarde.
+
+### Wil de I/O-controle invoer? Nee (gemeten 2026-10-19 05:52)
+
+De controle kan aan een *verandering* hangen in plaats van aan een vaste waarde, dus `rg_rhio` heeft
+nu proefstanden (`RG_RHIO_TOETS`) die de besturingsbyte en de richtas van speler 1 zelf zetten
+(bits van de WartranTroopers-indeling: munt 1 = bit 2 = 0x04, start van speler 1 = bit 6 = 0x40,
+trekker = bit 7 = 0x80; assen op offset 12/13). Vier standen, elk een run van ~30 s met een foto:
+
+| stand | wat het antwoord wordt | foto |
+| --- | --- | --- |
+| `cyclus` | munt 1 s, start 1 s, trekker 1 s, niets, en rond | 23581 B |
+| `nul` | besturingsbyte 0x00 | 23581 B |
+| `vol` | besturingsbyte 0xFF | 23408 B |
+| `buiten` | richtas 0x20/0xE0 in plaats van het midden | 23205 B |
+
+Elk antwoord heeft de juiste kaderregel (bijvoorbeeld `94 40 80 80 00 00 d4`: 0x94+0x40+0x80+0x80 =
+0x1d4 -> 0xd4), en **alle vier de foto's tonen hetzelfde `BOOTING . / I/O ... CHECKING`** (het
+scherm is 23 kB; zwart is 10 kB, de beveiligingsfout 17 kB, een spelbeeld is veel groter). De
+I/O-controle wil dus **geen invoer en geen toestandsverandering** in dit antwoord. Daarmee blijven de
+twee andere sporen over: de aanroeper van de hulpfunctie volgen (wat doet hij met de bewaarde bytes
+1-4), en kijken of het spel misschien op een *ander* kanaal wacht (de daemon schrijft de
+bordtoestand ook in het gedeelde geheugen; het spel zou die zelf kunnen lezen in plaats van via de
+seriele poort).
