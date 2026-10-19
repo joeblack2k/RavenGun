@@ -1,5 +1,28 @@
 # Dagdienst 19 oktober 2026 — stand voor Jeroen
 
+# Einde van de dag: per game de stand en het bewijs (2026-10-19)
+
+Kort, met per game de stand, het bewijs en waarom iets geparkeerd is. Alles op onze eigen lader en
+kern, nooit TeknoParrot, en nooit iets op de NAS geschreven (steeds met `find` gecontroleerd).
+
+| game | stand | bewijs | waarom niet verder |
+|---|---|---|---|
+| **MenInBlack** | **working** | GESPEELD: `key 5` (munt) en `key 1` (START) geven "PLAYER 1 READY", de eerste missie begint en de trekker laat de score naar 0062 en de tickets naar 004 lopen -- drie fotos in `docs/screenshots/meninblack-*-2026-10-19.png` | -- |
+| **HOTD4SP** | parked | attract op de NATIVE Lindbergh-route (geen Wine, geen TeknoParrot): spel-ID 0x7d6ab3e3, JVS naar de pty van de IO-brug, twee fotos in `docs/screenshots/hotd4sp-native-*` | munt en START starten geen spel: de ride-versie wacht op stoelsignalen (meting van 15 oktober, vandaag hermeten) |
+| **TNXK0O~C** (profiel TNXK0OC) | parked | start en tekent op onze kern (`Loading core`, `Have fun`), foto `docs/screenshots/tnxk0oc-amilb-error-2026-10-19.png` | de game meldt zelf "ERROR 3005 / AMLIB INITIALZE FAILED"; de kaststap `mxGetHwInfo.exe` eindigt onder wine met status 1 |
+| **SegaGameShell** | parked | de shell start en tekent op onze kern, foto `docs/screenshots/segamegameshell-game-error-2026-10-19.png` | de shell meldt zelf "GAME ERROR": in deze map staat geen spel voor hem (GameData is leeg) |
+| **LostLandAdventure** | parked | start op onze kern (`Loading core`, `Have fun`, mfc100u bijgewerkt, JVS-pijp verbonden) | geen venster in beeld; de AMAuth-stappen lopen wel maar `PreprocessAmAuth.exe` zegt "Checking. / NG!" (status 1) -- veronderstelling: regio- of donglecontrole |
+| **AfterDark** | parked | start op onze kern (`Have fun`), foto `docs/screenshots/afterdark-dongle-failed-2026-10-19.png` | de game meldt zelf "Init Dongle Failed !" (parkeerreden van eerder vandaag opnieuw bevestigd) |
+| **PigsMightFly** | parked | de game loopt op onze kern (gamescope, Shell.exe), de foto is het bureaublad | zonder aangesloten PS Move komt er geen venster: het spel wacht daar zelf op (parkeerreden opnieuw bevestigd) |
+| **3DCosplayMahjong** | parked | -- | de game staat niet op deze machine (NAS-boom, hele thuismap en de media doorzocht: alleen profielen) |
+| **AliensArmageddon** | parked | -- | de NAS-map "Aliens Armageddon" bestaat maar is leeg; ook op bestandsgrootte en op RawThrillsGUN gezocht |
+
+Wat deze ronde verder opleverde: de (A)-(G)-lijst met tijdvakken staat bovenaan dit bestand; de
+A/B-proef van de rg-rhio-varianten is afgerond (NEW niet slechter dan OLD) met de weggegooide starts
+erbij; de mutex-haken laten het spel niet stoppen (5 tegen 5); de prefixstappen van Mario Kart DX
+komen nooit op de NAS uit en de stempel wordt vlak voor het schrijven opnieuw gecontroleerd; en de
+hele proefreeks is **97/97 groen**.
+
 # Stand 2026-10-19 — de volledige lijst (A)-(G) met tijdvakken
 
 Deze lijst staat bewust bovenaan: hij is eerder in een bericht genoemd en daarna zoekgeraakt. Per punt
