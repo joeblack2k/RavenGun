@@ -49,6 +49,7 @@ inline read_file_fn g_read_file = nullptr;
 inline void (*g_log)(const char*, ...) = nullptr;
 inline bool g_fake = false;
 inline bool g_chain = false;   // RG_DONGLE=chain: only log what the original answers
+inline HANDLE g_dongle_handle = INVALID_HANDLE_VALUE;   // only this handle is the fake dongle
 
 inline constexpr wchar_t kDonglePath[] = L"\\\\?\\rg-dongle#vid_0000&pid_0000#1";
 inline constexpr wchar_t kDonglePipe[] = L"\\\\.\\pipe\\rg-dongle";
@@ -172,6 +173,7 @@ inline HANDLE WINAPI hook_create_file_w(LPCWSTR name, DWORD access, DWORD share,
             SetLastError(ERROR_FILE_NOT_FOUND);
             return INVALID_HANDLE_VALUE;
         }
+        g_dongle_handle = client;
         if (g_log) g_log("dongle: the game opens the dongle -> own pipe, caller 0x%08lx", caller);
         return client;
     }
@@ -182,7 +184,7 @@ inline HANDLE WINAPI hook_create_file_w(LPCWSTR name, DWORD access, DWORD share,
 inline BOOL WINAPI hook_device_io_control(HANDLE dev, DWORD code, LPVOID in, DWORD in_len, LPVOID out, DWORD out_len,
                                           LPDWORD back, LPOVERLAPPED ov) {
     const unsigned long caller = caller_of(__builtin_return_address(0));
-    if (g_fake && dev && dev != INVALID_HANDLE_VALUE) {
+    if (g_fake && g_dongle_handle != INVALID_HANDLE_VALUE && dev == g_dongle_handle) {
         char hex[3 * 32 + 1] = {};
         const auto* b = static_cast<const unsigned char*>(in);
         if (b)
@@ -305,9 +307,32 @@ inline void WINAPI hook_exit_thread(DWORD code) {
 
 // --- first-chance exceptions: log where the game faults --------------------------------------------
 inline LONG CALLBACK hook_vectored(EXCEPTION_POINTERS* ep) {
-    if (g_log && ep && ep->ExceptionRecord)
+    if (g_log && ep && ep->ExceptionRecord) {
         g_log("dongle: exception 0x%08lx at 0x%08lx", static_cast<unsigned long>(ep->ExceptionRecord->ExceptionCode),
               static_cast<unsigned long>(reinterpret_cast<uintptr_t>(ep->ExceptionRecord->ExceptionAddress)));
+        if (ep->ExceptionRecord->ExceptionCode == 0xC0000005u && ep->ContextRecord) {
+            g_log("dongle:  eip 0x%08lx esp 0x%08lx ebp 0x%08lx esi 0x%08lx edi 0x%08lx",
+                  static_cast<unsigned long>(ep->ContextRecord->Eip), static_cast<unsigned long>(ep->ContextRecord->Esp),
+                  static_cast<unsigned long>(ep->ContextRecord->Ebp), static_cast<unsigned long>(ep->ContextRecord->Esi),
+                  static_cast<unsigned long>(ep->ContextRecord->Edi));
+            if (!IsBadReadPtr(reinterpret_cast<void*>(static_cast<uintptr_t>(ep->ContextRecord->Esp)), 8)) {
+                const auto* sp = reinterpret_cast<const unsigned long*>(static_cast<uintptr_t>(ep->ContextRecord->Esp));
+                g_log("dongle:  stack[0] 0x%08lx stack[1] 0x%08lx", sp[0], sp[1]);
+            }
+            // Walk the frame-pointer chain so the crash can be placed in the game's call tree.
+            auto* frame = reinterpret_cast<unsigned long*>(static_cast<uintptr_t>(ep->ContextRecord->Ebp));
+            for (int i = 0; i < 8 && frame; ++i) {
+                const auto addr = reinterpret_cast<uintptr_t>(frame);
+                if (addr < 0x10000 || (addr & 3)) break;
+                if (IsBadReadPtr(frame, 8)) break;
+                const unsigned long ret = frame[1];
+                const unsigned long next = frame[0];
+                g_log("dongle:  frame %d ret 0x%08lx", i, ret);
+                if (next <= addr || next > addr + 0x20000) break;
+                frame = reinterpret_cast<unsigned long*>(static_cast<uintptr_t>(next));
+            }
+        }
+    }
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
