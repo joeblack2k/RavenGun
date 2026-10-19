@@ -557,11 +557,16 @@ int main() {
         write(merged + ".nieuw." + std::to_string(dood) + "/halve", "x");
         write(levend + "/levend", "x");
         write(merged + ".oud.1.1/oud", "x");
+        write(merged + ".stempel.tmp." + std::to_string(dood), "half");             // G6: halve stempel van een gestorven proces
+        write(merged + ".stempel.tmp." + std::to_string(::getppid()), "levend");    // ... en van een lopend proces
         write(user + "/memory/nieuw2", "x");
         CHECK(load_profile(text, "Dir", q, p2, err) && p2.mounts[0].src == merged && gemeld(p2, "samengevoegd"));
         CHECK(!fs::exists(merged + ".nieuw." + std::to_string(dood)));
         CHECK(fs::exists(levend + "/levend"));
         CHECK(!fs::exists(merged + ".oud.1.1"));
+        CHECK(!fs::exists(merged + ".stempel.tmp." + std::to_string(dood)));
+        CHECK(fs::exists(merged + ".stempel.tmp." + std::to_string(::getppid())));
+        fs::remove(merged + ".stempel.tmp." + std::to_string(::getppid()));
         CHECK(fs::exists(oud[0] + "/.teken") || zusters(".oud.").size() >= 1);
         fs::remove_all(levend);
         fs::remove(user + "/memory/nieuw2");

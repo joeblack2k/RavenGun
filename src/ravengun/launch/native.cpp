@@ -132,7 +132,7 @@ bool pad_onder(const std::string& pad, const std::string& wortel) {
 bool in_gebruik_door_mount(const std::string& pad_in) {
     std::error_code ec;
     const std::string pad = fs::weakly_canonical(pad_in, ec).string();
-    if (ec || pad.empty()) return false;
+    if (ec || pad.empty()) return true;   // niet vast te stellen: voorzichtig, dan laten staan
     std::string dev, fsrel;   // het apparaat en het pad binnen dat bestandssysteem, via het langste eigen koppelpunt
     size_t beste = 0;
     for (const MountRegel& m : lees_mountinfo("/proc/self/mountinfo")) {
@@ -163,17 +163,19 @@ bool in_gebruik_door_mount(const std::string& pad_in) {
 // Wat een eerdere samenvoeging naast dst liet liggen. <dst>.nieuw.<pid> is een halve bouw van een proces dat gestorven is (een
 // lopend proces mag hem houden); <dst>.oud.<tijd>.<pid> is de vorige map, opzij gezet omdat een draaiende game hem nog gemount kan
 // hebben (leeghalen onder zijn voeten maakt de game stuk). Die laatste ruimen we pas na een week op, en ook dan niet zolang een proces
-// dat we kunnen lezen hem (of iets erin) nog gemount heeft.
+// dat we kunnen lezen hem (of iets erin) nog gemount heeft (of dat niet vast te stellen is). <dst>.stempel.tmp.<pid> van een
+// gestorven proces gaat ook weg; <dst>.lock blijft.
 void sweep_merge_leftovers(const std::string& dst) {
     std::error_code ec;
     const fs::path d(dst);
-    const std::string base = d.filename().string(), nieuw = base + ".nieuw.", oud = base + ".oud.";
+    const std::string base = d.filename().string(), nieuw = base + ".nieuw.", oud = base + ".oud.", stempel_tmp = base + ".stempel.tmp.";
     const long now = static_cast<long>(std::time(nullptr));
     std::vector<fs::path> weg, oude;
     for (fs::directory_iterator it(d.parent_path(), ec), end; !ec && it != end; it.increment(ec)) {
         const std::string n = it->path().filename().string();
-        if (n.starts_with(nieuw)) {
-            const long pid = std::strtol(n.c_str() + nieuw.size(), nullptr, 10);
+        if (n.starts_with(nieuw) || n.starts_with(stempel_tmp)) {   // ook een halve stempel (tmp) van een gestorven proces
+            const size_t na = n.starts_with(nieuw) ? nieuw.size() : stempel_tmp.size();
+            const long pid = std::strtol(n.c_str() + na, nullptr, 10);
             if (pid > 0 && pid != static_cast<long>(::getpid()) && ::kill(static_cast<pid_t>(pid), 0) != 0 && errno == ESRCH) weg.push_back(it->path());
         } else if (n.starts_with(oud)) {
             const long tijd = std::strtol(n.c_str() + oud.size(), nullptr, 10);
