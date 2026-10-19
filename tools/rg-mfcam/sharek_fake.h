@@ -60,19 +60,32 @@ inline bool knows_iid(const Guid& iid) { return same(iid, kIid) || same(iid, kIi
 enum class Kind : uint8_t {
     Nop,      // S_OK, schrijft niets
     Start,    // [out] WORD = -1 (VARIANT_TRUE)
-    Status,   // [out] WORD = kStatusIdle
+    Status,   // [out] WORD = de ShareK-status (zie status_keuze)
     Restart,  // [out] WORD = 0
 };
 constexpr int16_t kStartOk = -1;     // VARIANT_TRUE
-// Status die het eigen object teruggeeft. 2 = "wacht op het netwerk" (de tick van het spel doet dan
-// niets, vandaar het zwarte beeld); 1 = "配信機能OFF" (het spel ruimt de distributie een keer op en
-// doet daarna gewoon werk); 0 = gewoon werk. Met RG_SHAREK_STATUS is dit te kiezen (standaard 1:
-// een losse kast heeft niets te verspreiden, maar moet wel doorlopen).
-constexpr int16_t kStatusIdle = 2;
+// Status die het eigen object teruggeeft. 0 = gewoon werk, 1 = "配信機能OFF" (het spel ruimt de
+// distributie een keer op en doet daarna gewoon werk), 2 = "wacht op het netwerk" (de tick van het
+// spel doet dan niets, vandaar het zwarte beeld). Met RG_SHAREK_STATUS is dit te kiezen; de
+// standaard is 1, want een losse kast heeft niets te verspreiden maar moet wel doorlopen. Alleen 0,
+// 1 en 2 zijn geldig: iets anders (of iets niet-numerieks) valt terug op de standaard, zodat een
+// typefout in de omgeving het spel niet op een onbekende statuscode laat lopen.
+// De tekst uit de omgeving omzetten. Alleen 0, 1 en 2 zijn geldig; al het andere (leeg,
+// niet-numeriek, buiten bereik) valt terug op de standaard. Los van het lezen, zodat de proef dit
+// zonder proces-start kan controleren.
+inline int16_t status_uit_tekst(const char* v, int16_t standaard = 1) {
+    if (v && *v) {
+        char* eind = nullptr;
+        const long w = std::strtol(v, &eind, 10);
+        if (eind && *eind == '\0' && w >= 0 && w <= 2) return static_cast<int16_t>(w);
+    }
+    return standaard;
+}
+
 inline int16_t status_keuze() {
-    const char* v = std::getenv("RG_SHAREK_STATUS");
-    if (v && *v) return static_cast<int16_t>(std::atoi(v));
-    return 1;
+    static int gekozen = -1;   /* een keer lezen en onthouden; de tick vraagt dit vaak */
+    if (gekozen < 0) gekozen = status_uit_tekst(std::getenv("RG_SHAREK_STATUS"));
+    return static_cast<int16_t>(gekozen);
 }
 constexpr int16_t kRestartNo = 0;
 

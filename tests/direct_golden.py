@@ -280,7 +280,9 @@ def tp_vrij_check(rg, patches, gs, tmp):
     # 2026-10-19 draaien AfterDark, DrakonsRealmKeepers, LostLandAdventure, PigsMightFly en MarioKartDX op onze eigen kern (en de
     # native games hebben geen @tpui meer, 2026-10-17): Coopers9 (gesloten kern), CrossfirePaintball (ElfLdr2-lader) en TC5 (lader
     # van de runtime) zijn de voorbeelden die overblijven.
-    ijk = [n for n in ("Coopers9", "CrossfirePaintball", "TC5") if n in alle][:1]
+    # Sinds 2026-10-19 zit er geen enkel profiel meer op de gesloten runtime (Coopers 9 was de laatste),
+    # dus is het ijk-profiel het synthetische TPReferentie uit de nagemaakte gebruikerslaag.
+    ijk = ["TPReferentie"] if "TPReferentie" in alle else []
     env, tp, user, views = fixture(base, patches, names + ijk, gs)
     env = {k: v for k, v in env.items() if k != "RAVENGUN_TP_DIR"}   # de map gaat alleen via --tp mee, niet in de omgeving van het plan
     home = env["HOME"]

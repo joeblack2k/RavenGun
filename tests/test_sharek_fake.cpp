@@ -64,14 +64,19 @@ int main() {
     int16_t v = 123;
     CHECK(find_slot(7)->kind == Kind::Start && out_word(Kind::Start, v) && v != 0);
     CHECK(find_slot(33)->kind == Kind::Restart && out_word(Kind::Restart, v) && v == 0);
+    // De keuze uit de omgeving leest een keer (statiek) en de omzetting is apart te toetsen.
+    CHECK(rg_sharek::status_uit_tekst(nullptr) == 1);
+    CHECK(rg_sharek::status_uit_tekst("") == 1);
+    CHECK(rg_sharek::status_uit_tekst("0") == 0);
+    CHECK(rg_sharek::status_uit_tekst("1") == 1);
+    CHECK(rg_sharek::status_uit_tekst("2") == 2);
+    CHECK(rg_sharek::status_uit_tekst("3") == 1);        // buiten bereik
+    CHECK(rg_sharek::status_uit_tekst("-1") == 1);       // negatief
+    CHECK(rg_sharek::status_uit_tekst("abc") == 1);      // niet-numeriek
+    CHECK(rg_sharek::status_uit_tekst("2x") == 1);       // niet alles gelezen
+    CHECK(rg_sharek::status_uit_tekst("9", 2) == 2);     // eigen standaard
     unsetenv("RG_SHAREK_STATUS");
     CHECK(find_slot(35)->kind == Kind::Status && out_word(Kind::Status, v) && v == 1);
-    setenv("RG_SHAREK_STATUS", "2", 1);
-    CHECK(out_word(Kind::Status, v) && v == 2);
-    setenv("RG_SHAREK_STATUS", "0", 1);
-    CHECK(out_word(Kind::Status, v) && v == 0);
-    unsetenv("RG_SHAREK_STATUS");
-    CHECK(out_word(Kind::Status, v) && v == 1);
     v = 77;
     CHECK(!out_word(Kind::Nop, v) && v == 77);   // een leeg antwoord laat de uitvoer van de aanroeper (die al op 0 staat) ongemoeid
     int actions = 0;
