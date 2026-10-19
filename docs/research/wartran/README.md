@@ -1055,3 +1055,33 @@ bordantwoord vergelijken.
 staat niet rechtstreeks in de view: `data/game.exe` is een hulpje van 71 bytes, het echte spel komt
 uit de NAS-map via `sh/` en `start.bat`) en kijken welke wachtdienst daar met welk handvat wordt
 aangeroepen. Dat geeft het bordobject waar de game op wacht.
+
+### (D) De twee adressen van de meetdraad staan in geen enkele sectie (2026-10-19 12:27)
+
+De opdracht was: zoek eerst `game.exe+0x9e7bc8` en zijn aanroeper `0x8ff9b` op. Dat kan **niet uit het
+bestand**, en dat is zelf een uitkomst:
+
+```
+secties van de echte exe (NAS: Robin Hood/data/game.exe, 2.671.104 bytes):
+  .text    VA 0x00401000  grootte 0x001ea35c   (eindigt op 0x005eb35c)
+  .rdata   VA 0x005ec000  grootte 0x00037974
+  .data    VA 0x00624000  grootte 0x00069e00   (eindigt op 0x0068de00)
+  .rsrc    VA 0x01ab0000  grootte 0x000001b4
+SizeOfImage = 0x016b1000
+rva 0x8ff9b  in sectie: GEEN
+rva 0x9e7bc8 in sectie: GEEN
+```
+
+Beide adressen liggen dus **binnen de image** (waarom de meetdraad `game.exe+...` zegt: die vergelijkt
+met `SizeOfImage`, zie rg_compat.c regel 287-289) maar **buiten elke sectie**. Tussen `.data` en
+`.rsrc` zit een gat van meer dan 20 MB, en juist daar zit de code waar de hoofddraad op wacht. Die
+code wordt dus tijdens het starten aangevuld: de exe is verpakt/beveiligd. In het bestand valt er niets
+te ontleden -- mijn eerdere regel "de hoofddraad wacht in de eigen code van het spel
+(`game.exe+0x9e7bc8`)" was dus niet te controleren en had als veronderstelling opgeschreven moeten
+worden.
+
+**Wat dat zou bevestigen**: de bytes op die twee plekken uit een *lopend* proces halen en die als
+32-bits code ontleden. Daarvoor is `tools/dev/rh-dump-adressen.sh` toegevoegd: dat start het spel,
+zoekt de image van de exe in `/proc/<pid>/maps`, dumpt 192 bytes op elke gevraagde rva en laat objdump
+er 32-bits code van maken. Pas daarna is te zeggen welke wachtdienst daar met welk handvat wordt
+aangeroepen.

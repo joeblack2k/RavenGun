@@ -532,3 +532,26 @@ leest nu uit de verse prefix.
   seconden met exitcode 0" sluit; dat is nu vervangen door de meting van 11:35 (dezelfde access
   violation op 0x4fd8aed0 **zonder** onze kern, met `+seh`). De losse notitie onder `[ConfigOptions]`
   is weggehaald -- dat blok wordt bij een nieuwe import opnieuw gemaakt -- en staat nu in die Note.
+
+## A/B-proef rg-rhio: opzet en een les over de meting zelf
+
+De proef loopt met `tools/dev/../ab-rhio/ab2.sh` (buiten de repo, in /home/deck/ab-rhio): per variant
+tien starts, om en om, elke start met een foto, 90 s wachttijd, daemon herstarten en het muis-geweer
+opnieuw zetten, de variant-DLL naar de engine-drop-in EN de view, en de `.aan`-markers voor alle
+varianten gelijk (geen). Uitkomsten per start: `ok` (voorbij BOOTING naar de bordframes) en `draait`
+(leeft de game nog).
+
+**Twee dingen die de meting zelf bijna onbruikbaar maakten, en wat ertegen gedaan is:**
+
+1. Het script werd na ~9,5 min door een externe limiet afgebroken. Het is nu **hervatbaar** (de telling
+   per variant komt uit `resultaten.txt`) en stopt zelf na een tijdsbudget, zodat een afgebroken reeks
+   geen werk verliest.
+2. Er liepen op een gegeven moment **vier instanties** naast elkaar. Dan draaien er twee games
+   tegelijk: de ene start wordt geweigerd ("er draait al een game") en de foto/logboekregels horen bij
+   de game van een *andere* variant. Dat is precies gebeurd: één run kreeg het logboekprofiel van OLD.
+   Er zit nu een `flock`-slot op het script, en elke run wordt achteraf gecontroleerd op het
+   logboekprofiel van zijn eigen variant (de oude DLL schrijft ~21.000 regels, de nieuwe ~2.900); de
+   vervuilde run is uit de gegevens gehaald en opnieuw gedaan.
+
+Die controle op het logboekprofiel is meteen het bewijs dat de variantwissel echt werkt: elke run
+draagt de signatuur van zijn eigen DLL.
