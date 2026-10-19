@@ -28,7 +28,12 @@ SHA=$(sha1sum "$DLL" | cut -c1-8)
 # afgebroken), dus de uitslagen blijven staan en het aantal rondes is per stuk te kiezen.
 touch "$OUT/mutex-resultaten.txt"
 
-for r in $(seq 1 "$RONDES"); do
+# De reeks wordt in stukken gedraaid (een lange reeks wordt door een externe limiet afgebroken), dus de
+# rondenummering loopt door waar het bestand gebleven is.
+BEGIN=$(( $(wc -l < "$OUT/mutex-resultaten.txt" 2>/dev/null || echo 0) / 2 + 1 ))
+EIND=$(( BEGIN + RONDES - 1 ))
+echo "rondes $BEGIN tot $EIND"
+for r in $(seq "$BEGIN" "$EIND"); do
     for v in UIT AAN; do
         if [ "$v" = AAN ]; then printf '1\n' > "$VIEWMAP/rg-rhio-mutex.aan"; else rm -f "$VIEWMAP/rg-rhio-mutex.aan"; fi
         rm -f "$LOG"

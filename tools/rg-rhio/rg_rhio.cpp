@@ -1053,7 +1053,10 @@ DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
     /* Alleen het BEGIN van een wachtdienst wordt altijd gelogd (een wachter die nooit terugkomt schrijft
      * anders niets weg). Het einde alleen als de wachtdienst lang duurde: de CRT wacht vaak even op
      * iets onbelangrijks, en die regels verdringen juist de interessante (review 14, punt a). */
-    const bool meld = MutexAan();
+    /* Een wachtdienst van 0 ms kan niet blijven hangen (die komt meteen terug), en juist die vullen het
+     * budget: in de hermeting waren alle 3000 mutex-regels zo'n poll van de CRT (game.exe+0x90bdd, 0 ms)
+     * en bleef er voor de interessante wachtdiensten niets over. Alleen een echte wachttijd loggen we. */
+    const bool meld = MutexAan() && ms != 0;
     const DWORD begin = meld ? GetTickCount() : 0;
     if (meld)
         LogMutex("mutex: draad %lu GAAT wachten op %p (%lu ms)  beller=%s", static_cast<unsigned long>(tid_voor),

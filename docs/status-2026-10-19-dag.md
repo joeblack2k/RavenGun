@@ -574,3 +574,46 @@ varianten gelijk (geen). Uitkomsten per start: `ok` (voorbij BOOTING naar de bor
 
 Die controle op het logboekprofiel is meteen het bewijs dat de variantwissel echt werkt: elke run
 draagt de signatuur van zijn eigen DLL.
+
+## (D) geparkeerd: wat gemeten is, wat de volgende stap is (13:22)
+
+De laatste dertig minuten van (D) zijn gegaan naar het (D)-gereedschap (review 14, punt 2) en de
+mutex-hermeting. Stand:
+
+**De mutex-haken laten het spel niet stoppen.** Vijf starts met de haken aan (`rg-rhio-mutex.aan`) tegen
+vijf zonder, om en om, dezelfde 90 s en dezelfde foto:
+
+| start | haken | DLL | foto (bytes) | draait nog | logregels | mutexregels |
+|---|---|---|---|---|---|---|
+| 1 | UIT | 01a873d1 | 23408 | ja | 2922 | 0 |
+| 1 | AAN | 01a873d1 | 23581 | ja | 5939 | 3000 |
+| 2 | UIT | 01a873d1 | 23205 | ja | 2940 | 0 |
+| 2 | AAN | 01a873d1 | 23581 | ja | 5938 | 3000 |
+| 3 | UIT | 01a873d1 | 23751 | ja | 2931 | 0 |
+| 3 | AAN | 01a873d1 | 23581 | ja | 5889 | 3000 |
+| 4 | UIT | 01a873d1 | 23751 | ja | 2931 | 0 |
+| 4 | AAN | 01a873d1 | 23205 | ja | 5947 | 3000 |
+| 5 | UIT | 01a873d1 | 23408 | ja | 2929 | 0 |
+| 5 | AAN | 01a873d1 | 23581 | ja | 5560 | 2624 |
+
+Alle tien bleven draaien. Dat is de tweede keer dat de bewering "de mutex-haken laten het spel meteen
+stoppen" niet standhoudt (zie ook de A/B-proef hierboven, waar NEW met dezelfde haken hetzelfde deed
+als OLD). De haken zijn dus geen kandidaat-oorzaak meer.
+
+**Wat het gereedschap nu wel laat zien.** Met een eigen budget voor de mutex-regels blijft het algemene
+maximum van 20.000 regels intact (eerst waren dat er 20.001 met 18.871 mutex-regels erin: het maximum
+was op voordat de interessante regel er stond). De mutex-regels blijken vrijwel allemaal
+`WaitForSingleObject(handvat, 0)` te zijn -- een poll van de CRT vanuit `game.exe+0x90bdd` -- en die
+zijn nu uit het logboek gelaten, want een wachtdienst van 0 ms kan niet blijven hangen. In de
+hermeting gaf dat precies één regel met een echte duur.
+
+**Wat (D) nog niet heeft.** De hoofddraad wacht in code die tijdens het starten in de image wordt
+aangevuld (`game.exe+0x9e7bc8`, aanroeper `+0x8ff9b`: beide buiten elke sectie, zie de wartran-README),
+dus uit het bestand is die plek niet te ontleden. Daarvoor is `tools/dev/rh-dump-adressen.sh` klaar: dat
+laat het spel draaien, kiest het proces met de grootste `game.exe`-image (niet het hulp-exe van 71
+bytes), dumpt 192 bytes op elke gevraagde rva uit `/proc/<pid>/mem` en laat objdump er 32-bits code van
+maken. De uitvoer komt in `tools/rg-rhio/out/rh-dump` (in de repo, maar genegeerd).
+
+**Volgende stap voor (D)** (een eigen ronde): die dump draaien en de wachtdienst met zijn handvat
+benoemen, daarna vijf starts met en vijf zonder bordantwoord vergelijken. Wat we nu weten: de game
+leest het bord ongeveer 1140-1149 keer in 90 s en komt niet voorbij BOOTING, in geen van de varianten.
