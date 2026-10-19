@@ -120,6 +120,7 @@
      "wait_before": 5.0
     }
    ],
+   "view_copies": [],
    "view_links": [],
    "view_writable": [],
    "windowed_override": false,
@@ -249,6 +250,7 @@
      "wait_before": 5.0
     }
    ],
+   "view_copies": [],
    "view_links": [],
    "view_writable": [],
    "windowed_override": false,

@@ -134,6 +134,7 @@
      "wait_before": 0.0
     }
    ],
+   "view_copies": [],
    "view_links": [],
    "view_writable": [],
    "windowed_override": false,
@@ -277,6 +278,7 @@
      "wait_before": 0.0
     }
    ],
+   "view_copies": [],
    "view_links": [],
    "view_writable": [],
    "windowed_override": false,

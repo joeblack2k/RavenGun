@@ -888,10 +888,10 @@ opgelost:
 anders op wacht. De volgende stap is de **handvatwaarde** van die wacht te lezen; dat kan op twee
 manieren:
 
-* de mutex-haken in rg_rhio (`WaitForSingleObject`/`ReleaseMutex`/`CreateMutexA`) -- die bestaan nu,
-  maar ze **mogen niet aan**: gezet in DllMain (of zelfs lui bij de eerste bordaanraking) laat de
-  CRT de game meteen stoppen (zie de dagstand). Ze staan achter `rg-rhio-mutex.aan` en zijn
-  gedocumenteerd als onbruikbaar tot de oorzaak daarvan bekend is;
+* de mutex-haken in rg_rhio (`WaitForSingleObject`/`ReleaseMutex`/`CreateMutexA`) -- die bestaan nu.
+  Het vermoeden dat ze de game laten stoppen is **niet bevestigd**: in de A/B-proef bleven alle tien
+  starts draaien (vijf met de haken, vijf zonder) en lazen ze het bord gelijk. Ze staan achter
+  `rg-rhio-mutex.aan` en zijn standaard uit; de lange wachtdiensten worden wel apart gemeten;
 * of: de argumenten van de wachtdraad uit het geheugen lezen (het handvat staat op de stapel van
   draad 260) en dan kijken wie dat handvat bezit.
 
@@ -901,9 +901,12 @@ kwartier).
 
 ### Wat niet werkte (en waarom dat nuttig is)
 
-* **De mutex-haken in rg_rhio** (`WaitForSingleObject`/`ReleaseMutex`/`CreateMutexA`) laten de game
-  meteen stoppen, of ze nu in `DllMain` gezet worden of lui bij de eerste bordaanraking. Ze staan
-  achter `rg-rhio-mutex.aan`/`RG_RHIO_MUTEX=1` en zijn gedocumenteerd als **niet gebruiken**.
+* **De mutex-haken in rg_rhio** (`WaitForSingleObject`/`ReleaseMutex`/`CreateMutexA`): hier stond dat ze
+  de game meteen laten stoppen. Dat is **niet bevestigd** -- vijf starts met de haken en vijf zonder
+  bleven alle tien draaien, met per variant dezelfde bordlezers (zie de tabel en de weggegooide starts
+  hierboven). De oude conclusie kwam uit een bisect met een start per variant. Ze staan achter
+  `rg-rhio-mutex.aan`/`RG_RHIO_MUTEX=1` en zijn standaard uit, omdat ze veel logboekruimte kostten, niet
+  omdat ze de game stoppen.
 * **De meetdraad uitbreiden met de stapelwoorden** (om het handvat van de wacht te lezen) laat de game
   ook stoppen. Die wijziging is teruggedraaid; de meetdraad is precies zoals hij in de repo staat.
 * De **start is soms wisselvallig**: met dezelfde DLL's en dezelfde view start de game de ene keer wel

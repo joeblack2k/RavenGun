@@ -88,6 +88,7 @@ def cpp_side(rg, name, tp, patches, user, env, extra=()):
             "stack": {"reserve": p["stack_reserve"], "src": p["stack_src"], "dest": p["stack_dest"]} if p.get("stack_reserve") else None,
             "view_links": p.get("view_links", []),
             "view_writable": p.get("view_writable", []),
+            "view_copies": p.get("view_copies", []),
         }
         # [Launch] PrefixSetup en SecondBare (review 13, ronde 2): de stappen, de stempel en de kale tweede start horen ook vast
         # te liggen. Alleen als het plan ze heeft, zodat de gouden bestanden van de andere games niet veranderen; krijgt een

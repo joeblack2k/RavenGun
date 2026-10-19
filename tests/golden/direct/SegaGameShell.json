@@ -88,6 +88,7 @@
      "wait_before": 0.0
     }
    ],
+   "view_copies": [],
    "view_links": [],
    "view_writable": [
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/ShellData",
@@ -189,6 +190,7 @@
      "wait_before": 0.0
     }
    ],
+   "view_copies": [],
    "view_links": [],
    "view_writable": [
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/ShellData",

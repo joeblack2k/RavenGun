@@ -88,6 +88,10 @@
      "wait_before": 0.0
     }
    ],
+   "view_copies": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/gs2.ini",
+    "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/mxRingwide.ini"
+   ],
    "view_links": [],
    "view_writable": [],
    "windowed_override": false,
@@ -184,6 +188,10 @@
      "role": "main",
      "wait_before": 0.0
     }
+   ],
+   "view_copies": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/gs2.ini",
+    "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/mxRingwide.ini"
    ],
    "view_links": [],
    "view_writable": [],
