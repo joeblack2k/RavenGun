@@ -814,6 +814,7 @@ void setup_dongle_trace() {
     if (GetEnvironmentVariableA("RG_DONGLE", v, sizeof v) == 0 || !v[0]) return;   // uit
     rg_dongle::g_log = &rg_log;
     rg_dongle::g_fake = lstrcmpiA(v, "fake") == 0;
+    rg_dongle::g_chain = lstrcmpiA(v, "chain") == 0;
     rg_log("dongel: aan (%s), SetupAPI en DeviceIoControl worden gevolgd", v);
     HMODULE self = GetModuleHandleW(nullptr);
     auto koppel = [self](const char* dll, const char* fn, void* repl, void** oud) {

@@ -38,6 +38,7 @@ inline device_io_control_fn g_device_io_control = nullptr;
 inline read_file_fn g_read_file = nullptr;
 inline void (*g_log)(const char*, ...) = nullptr;
 inline bool g_fake = false;
+inline bool g_chain = false;   // RG_DONGLE=chain: alleen loggen wat het origineel antwoordt
 
 inline constexpr wchar_t kDonglePad[] = L"\\\\?\\rg-dongle#vid_0000&pid_0000#1";
 inline constexpr wchar_t kDonglePijp[] = L"\\\\.\\pipe\\rg-dongle";
@@ -162,10 +163,13 @@ inline BOOL WINAPI hook_device_io_control(HANDLE dev, DWORD code, LPVOID in, DWO
                                           LPDWORD terug, LPOVERLAPPED ov) {
     if (g_fake && dev && dev != INVALID_HANDLE_VALUE) {
         // Wat vraagt het spel, en met welke buffer? (De eerste versie antwoordt met nullen.)
+        char hex[3 * 32 + 1] = {};
+        const auto* b = static_cast<const unsigned char*>(in);
+        if (b)
+            for (DWORD i = 0; i < in_len && i < 32; ++i) std::snprintf(hex + i * 3, 4, "%02x ", b[i]);
         if (g_log)
-            g_log("dongel: DeviceIoControl code 0x%08lx in %lu uit %lu%s", static_cast<unsigned long>(code),
-                  static_cast<unsigned long>(in_len), static_cast<unsigned long>(out_len),
-                  in && in_len ? " (invoer aanwezig)" : "");
+            g_log("dongel: DeviceIoControl code 0x%08lx in %lu [%s] uit %lu", static_cast<unsigned long>(code),
+                  static_cast<unsigned long>(in_len), hex, static_cast<unsigned long>(out_len));
         if (out && out_len) {
             std::memset(out, 0, out_len);
             if (terug) *terug = out_len;
@@ -180,7 +184,17 @@ inline BOOL WINAPI hook_device_io_control(HANDLE dev, DWORD code, LPVOID in, DWO
         g_log("dongel: DeviceIoControl code 0x%08lx in %lu uit %lu", static_cast<unsigned long>(code),
               static_cast<unsigned long>(in_len), static_cast<unsigned long>(out_len));
     if (!g_device_io_control) return FALSE;
-    return g_device_io_control(dev, code, in, in_len, out, out_len, terug, ov);
+    const BOOL ok = g_device_io_control(dev, code, in, in_len, out, out_len, terug, ov);
+    if (g_chain && g_log) {
+        const DWORD n = terug ? *terug : 0;
+        char hex[3 * 32 + 1] = {};
+        const auto* b = static_cast<const unsigned char*>(out);
+        if (ok && b)
+            for (DWORD i = 0; i < n && i < 32; ++i) std::snprintf(hex + i * 3, 4, "%02x ", b[i]);
+        g_log("dongel: keten code 0x%08lx -> %s, %lu bytes: %s", static_cast<unsigned long>(code), ok ? "ok" : "fout",
+              static_cast<unsigned long>(n), hex);
+    }
+    return ok;
 }
 
 }  // namespace rg_dongle
