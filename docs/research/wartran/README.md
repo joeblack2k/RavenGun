@@ -898,3 +898,27 @@ manieren:
 De syscallnummers zijn te vinden met `objdump -d --start-address=$((0x7bc00000+RVA))` op
 `wine/proton-*/lib/wine/i386-windows/ntdll.dll` (let op: de VMA, niet de RVA -- dat kostte hier een
 kwartier).
+
+### Wat niet werkte (en waarom dat nuttig is)
+
+* **De mutex-haken in rg_rhio** (`WaitForSingleObject`/`ReleaseMutex`/`CreateMutexA`) laten de game
+  meteen stoppen, of ze nu in `DllMain` gezet worden of lui bij de eerste bordaanraking. Ze staan
+  achter `rg-rhio-mutex.aan`/`RG_RHIO_MUTEX=1` en zijn gedocumenteerd als **niet gebruiken**.
+* **De meetdraad uitbreiden met de stapelwoorden** (om het handvat van de wacht te lezen) laat de game
+  ook stoppen. Die wijziging is teruggedraaid; de meetdraad is precies zoals hij in de repo staat.
+* De **start is soms wisselvallig**: met dezelfde DLL's en dezelfde view start de game de ene keer wel
+  (foto ~23 kB, I/O CHECKING) en de andere keer niet (de lader stopt met 0 en de game sluit meteen).
+  Een keurproef hoort daarom altijd een foto te maken en niet alleen naar het logboek te kijken.
+
+### Concreet vervolg voor de volgende ronde
+
+1. Het handvat van de wacht van draad 260 lezen **zonder** een API-haak: het argument staat op de
+   stapel van die draad. Dat kan met een *apart* meetprogramma (buiten rg-compat om), of door in
+   rg_rhio op een **eigen** moment (na de eerste bordopdracht) de `Esp` van de andere draden op te
+   vragen en alleen te *lezen* -- niet te haken.
+2. Met dat handvat: kijken welke draad het bezit (`NtQueryMutant`-achtig, of door de
+   `ReleaseMutex`-aanroepen van de game in een *tabel* bij te houden die we uit het bordprotocol
+   kennen).
+3. Blijkt de bezitter een van onze draden (352/356 wachten met geen enkele exe-aanroep op de stapel),
+   dan is dat de kant om te repareren: die draden horen het bord te voeden en het slot daarna vrij te
+   geven.

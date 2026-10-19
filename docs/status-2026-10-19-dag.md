@@ -78,7 +78,10 @@ PRbk*.dat) zijn niet verplaatst, gewijzigd of verwijderd.
 * **(D)** Robin Hood 90 min (09:50-10:47): de meetdraad **loopt** nu (markerbestand) en de meting
   wijst uit dat de hoofddraad in `NtWaitForSingleObject` wacht terwijl geen enkele draad in de
   lock-helper zit; de volgende stap is de handvatwaarde. Zie `docs/research/wartran/README.md`.
-  De mutex-haken zijn gebouwd maar mogen niet aan (ze laten de game stoppen) -- dat staat er ook.
+  De mutex-haken zijn gebouwd maar mogen niet aan (ze laten de game stoppen), en ook het uitbreiden
+  van de meetdraad met stapelwoorden bleek fataal (teruggedraaid; de meetdraad is weer precies zoals
+  in de repo). De volgende stap staat in de wartran-README: het handvat van de wacht lezen zonder te
+  haken. **Eerlijk: I/O CHECKING is nog niet voorbij.**
   **Oudere notitie:** de wachtende hoofddraad -- **deels gedaan**: de mutex is gevonden en
   gedocumenteerd (`docs/research/wartran/README.md`), en de valkuilen bij het meten staan er ook
   (controller voor de daemon, `pgrep` die je eigen shell matcht). De meetdraad zelf moet nog
