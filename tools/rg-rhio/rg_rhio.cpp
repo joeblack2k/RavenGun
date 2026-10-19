@@ -1079,19 +1079,30 @@ void MeldMutexTelling() {
              g_mutex_hang);
 }
 
+/* GetLastError blijft in deze drie haken precies wat de echte functie achterliet (review 14, ronde 2):
+ * MutexAan (bij de eerste aanroep: omgeving en markerbestand), LogMutex en MeldMutexTelling kunnen hem
+ * veranderen, en het spel kan hem na de aanroep lezen. Daarom: de waarde van de beller bewaren en voor
+ * elke echte aanroep terugzetten, de waarde na de laatste echte aanroep bewaren en vlak voor het
+ * teruggeven terugzetten. */
 HANDLE WINAPI rg_CreateMutexA(LPSECURITY_ATTRIBUTES sa, BOOL eigenaar, LPCSTR naam) {
     HANDLE h = g_echte_createmutex ? g_echte_createmutex(sa, eigenaar, naam) : nullptr;
+    const DWORD fout = GetLastError();
     if (MutexAan()) {
         if (InterlockedIncrement(&g_mutex_create) <= kMutexNamenMax)
             LogMutex("mutex: CreateMutexA(naam=%s, eigenaar=%d) -> %p  beller=%s",
                      naam ? naam : "(geen)", (int)eigenaar, h, BellerTekst(__builtin_return_address(0)).c_str());
         MeldMutexTelling();
     }
+    SetLastError(fout);
     return h;
 }
 
 DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
-    if (!MutexAan() || ms == 0) return g_echte_waitobj ? g_echte_waitobj(h, ms) : WAIT_FAILED;
+    const DWORD fout_in = GetLastError();
+    if (!MutexAan() || ms == 0) {
+        SetLastError(fout_in);
+        return g_echte_waitobj ? g_echte_waitobj(h, ms) : WAIT_FAILED;
+    }
     /* Een wachtdienst van 0 ms kan niet blijven hangen (die komt meteen terug), en juist die vulden het
      * budget: in de hermeting waren alle 3000 mutex-regels zo'n poll van de CRT (game.exe+0x90bdd, 0 ms).
      * Ze lopen hierboven ongemeten door.
@@ -1110,7 +1121,9 @@ DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
     const void* beller = __builtin_return_address(0);
     const DWORD begin = GetTickCount();
     const bool kan_hangen = ms == INFINITE || ms > kMutexHangMs;
+    SetLastError(fout_in);
     DWORD r = g_echte_waitobj ? g_echte_waitobj(h, kan_hangen ? kMutexHangMs : ms) : WAIT_FAILED;
+    DWORD fout = GetLastError();
     if (!kan_hangen || r != WAIT_TIMEOUT) {
         const DWORD duur = GetTickCount() - begin;
         if (r == WAIT_TIMEOUT) {
@@ -1123,6 +1136,7 @@ DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
                          BellerTekst(beller).c_str());
         }
         MeldMutexTelling();
+        SetLastError(fout);
         return r;
     }
     /* Mogelijk een hang: nu het begin, voor het verder blokkeren. */
@@ -1136,21 +1150,26 @@ DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
         const DWORD al = GetTickCount() - begin;
         rest = al < ms ? ms - al : 0;
     }
+    SetLastError(fout_in);
     r = g_echte_waitobj(h, rest);
+    fout = GetLastError();
     LogMutex("mutex: draad %lu wachtte op %p (%lu ms, geduurd %lu ms) -> %lu  beller=%s",
              static_cast<unsigned long>(tid), h, static_cast<unsigned long>(ms),
              static_cast<unsigned long>(GetTickCount() - begin), static_cast<unsigned long>(r),
              BellerTekst(beller).c_str());
     MeldMutexTelling();
+    SetLastError(fout);
     return r;
 }
 
 BOOL WINAPI rg_ReleaseMutex(HANDLE h) {
     BOOL r = g_echte_release ? g_echte_release(h) : FALSE;
+    const DWORD fout = GetLastError();
     if (MutexAan()) {
         InterlockedIncrement(&g_mutex_release);
         MeldMutexTelling();
     }
+    SetLastError(fout);
     return r;
 }
 
