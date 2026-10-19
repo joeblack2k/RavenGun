@@ -955,6 +955,42 @@ std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const s
     return prefixstap_map_problemen(st.cwd, w, p);
 }
 
+std::string prefix_van_plan(const DirectPlan& plan) {
+    /* Welke prefix hoort bij dit plan? Het plan hoort hem te noemen (de motor doet dat), maar een met
+     * de hand gemaakt plan mag hem ook in de omgeving zetten -- dezelfde bron die de motor gebruikt.
+     * Zowel de stempelcontrole als de prefix:-bron van de loper gebruiken DEZE functie (review 15,
+     * punt 4): eerst gebruikte de loper alleen plan.prefix en de stempelcontrole de omgeving, en dan
+     * leest een leeg plan.prefix de bron ten opzichte van de werkmap. */
+    if (!plan.prefix.empty()) return plan.prefix;
+    for (const char* k : {"RG_WINEPREFIX", "TP_WINEPREFIX", "WINEPREFIX"}) {
+        const auto it = plan.env.find(k);
+        if (it != plan.env.end() && !it->second.empty()) return it->second;
+    }
+    return {};
+}
+
+std::vector<std::string> stempel_problemen(const DirectPlan& plan, const DirectPaths& p) {
+    if (plan.prefix_setup_mark.empty()) return {};
+    const std::string m = plan.prefix_setup_mark;
+    const std::string pfx = prefix_van_plan(plan);
+    const std::string map = pjoin(pfx, ".ravengun-prefixsetup");
+    bool punt_punt = false;
+    for (const std::string& deel : nonempty_split(m, '/'))
+        if (deel == "..") punt_punt = true;
+    /* on_nas() klapt dicht voor een pad dat niet bestaat (volg_pad mislukt), en de stempelmap bestaat
+     * bij een VERSE prefix nog niet. Dan keek de controle naar de map zelf en werd elke eerste start
+     * geweigerd -- dat vond de proef met het lege plan.prefix. Bestaat de stempelmap nog niet, dan
+     * kijken we naar de prefix zelf: de map komt daar immers in, en staat de prefix op de NAS, dan
+     * weigeren we alsnog. Bestaat hij wel, dan moet hij zelf lokaal zijn (een koppeling naar de NAS
+     * valt hier ook op, want dan wijst abspath() ergens anders heen). */
+    const bool bestaat = lexists(dirname(m)) || lexists(m);
+    if (pfx.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") || punt_punt ||
+        (bestaat ? on_nas(dirname(m), p) : on_nas(pfx, p)))
+        return {"de stempel van de prefixstappen (" + m + ") moet in " + map +
+                " liggen, op .done eindigen, geen .. bevatten en niet op de NAS liggen"};
+    return {};
+}
+
 std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const DirectPaths& p) {
     if (plan.prefix_setup.empty()) return {};
     if (const std::string k = koppelpunten_fout(p); !k.empty()) return {k};
@@ -962,30 +998,8 @@ std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const D
     /* Zoals de motor: zonder view is de "wortel" de spelmap zelf, en die kan op de NAS liggen. */
     if (!binnen(abspath(wortel), abspath(p.views())) || abspath(wortel) == abspath(p.views()))
         return {"de prefixstappen vragen een view; " + plan.game + " ligt niet in " + p.views()};
-    /* De stempel is een pad dat in het plan staat, en een plan is JSON die ook met de hand te maken is.
-     * Zonder controle zou zo'n plan de stempel overal kunnen neerzetten -- op de NAS, of over een
-     * bestand van de gebruiker heen. Daarom precies <prefix>/.ravengun-prefixsetup/<naam>.done, zonder
-     * ".." en niet op de NAS (review 14, punt 3). Een lege stempel betekent "geen stempel" en mag. */
-    if (!plan.prefix_setup_mark.empty()) {
-        const std::string m = plan.prefix_setup_mark;
-        /* Welke prefix? Het plan hoort hem te noemen (de motor doet dat), maar een met de hand gemaakt
-         * plan mag hem ook in de omgeving zetten -- dat is dezelfde bron die de motor gebruikt. Zonder
-         * prefix is er niets te controleren en weigeren we. */
-        std::string pfx = plan.prefix;
-        if (pfx.empty())
-            for (const char* k : {"RG_WINEPREFIX", "TP_WINEPREFIX", "WINEPREFIX"}) {
-                const auto it = plan.env.find(k);
-                if (it != plan.env.end() && !it->second.empty()) { pfx = it->second; break; }
-            }
-        const std::string map = pjoin(pfx, ".ravengun-prefixsetup");
-        bool punt_punt = false;
-        for (const std::string& deel : nonempty_split(m, '/'))
-            if (deel == "..") punt_punt = true;
-        if (pfx.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") ||
-            punt_punt || on_nas(dirname(m), p))
-            return {"de stempel van de prefixstappen (" + m + ") moet in " + map +
-                    " liggen, op .done eindigen, geen .. bevatten en niet op de NAS liggen"};
-    }
+    /* De stempel van de prefixstappen: zie stempel_problemen() hierboven. */
+    if (const std::vector<std::string> fout = stempel_problemen(plan, p); !fout.empty()) return fout;
     std::vector<std::string> uit;
     for (const DirectSetupStep& st : plan.prefix_setup)
         for (const std::string& x : prefixstap_problemen(st, wortel, p)) uit.push_back(st.tekst + ": " + x);

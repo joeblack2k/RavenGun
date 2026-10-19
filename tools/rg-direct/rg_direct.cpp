@@ -1162,7 +1162,8 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                 /* De bron in de prefix opnieuw in elkaar zetten met de prefix van DIT plan: het plan
                  * kan met een andere prefix gemaakt zijn dan waarmee het nu draait (review 13, punt 4).
                  * from_rel is in prefixstap_problemen() gecontroleerd (geen .., niet absoluut). */
-                const std::string bron = stap.from_prefix ? D::pjoin(plan.prefix, stap.from_rel) : stap.from;
+                const std::string bron =
+                    stap.from_prefix ? D::pjoin(D::prefix_van_plan(plan), stap.from_rel) : stap.from;
                 if (stap.from_prefix && bron != stap.from)
                     log("prefixstap: bron in de prefix: " + bron + " (het plan noemde " + stap.from + ")");
                 std::string fout, inhoud, rerr, werr;
@@ -1223,6 +1224,17 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
         /* De stempel voor de hele lijst, pas nu alles gelukt is. Mislukt het schrijven, dan zeggen we
          * dat: anders zou de volgende start alles opnieuw doen zonder dat iemand weet waarom. */
         if (!plan.prefix_setup_mark.empty() && !stempel_gezet) {
+            /* Nog een keer controleren, NU, vlak voor het schrijven (review 15, punt 4): tussen de
+             * controle bij de start en dit moment kan er van alles veranderd zijn -- de map zelf kan
+             * een koppeling naar de NAS geworden zijn, en create_directories en write_atomic volgen
+             * die. Klopt er iets niet, dan slaan we de stempel over en zeggen we dat: de stappen
+             * lopen dan een volgende keer opnieuw, wat altijd veilig is. */
+            const std::vector<std::string> sfout = D::stempel_problemen(plan, wp);
+            if (!sfout.empty()) {
+                log("prefixstappen: de stempel wordt NIET geschreven -- " + sfout.front() +
+                    "; de stappen lopen een volgende keer opnieuw");
+                return 0;
+            }
             std::error_code ec;
             std::filesystem::create_directories(std::filesystem::path(plan.prefix_setup_mark).parent_path(), ec);
             std::string werr;

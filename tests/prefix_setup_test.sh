@@ -67,6 +67,8 @@ case "\${1:-}" in
     *regsvr32*)    echo "regsvr32 \$* (\$PWD)" >> "$W/regsvr32.log";;
     *hang*)        sleep 60 & echo \$! > "$W/wees.pid"; sleep 60;;
     *achterblijver*) sleep 60 & echo \$! > "$W/achter.pid"; exit 0;;
+    *stempelkoppeling*) rm -rf "\$WINEPREFIX/.ravengun-prefixsetup"
+                   ln -s "$NAS/stempels" "\$WINEPREFIX/.ravengun-prefixsetup";;
     *verbuig*)     rm -rf "$V/AMCUS/werk"; ln -s "$W/elders" "$V/AMCUS/werk";;
     *teller*)      echo gelopen >> "$W/gelopen.log";;
     *mislukt*)     for i in \$(seq 1 300); do echo "regel \$i"; done; echo "FOUTMELDING-LAATSTE"; exit 3;;
@@ -98,10 +100,18 @@ STEMPEL="$PFX/.ravengun-prefixsetup/proef.done"
 # {"copy": <doel in de view>, "prefix": <pad in de prefix>} of {"copy": ..., "van": <absoluut pad>}.
 # $2 = "wrapper" voor de wrapper wine-prefix.
 maak_plan() {
-    python3 -I - "$PLAN" "$1" "${2:-}" "$W" "$V" "$PFX" "$STEMPEL" <<'PY'
+    python3 -I - "$PLAN" "$1" "${2:-}" "$W" "$V" "${3:-$PFX}" "$STEMPEL" <<'PY'
 import json, sys
 plan, stappen, soort, w, v, pfx, stempel = sys.argv[1:8]
-if soort == "wrapper":
+if soort == "leegprefix":
+    # Geen prefix in het plan: de motor haalt hem dan uit de omgeving. Voor de stempelcontrole en de
+    # prefix:-bron moet dat DEZELFDE bron zijn (review 15, punt 4).
+    wine = w + "/bin/wine"
+    env = {"PATH": "/usr/bin:/bin", "HOME": w + "/home"}
+    if pfx:
+        env["WINEPREFIX"] = pfx
+    prefix = ""
+elif soort == "wrapper":
     wine = w + "/wrap/wine-prefix"
     env = {"PATH": "/usr/bin:/bin", "HOME": w + "/home", "RG_WINE": w + "/bin2/wine", "RG_WINEPREFIX": w + "/prefix2"}
     prefix = w + "/prefix2"
@@ -313,6 +323,51 @@ leeft "$(cat "$W/wees.pid" 2>/dev/null)" && mislukt "het kind van de stap leeft 
 # --- 12. niets op de NAS ------------------------------------------------------------------------
 nas_na=$(cd "$NAS" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
 [ "$nas_voor" = "$nas_na" ] || { mislukt "de nagebootste NAS is veranderd"; diff <(echo "$nas_voor") <(echo "$nas_na") | head -5; }
+
+# --- 9. de stempel van de prefixstappen (review 15, punt 4) -------------------------------------
+# 9a. de stempelmap wordt TIJDENS de stappen een koppeling naar de NAS. De controle bij de start ziet
+# dat niet (toen was het nog een echte map); de controle vlak voor het schrijven moet hem pakken.
+mkdir -p "$NAS/stempels"
+rm -rf "$PFX/.ravengun-prefixsetup"
+maak_plan '[{"run": ".", "prog": "stempelkoppeling"}, {"copy": "AMCUS/s.ini", "van": "'"$V/bron.ini"'"}]'
+uit=$(stappen); rc=$?
+[ "$rc" = 0 ] || mislukt "de stappen hoorden te lopen (de koppeling ontstaat pas onderweg): $uit"
+[ -e "$V/AMCUS/s.ini" ] || mislukt "de kopieerstap is niet gelopen"
+case "$uit" in *"stempel wordt NIET geschreven"*) ;; *) mislukt "de koppeling als stempelmap is niet gemeld: $uit";; esac
+[ ! -e "$NAS/stempels/proef.done" ] || mislukt "de stempel is door de koppeling heen op de NAS geschreven"
+zeg "stempelmap die onderweg een koppeling naar de NAS wordt: niet geschreven (goed)"
+
+# 9b. een LOSSE koppeling als stempelmap (het doel bestaat niet): on_nas klapt dicht, dus weigeren.
+rm -rf "$PFX/.ravengun-prefixsetup"
+ln -sfn "$NAS/bestaat-niet" "$PFX/.ravengun-prefixsetup"
+maak_plan '[{"copy": "AMCUS/t.ini", "van": "'"$W/bron.ini"'"}]'
+uit=$(stappen); rc=$?
+[ "$rc" != 0 ] || mislukt "een losse koppeling als stempelmap gaf status 0"
+[ ! -e "$V/AMCUS/t.ini" ] || mislukt "de stap liep toch met een losse koppeling als stempelmap"
+zeg "losse koppeling als stempelmap: geweigerd (goed)"
+rm -rf "$PFX/.ravengun-prefixsetup"
+
+# 9c. leeg plan.prefix: de prefix komt uit de omgeving, en dat moet dezelfde bron zijn als de
+# prefix:-bron van de loper. Geldig -> aannemen.
+maak_plan '[{"run": ".", "prog": "preprocess"}, {"copy": "AMCUS/u.ini", "prefix": "drive_c/windows/WritableConfig.ini"}]' leegprefix
+uit=$(stappen); rc=$?
+[ "$rc" = 0 ] || mislukt "een leeg plan.prefix met een geldige WINEPREFIX werd geweigerd: $uit"
+[ -e "$V/AMCUS/u.ini" ] || mislukt "de prefix:-bron is met een leeg plan.prefix niet gelezen"
+[ -e "$STEMPEL" ] || mislukt "de stempel is met een leeg plan.prefix niet geschreven"
+zeg "leeg plan.prefix met een geldige WINEPREFIX: bron gelezen en stempel geschreven (goed)"
+
+# 9d. dezelfde zaak, maar de omgevingsprefix staat op de NAS: weigeren.
+rm -f "$STEMPEL"
+maak_plan '[{"copy": "AMCUS/v.ini", "van": "'"$W/bron.ini"'"}]' leegprefix "$NAS"
+uit=$(stappen); rc=$?
+[ "$rc" != 0 ] || mislukt "een stempel in een NAS-prefix werd aangenomen"
+zeg "leeg plan.prefix met een NAS-prefix: geweigerd (goed)"
+
+# 9e. en zonder prefix in het plan EN zonder prefix in de omgeving: weigeren.
+maak_plan '[{"copy": "AMCUS/w.ini", "van": "'"$W/bron.ini"'"}]' leegprefix ""
+uit=$(stappen); rc=$?
+[ "$rc" != 0 ] || mislukt "een plan zonder enige prefix werd aangenomen"
+zeg "geen prefix in het plan en geen in de omgeving: geweigerd (goed)"
 
 if [ "$fout" != 0 ]; then zeg "mislukt"; exit 1; fi
 zeg "alles goed"

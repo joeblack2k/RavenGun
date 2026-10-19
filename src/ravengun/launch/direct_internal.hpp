@@ -99,6 +99,10 @@ std::vector<std::string> prefixstap_map_problemen(const std::string& map, const 
 std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const std::string& wortel, const DirectPaths& p);
 // De controle van rg-direct --run en --alleen-stappen voor alle prefixstappen van een plan (de view-wortel uit plan.game, de
 // koppelpuntentabel, elke stap). Leeg = veilig; de schrijfmappen (ViewWritable) controleert schrijfmap_problemen() apart.
+// De prefix die bij dit plan hoort (plan.prefix, anders de omgevingsvariabelen uit plan.env).
+std::string prefix_van_plan(const DirectPlan& plan);
+// Alleen de stempel van de prefixstappen (review 14, punt 3; review 15, punt 4).
+std::vector<std::string> stempel_problemen(const DirectPlan& plan, const DirectPaths& p);
 std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const DirectPaths& p);
 // Schrijft een bestand zonder een koppeling te volgen: de tijdelijke naam wordt met O_EXCL|O_NOFOLLOW
 // aangemaakt en daarna met rename() op zijn plaats gezet (rename vervangt de naam zelf, ook als daar

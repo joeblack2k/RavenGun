@@ -1,0 +1,30 @@
+{
+ "plan": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "fallback",
+  "why": "Niet direct te starten: game niet gevonden: '' (voeg de map met de game toe als gamemap in de app, of zet [Game] GamePath in je eigen game.ini)"
+ },
+ "start": {
+  "input": {
+   "board": "",
+   "control_pipe": "",
+   "layout": "WartranTroopers",
+   "route": "tp-shm",
+   "transport": "",
+   "verdict": "ok",
+   "why": ""
+  },
+  "launch_mode": "direct",
+  "verdict": "fallback",
+  "why": "Niet direct te starten: game niet gevonden: '' (voeg de map met de game toe als gamemap in de app, of zet [Game] GamePath in je eigen game.ini)"
+ }
+}
