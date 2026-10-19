@@ -41,8 +41,9 @@ set(RAVENGUN_BUILD_DEFS
 
 # rg-exec (tools/rg-exec): het hulpprogramma tussen gamescope en bwrap van de native route; laat alleen DISPLAY van gamescope door.
 add_executable(rg-exec tools/rg-exec/rg_exec.cpp)
-# Nooit in de gegevensmap van deze gebruiker installeren (~/.local/share/ravengun, dus
-# XDG_DATA_HOME): dat is de gebruikerslaag (patches/, views, prefixen) en niet de applicatie.
+# Nooit in de gegevensmap van deze gebruiker installeren (~/.local/share/ravengun, en een absolute
+# XDG_DATA_HOME): dat is de gebruikerslaag (patches/, views, prefixen) en niet de applicatie. Ook niet
+# in de wortel van een git-werkmap of over een vreemde <prefix>/patches (cmake/CheckInstallPrefix.cmake).
 # Dit staat als eerste installatieregel, zodat er dan nog niets geschreven is. De datamap heet
 # hieronder share/ravengun (RAVENGUN_DATADIR, pas verderop gezet).
 install(CODE "
@@ -780,15 +781,25 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
       # Systeeminstallatie: de datamap is de enige plek (geen /usr/patches).
     elseif(IS_SYMLINK \"\${_rg_dm}\")
       # De productindeling staat er al; de bestanden zijn net in <prefix>/patches gezet.
+      file(WRITE \"\${_rg_prefix}/${RAVENGUN_DATADIR}/.patches-installatie\" \"patches/ naast bin/ is door de installatie gemaakt\\n\")
     else()
-      # (Het installatiescript weigert al eerder een prefix die de gegevensmap van de gebruiker
-      # is; anders zou de rename hieronder ~/.local/share/ravengun/patches verplaatsen.)
+      # (Het installatiescript weigert al eerder een prefix die de gegevensmap van de gebruiker, of de wortel van een git-werkmap,
+      # is, en een <prefix>/patches die niet van een eerdere installatie is: cmake/CheckInstallPrefix.cmake.) Hier nogmaals:
+      # een bestaande <prefix>/patches gaat alleen weg als hij leeg is of het merkbestand van een eerdere installatie er staat.
       set(_rg_top \"\${_rg_prefix}/patches\")
-      if(EXISTS \"\${_rg_top}\")
+      set(_rg_merk \"\${_rg_prefix}/${RAVENGUN_DATADIR}/.patches-installatie\")
+      if(IS_SYMLINK \"\${_rg_top}\")
+        message(FATAL_ERROR \"\${_rg_top} is een koppeling; niet vervangen\")
+      elseif(EXISTS \"\${_rg_top}\")
+        file(GLOB _rg_inhoud LIST_DIRECTORIES true \"\${_rg_top}/*\" \"\${_rg_top}/.*\")
+        if(_rg_inhoud AND NOT EXISTS \"\${_rg_merk}\")
+          message(FATAL_ERROR \"\${_rg_top} bestaat al en is niet van een eerdere installatie; niet vervangen\")
+        endif()
         file(REMOVE_RECURSE \"\${_rg_top}\")
       endif()
       file(RENAME \"\${_rg_dm}\" \"\${_rg_top}\")
       file(CREATE_LINK \"../../patches\" \"\${_rg_dm}\" SYMBOLIC)
+      file(WRITE \"\${_rg_merk}\" \"patches/ naast bin/ is door de installatie gemaakt\\n\")
     endif()
   ")
 else()
