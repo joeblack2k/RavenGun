@@ -80,8 +80,18 @@ private:
 };
 // De schrijflaag (zie direct_apply.cpp): mappen waar de game in schrijft worden echte mappen in de
 // view, met een kopie van de NAS-inhoud; komt het pad daarna nog op de NAS uit, dan weigert de start.
+// `vers_omgezet` (mag nullptr) krijgt elke schrijfmap die bij deze aanroep van een koppeling naar de NAS een echte map werd.
 bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
-                         std::string& err);
+                         std::string& err, std::vector<std::string>* vers_omgezet = nullptr);
+// [Launch] ViewLocalFiles: in elke map van pl.view_local_files wordt elk kind dat een bestands-koppeling naar de NAS is een lokale
+// kopie (dezelfde veilige kopie en grens als een schrijfmap); een koppeling naar een map blijft staan, een echte submap wordt niet
+// bekeken. Weigert als de map zelf een koppeling is of op de NAS ligt, of als een kind naar iets anders op de NAS wijst. Eerst
+// wordt alles nagekeken, pas daarna gekopieerd: een weigering laat de map zoals hij was.
+bool place_view_local_files(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err);
+// Alleen lezen, leeg = veilig: wat in een map van [Launch] ViewLocalFiles nog op de NAS uitkomt. De map zelf een koppeling of op de
+// NAS, of een direct kind dat een koppeling naar de NAS is en niet naar een map wijst (de exe van het plan, `exe`, en zijn
+// .ravengun-orig tellen niet). place_view_local_files (de laatste controle) en rg-direct --run gebruiken hem.
+std::vector<std::string> lokale_bestanden_problemen(const std::string& map, const std::string& exe, const DirectPaths& p);
 // Het pad zoals Wine het vindt: per onderdeel eerst de precieze naam, anders een naam die alleen in hoofdletters verschilt.
 std::string resolve_case(const std::string& pad);
 // Alleen lezen: alles waardoor een game die in `pad` schrijft op de NAS kan uitkomen (leeg = veilig). De ouder op de NAS, het pad
@@ -148,6 +158,12 @@ bool taito_gun_ini(const Profile& pr, std::string& name, std::string& text);
 
 // --- direct_files.cpp: view, tweede exe, drop-ins --------------------------------------------------------------------------------------
 std::string view_wortel(const std::string& base, const DirectPaths& p);
+// Een padlijst uit [Launch] (ViewWritable, ViewLocalFiles): gescheiden door komma OF puntkomma, elk deel getrimd en met / in plaats
+// van een backslash. Lege delen vallen weg, een deel van alleen spaties komt leeg terug (dat weigert de lezer). EEN lezing voor het plan
+// (direct.cpp, dat ongeldige paden weigert) en de opbouw van de view (direct_files.cpp, die ze overslaat): eerder splitste het
+// plan alleen op de komma en de view ook op de puntkomma, en dan maakte de view twee mappen echt terwijl het plan een niet-bestaand
+// pad "a;b" controleerde (pass 2, herbeoordeling bevinding 1).
+std::vector<std::string> view_padlijst(const std::string& in);
 bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& game, const std::string& et, const DirectPaths& p, bool make,
                std::vector<std::string>& notes, std::string& err);
 

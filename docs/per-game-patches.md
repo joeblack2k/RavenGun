@@ -166,6 +166,7 @@ View =                        ; auto (leeg) | off | N: de lokale view van een ga
 ViewEmptyDirs =               ; mappen die in de view leeg en lokaal zijn (--empty-dir), bv. RSGame/Content/Movies
 ViewLinks =                   ; A -> B[, ...]: in de view wordt A een symlink naar het bestand van B (zie "ViewLinks" hieronder)
 ViewCopies =                  ; A[, ...]: in de view wordt A een lokale kopie, zodat de game nooit naar de NAS schrijft (zie hieronder)
+ViewLocalFiles =              ; map[, ...]: elke bestands-koppeling naar de NAS direct in deze echte map wordt een lokale kopie; map-koppelingen blijven (zie "[Launch] ViewLocalFiles")
 ViewTtcAsTtf =                ; A.ttc[, ...]: in de view wordt de TrueType-collectie A face 0 als losse font (Wine's GDI+ neemt geen .ttc aan; zie hieronder)
 StackReserve =                ; bv. 16M: de exe in de view wordt een lokale kopie met een grotere stapel voor de hoofdthread
 PeFillPages =                 ; true: in dezelfde lokale kopie lopen de secties tot hun bladzijde, zoals Windows ze mapt (zie hieronder)
@@ -1037,3 +1038,41 @@ paden worden al bij het lezen van het profiel geweigerd.
 Ingesteld voor Mario Kart (`AMCUS`, schrijft `WritableConfig.ini`) en Robin Hood (`log`, schrijft
 `PR0/PR1.CFG` en `.CRC`). Proef: `ravengun_direct_launch_tests` (echte map, kopie, NAS ongemoeid,
 tweede keer niets doen, weigeren op de NAS, weigeren van `../x` en `/abs`).
+
+**Zaaigoed in een schrijfmap (pass 2, R2).** Is de schrijfmap bij een start nog een koppeling naar de NAS (een verse view), dan
+wordt hij bij die start een echte map met een kopie van de NAS. Het zaaigoed van de game (`patches/<Game>/seed/`, `seed.hpp`) wint
+dan van die kopie: een versie op de NAS telt niet mee. Was de map al een echte map (de game schreef er eerder zelf in), dan blijft
+wat er staat, ook als het zaaigoed anders is. Haunted Museum II (`ViewWritable = OpenParrot`, zaaigoed `seed/OpenParrot/HM2*`)
+krijgt zo op een verse view de meegeleverde kalibratie. Proef: `ravengun_games_tests`.
+
+## `[Launch] ViewLocalFiles`: echte mappen zonder bestands-koppelingen naar de NAS
+
+Wine verwijdert en hernoemt **door een bestands-koppeling heen**: wineserver werkt met het echte pad (`realpath`), dus een
+`DeleteFile` of `MoveFile` op een koppeling in de view raakt het bestand op de NAS en niet de koppeling. Gemeten bij Sega Game
+Shell (2026-10-19, 13:45): de werkmap was `shell/` in de view, een echte map met ~265 bestands-koppelingen naar de NAS. De
+logboekrotatie van de shell verwijderde 157 oude `Attract - 2610xx.log`-bestanden; in de schrijflaag van bwrap stonden daarna 157
+whiteouts op `Sega/shell/<naam>.log`, terwijl de koppelingen in de view er nog stonden. Zonder die schrijflaag (een kale
+`rg-direct --run`) waren de bestanden op de NAS weg geweest.
+
+Met `ViewLocalFiles = shell` (komma-gescheiden, relatief aan de **wortel van de view**, zoals `ViewWritable`):
+
+- de map wordt bij de opbouw van de view een **echte map met links** (zoals `ViewRealDirs`);
+- bij de start wordt elke **bestands-koppeling naar de NAS direct in die map** een lokale kopie (dezelfde veilige kopie als een
+  schrijfmap: `write_atomic`/`rename` over de koppeling, grens 256 MiB voor de hele map; eerst wordt alles nagekeken, pas daarna
+  gekopieerd, dus een weigering laat de map zoals hij was);
+- **map-koppelingen** erin (alleen-lezen inhoud, bij de shell `Graphics/` en `Sounds/`) blijven staan; echte submappen worden niet
+  bekeken (niet recursief: een submap waarin de game schrijft hoort in `ViewWritable`, bij de shell `shell/variables`);
+- de **exe van het plan** (en een `.ravengun-orig` van `StackReserve`) blijft een koppeling: de view wordt aan die koppeling
+  herkend en Wine schrijft niet in een draaiend programma;
+- de start **weigert** als de map zelf een koppeling is of op de NAS ligt, of als een kind naar iets anders op de NAS wijst (een
+  kapotte koppeling: daardoor zou de game een bestand op de NAS maken);
+- een kale `rg-direct --run` **weigert** zolang er direct in zo'n map nog een bestands-koppeling naar de NAS staat (de daemon
+  maakt ze eerst lokaal);
+- alleen de directe route kent de sleutel: een native of Unity-start met `ViewLocalFiles` weigert.
+
+Verschil met `ViewCopies` (losse bestanden die je bij naam noemt) en `ViewWritable` (een hele map wordt een kopie en mag dan geen
+map-koppeling naar de NAS bevatten). In de engine: `place_view_local_files` en `lokale_bestanden_problemen` in `direct_apply.cpp`,
+in het plan `view_local_files`. Ingesteld voor Sega Game Shell en Transformers: Shadows Rising (dezelfde shell). Proef:
+`ravengun_direct_launch_tests` (bestands-koppelingen lokaal, map-koppelingen en de exe blijven, verwijderen en hernoemen via het
+echte pad laat de NAS gelijk, weigeren van een koppeling of NAS-map, een kapotte koppeling en een te grote map zonder iets te
+kopiëren, `rg-direct --run` weigert, het plan met `../x` en `/abs` weigert).

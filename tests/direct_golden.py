@@ -9,7 +9,7 @@ werkmap, Wine en prefix, de volledige omgeving, teknoparrot.ini met inhoud, drop
 worden, de exe met de grotere stapel, de JVS-brug, de procesnamen, de regels per patch en per drop-in, de besturingspipe, de
 starts); ook met de views van een start (--make-view) en dezelfde boom van die views. De JVS-pakketten en -antwoorden
 (jvs.json) komen rechtstreeks uit het script. Alleen wat het script niet kende ([Launch] Dxvk, Gst32, NativeDlls, ViewCopies,
-Registry) is de melding van de engine zelf.
+ViewWritable, ViewLocalFiles, Registry) is de melding van de engine zelf.
 
 Per profiel een bestand <Profiel>.json met:
   plan   de uitkomst van `rg-direct --plan` (verdict, why, invoerroute, [Launch] Mode en de vergeleken velden van het plan)
@@ -98,6 +98,10 @@ def cpp_side(rg, name, tp, patches, user, env, extra=()):
             out["plan"]["prefix_setup_mark"] = p.get("prefix_setup_mark", "")
         if p.get("second_bare"):
             out["plan"]["second_bare"] = True
+        # [Launch] ViewLocalFiles (pass 2, R1): de echte mappen waarvan de bestands-koppelingen naar de NAS bij de start lokaal
+        # worden. Alleen als het plan ze heeft, net als hierboven.
+        if p.get("view_local_files"):
+            out["plan"]["view_local_files"] = p["view_local_files"]
     return out
 
 

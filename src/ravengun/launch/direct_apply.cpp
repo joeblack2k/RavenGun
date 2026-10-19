@@ -349,11 +349,12 @@ bool place_native_dlls(const DirectPlan& pl, const DirectPaths& p, std::vector<s
 
 }  // namespace
 
-bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err,
+                  std::vector<std::string>* vers_omgezet) {
     const MountTableScope koppelpunten(p);   // on_nas() leest /proc/self/mounts een keer voor deze hele stap
     // De schrijfmappen eerst (pass 2, bevinding 12): bij een eerste start is zo'n map nog een koppeling naar de NAS, en een drop-in of
     // bestand erin werd dan overgeslagen ("ligt op de NAS") en kwam pas bij de volgende start.
-    if (!place_view_writable(pl, p, log, err)) return false;
+    if (!place_view_writable(pl, p, log, err, vers_omgezet)) return false;
     for (const std::string& l : pl.dropin_lines) log.push_back("drop-in: " + l);
     for (const DropinFile& f : pl.dropin_files) {
         std::string msg;
@@ -412,6 +413,8 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
     if (!place_view_mod(pl, p, log, err)) return false;
     if (!place_native_dlls(pl, p, log, err)) return false;
     if (!place_stack_copy(pl, p, log, err)) return false;
+    // Na alle andere stappen: een view-link of drop-in kan nog een koppeling in zo'n map gezet hebben (pass 2, R1).
+    if (!place_view_local_files(pl, p, log, err)) return false;
     // Na alle stappen nog een keer: geen latere stap (een view-link, een mod) mag een koppeling naar de NAS in een schrijfmap zetten.
     for (const std::string& w : pl.view_writable) {
         const std::vector<std::string> nog = schrijfmap_problemen(w, p);
@@ -466,6 +469,7 @@ std::string plan_to_json(const DirectPlan& pl) {
     w.end_array();
     strs("view_copies", pl.view_copies);
     strs("view_writable", pl.view_writable);
+    strs("view_local_files", pl.view_local_files);
     w.key("second_bare").value(pl.second_bare);
     w.key("prefix_setup_mark").value(pl.prefix_setup_mark);
     w.key("prefix_setup").begin_array();
@@ -584,6 +588,9 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     if (const auto* f = v.find("view_writable"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_string()) pl.view_writable.push_back(e.str);
+    if (const auto* f = v.find("view_local_files"); f && f->is_array())
+        for (const auto& e : f->arr)
+            if (e.is_string()) pl.view_local_files.push_back(e.str);
     if (const auto* f = v.find("native_dlls"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.native_dlls.emplace_back(e.arr[0].str, e.arr[1].str);
@@ -723,7 +730,10 @@ namespace {
 // (Haunted Museum II data/: gigabytes) mag nooit stil van de NAS gekopieerd worden.
 constexpr uintmax_t kMaxSchrijfmapKopie = 256ull << 20;
 
-bool kopieer_bestand_veilig(const std::string& van, const std::string& naar, uintmax_t& totaal, std::string& err) {
+// Past `van` nog binnen de grens van een kopie (kMaxSchrijfmapKopie)? Telt de grootte bij `totaal` op. Alleen stat, niets lezen:
+// ook de voorcontrole van maak_kinderen_lokaal en place_view_local_files gebruikt hem, zodat een te grote map weigert VOOR er
+// iets gekopieerd is.
+bool past_in_grens(const std::string& van, uintmax_t& totaal, std::string& err) {
     std::error_code ec;
     const uintmax_t grootte = std::filesystem::file_size(van, ec);   // eerst de grootte: een te grote map wordt niet eerst gelezen
     if (ec) { err = "kan " + van + " niet bekijken: " + ec.message(); return false; }
@@ -732,6 +742,13 @@ bool kopieer_bestand_veilig(const std::string& van, const std::string& naar, uin
               "kleine bestanden (stand, instellingen, logs) -- zet de bestanden die de game schrijft in [Launch] ViewCopies";
         return false;
     }
+    totaal += grootte;
+    return true;
+}
+
+bool kopieer_bestand_veilig(const std::string& van, const std::string& naar, uintmax_t& totaal, std::string& err) {
+    uintmax_t na = totaal;
+    if (!past_in_grens(van, na, err)) return false;
     std::string data, werr;
     if (!read_file_strict(van, data, err)) return false;
     totaal += data.size();
@@ -777,8 +794,11 @@ bool kopieer_map_veilig(const std::string& bron, const std::string& doel, uintma
  * A5; zonder dit schrijft een game via zo'n kind alsnog op de NAS). Geen unlink vooraf: write_atomic zet de kopie met rename() op
  * de plek van de koppeling (rename vervangt de koppeling zelf, nooit het doel), dus een mislukte kopie laat de koppeling staan.
  * Een echte submap die zelf op de NAS ligt (een koppelpunt, of direct onder ~/mnt) weigert VOOR er iets in geschreven wordt
- * (pre-merge F1). De kopieën tellen mee in dezelfde grens als de migratie (totaal, F4). */
-bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, uintmax_t& totaal, std::string& err, int diepte = 0) {
+ * (pre-merge F1). De kopieën tellen mee in dezelfde grens als de migratie (totaal, F4).
+ * Twee rondes (pass 2, R4c): eerst alleen nakijken (kopieer = false: weigeringen en de grens, met een kopie van het totaal), dan
+ * pas kopiëren. Eerder kon een bestands-koppeling al lokaal gemaakt zijn voordat een geweigerde map-koppeling aan de beurt was
+ * (de map wordt in leesorde doorlopen), en bleef er een half omgezette map achter. */
+bool loop_kinderen(const std::string& pad, const DirectPaths& p, uintmax_t& totaal, std::string& err, bool kopieer, int diepte) {
     if (diepte > 16) { err = "te diep om na te kijken: " + pad; return false; }
     if (on_nas(pad, p)) { err = pad + " ligt op de NAS (" + realpath_(pad) + "); daar wordt nooit iets geschreven"; return false; }
     std::error_code ec;
@@ -798,12 +818,18 @@ bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, uintmax_
                       "schrijft in [Launch] ViewCopies in plaats van de map in ViewWritable";
                 return false;
             }
-            if (!kopieer_bestand_veilig(doel, kind, totaal, err)) return false;
+            if (kopieer ? !kopieer_bestand_veilig(doel, kind, totaal, err) : !past_in_grens(doel, totaal, err)) return false;
         } else if (isdir(kind)) {
-            if (!maak_kinderen_lokaal(kind, p, totaal, err, diepte + 1)) return false;
+            if (!loop_kinderen(kind, p, totaal, err, kopieer, diepte + 1)) return false;
         }
     }
     return true;
+}
+
+bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, uintmax_t& totaal, std::string& err) {
+    uintmax_t schatting = totaal;
+    if (!loop_kinderen(pad, p, schatting, err, false, 0)) return false;
+    return loop_kinderen(pad, p, totaal, err, true, 0);
 }
 
 bool zelfde_naam(const std::string& a, const std::string& b) {
@@ -874,6 +900,104 @@ std::vector<std::string> schrijfmap_problemen(const std::string& opgegeven, cons
     kijk(pad, 0);
     for (const std::string& z : case_zusters(ouder, basename(pad))) kijk(pjoin(ouder, z), 0);
     return uit;
+}
+
+/* [Launch] ViewLocalFiles (pass 2, R1). Wine verwijdert en hernoemt DOOR een bestands-koppeling heen: wineserver werkt met het
+ * echte pad, dus de logboekrotatie van SegaGameShell in shell/ (157 oude logbestanden weg, 2026-10-19 13:45) kwam op de NAS uit;
+ * alleen de schrijflaag van bwrap ving het op, een kale rg-direct --run heeft die niet. In zo'n map wordt elke bestands-koppeling
+ * naar de NAS een lokale kopie; map-koppelingen (alleen-lezen inhoud zoals shell/Graphics) blijven staan en echte submappen worden
+ * niet bekeken (niet recursief; een submap waarin geschreven wordt hoort in ViewWritable). De exe van het plan blijft een
+ * koppeling: het plan herkent de view aan die koppeling (plan_view, samefile), en Wine schrijft niet in een draaiend programma. */
+namespace {
+bool is_exe_van_plan(const std::string& kind, const std::string& exe) {
+    if (exe.empty() || abspath(dirname(kind)) != abspath(dirname(exe))) return false;
+    const std::string n = basename(kind), e = basename(exe);
+    return zelfde_naam(n, e) || zelfde_naam(n, e + kStackOrigSuffix);
+}
+}  // namespace
+
+std::vector<std::string> lokale_bestanden_problemen(const std::string& opgegeven, const std::string& exe, const DirectPaths& p) {
+    const std::string pad = resolve_case(opgegeven);
+    if (!lexists(pad)) {
+        if (on_nas(pad, p)) return {pad + " komt uit op de NAS (" + realpath_(pad) + ")"};
+        return {};   // ontbreekt en lokaal: maakt de game hem, dan is hij lokaal
+    }
+    if (islink(pad)) return {pad + " is een koppeling (naar " + realpath_(pad) + "); ViewLocalFiles vraagt een echte map in de view"};
+    if (on_nas(pad, p)) return {pad + " ligt op de NAS"};
+    if (!isdir(pad)) return {pad + " is geen map"};
+    std::vector<std::string> uit;
+    std::error_code ec;
+    std::filesystem::directory_iterator it(pad, ec);
+    if (ec) return {pad + " is niet te lezen: " + ec.message()};
+    for (const std::filesystem::directory_iterator eind; it != eind; it.increment(ec)) {
+        if (ec) { uit.push_back("fout bij het lezen van " + pad + ": " + ec.message()); break; }
+        const std::string kind = it->path().string();
+        if (!islink(kind) || !on_nas(kind, p) || is_exe_van_plan(kind, exe)) continue;
+        std::string doel;
+        if (!volg_pad(kind, doel)) doel = kind;
+        if (isdir(doel)) continue;   // een map-koppeling: alleen-lezen inhoud, die mag blijven
+        uit.push_back(kind + " is een koppeling naar " + (isfile(doel) ? "een bestand" : "iets") + " op de NAS (" + doel + ")");
+    }
+    std::sort(uit.begin(), uit.end());
+    return uit;
+}
+
+bool place_view_local_files(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+    for (const std::string& opgegeven : pl.view_local_files) {
+        auto fout = [&](const std::string& m) {
+            log.push_back("lokale bestanden: FOUT: " + m + " -- de game wordt niet gestart");
+            err = "lokale bestanden: " + m;
+            return false;
+        };
+        const std::string pad = resolve_case(opgegeven);
+        if (pad != opgegeven)
+            log.push_back("lokale bestanden: " + opgegeven + " heet op schijf " + pad + " (Wine is niet hoofdlettergevoelig); die wordt behandeld");
+        if (!lexists(pad)) {
+            if (on_nas(pad, p)) return fout(pad + " komt uit op de NAS (" + realpath_(pad) + "); een game mag daar nooit in schrijven");
+            log.push_back("lokale bestanden: " + pad + " bestaat niet; niets om lokaal te maken");
+            continue;
+        }
+        if (islink(pad))
+            return fout(pad + " is een koppeling (naar " + realpath_(pad) + "); ViewLocalFiles vraagt een echte map in de view");
+        if (on_nas(pad, p)) return fout(pad + " ligt op de NAS (" + realpath_(pad) + "); daar wordt nooit iets geschreven");
+        if (!isdir(pad)) return fout(pad + " is geen map; zet een los bestand in [Launch] ViewCopies");
+        /* Eerst alles nakijken (weigeringen en de grens), pas daarna kopiëren: een weigering laat de map zoals hij was. */
+        std::vector<std::pair<std::string, std::string>> te_kopieren;   // (bron op de NAS, koppeling in de view)
+        size_t mappen = 0;
+        uintmax_t schatting = 0;
+        std::error_code ec;
+        std::filesystem::directory_iterator it(pad, ec);
+        if (ec) return fout("kan " + pad + " niet lezen: " + ec.message());
+        for (const std::filesystem::directory_iterator eind; it != eind; it.increment(ec)) {
+            if (ec) return fout("fout bij het lezen van " + pad + ": " + ec.message());
+            const std::string kind = it->path().string();
+            if (!islink(kind) || !on_nas(kind, p) || is_exe_van_plan(kind, pl.game)) continue;
+            std::string doel;
+            if (!volg_pad(kind, doel)) doel = kind;
+            if (isdir(doel)) { ++mappen; continue; }
+            if (!isfile(doel))
+                return fout(kind + " is een koppeling naar iets op de NAS dat geen bestand of map is (" + doel + ")");
+            std::string gerr;
+            if (!past_in_grens(doel, schatting, gerr)) return fout(gerr);
+            te_kopieren.emplace_back(doel, kind);
+        }
+        std::sort(te_kopieren.begin(), te_kopieren.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
+        uintmax_t totaal = 0;
+        for (const auto& [bron, kind] : te_kopieren) {
+            std::string kerr;
+            if (!kopieer_bestand_veilig(bron, kind, totaal, kerr)) return fout(kerr);
+        }
+        log.push_back("lokale bestanden: " + pad + ": " + std::to_string(te_kopieren.size()) + " bestands-koppelingen naar de NAS nu lokale "
+                      "kopieën (" + std::to_string(totaal) + " bytes), " + std::to_string(mappen) + " map-koppelingen blijven staan");
+        /* De laatste controle, dezelfde als rg-direct --run. */
+        const std::vector<std::string> nog = lokale_bestanden_problemen(opgegeven, pl.game, p);
+        if (!nog.empty()) {
+            std::string m = "Wine verwijdert en hernoemt door een bestands-koppeling heen, maar:";
+            for (const std::string& x : nog) m += "\n  " + x;
+            return fout(m);
+        }
+    }
+    return true;
 }
 
 /* [Launch] PrefixSetup (review 13, ronde 2, N1). Voor een prefixstap telt het pad ZELF en de weg ernaartoe, niet wat erin
@@ -1066,7 +1190,7 @@ std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const D
 }
 
 bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
-                         std::string& err) {
+                         std::string& err, std::vector<std::string>* vers_omgezet) {
     for (const std::string& opgegeven : pl.view_writable) {
         auto fout = [&](const std::string& m) {
             log.push_back("schrijfmap: FOUT: " + m + " -- de game wordt niet gestart");
@@ -1117,6 +1241,7 @@ bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector
                     return fout("kan de kopie niet op zijn plaats zetten (" + pad + "): " + waarom);
                 }
                 log.push_back("schrijfmap: " + pad + " is nu een echte map met een kopie van " + bron + " (" + std::to_string(totaal) + " bytes)");
+                if (vers_omgezet) vers_omgezet->push_back(pad);   // pass 2, R2: hier wint het zaaigoed van de NAS-kopie
             } else {
                 log.push_back("schrijfmap: " + pad + " wijst niet naar de NAS; blijft zoals hij is");
             }

@@ -147,7 +147,8 @@ bool native_route(const Config& c, const std::string& profile);
 std::vector<std::string> native_unit_argv(const Config& c, const std::vector<std::string>& game_argv, const std::string& log);
 
 // [Launch] ViewWritable werkt alleen op de directe route (place_view_writable). Een native of Unity-start met schrijfmappen weigert
-// (pass 2, bevinding 8): die routes zetten de map niet om en een game zou via een link naar de NAS kunnen schrijven. Leeg = goed.
+// (pass 2, bevinding 8): die routes zetten de map niet om en een game zou via een link naar de NAS kunnen schrijven. Hetzelfde
+// voor [Launch] ViewLocalFiles (place_view_local_files). Leeg = goed.
 std::string writable_route_refusal(const Config& c, const std::string& profile);
 // Gaat dit profiel via de Unity-route van de daemon? (patches/<Game>/unity.json, niet via TeknoParrotUi gevraagd, geen tp-shm in game.ini)
 bool unity_route(const Config& c, const std::string& profile, const std::string& launch = "");

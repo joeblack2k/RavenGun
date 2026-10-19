@@ -1100,7 +1100,8 @@ void wacht_op_wineserver(const L::DirectPlan& plan, const L::EnvMap& env, int gr
     const bool netjes = wacht_begrensd_stop(k.pid, ks, grens_s * 1000);
     if (!netjes) {
         if (g_stop.load())
-            log("prefixstappen: wineserver -w afgebroken door een stopsignaal; de stempel volgt na de controle");
+            log("prefixstappen: wineserver -w afgebroken door een stopsignaal; de stempel wordt niet geschreven en er "
+                "start niets meer");
         else
             log("prefixstappen: wineserver -w is na " + std::to_string(grens_s) + " s niet klaar (de grens); er loopt nog iets in de "
                 "prefix. Het wachten stopt en de stempel volgt na de controle");
@@ -1144,7 +1145,7 @@ bool groep_opruimen(pid_t pgid, int naloop_s) {
 // met ~24 koppelingen naar de NAS, en dan weigerde elke start (N1). 0 = in orde, 2 = geweigerd.
 int controle_voor_start(const L::DirectPlan& plan, const L::DirectPaths& wp, const std::string& wie) {
     namespace D = ravengun::launch::direct_detail;
-    if (plan.view_writable.empty() && plan.prefix_setup.empty()) return 0;
+    if (plan.view_writable.empty() && plan.view_local_files.empty() && plan.prefix_setup.empty()) return 0;
     const D::MountTableScope koppelpunten(wp);
     if (const std::string k = D::koppelpunten_fout(wp); !k.empty()) {
         log("schrijfmap: " + wie + " weigert: " + k);
@@ -1156,6 +1157,17 @@ int controle_voor_start(const L::DirectPlan& plan, const L::DirectPaths& wp, con
         log("schrijfmap: " + wie + " weigert " + pad + ": een game mag nooit op de NAS schrijven; start via de daemon (die zet de "
             "schrijfmap om) of los dit op:");
         for (const std::string& f : fout) log("schrijfmap:   " + f);
+        return 2;
+    }
+    /* [Launch] ViewLocalFiles (pass 2, R1): Wine verwijdert en hernoemt door een bestands-koppeling heen. Staat er in zo'n map nog
+     * een bestands-koppeling naar de NAS, dan weigert een kale --run (die heeft geen schrijflaag van bwrap); de daemon maakt ze
+     * eerst lokaal (place_view_local_files). */
+    for (const std::string& pad : plan.view_local_files) {
+        const std::vector<std::string> fout = D::lokale_bestanden_problemen(pad, plan.game, wp);
+        if (fout.empty()) continue;
+        log("lokale bestanden: " + wie + " weigert " + pad + ": Wine verwijdert en hernoemt door een bestands-koppeling heen, en een "
+            "game mag nooit op de NAS schrijven; start via de daemon (die maakt de bestanden lokaal) of los dit op:");
+        for (const std::string& f : fout) log("lokale bestanden:   " + f);
         return 2;
     }
     const std::vector<std::string> fout = D::prefixstappen_problemen(plan, wp);
@@ -1526,6 +1538,12 @@ int run_plan(const std::string& plan_file) {
     A11 a11(plan.profile, plan.state);
     bool have_rc = false;
     int rc = 0;
+    /* Pass 2, R4b: een stopsignaal tijdens de voorbereiding (prefixstappen, helper, pipes) start de game niet meer. Zoals de andere
+     * stops: niets starten, wel netjes opruimen (run_einde: helper, pipes, schijfletters). */
+    if (g_stop.load()) {
+        log("start: stop gevraagd; de game wordt niet gestart");
+        return run_einde(plan, have_rc, rc, helper, server, ctl.get(), a11);
+    }
     if (plan.starts.size() > 1) {
         rc = run_starts(plan, env, a11, have_rc);
         return run_einde(plan, have_rc, rc, helper, server, ctl.get(), a11);

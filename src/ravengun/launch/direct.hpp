@@ -125,6 +125,11 @@ struct DirectPlan {
     // worden in de view een ECHTE map met een kopie van de inhoud van de NAS; schrijven komt zo
     // nooit op de NAS uit (besluit eigenaar 2026-10-19).
     std::vector<std::string> view_writable;
+    // [Launch] ViewLocalFiles: ECHTE mappen in de view waarvan elk kind dat een BESTANDS-koppeling naar de NAS is een lokale kopie
+    // wordt (niet recursief); koppelingen naar een map (alleen-lezen inhoud zoals Graphics/) blijven staan. Wine verwijdert en
+    // hernoemt DOOR een bestands-koppeling heen (wineserver werkt met het echte pad), dus een logboekrotatie in zo'n map raakte
+    // anders de NAS (SegaGameShell, 2026-10-19). Absolute paden in de view; de exe van het plan zelf blijft een koppeling.
+    std::vector<std::string> view_local_files;
     std::vector<DirectSetupStep> prefix_setup;             // [Launch] PrefixSetup
     // Een stempel voor de HELE lijst (review 13, punt 3): pas geschreven als alle stappen gelukt
     // zijn. Per stap stempelen liet eerdere stappen "klaar" staan toen een latere faalde, en de
@@ -194,7 +199,11 @@ bool parse_view_links(const std::string& text, const std::string& base, std::vec
 // De drop-ins, de gegenereerde bestanden, de links van [Launch] ViewLinks en de exe met de grotere stapel ([Launch] StackReserve) in de view zetten (wat
 // launch-direct.py in run() doet voordat er iets start). Nooit op de NAS.
 // false + err = de game hoort niet te starten. `log` krijgt een regel per stap.
-bool apply_direct(const DirectPlan& plan, const DirectPaths& p, std::vector<std::string>& log, std::string& err);
+// `vers_omgezet` (mag nullptr): de schrijfmappen ([Launch] ViewWritable) die bij DEZE start van een koppeling naar de NAS een
+// echte map met een kopie werden. Daar wint het zaaigoed (seed.hpp) van de NAS-kopie; in een schrijfmap die al echt was staat de
+// stand van de game en die blijft.
+bool apply_direct(const DirectPlan& plan, const DirectPaths& p, std::vector<std::string>& log, std::string& err,
+                  std::vector<std::string>* vers_omgezet = nullptr);
 
 // Ontbreken de extra GStreamer-plug-ins (GST_PLUGIN_PATH zonder libgstasf.so)? Dan haalt het script ze eerst op (fetch-gst-wmv.sh).
 bool needs_gst_fetch(const DirectPlan& plan);

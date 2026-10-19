@@ -15,6 +15,7 @@
 
 #include "ravengun/games/games.hpp"
 #include "ravengun/json_parse.hpp"
+#include "ravengun/launch/direct.hpp"
 #include "ravengun/launch/gamefind.hpp"
 #include "ravengun/launch/native.hpp"
 #include "ravengun/sysinfo/navcon.hpp"
@@ -445,6 +446,51 @@ static void test_own_profile(const std::string& d) {
         CHECK(err.empty() && lines.size() == 3 && slurp(up + "/Spel/OpenParrot/GA40.CFG") == "eigen kalibratie");
         CHECK(lines[0].find("staat er al") != std::string::npos);
     }
+    // Pass 2, R2: apply_direct zette een schrijfmap ([Launch] ViewWritable) die nog een koppeling naar de NAS was om in een echte
+    // map met een KOPIE van de NAS, en seed_files sloeg daarna het meegeleverde zaaigoed over ("staat er al"). Zo kwam bij een
+    // verse view de NAS-versie in plaats van de meegeleverde kalibratie (Haunted Museum II, OpenParrot/HM20.CFG), tegen seed.hpp
+    // in. Nu wint het zaaigoed in een map die bij DEZE start is omgezet; wat de game later zelf schrijft blijft staan.
+    {
+        namespace L = ravengun::launch;
+        const std::string home = d + "/r2/home";
+        const std::string nas = home + "/mnt/nas/HM2", view = home + "/.local/share/ravengun/runtime/views/HM2";
+        write(nas + "/OpenParrot/HM20.CFG", "nas-kalibratie");
+        write(nas + "/OpenParrot/HM2bk1.dat", "nas-boekhouding");
+        write(nas + "/data/x.dat", "nas-data");
+        fs::create_directories(view);
+        fs::create_directory_symlink(nas + "/OpenParrot", view + "/OpenParrot");
+        fs::create_directory_symlink(nas + "/data", view + "/data");
+        write(d + "/r2/seed/OpenParrot/HM20.CFG", "meegeleverde kalibratie");
+        write(d + "/r2/seed/OpenParrot/HM21.CFG", "meegeleverd 21");
+        L::DirectPaths p;
+        p.home = home;
+        p.data = home + "/.local/share/ravengun";
+        p.mounts = d + "/r2/mounts";
+        write(p.mounts, "proc /proc proc rw 0 0\n");
+        L::DirectPlan pl;
+        pl.view_writable = {view + "/OpenParrot"};
+        std::vector<std::string> log, vers;
+        std::string err;
+        CHECK(L::apply_direct(pl, p, log, err, &vers));
+        CHECK(vers == std::vector<std::string>{view + "/OpenParrot"});
+        CHECK(!fs::is_symlink(view + "/OpenParrot") && slurp(view + "/OpenParrot/HM20.CFG") == "nas-kalibratie");
+        auto lines = seed_files({d + "/r2/seed"}, view, {}, err, vers);
+        CHECK(err.empty() && lines.size() == 2);
+        CHECK(slurp(view + "/OpenParrot/HM20.CFG") == "meegeleverde kalibratie" && slurp(view + "/OpenParrot/HM21.CFG") == "meegeleverd 21");
+        CHECK(slurp(view + "/OpenParrot/HM2bk1.dat") == "nas-boekhouding");   // geen zaaigoed voor dit bestand: de kopie blijft
+        CHECK(slurp(nas + "/OpenParrot/HM20.CFG") == "nas-kalibratie" && !fs::exists(nas + "/OpenParrot/HM21.CFG"));   // NAS gelijk
+        // De speler kalibreert opnieuw. De volgende start: de map is al echt, er is niets vers omgezet, de kalibratie blijft.
+        write(view + "/OpenParrot/HM20.CFG", "eigen kalibratie");
+        vers.clear();
+        log.clear();
+        CHECK(L::apply_direct(pl, p, log, err, &vers) && vers.empty());
+        lines = seed_files({d + "/r2/seed"}, view, {}, err, vers);
+        CHECK(err.empty() && slurp(view + "/OpenParrot/HM20.CFG") == "eigen kalibratie");
+        // Alleen wat in een vers omgezette map ligt telt: een pad erbuiten (hier data/, een koppeling naar de NAS) blijft "staat er al".
+        write(d + "/r2/seed2/data/x.dat", "zaai");
+        lines = seed_files({d + "/r2/seed2"}, view, {}, err, {view + "/OpenParrot"});
+        CHECK(err.empty() && slurp(nas + "/data/x.dat") == "nas-data" && lines.size() == 1 && lines[0].find("staat er al") != std::string::npos);
+    }
     // Een lokale view telt ook, en een profiel dat ook als XML bestaat komt maar een keer in de lijst.
     write(c.views_dir + "/Elders/x.exe", "x");
     CHECK(list_games(c).size() == 2);
@@ -513,6 +559,8 @@ static void test_native_service(const std::string& d) {
         CHECK(writable_route_refusal(k, "Nat").find("alleen op de directe route") != std::string::npos);
         write(k.dirs.user + "/Nat/game.ini", "[Launch]\nViewWritable =\n");
         CHECK(writable_route_refusal(k, "Nat").empty());
+        write(k.dirs.user + "/Nat/game.ini", "[Launch]\nViewLocalFiles = shell\n");   // pass 2, R1: net zo
+        CHECK(writable_route_refusal(k, "Nat").find("ViewLocalFiles = shell werkt alleen op de directe route") != std::string::npos);
         // [Launch] PrefixSetup en SecondBare: alleen de directe route voert ze uit. SecondBare = false is gewoon "uit" en weigert
         // niet; SecondBare = true en elke PrefixSetup wel (review 13, ronde 2, punt 8).
         write(k.dirs.user + "/Nat/game.ini", "[Launch]\nSecondBare = false\n");

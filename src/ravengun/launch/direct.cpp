@@ -591,9 +591,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         if (!in_view)
             pl.notes.push_back("ViewWritable: " + dirname(game) + " is een lokale installatie; de game schrijft daar al lokaal, "
                                "er is geen view nodig");
-        for (std::string r : nonempty_split(vw, ',')) {
-            r = trim(r);
-            std::replace(r.begin(), r.end(), '\\', '/');
+        for (const std::string& r : view_padlijst(vw)) {   // komma of puntkomma, net als de opbouw van de view
             const std::string n = normpath(r);
             if (r.empty() || r[0] == '/' || n == "." || n == ".." || n.starts_with("../"))
                 return setting_refused("[Launch] ViewWritable = " + vw + " ('" + r +
@@ -605,6 +603,26 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             for (int diepte = 0; diepte < 8 && dirname(wortel) != normpath(p.views()) && !dirname(wortel).empty(); ++diepte)
                 wortel = dirname(wortel);
             pl.view_writable.push_back(normpath(pjoin(wortel, n)));
+        }
+    }
+    // 6c2c. [Launch] ViewLocalFiles (pass 2, R1): echte mappen in de view (ten opzichte van de wortel, zoals ViewWritable) waarvan
+    // elke bestands-koppeling naar de NAS bij de start een lokale kopie wordt; map-koppelingen erin blijven staan. Wine verwijdert
+    // en hernoemt door een bestands-koppeling heen (SegaGameShell: de logboekrotatie in shell/). plan_view maakt de map een echte
+    // map met links (zoals ViewRealDirs), place_view_local_files kopieert, rg-direct --run weigert zolang er nog een staat.
+    if (const std::string vl = trim(lini("ViewLocalFiles")); !vl.empty()) {
+        const bool in_view = binnen(abspath(game), abspath(p.views())) && !on_nas(dirname(game), p);
+        if (!in_view && on_nas(dirname(game), p))
+            return setting_refused("[Launch] ViewLocalFiles vraagt een view van de game; die kopieën komen alleen in de view, "
+                                   "nooit op de NAS");
+        if (!in_view)
+            pl.notes.push_back("ViewLocalFiles: " + dirname(game) + " is een lokale installatie; de bestanden zijn daar al lokaal, "
+                               "er is geen view nodig");
+        for (const std::string& r : view_padlijst(vl)) {   // komma of puntkomma, net als de opbouw van de view
+            const std::string n = normpath(r);
+            if (r.empty() || r[0] == '/' || n == "." || n == ".." || n.starts_with("../"))
+                return setting_refused("[Launch] ViewLocalFiles = " + vl + " ('" + r +
+                                       "': een pad binnen de gamemap, relatief en zonder ..)");
+            if (in_view) pl.view_local_files.push_back(normpath(pjoin(view_root, n)));
         }
     }
     // 6c3. [Launch] ViewTtcAsTtf: een TrueType-collectie (.ttc) wordt in de view face 0 als losse font (ttc.hpp): Wine's

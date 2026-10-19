@@ -461,10 +461,15 @@ std::string writable_route_refusal(const Config& c, const std::string& profile) 
                " werkt alleen op de directe route ([Launch] Mode = direct); de Unity- en native-route "
                "voeren geen prefixstappen uit en starten geen tweede exe.";
     }
-    const std::string* vw = g.settings.find("Launch", "ViewWritable");
-    if (!vw || trim(*vw).empty()) return {};
-    return "[Launch] ViewWritable = " + trim(*vw) + " werkt alleen op de directe route ([Launch] Mode = direct); de native en de "
-           "Unity-route zetten de schrijfmap niet om en de game zou op de NAS kunnen schrijven. Haal ViewWritable weg of start direct";
+    // ViewLocalFiles (pass 2, R1) net zo: alleen place_view_local_files van de directe route maakt de bestanden lokaal.
+    for (const char* sleutel : {"ViewWritable", "ViewLocalFiles"}) {
+        const std::string* vw = g.settings.find("Launch", sleutel);
+        if (!vw || trim(*vw).empty()) continue;
+        return std::string("[Launch] ") + sleutel + " = " + trim(*vw) + " werkt alleen op de directe route ([Launch] Mode = direct); de "
+               "native en de Unity-route zetten de mappen niet om en de game zou op de NAS kunnen schrijven. Haal " + sleutel +
+               " weg of start direct";
+    }
+    return {};
 }
 
 bool unity_route(const Config& c, const std::string& profile, const std::string& launch) {
@@ -926,7 +931,10 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
     if (L::plan_direct(profile, c_.direct, o, pl, why) != L::Verdict::Ok) return fail(profile + ": " + why);
     std::vector<std::string> placed;
     std::string err;
-    if (!L::apply_direct(pl, c_.direct, placed, err)) return fail(profile + ": " + err);
+    // De schrijfmappen die bij DEZE start van een NAS-koppeling een echte map met een kopie werden: daar wint het zaaigoed
+    // hieronder van de NAS-kopie (pass 2, R2; seed.hpp).
+    std::vector<std::string> vers_omgezet;
+    if (!L::apply_direct(pl, c_.direct, placed, err, &vers_omgezet)) return fail(profile + ": " + err);
     // 4. Het logboek en het plan voor rg-direct.
     // De schrijflaag: wat de game in zijn spelmap schrijft komt lokaal (write_layer); ook de echte map achter de exe (een view linkt
     // naar de NAS) als die buiten de spelmappen ligt. Een exe die echt in de view staat (lokaal) heeft geen laag nodig.
@@ -948,7 +956,7 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
     std::vector<std::string> seed_dirs;
     for (const std::string& d : {c_.dirs.user, c_.dirs.shipped})
         if (!d.empty()) seed_dirs.push_back(d + "/" + profile + "/seed");
-    const std::vector<std::string> seeded = seed_files(seed_dirs, fs::path(pl.game).parent_path().string(), wl.layers, err);
+    const std::vector<std::string> seeded = seed_files(seed_dirs, fs::path(pl.game).parent_path().string(), wl.layers, err, vers_omgezet);
     if (!err.empty()) return fail(profile + ": " + err);
     std::string log, plan_file;
     {
