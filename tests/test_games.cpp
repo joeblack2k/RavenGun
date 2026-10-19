@@ -513,6 +513,16 @@ static void test_native_service(const std::string& d) {
         CHECK(writable_route_refusal(k, "Nat").find("alleen op de directe route") != std::string::npos);
         write(k.dirs.user + "/Nat/game.ini", "[Launch]\nViewWritable =\n");
         CHECK(writable_route_refusal(k, "Nat").empty());
+        // [Launch] PrefixSetup en SecondBare: alleen de directe route voert ze uit. SecondBare = false is gewoon "uit" en weigert
+        // niet; SecondBare = true en elke PrefixSetup wel (review 13, ronde 2, punt 8).
+        write(k.dirs.user + "/Nat/game.ini", "[Launch]\nSecondBare = false\n");
+        CHECK(writable_route_refusal(k, "Nat").empty());
+        write(k.dirs.user + "/Nat/game.ini", "[Launch]\nSecondBare = true\n");
+        CHECK(writable_route_refusal(k, "Nat").find("SecondBare") != std::string::npos);
+        write(k.dirs.user + "/Nat/game.ini", "[Launch]\nPrefixSetup = run . a.exe\n");
+        CHECK(writable_route_refusal(k, "Nat").find("PrefixSetup") != std::string::npos);
+        write(k.dirs.user + "/Nat/game.ini", "[Launch]\nSecondBare = false\nPrefixSetup =\n");
+        CHECK(writable_route_refusal(k, "Nat").empty());
     }
     {   // Een kapot native.json in de gebruikerslaag kiest toch de native route (die meldt de fout), niet stil een andere route.
         Config k = c;
@@ -811,7 +821,9 @@ static void test_direct_service(const std::string& d) {
     c.direct.data = home + "/.local/share/ravengun";
     c.direct.state = home + "/.local/state/ravengun";
     c.direct.dirs = c.dirs;
-    c.direct.mounts = b + "/geen-mounts";
+    // Een koppelpuntentabel zonder NAS. Een tabel die niet bestaat telt sinds review 13, ronde 2 (punt 7) als "alles NAS".
+    c.direct.mounts = b + "/mounts";
+    write(c.direct.mounts, "proc /proc proc rw 0 0\n");
     c.direct_runner = b + "/bin/rg-direct";
     c.jvs_link = b + "/run/jvs-com";
     c.session_env = [&] { return ravengun::launch::EnvMap{{"HOME", home}, {"PATH", "/usr/bin:/bin"}, {"DISPLAY", ":0"}}; };

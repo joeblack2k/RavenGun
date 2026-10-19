@@ -89,6 +89,14 @@ def cpp_side(rg, name, tp, patches, user, env, extra=()):
             "view_links": p.get("view_links", []),
             "view_writable": p.get("view_writable", []),
         }
+        # [Launch] PrefixSetup en SecondBare (review 13, ronde 2): de stappen, de stempel en de kale tweede start horen ook vast
+        # te liggen. Alleen als het plan ze heeft, zodat de gouden bestanden van de andere games niet veranderen; krijgt een
+        # profiel ze er stil bij, dan valt dat op ("alleen in de engine").
+        if p.get("prefix_setup"):
+            out["plan"]["prefix_setup"] = p["prefix_setup"]
+            out["plan"]["prefix_setup_mark"] = p.get("prefix_setup_mark", "")
+        if p.get("second_bare"):
+            out["plan"]["second_bare"] = True
     return out
 
 

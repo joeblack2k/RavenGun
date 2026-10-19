@@ -876,6 +876,98 @@ std::vector<std::string> schrijfmap_problemen(const std::string& opgegeven, cons
     return uit;
 }
 
+/* [Launch] PrefixSetup (review 13, ronde 2, N1). Voor een prefixstap telt het pad ZELF en de weg ernaartoe, niet wat erin
+ * staat: de view-wortel van Mario Kart DX heeft ~24 koppelingen naar de NAS en is toch de werkmap van PreprocessAmAuth en de
+ * map van een kopieerdoel. schrijfmap_problemen() keek ook naar de kinderen en weigerde zo elke start.
+ *
+ * Beleid: een programma van een stap kan naast zichzelf in de view-wortel schrijven, net als de game zelf. Dat risico is
+ * hetzelfde als bij de game, en de bescherming ook: de overlay van bwrap op de bibliotheek van de NAS en ViewWritable. Hier
+ * gaat het erom dat de werkmap en het kopieerdoel zelf nooit door een koppeling of op de NAS uitkomen. */
+std::vector<std::string> prefixstap_map_problemen(const std::string& map, const std::string& wortel, const DirectPaths& p) {
+    std::vector<std::string> uit;
+    if (map.empty()) return {"een prefixstap zonder map"};
+    for (const std::string& deel : split(map, '/'))
+        if (deel == "..") return {map + " bevat .. (de kernel volgt eerst een koppeling, daarna pas ..)"};
+    const std::string w = abspath(wortel), m = abspath(map);
+    if (!binnen(m, w)) return {map + " ligt buiten de view " + w};
+    if (on_nas(w, p)) return {"de view " + w + " komt uit op de NAS (" + realpath_(w) + ")"};
+    std::string cur = w;
+    for (const std::string& deel : nonempty_split(relpath(m, w), '/')) {
+        if (deel == ".") continue;
+        /* Wine neemt de precieze naam als die er is, anders een naam die alleen in hoofdletters verschilt (resolve_case). */
+        std::string naam = deel;
+        std::vector<std::string> zusters = case_zusters(cur, deel);
+        if (!lexists(pjoin(cur, deel)) && !zusters.empty()) {
+            naam = zusters.front();
+            zusters.erase(zusters.begin());
+        }
+        for (const std::string& z : zusters) {
+            const std::string zp = pjoin(cur, z);
+            if (islink(zp) || on_nas(zp, p))
+                uit.push_back(zp + (islink(zp) ? " is een koppeling" : " ligt op de NAS") + " en verschilt alleen in hoofdletters van " +
+                              pjoin(cur, naam) + " (Wine is niet hoofdlettergevoelig)");
+        }
+        const std::string kand = pjoin(cur, naam);
+        struct stat st{};
+        if (::lstat(kand.c_str(), &st) != 0) {
+            uit.push_back(errno == ENOENT || errno == ENOTDIR ? kand + " bestaat niet (de motor maakt hem niet aan)"
+                                                                : kand + " is niet te bekijken: " + std::strerror(errno));
+            return uit;
+        }
+        if (S_ISLNK(st.st_mode)) {
+            uit.push_back(kand + " is een koppeling (naar " + realpath_(kand) + "); een prefixstap gaat nooit door een koppeling");
+            return uit;
+        }
+        if (!S_ISDIR(st.st_mode)) {
+            uit.push_back(kand + " is geen map");
+            return uit;
+        }
+        cur = kand;
+    }
+    /* Een koppelpunt in de view (een echte map waar een CIFS-share op zit) heeft geen koppeling op de weg. */
+    if (on_nas(cur, p)) uit.push_back(cur + " ligt op de NAS");
+    return uit;
+}
+
+std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const std::string& wortel, const DirectPaths& p) {
+    auto schoon = [](const std::string& x) {   // dezelfde regel als de motor (direct.cpp, 6f3)
+        return !x.empty() && x.front() != '/' && x.find("..") == std::string::npos;
+    };
+    const std::string w = abspath(wortel);
+    if (st.copy) {
+        std::vector<std::string> uit;
+        /* review 13, ronde 2 (punt 5): de loper zet de prefix:-bron opnieuw in elkaar uit from_rel; ook dat deel moet schoon
+         * zijn, anders kwam een met de hand bewerkt plan (prefix:/etc/x, prefix:../..) hier alsnog door. */
+        if (st.from_prefix && !schoon(st.from_rel))
+            uit.push_back("de bron prefix:" + st.from_rel + " (na prefix: een pad zonder .. en zonder leidende schuine streep)");
+        if (!st.from_prefix && (!binnen(abspath(st.from), w) || st.from.find("..") != std::string::npos))
+            uit.push_back("de bron " + st.from + " ligt niet in de view " + w);
+        if (st.to.empty() || basename(st.to).empty() || st.to.find("..") != std::string::npos || !binnen(abspath(st.to), w) ||
+            abspath(st.to) == w) {
+            uit.push_back("het doel " + st.to + " ligt niet in de view " + w);
+            return uit;
+        }
+        if (islink(st.to)) uit.push_back("het doel " + st.to + " is een koppeling");
+        for (const std::string& x : prefixstap_map_problemen(dirname(st.to), w, p)) uit.push_back(x);
+        return uit;
+    }
+    if (st.argv.empty()) return {"een run-stap zonder programma"};
+    return prefixstap_map_problemen(st.cwd, w, p);
+}
+
+std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const DirectPaths& p) {
+    if (plan.prefix_setup.empty()) return {};
+    if (const std::string k = koppelpunten_fout(p); !k.empty()) return {k};
+    const std::string wortel = view_wortel(dirname(plan.game), p);
+    /* Zoals de motor: zonder view is de "wortel" de spelmap zelf, en die kan op de NAS liggen. */
+    if (!binnen(abspath(wortel), abspath(p.views())) || abspath(wortel) == abspath(p.views()))
+        return {"de prefixstappen vragen een view; " + plan.game + " ligt niet in " + p.views()};
+    std::vector<std::string> uit;
+    for (const DirectSetupStep& st : plan.prefix_setup)
+        for (const std::string& x : prefixstap_problemen(st, wortel, p)) uit.push_back(st.tekst + ": " + x);
+    return uit;
+}
+
 bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
                          std::string& err) {
     for (const std::string& opgegeven : pl.view_writable) {

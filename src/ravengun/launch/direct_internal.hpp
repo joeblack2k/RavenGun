@@ -53,7 +53,9 @@ std::string strip_bom(std::string s);
 std::string expand_home(const std::string& p, const std::string& home);
 std::string shrink_home(const std::string& p, const std::string& home);
 std::string getenv_or(const EnvMap& env, const std::string& k, const std::string& def = {});
-bool on_nas(const std::string& path, const DirectPaths& p);   // launch-direct.py on_nas(); niet te volgen = NAS
+bool on_nas(const std::string& path, const DirectPaths& p);   // launch-direct.py on_nas(); niet te volgen = NAS, lege tabel = NAS
+// Leeg = de koppelpuntentabel (p.mounts) is leesbaar en heeft regels; anders de melding (dan zegt on_nas() overal ja).
+std::string koppelpunten_fout(const DirectPaths& p);
 // Het pad zoals de kernel het volgt, ook door een koppeling waarvan het doel ontbreekt; false = onderweg niet te bekijken (EIO, ESTALE).
 bool volg_pad(const std::string& path, std::string& out);
 // Strenger dan read_file(): elke leesfout telt, en het totaal moet gelijk zijn aan de grootte van fstat() (een afgebroken lezing van
@@ -86,6 +88,18 @@ std::string resolve_case(const std::string& pad);
 // zelf (een koppeling) op de NAS, een kind (diep, ook achter een koppeling naar een lokale map) dat op de NAS uitkomt, en hetzelfde
 // voor een zuster die alleen in hoofdletters verschilt. place_view_writable (de laatste controle) en rg-direct --run gebruiken hem.
 std::vector<std::string> schrijfmap_problemen(const std::string& pad, const DirectPaths& p);
+// [Launch] PrefixSetup (review 13, ronde 2): alleen lezen, leeg = veilig. Een map waarin een prefixstap draait (werkmap) of
+// schrijft (de map van een kopieerdoel): binnen de view-wortel, geen .. , bestaat als echte map, GEEN koppeling in een van de
+// delen vanaf de wortel, geen zuster in andere hoofdletters die een koppeling is of op de NAS ligt (Wine is niet
+// hoofdlettergevoelig), en de map zelf niet op de NAS. Anders dan schrijfmap_problemen() kijkt hij NIET naar de kinderen: de
+// view-wortel staat vol koppelingen naar de NAS en is toch de werkmap van een stap. Motor, --run-controle en loper gebruiken hem.
+std::vector<std::string> prefixstap_map_problemen(const std::string& map, const std::string& wortel, const DirectPaths& p);
+// Een stap uit het plan zoals de loper hem uitvoert: de prefix:-bron (from_rel schoon), het kopieerdoel (in de view, zelf geen
+// koppeling, de map volgens prefixstap_map_problemen) of de werkmap van een run-stap. Leeg = veilig.
+std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const std::string& wortel, const DirectPaths& p);
+// De controle van rg-direct --run en --alleen-stappen voor alle prefixstappen van een plan (de view-wortel uit plan.game, de
+// koppelpuntentabel, elke stap). Leeg = veilig; de schrijfmappen (ViewWritable) controleert schrijfmap_problemen() apart.
+std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const DirectPaths& p);
 // Schrijft een bestand zonder een koppeling te volgen: de tijdelijke naam wordt met O_EXCL|O_NOFOLLOW
 // aangemaakt en daarna met rename() op zijn plaats gezet (rename vervangt de naam zelf, ook als daar
 // een koppeling staat). rg-direct gebruikt hem voor de kopieerstap van [Launch] PrefixSetup.
