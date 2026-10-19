@@ -160,6 +160,18 @@ std::vector<DropinSpec> dropin_specs(const std::string& game, const DirectPaths&
 
 }  // namespace
 
+std::vector<std::string> view_padlijst(const std::string& in) {
+    std::string t = in;
+    for (char& c : t) if (c == ';') c = ',';
+    std::vector<std::string> uit;
+    for (const std::string& r : nonempty_split(t, ',')) {
+        std::string d = trim(r);
+        std::replace(d.begin(), d.end(), '\\', '/');
+        uit.push_back(d);
+    }
+    return uit;
+}
+
 std::string view_wortel(const std::string& base, const DirectPaths& p) {
     const std::string views = abspath(p.views()), b = abspath(base);
     if (b != views && binnen(b, views)) return pjoin(views, split(relpath(b, views), '/')[0]);
@@ -174,11 +186,7 @@ std::string view_wortel(const std::string& base, const DirectPaths& p) {
 namespace {
 std::vector<std::string> view_paden(const gsn::Ini& settings, const char* sleutel) {
     std::vector<std::string> uit;
-    std::string in = settings.get("Launch", sleutel);
-    for (char& c : in) if (c == ';') c = ',';
-    for (const std::string& r : nonempty_split(in, ',')) {
-        std::string t = trim(r);
-        std::replace(t.begin(), t.end(), '\\', '/');
+    for (const std::string& t : view_padlijst(settings.get("Launch", sleutel))) {
         const std::string n = normpath(t);
         // Een ongeldig pad (absoluut of met ..) weigert direct.cpp; hier komt het nooit in de view.
         if (t.empty() || t[0] == '/' || n == "." || n == ".." || n.starts_with("../")) continue;

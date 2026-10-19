@@ -2753,6 +2753,95 @@ int main() {
             fs::remove(nuser);
             fs::remove_all(nview);
         }
+
+        // Herbeoordeling pass 2, bevinding 1: de puntkomma als scheiding. De opbouw van de view splitste ook op ";" (view_paden),
+        // het plan alleen op ",". Met "ViewLocalFiles = shell;temp" maakte de view beide mappen echt (vol bestands-koppelingen naar
+        // de NAS), terwijl het plan EEN niet-bestaand pad "<view>/shell;temp" controleerde: geen kopie, en een kale --run liet het
+        // door. Nu een lezing (view_padlijst) voor beide, ook voor ViewWritable. (Zonder spaties: " ; " met een spatie ervoor is
+        // in game.ini een opmerking en valt al bij het lezen van de ini weg, voor plan en view gelijk.)
+        {
+            const fs::path ngame = home / "mnt/nas/Nas Spel";
+            const fs::path nview = fs::path(p.views()) / "Nas";
+            const fs::path nuser = fs::path(p.dirs.user) / "Nas/game.ini";
+            write(ngame / "temp/t.log", "nas-temp\n");
+            write(ngame / "logs/l.log", "nas-logs\n");
+            write(nuser, "[Launch]\nViewLocalFiles = shell;temp\nViewWritable = shell/variables;logs\n");
+            fs::remove_all(nview);
+            DirectOptions mo = o;
+            mo.make_view = true;
+            DirectPlan ap;
+            std::string w;
+            CHECK(plan_direct("Nas", p, mo, ap, w) == Verdict::Ok);
+            if (!w.empty()) std::fprintf(stderr, "puntkomma-plan: %s\n", w.c_str());
+            CHECK((ap.view_local_files == std::vector<std::string>{(nview / "shell").string(), (nview / "temp").string()}));
+            CHECK((ap.view_writable == std::vector<std::string>{(nview / "shell/variables").string(), (nview / "logs").string()}));
+            CHECK(!fs::is_symlink(nview / "temp") && fs::is_symlink(nview / "temp/t.log"));   // de view maakte temp/ echt, met links
+#ifdef RG_DIRECT_BIN
+            {   // een kale --run met dit plan (alleen de lokale bestanden; de schrijfmappen weigeren apart) weigert
+                DirectPlan rp = ap;
+                rp.view_writable.clear();
+                rp.prefix_setup.clear();
+                rp.argv = {"/bin/false"};
+                rp.cwd = root.string();
+                rp.wine = "/bin/false";
+                rp.pipehelper = "/bin/false";
+                const fs::path planf = root / "plan-pk.json", logf = root / "run-pk.log";
+                write(planf, plan_to_json(rp));
+                posix_spawn_file_actions_t fa;
+                posix_spawn_file_actions_init(&fa);
+                posix_spawn_file_actions_addopen(&fa, 1, logf.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                posix_spawn_file_actions_adddup2(&fa, 1, 2);
+                std::string bin = RG_DIRECT_BIN;
+                std::vector<char*> av{bin.data(), const_cast<char*>("--run"), const_cast<char*>(planf.c_str()), nullptr};
+                std::string h = "HOME=" + home.string(), pth = std::string("PATH=") + (std::getenv("PATH") ? std::getenv("PATH") : "/usr/bin:/bin");
+                std::string shm = "RG_DIRECT_SHM_PATH=" + (root / "shm-pk").string();
+                std::vector<char*> envp{h.data(), pth.data(), shm.data(), nullptr};
+                pid_t pid = 0;
+                CHECK(posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), envp.data()) == 0);
+                posix_spawn_file_actions_destroy(&fa);
+                int st = 0;
+                waitpid(pid, &st, 0);
+                const std::string log = slurp(logf);
+                CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 2 && contains(log, "--run weigert") && contains(log, "lokale bestanden"));
+                if (!contains(log, "--run weigert")) std::fprintf(stderr, "--- rg-direct --run (puntkomma) ---\n%s\n", log.c_str());
+            }
+#endif
+            std::vector<std::string> al;
+            std::string err;
+            CHECK(apply_direct(ap, p, al, err));
+            if (!err.empty()) std::fprintf(stderr, "puntkomma-start: %s\n", err.c_str());
+            CHECK(!fs::is_symlink(nview / "temp/t.log") && slurp(nview / "temp/t.log") == "nas-temp\n");
+            CHECK(!fs::is_symlink(nview / "logs") && slurp(nview / "logs/l.log") == "nas-logs\n");
+            CHECK(D::lokale_bestanden_problemen((nview / "temp").string(), ap.game, p).empty());
+            fs::remove(fs::canonical(nview / "temp/t.log"));   // zoals Wine: via het echte pad
+            CHECK(slurp(ngame / "temp/t.log") == "nas-temp\n");
+            fs::remove(nuser);
+            fs::remove_all(nview);
+        }
+
+        // Een keten: een koppeling in de map naar een LOKALE koppeling die naar de NAS wijst, telt als koppeling naar de NAS en
+        // wordt een lokale kopie; de tussenkoppeling buiten de map blijft. De exe van het plan en zijn .ravengun-orig blijven
+        // koppelingen, ook als de naam op schijf alleen in hoofdletters verschilt (Wine is niet hoofdlettergevoelig).
+        {
+            const fs::path vk = fs::path(p.views()) / "VLF/keten";
+            fs::create_directories(vk);
+            fs::create_symlink(nsh / "config.ini", fs::path(p.views()) / "VLF/tussen.ini");
+            fs::create_symlink(fs::path(p.views()) / "VLF/tussen.ini", vk / "keten.ini");
+            fs::create_symlink(nsh / "Shell.exe", vk / "SHELL.EXE");
+            fs::create_symlink(nsh / "Shell.exe", vk / "shell.EXE.ravengun-orig");
+            DirectPlan x;
+            x.game = (vk / "Shell.exe").string();
+            x.view_local_files = {vk.string()};
+            CHECK(D::lokale_bestanden_problemen(vk.string(), x.game, p).size() == 1);
+            l.clear();
+            CHECK(D::place_view_local_files(x, p, l, e));
+            CHECK(!fs::is_symlink(vk / "keten.ini") && slurp(vk / "keten.ini") == "nas-config\n");
+            CHECK(fs::is_symlink(fs::path(p.views()) / "VLF/tussen.ini"));
+            CHECK(fs::is_symlink(vk / "SHELL.EXE") && fs::is_symlink(vk / "shell.EXE.ravengun-orig"));
+            CHECK(D::lokale_bestanden_problemen(vk.string(), x.game, p).empty());
+            fs::remove(fs::canonical(vk / "keten.ini"));
+            CHECK(slurp(nsh / "config.ini") == "nas-config\n");
+        }
     }
 
     fs::remove_all(root);

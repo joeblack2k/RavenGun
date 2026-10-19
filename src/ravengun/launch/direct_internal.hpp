@@ -158,6 +158,12 @@ bool taito_gun_ini(const Profile& pr, std::string& name, std::string& text);
 
 // --- direct_files.cpp: view, tweede exe, drop-ins --------------------------------------------------------------------------------------
 std::string view_wortel(const std::string& base, const DirectPaths& p);
+// Een padlijst uit [Launch] (ViewWritable, ViewLocalFiles): gescheiden door komma OF puntkomma, elk deel getrimd en met / in plaats
+// van een backslash. Lege delen vallen weg, een deel van alleen spaties komt leeg terug (dat weigert de lezer). EEN lezing voor het plan
+// (direct.cpp, dat ongeldige paden weigert) en de opbouw van de view (direct_files.cpp, die ze overslaat): eerder splitste het
+// plan alleen op de komma en de view ook op de puntkomma, en dan maakte de view twee mappen echt terwijl het plan een niet-bestaand
+// pad "a;b" controleerde (pass 2, herbeoordeling bevinding 1).
+std::vector<std::string> view_padlijst(const std::string& in);
 bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& game, const std::string& et, const DirectPaths& p, bool make,
                std::vector<std::string>& notes, std::string& err);
 
