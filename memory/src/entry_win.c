@@ -203,13 +203,23 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID gereserveerd)
         g_alleen_hoofdmodule = 1;
         verslag = patchmem_apply_from_env();
         g_alleen_hoofdmodule = 0;
-        if (verslag < 0) return TRUE;   /* geen RAVENGUN_PATCHMEM_FILE: niets doen */
+        /* Geen lijst (verslag < 0) is GEEN reden om te stoppen: de haak-DLL moet ook zonder lijst
+         * geladen kunnen worden -- die doet dan zijn eigen werk (bord-emulatie bijvoorbeeld) en
+         * heeft de patchlijst niet nodig. LoadLibrary blijft hier buiten DllMain (loader-lock); dat
+         * doet de draad hieronder. */
+        if (verslag < 0 && patchmem_verbose())
+            fprintf(stderr, "patchmem: geen patchlijst; alleen de haak-DLL komt nog aan bod\n");
 
-        /* Wacht er na deze ronde niets meer EN is er geen haak-DLL, dan is een thread overbodig. */
-        if (patchmem_pending() == 0 && !getenv("RAVENGUN_PATCHMEM_HOOK")) {
-            if (patchmem_verbose())
-                fprintf(stderr, "patchmem: alles in de synchrone ronde gedaan; geen achtergrondthread\n");
-            return TRUE;
+        {
+            const char *haak = getenv("RAVENGUN_PATCHMEM_HOOK");
+            const int haak_gezet = (haak && *haak);   /* een lege waarde telt als niet gezet */
+
+            /* Wacht er na deze ronde niets meer EN is er geen haak-DLL, dan is een thread overbodig. */
+            if (patchmem_pending() == 0 && !haak_gezet) {
+                if (patchmem_verbose())
+                    fprintf(stderr, "patchmem: alles in de synchrone ronde gedaan; geen achtergrondthread\n");
+                return TRUE;
+            }
         }
 
         draad = CreateThread(NULL, 0, achtergrond, NULL, 0, NULL);
