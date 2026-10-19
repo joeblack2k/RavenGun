@@ -1,8 +1,8 @@
 {
   "title": "The House of the Dead 4 Special",
   "enabled": true,
-  "status": "niet-getest",
-  "note": "Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. Rev B (DVP-0010B), schone ELF volgens de lijst van lindbergh-loader; geen libCg nodig. Nog niet gestart.",
+  "status": "werkt (attract)",
+  "note": "Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader. GEMETEN 2026-10-19: spel-ID 0x7d6ab3e3, attract meer dan een minuut zonder crash, twee fotos die verschillen. Munt en START starten geen spel -- de ride-versie wacht vermoedelijk op stoelsignalen (rideBoard.c). Dus: attract ja, spelen nee.",
   "arch": "i386",
   "launcher": "gamescope",
   "route": "jvs",
