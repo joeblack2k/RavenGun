@@ -505,6 +505,15 @@ static void test_native_service(const std::string& d) {
     c.stop_inputs = [&] { std::lock_guard<std::mutex> g(m); events.push_back("stop_inputs"); };
     CHECK(native_route(c, "Nat"));
     CHECK(!native_route(c, "Script"));
+    {   // [Launch] ViewWritable hoort alleen bij de directe route: een native of Unity-start met schrijfmappen weigert (pass 2).
+        Config k = c;
+        k.dirs.user = b + "/vw-laag";
+        CHECK(writable_route_refusal(k, "Nat").empty());
+        write(k.dirs.user + "/Nat/game.ini", "[Launch]\nViewWritable = Logs\n");
+        CHECK(writable_route_refusal(k, "Nat").find("alleen op de directe route") != std::string::npos);
+        write(k.dirs.user + "/Nat/game.ini", "[Launch]\nViewWritable =\n");
+        CHECK(writable_route_refusal(k, "Nat").empty());
+    }
     {   // Een kapot native.json in de gebruikerslaag kiest toch de native route (die meldt de fout), niet stil een andere route.
         Config k = c;
         k.native.user_patches = b + "/kapot-laag";
