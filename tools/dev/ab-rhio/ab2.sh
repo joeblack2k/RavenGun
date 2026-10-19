@@ -5,49 +5,66 @@
 # (BUDGET seconden, standaard 480) zodat een lange reeks niet door een externe limiet wordt gekapt.
 #
 # Per start: variant-DLL naar de engine-drop-in EN de view, daemon herstarten, muis-geweer zetten,
-# starten, 90 s wachten, foto, en twee uitkomsten opschrijven:
-#   ok     = voorbij BOOTING naar de bordframes (foto duidelijk groter dan het BOOTING-scherm)
+# starten, 90 s wachten, foto, en de uitkomst opschrijven:
+#   ok     = voorbij BOOTING naar de bordframes (foto in de band 60 kB .. 900 kB, zie gemeen.sh)
 #   draait = de game leeft nog (de bewering was dat NEW het spel meteen laat stoppen)
+#   reden  = draait | gestopt | ongeldig-daemon-bezet
+# ELKE start komt in resultaten.txt, ook een start waarbij de game stopte: dat is juist de uitkomst die
+# de proef zoekt (review 14, ronde 2; eerder werd zo'n start weggegooid, zodat "het spel bleef in alle
+# runs draaien" per constructie waar was). Alleen een start waarbij de daemon AANTOONBAAR al bezet was
+# (voor de start meldde hij een lopende game, of de start werd daarom geweigerd) heet
+# ongeldig-daemon-bezet: die telt niet mee voor DOEL en wordt opnieuw gedaan, met een bovengrens van
+# zes op rij.
 # De .aan-markers zijn voor deze proef alle drie weggehaald en blijven weg (identiek voor elke variant).
+#
 # Gebruik:
-#   tools/dev/ab-rhio/ab2.sh                 (doorgaan tot DOEL starts per variant; BUDGET seconden per keer)
-#   DOEL=5 BUDGET=480 tools/dev/ab-rhio/ab2.sh
-# De uitvoer (foto's en resultaten.txt) komt in $RG_AB_UIT (standaard /tmp/rg-ab). De variant-DLL's
-# staan in $RG_AB_UIT/old-rg-rhio.dll (de oude, eerst zelf kopieren) en in de bronboom van de leiding.
+#   RG_AB_NEW=<nieuwe rg-rhio.dll> RG_AB_NOSTRIP=<ongestripte rg-rhio.dll> tools/dev/ab-rhio/ab2.sh
+#   DOEL=5 BUDGET=480 RG_AB_NEW=... RG_AB_NOSTRIP=... tools/dev/ab-rhio/ab2.sh
+# De uitvoer (foto's en resultaten.txt) komt in $RG_AB_UIT (standaard tools/rg-rhio/out/ab-rhio in deze
+# repo, en die map staat in .gitignore). De oude DLL staat in $RG_AB_UIT/old-rg-rhio.dll (eerst zelf
+# kopieren). RG_AB_MUIS kiest het muis-geweer (standaard de Steam Controller van de eigenaar).
+# De geinstalleerde drop-in en die in de view worden bij het begin opzij gezet en bij elk einde
+# teruggezet; draait er een game, dan weigert het script (geen DLL-wissel, geen herstart).
+# Tabel: tools/dev/ab-rhio/maak-tabel.py $RG_AB_UIT/resultaten.txt
 set -u
 CTL="$HOME/.local/opt/ravengun/bin/ravengunctl"
 ENG="$HOME/.local/opt/ravengun/patches/RobinHood/dropin/rg-rhio.dll"
 VIEWMAP="$HOME/.local/share/ravengun/runtime/views/RobinHood/data"
 VIEW="$VIEWMAP/rg-rhio.dll"
 LOG="$VIEWMAP/rg-rhio.log"
-OUT="${RG_AB_UIT:-/tmp/rg-ab}"
+# shellcheck source=gemeen.sh
+. "$(dirname "${BASH_SOURCE[0]}")/gemeen.sh"
+OUT="${RG_AB_UIT:-$AB_UIT_STANDAARD}"
 OLD="$OUT/old-rg-rhio.dll"
-NEW="$HOME/projects/ravengun-claude/tools/rg-rhio/out/rg-rhio.dll"
-NOSTRIP="$HOME/projects/ravengun-claude/tools/rg-rhio/out/rg-rhio-nostrip.dll"
+NEW="${RG_AB_NEW:-}"
+NOSTRIP="${RG_AB_NOSTRIP:-}"
 DOEL="${DOEL:-10}"
 BUDGET="${BUDGET:-480}"
 WACHT="${WACHT:-90}"
-mkdir -p "$OUT"
-touch "$OUT/resultaten.txt"
-START=$(date +%s)
+RES="$OUT/resultaten.txt"
+
+ontbreekt=0
+for paar in "OLD:$OLD:kopieer de oude DLL eerst naar $OLD" \
+            "NEW:$NEW:zet RG_AB_NEW=<pad naar de nieuwe rg-rhio.dll>" \
+            "NOSTRIP:$NOSTRIP:zet RG_AB_NOSTRIP=<pad naar de ongestripte rg-rhio.dll>"; do
+    naam="${paar%%:*}"; rest="${paar#*:}"; pad="${rest%%:*}"; hulp="${rest#*:}"
+    if [ -z "$pad" ] || [ ! -f "$pad" ]; then
+        echo "ab2: $naam-DLL ontbreekt (${pad:-niet gezet}); $hulp" >&2
+        ontbreekt=1
+    fi
+done
+[ "$ontbreekt" = 0 ] || exit 2
 
 # Een tweede instantie naast de eerste laat twee games tegelijk draaien en vervuilt de meting (dat
-# gebeurde ook echt: een run kreeg het logboekprofiel van een andere variant). Een slotbestand met
-# flock voorkomt dat.
-exec 9>"$OUT/ab2.slot"
-if ! flock -n 9; then echo "er loopt al een A/B-instantie; deze stopt"; exit 0; fi
+# gebeurde ook echt: een run kreeg het logboekprofiel van een andere variant). Het slot (flock) in
+# ab_begin voorkomt dat; daarna de reservekopie van de drop-ins en de val die ze terugzet.
+ab_begin "$OUT"
+touch "$RES"
+START=$(date +%s)
 
-tel() { awk -v v="$1" '$1==v' "$OUT/resultaten.txt" 2>/dev/null | wc -l; }
+tel() { tel_geldig "$RES" "$1"; }
 
-wacht_vrij() {
-    for _ in $(seq 1 30); do
-        s=$("$CTL" game status 2>&1 | head -1)
-        case "$s" in *"geen game"*) return 0;; esac
-        sleep 2
-    done
-    return 0
-}
-
+pogingen=0
 while :; do
     # de variant met de laagste telling die het doel nog niet haalt
     keuze=""; laagst=999999
@@ -68,36 +85,47 @@ while :; do
     esac
     if [ ! -f "$SRC" ]; then echo "$keuze: bron $SRC ontbreekt"; break; fi
     SHA=$(sha1sum "$SRC" | cut -c1-8)
+    # Eerst kijken of er een game draait: dan geen DLL wisselen en de daemon niet herstarten.
+    weiger_als_niet_vrij || exit 3
     cp -f "$SRC" "$ENG"; cp -f "$SRC" "$VIEW"
     rm -f "$LOG"
-    systemctl --user restart ravengund >/dev/null 2>&1
+    herstart_daemon || exit 3
     sleep 7
-    "$CTL" mouse-gun --player 1 --mouse usb-Valve_Software_Steam_Controller_Puck_FXB9955202923-if03-event-mouse >/dev/null 2>&1
-    "$CTL" game start RobinHood >/dev/null 2>&1
+    "$CTL" mouse-gun --player 1 --mouse "$AB_MUIS" >/dev/null 2>&1
+    # Was de daemon voor de start al bezet (iemand anders startte net iets), dan zegt deze start niets
+    # over de DLL. Alleen dan, en als de start daarom geweigerd wordt, heet hij ongeldig.
+    BEZET=nee
+    game_bezet && BEZET=ja
+    STARTUIT=$("$CTL" game start RobinHood 2>&1)
+    case "$STARTUIT" in *"al een game"*) BEZET=ja;; esac
     sleep "$WACHT"
     PNG="$OUT/$keuze-$ronde.png"
-    /home/deck/projects/ravengun/tools/dev/rg-tv-env.sh --no-hold -- spectacle -b -n -f -o "$PNG" >/dev/null 2>&1
+    "$AB_TVENV" --no-hold -- spectacle -b -n -f -o "$PNG" >/dev/null 2>&1
     SZ=$(stat -c%s "$PNG" 2>/dev/null || echo 0)
-    ST=$("$CTL" game status 2>&1 | head -1)
+    ST=$(game_status)
     case "$ST" in *"De game draait"*) DRAAIT=ja;; *) DRAAIT=nee;; esac
-    # Het BOOTING-scherm is ~23 kB, de bordframes zijn groter, en het bureaublad is ~1,46 MB: dat is
-    # GEEN spel. Alleen de band daartussen telt als "voorbij BOOTING".
-    case "$SZ" in ''|0) OK=geen-foto;; *) if [ "$SZ" -gt 60000 ] && [ "$SZ" -lt 900000 ]; then OK=ja; else OK=nee; fi;; esac
+    OK=$(foto_oordeel "$SZ")
     LR=$(wc -l < "$LOG" 2>/dev/null || echo 0)
     BORD=$(rg -c 'ReadFile\(bord' "$LOG" 2>/dev/null || echo 0)
-    if [ "$DRAAIT" != ja ]; then
-        # De game liep niet (daemon nog bezet, of iets anders liep ernaast): deze run zegt niets over de
-        # DLL en gaat NIET de telling in. Opnieuw proberen, met een bovengrens tegen een lus.
-        echo "$(date '+%H:%M:%S') $keuze ronde $ronde ONGELDIG (game liep niet, foto=$SZ); opnieuw"
-        "$CTL" game stop >/dev/null 2>&1
+    if [ "$BEZET" = ja ]; then REDEN=ongeldig-daemon-bezet
+    elif [ "$DRAAIT" = ja ]; then REDEN=draait
+    else REDEN=gestopt
+    fi
+    # variant ronde sha foto ok draait logregels bordlezers reden
+    echo "$keuze $ronde $SHA $SZ $OK $DRAAIT $LR $BORD $REDEN" >> "$RES"
+    echo "$(date '+%H:%M:%S') $keuze ronde $ronde: foto=$SZ ok=$OK draait=$DRAAIT logregels=$LR bordlezers=$BORD reden=$REDEN"
+    if [ "$REDEN" = ongeldig-daemon-bezet ]; then
+        # De game die draait is niet van ons (de daemon weigerde onze start): niet stoppen, alleen
+        # wachten tot hij vrij is; is hij dat niet, dan weigert de volgende ronde. Opnieuw proberen met
+        # een bovengrens tegen een lus: zes ONGELDIGE starts OP RIJ. De teller gaat bij elke geldige
+        # start terug naar nul (eerder liep hij over de hele reeks door).
+        pogingen=$((pogingen + 1))
+        if [ "$pogingen" -gt 6 ]; then echo "te veel ongeldige runs op rij (daemon steeds bezet); stoppen"; break; fi
         wacht_vrij
         sleep 6
-        pogingen=$(( ${pogingen:-0} + 1 ))
-        if [ "$pogingen" -gt 6 ]; then echo "te veel ongeldige runs; stoppen"; break 2; fi
         continue
     fi
-    echo "$keuze $ronde $SHA $SZ $OK $DRAAIT $LR $BORD" >> "$OUT/resultaten.txt"
-    echo "$(date '+%H:%M:%S') $keuze ronde $ronde: foto=$SZ ok=$OK draait=$DRAAIT logregels=$LR bordlezers=$BORD"
+    pogingen=0
     "$CTL" game stop >/dev/null 2>&1
     wacht_vrij
     sleep 6
