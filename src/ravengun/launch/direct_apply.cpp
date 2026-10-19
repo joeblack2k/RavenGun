@@ -349,11 +349,12 @@ bool place_native_dlls(const DirectPlan& pl, const DirectPaths& p, std::vector<s
 
 }  // namespace
 
-bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
+bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err,
+                  std::vector<std::string>* vers_omgezet) {
     const MountTableScope koppelpunten(p);   // on_nas() leest /proc/self/mounts een keer voor deze hele stap
     // De schrijfmappen eerst (pass 2, bevinding 12): bij een eerste start is zo'n map nog een koppeling naar de NAS, en een drop-in of
     // bestand erin werd dan overgeslagen ("ligt op de NAS") en kwam pas bij de volgende start.
-    if (!place_view_writable(pl, p, log, err)) return false;
+    if (!place_view_writable(pl, p, log, err, vers_omgezet)) return false;
     for (const std::string& l : pl.dropin_lines) log.push_back("drop-in: " + l);
     for (const DropinFile& f : pl.dropin_files) {
         std::string msg;
@@ -1189,7 +1190,7 @@ std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const D
 }
 
 bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
-                         std::string& err) {
+                         std::string& err, std::vector<std::string>* vers_omgezet) {
     for (const std::string& opgegeven : pl.view_writable) {
         auto fout = [&](const std::string& m) {
             log.push_back("schrijfmap: FOUT: " + m + " -- de game wordt niet gestart");
@@ -1240,6 +1241,7 @@ bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector
                     return fout("kan de kopie niet op zijn plaats zetten (" + pad + "): " + waarom);
                 }
                 log.push_back("schrijfmap: " + pad + " is nu een echte map met een kopie van " + bron + " (" + std::to_string(totaal) + " bytes)");
+                if (vers_omgezet) vers_omgezet->push_back(pad);   // pass 2, R2: hier wint het zaaigoed van de NAS-kopie
             } else {
                 log.push_back("schrijfmap: " + pad + " wijst niet naar de NAS; blijft zoals hij is");
             }

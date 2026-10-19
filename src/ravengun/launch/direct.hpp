@@ -199,7 +199,11 @@ bool parse_view_links(const std::string& text, const std::string& base, std::vec
 // De drop-ins, de gegenereerde bestanden, de links van [Launch] ViewLinks en de exe met de grotere stapel ([Launch] StackReserve) in de view zetten (wat
 // launch-direct.py in run() doet voordat er iets start). Nooit op de NAS.
 // false + err = de game hoort niet te starten. `log` krijgt een regel per stap.
-bool apply_direct(const DirectPlan& plan, const DirectPaths& p, std::vector<std::string>& log, std::string& err);
+// `vers_omgezet` (mag nullptr): de schrijfmappen ([Launch] ViewWritable) die bij DEZE start van een koppeling naar de NAS een
+// echte map met een kopie werden. Daar wint het zaaigoed (seed.hpp) van de NAS-kopie; in een schrijfmap die al echt was staat de
+// stand van de game en die blijft.
+bool apply_direct(const DirectPlan& plan, const DirectPaths& p, std::vector<std::string>& log, std::string& err,
+                  std::vector<std::string>* vers_omgezet = nullptr);
 
 // Ontbreken de extra GStreamer-plug-ins (GST_PLUGIN_PATH zonder libgstasf.so)? Dan haalt het script ze eerst op (fetch-gst-wmv.sh).
 bool needs_gst_fetch(const DirectPlan& plan);

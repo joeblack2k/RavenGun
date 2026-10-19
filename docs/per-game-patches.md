@@ -1039,6 +1039,12 @@ Ingesteld voor Mario Kart (`AMCUS`, schrijft `WritableConfig.ini`) en Robin Hood
 `PR0/PR1.CFG` en `.CRC`). Proef: `ravengun_direct_launch_tests` (echte map, kopie, NAS ongemoeid,
 tweede keer niets doen, weigeren op de NAS, weigeren van `../x` en `/abs`).
 
+**Zaaigoed in een schrijfmap (pass 2, R2).** Is de schrijfmap bij een start nog een koppeling naar de NAS (een verse view), dan
+wordt hij bij die start een echte map met een kopie van de NAS. Het zaaigoed van de game (`patches/<Game>/seed/`, `seed.hpp`) wint
+dan van die kopie: een versie op de NAS telt niet mee. Was de map al een echte map (de game schreef er eerder zelf in), dan blijft
+wat er staat, ook als het zaaigoed anders is. Haunted Museum II (`ViewWritable = OpenParrot`, zaaigoed `seed/OpenParrot/HM2*`)
+krijgt zo op een verse view de meegeleverde kalibratie. Proef: `ravengun_games_tests`.
+
 ## `[Launch] ViewLocalFiles`: echte mappen zonder bestands-koppelingen naar de NAS
 
 Wine verwijdert en hernoemt **door een bestands-koppeling heen**: wineserver werkt met het echte pad (`realpath`), dus een

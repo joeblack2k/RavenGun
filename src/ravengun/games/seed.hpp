@@ -18,7 +18,11 @@ struct LayerMap {
 // van een view gevolgd) in een spelmap van `layers`, dan gaat de kopie naar de bovenlaag van die map; anders (een lokale map,
 // bv. in de view) rechtstreeks. Een doel dat al bestaat blijft staan. Geeft een logregel per bestand; `err` niet leeg = een
 // kopie mislukte (de start gaat dan niet door).
+// `vers_omgezet` (pass 2, R2): lokale mappen die bij DEZE start van een koppeling naar de NAS een echte map met een kopie van de
+// NAS werden ([Launch] ViewWritable, apply_direct). Een doel daarin is de NAS-versie, niet iets wat de game schreef: het zaaigoed
+// komt eroverheen. In elke andere map (ook een schrijfmap die al echt was: de stand van de game) blijft een bestaand doel staan.
 std::vector<std::string> seed_files(const std::vector<std::string>& seed_dirs, const std::string& game_dir,
-                                    const std::vector<LayerMap>& layers, std::string& err);
+                                    const std::vector<LayerMap>& layers, std::string& err,
+                                    const std::vector<std::string>& vers_omgezet = {});
 
 }  // namespace ravengun::games

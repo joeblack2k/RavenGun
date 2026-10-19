@@ -80,8 +80,9 @@ private:
 };
 // De schrijflaag (zie direct_apply.cpp): mappen waar de game in schrijft worden echte mappen in de
 // view, met een kopie van de NAS-inhoud; komt het pad daarna nog op de NAS uit, dan weigert de start.
+// `vers_omgezet` (mag nullptr) krijgt elke schrijfmap die bij deze aanroep van een koppeling naar de NAS een echte map werd.
 bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
-                         std::string& err);
+                         std::string& err, std::vector<std::string>* vers_omgezet = nullptr);
 // [Launch] ViewLocalFiles: in elke map van pl.view_local_files wordt elk kind dat een bestands-koppeling naar de NAS is een lokale
 // kopie (dezelfde veilige kopie en grens als een schrijfmap); een koppeling naar een map blijft staan, een echte submap wordt niet
 // bekeken. Weigert als de map zelf een koppeling is of op de NAS ligt, of als een kind naar iets anders op de NAS wijst. Eerst
