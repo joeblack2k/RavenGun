@@ -693,6 +693,13 @@ Wat er verder voor nodig was, in deze volgorde (de kast doet hetzelfde in `init_
 2. `AMCUS/AMAuthd.exe` starten (blijft draaien);
 3. `regsvr32 AMCUS/iauthdll.dll` -- de klasse registreren.
 
+**Correctie op deze notitie (leiding, ronde 9):** `views/MarioKartDX/AMCUS` is een **symbolische
+koppeling naar de NAS**, dus die "kopie in de view" heeft het origineel op de NAS overschreven
+(ALL.NET -> OFFLINE). De leiding heeft het origineel teruggezet vanuit `/tmp/AMConfig.origineel.ini`
+(md5 e22e16ead82786c4b3d359943a4135b9, `amdcfg-authType=ALL.NET`) en houdt een reservekopie. Dit
+bestand wordt niet meer aangeraakt. Zulke mappen horen in de schrijflaag van de view, niet als
+koppeling naar de NAS; zie de nachtstand voor Jeroen.
+
 **Gemeten resultaat:** de aanroep op 0x4010c0 slaagt nu (hr 0), het spel loopt door, maar het beeld
 is nog steeds zwart. De authenticatie is dus een *noodzakelijke* stap die nu werkt, maar niet de
 laatste: de volgende vraag is wat het spel daarna met `auth_state` doet (het leest velden van de
@@ -705,7 +712,7 @@ registratie, een OFFLINE-kopie is nog niet geprobeerd.)
 ### IAuth: OFFLINE geprobeerd, en wat er nog te meten valt (2026-10-19 05:28)
 
 `AMCUS/AMConfig.ini` kent `amdcfg-authType` = `ALL.NET` | `OFFLINE` | `NBLINE`. Een kopie in de view
-(de NAS blijft ongemoeid) met `amdcfg-authType=OFFLINE` is geprobeerd: de IAuth-aanroep geeft nog
+met `amdcfg-authType=OFFLINE` is geprobeerd: de IAuth-aanroep geeft nog
 steeds `hr 0` (de registratie werkt dus in beide standen) en het beeld blijft zwart. OFFLINE maakt
 voor deze hobbel dus geen verschil.
 

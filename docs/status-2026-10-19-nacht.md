@@ -72,7 +72,11 @@ muisgeweer op speler 1).
   `docs/research/wartran/README.md`: de aanroeper van de hulpfunctie volgen (het echte functiebegin
   ligt vóór 0x4902a0), en de daemon een munt/start laten aanbieden terwijl de controle loopt.
 * **Mario Kart, `authType=OFFLINE`.** Een kopie van `AMCUS/AMConfig.ini` in de view met
-  `amdcfg-authType=OFFLINE` (de NAS-original is niet aangeraakt) is geprobeerd: de IAuth-aanroep
+  `amdcfg-authType=OFFLINE` is geprobeerd. **Let op: dat was fout.** `views/MarioKartDX/AMCUS` is een
+  symbolische koppeling naar de NAS, dus die kopie heeft het NAS-original overschreven (ALL.NET ->
+  OFFLINE). De leiding heeft het teruggezet vanuit `/tmp/AMConfig.origineel.ini` (md5
+  e22e16ead82786c4b3d359943a4135b9, `amdcfg-authType=ALL.NET`) en houdt een reservekopie; dit bestand
+  wordt niet meer aangeraakt. Resultaat van de proef zelf: de IAuth-aanroep
   geeft nog steeds `hr 0` en het beeld blijft zwart, dus OFFLINE maakt voor deze hobbel geen verschil.
   De methodeaanroepen van de echte AMAuthd zijn van buiten niet te zien; onze eigen proef liet wel
   zien dat het spel direct na het aanmaken **slot 9** (vtable+0x24) aanroept en daarna netjes afsluit
@@ -101,3 +105,43 @@ muisgeweer op speler 1).
 
 De standen en de fotos staan in `docs/research/wartran/README.md`; de proefstand staat niet in het
 standaardprofiel (alleen de code, met de uitleg erbij).
+
+## Productfout voor Jeroen: de view koppelt mappen naar de NAS die het spel zelf schrijft
+
+`views/<Game>` is een linkfarm: bestanden van de NAS worden in de view gekoppeld in plaats van
+gekopieerd. Dat is prima voor *lezen*, maar niet voor mappen waar het spel in **schrijft**. Twee
+gevallen van vannacht:
+
+* `views/MarioKartDX/AMCUS` is een koppeling naar de NAS-map. Een "kopie in de view" van
+  `AMCUS/AMConfig.ini` (proef met `authType=OFFLINE`) heeft daardoor het **NAS-original**
+  overschreven. De leiding heeft het teruggezet (md5 e22e16ead82786c4b3d359943a4135b9,
+  `amdcfg-authType=ALL.NET`) en houdt een reservekopie.
+* `views/RobinHood/log` is ook een koppeling naar de NAS. Het spel heeft daar vannacht om 02:09
+  `PR0.CFG`, `PR1.CFG`, `PR0.CRC` en `PR1.CRC` geschreven (en op 10-15 al `PRbk*.dat`).
+
+**Open productfout:** mappen waar het spel in schrijft horen in de **schrijflaag** van de view
+(bijvoorbeeld `views/<Game>/.writable/...` of een kopie in de view) en niet als koppeling naar de
+NAS. Tot dat geregeld is, moet elke proef met zulke mappen eerst controleren of het pad een
+koppeling is (`readlink -f`), en de NAS-bestanden die er al staan blijven staan (niet verplaatsen of
+weggooien).
+
+## Nog open (uit de laatste reviewronde, met de volgende stap erbij)
+
+* **`rg_rhio`**: (a) na een volledige lezing van 7 bytes meldt `ClearCommError` weer 7 (spookdata);
+  dat moet 0 zijn zodra het antwoord op is (ook bij stand `niks` en bij `PurgeComm`); (b)
+  `InitializeCriticalSection` moet vóór `installeer_haken` gebeuren; (c) de herprobeer-draad start
+  altijd voor Robin Hood omdat drie *optionele* imports ontbreken -- alleen de imports eisen die de
+  exe echt heeft; (d) `OpenBordbeeld` heeft geen herhaalpoging en lekt een handvat; (e) de
+  proefstand `RG_AMAUTH_PROBE` gebruikt stdcall met een vaste ariteit, dus de conclusie "het spel
+  roept slot 9 aan" is niet betrouwbaar; (f) `strip -s` op de DLL kan de haken lastiger debugbaar
+  maken.
+* **TC5**: de noot bij `[Input]` staat dubbel.
+* **Robin Hood**: de wachtende hoofddraad volgen (op welk handvat wacht hij, en wie hoort dat te
+  seinen) -- zie `docs/research/wartran/README.md`.
+
+**Stand van de proeven bij het afsluiten:** ctest is 93 van 94. De ene rode is
+`ravengun_direct_golden`: het gouden bestand van MarioKartDX is nog van vóór de tweede exe
+(`starts` met AMAuthd). `tests/direct_golden.py --update` vindt het profiel in deze bouwmap niet
+("geen profiel meer") en laat het gouden bestand dan weg; daarom is het teruggezet uit git en staat
+het verversen als open punt. Het profiel zelf is wel goed: `rg-direct --plan MarioKartDX --patches
+<install>/patches` geeft `starts: [{"name": "AMAuthd.exe", "role": "second", ...}]`.
