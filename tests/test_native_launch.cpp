@@ -1,6 +1,9 @@
 // Tests voor de native route zonder shellscripts (src/ravengun/launch/native.*): profiel lezen met @-paden, het commando
 // (env -i -> gamescope -> bwrap -> rg-elfloader -> game), de invoertabel (gebruikerslaag voor meegeleverd), de schrijflaag (seed en
 // link alleen als het pad er nog niet is) en sha256. Gebouwd met tijdelijke mappen en nep-programma's in PATH; start niets.
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -563,6 +566,88 @@ int main() {
         fs::remove_all(levend);
         fs::remove(user + "/memory/nieuw2");
         fs::remove(user + "/memory/nieuw");
+        // F5: controle, bouw en wissel onder een slot (flock op <dst>.lock). Houdt een ander het slot vast, dan WACHT een start die
+        // opnieuw moet samenvoegen (en valt niet terug op alleen de meegeleverde map); daarna krijgt hij de samengevoegde map.
+        const auto kind_start = [&](const std::string& verwacht_bestand, const std::string& inhoud) {
+            const pid_t k = ::fork();
+            if (k == 0) {
+                NativeProfile pk;
+                std::string e;
+                const bool goed = load_profile(text, "Dir", q, pk, e) && !pk.mounts.empty() && pk.mounts[0].src == merged &&
+                                  !gemeld(pk, "mislukt") && slurp(merged + verwacht_bestand) == inhoud;
+                ::_exit(goed ? 0 : 1);
+            }
+            return k;
+        };
+        {
+            write(user + "/memory/slot", "slot");
+            const int fd = ::open((merged + ".lock").c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644);
+            CHECK(fd >= 0 && ::flock(fd, LOCK_EX) == 0);
+            const pid_t k = kind_start("/memory/slot", "slot");
+            ::usleep(400 * 1000);
+            int st = 0;
+            CHECK(k > 0 && ::waitpid(k, &st, WNOHANG) == 0);   // wacht op het slot
+            ::flock(fd, LOCK_UN);
+            ::close(fd);
+            CHECK(::waitpid(k, &st, 0) == k && WIFEXITED(st) && WEXITSTATUS(st) == 0);
+        }
+        // Zes starts tegelijk na een wijziging van de bron, een paar rondes: allemaal de samengevoegde map met de nieuwe inhoud
+        // (zonder slot faalde de rename van de verliezer met ENOTEMPTY en kreeg die alleen de meegeleverde map).
+        for (int ronde = 0; ronde < 4; ++ronde) {
+            write(user + "/memory/ronde", "ronde" + std::to_string(ronde));
+            std::vector<pid_t> kinderen;
+            for (int i = 0; i < 6; ++i) kinderen.push_back(kind_start("/memory/ronde", "ronde" + std::to_string(ronde)));
+            int goed = 0;
+            for (const pid_t k : kinderen) {
+                int st = 0;
+                if (k > 0 && ::waitpid(k, &st, 0) == k && WIFEXITED(st) && WEXITSTATUS(st) == 0) ++goed;
+            }
+            CHECK(goed == 6);
+        }
+        fs::remove(user + "/memory/slot");
+        fs::remove(user + "/memory/ronde");
+        // F6: een week oude opzij-map die een proces nog gemount heeft (hier via bwrap op een ander pad gebonden, zoals de sandbox
+        // van een game) blijft staan; zonder mount gaat hij weg. Zonder (werkende) bwrap wordt dit overgeslagen.
+        if (::access("/usr/bin/bwrap", X_OK) == 0) {
+            const std::string gemount = merged + ".oud.2.1", punt = (root / "bindpunt").string();
+            write(gemount + "/oud", "x");
+            fs::create_directories(punt);
+            const pid_t bw = ::fork();
+            if (bw == 0) {
+                const int nul = ::open("/dev/null", O_RDWR);
+                if (nul >= 0) { ::dup2(nul, 1); ::dup2(nul, 2); }
+                ::execl("/usr/bin/bwrap", "bwrap", "--dev-bind", "/", "/", "--ro-bind", gemount.c_str(), punt.c_str(), "--die-with-parent",
+                        "/usr/bin/sleep", "30", static_cast<char*>(nullptr));
+                ::_exit(127);
+            }
+            const auto mount_zichtbaar = [&]() {
+                std::error_code eci;
+                for (fs::directory_iterator it("/proc", eci), end; !eci && it != end; it.increment(eci)) {
+                    std::ifstream mi(it->path() / "mountinfo");
+                    std::string regel;
+                    while (std::getline(mi, regel))
+                        if (regel.find(" " + punt + " ") != std::string::npos) return true;
+                }
+                return false;
+            };
+            bool zichtbaar = false;
+            for (int i = 0; i < 60 && !(zichtbaar = mount_zichtbaar()); ++i) ::usleep(50 * 1000);
+            if (zichtbaar) {
+                write(user + "/memory/bw", "1");   // opnieuw samenvoegen: dan ruimt de start de resten op
+                CHECK(load_profile(text, "Dir", q, p2, err) && p2.mounts[0].src == merged && gemeld(p2, "samengevoegd"));
+                CHECK(fs::exists(gemount + "/oud"));   // nog gemount: blijft staan
+            } else {
+                std::fprintf(stderr, "let op: bwrap-mount niet zichtbaar; de controle op een gemounte opzij-map is overgeslagen\n");
+            }
+            ::kill(bw, SIGKILL);
+            ::waitpid(bw, nullptr, 0);
+            for (int i = 0; i < 60 && mount_zichtbaar(); ++i) ::usleep(50 * 1000);   // --die-with-parent: sleep verdwijnt met de mount
+            write(user + "/memory/bw", "2");
+            CHECK(load_profile(text, "Dir", q, p2, err) && p2.mounts[0].src == merged);
+            CHECK(!fs::exists(gemount));   // niet meer gemount: na een week weg
+            fs::remove(user + "/memory/bw");
+            fs::remove_all(punt);
+        }
         // Lukt het samenvoegen niet (hier: @data is geen map), dan de MEEGELEVERDE map, met een melding, en niet de halve gebruikersmap.
         {
             NativePaths bad = q;
