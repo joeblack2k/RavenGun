@@ -935,3 +935,22 @@ Alleen: de functie wordt nog **niet bereikt**. De aanroep staat naast `LaadMeetd
 52480002` en **geen** `stack:`-regel. De volgende ronde moet dus uitzoeken in welke tak van
 `rg_CreateFileA` die twee aanroepen staan (er zijn meer `CreateFileA`-paden: het bord, de pijp, de
 gewone bestanden) en ze in de **bordtak** zetten -- precies waar het bordhandvat wordt gemaakt.
+
+### Coopers 9: derde meting (2026-10-19 10:32-10:52) -- bevestigt het parkeren
+
+Opnieuw gemeten op onze eigen lader en kern (`Mode = direct`, `Core = ravengun`):
+
+* de kern laadt ("Loading core...", `openparrot/current/OpenParrotWin32/OpenParrot.dll`), de lader
+  stopt met **exitcode 0**, `rg-direct` volgt de game;
+* de game **sluit zich binnen ~8 seconden** met exitcode 0, zonder venster, zonder spelstand;
+* met een procesvolging (elke 4 s) is te zien dat de processen van de view van 9 naar 3 terugvallen
+  en dat de 3 die overblijven de wineserver-achtigen zijn: `game.exe` zelf is weg;
+* het drop-in-logboek van die start (`direct-Coopers9-20261019-103208.log`) laat geen crashdump zien,
+  en in de logregel staat `[Gamescope WSI] Executable name: explorer.exe` (de kern start eerst
+  explorer.exe, zoals bij de andere OpenParrot-titels).
+
+Dat is precies het beeld uit de notitie van 05:55: met de kern valt het spel in zijn eigen vroege start
+om, zonder kern sluit het na ~3 s met exitcode 0. **De volgende stap blijft dus dezelfde** en vraagt
+nieuwe infrastructuur: de bron van de kern in huis halen om de haken een voor een uit te zetten, of
+een debugger op het spel zetten zodat de aanroep naar `0x4fd8aed0` direct te zien is. In deze ronde
+was daarvoor geen tijd meer; (E) blijft **geparkeerd** met deze notitie als vertrekpunt.

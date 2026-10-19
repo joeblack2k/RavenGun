@@ -237,6 +237,7 @@ dezelfde: kijken wat de game zelf vindt (dongo-controle, config, `[Config]`-best
 het drop-in-logboek van die start lezen (`direct-Coopers9-20261019-103208.log`). De box van (E) is
 hiermee begonnen maar nog lang niet af; er is geen minuut attract geweest.
 
-**Stand van de lijst op 10:35**: (A) klaar en bewezen, (B) ctest 94/94, (C) klaar en op het echte pad
+**Stand van de lijst op 10:55**: (A) klaar en bewezen, (B) ctest 94/94, (C) klaar en op het echte pad
 gecontroleerd, (D) meetdraad loopt en de meting staat er (I/O CHECKING nog niet voorbij, volgende stap
-in de wartran-README), (E) net begonnen, (F) en (G) nog niets.
+in de wartran-README), (E) is opnieuw gemeten en **geparkeerd** met een precieze notitie (de volgende stap vraagt de bron van
+de kern of een debugger; zie de wartran-README), (F) en (G) nog niets.
