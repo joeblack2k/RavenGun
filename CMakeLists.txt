@@ -686,18 +686,6 @@ if(RAVENGUN_BUILD_TESTS)
     add_test(NAME ravengun_make_portable
       COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/make_portable_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
     set_tests_properties(ravengun_make_portable PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
-    # OLED-bescherming: een spel dat de daemon (of de web-UI, of de ctl) start moet het saver-venster wegzetten.
-    # Draait de echte lus met een nagemaakte /proc en nagemaakte systemctl/systemd-run. Skip (77) zonder de app.
-    if(TARGET ravengun_app)
-      # Het pad van het GEBOUWDE doel, niet van de geinstalleerde app: anders test de proef de oude
-      # installatie in plaats van de wijziging die net gebouwd is.
-      add_test(NAME ravengun_oled_saver
-        COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/oled_saver_test.sh" "$<TARGET_FILE:ravengun_app>")
-    else()
-      add_test(NAME ravengun_oled_saver
-        COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/oled_saver_test.sh")
-    endif()
-    set_tests_properties(ravengun_oled_saver PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
     add_test(NAME ravengund_ipc
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")
@@ -830,4 +818,20 @@ if(RAVENGUN_BUILD_APP)
   else()
     message(STATUS "Qt 6 of libarchive (met headers) niet gevonden: de app (ravengun) wordt niet gebouwd; zie docs/build.md")
   endif()
+endif()
+
+# OLED-bescherming: een spel dat de daemon (of de web-UI, of de ctl) start moet het saver-venster wegzetten.
+# Draait de echte lus met een nagemaakte /proc en nagemaakte systemctl/systemd-run. Staat HIER, na add_subdirectory(src/app):
+# het doel ravengun_app bestaat pas vanaf dat punt, en `if(TARGET ravengun_app)` ervoor was bij het configureren altijd onwaar.
+# Het pad van het GEBOUWDE doel, nooit van de geinstalleerde app. Zonder app (geen Qt) krijgt de proef geen pad en slaat hij over
+# (77), tenzij RAVENGUN_APP in de omgeving staat.
+if(RAVENGUN_BUILD_TESTS)
+  if(TARGET ravengun_app)
+    add_test(NAME ravengun_oled_saver
+      COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/oled_saver_test.sh" "$<TARGET_FILE:ravengun_app>")
+  else()
+    add_test(NAME ravengun_oled_saver
+      COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/oled_saver_test.sh")
+  endif()
+  set_tests_properties(ravengun_oled_saver PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 endif()

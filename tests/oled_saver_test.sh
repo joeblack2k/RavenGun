@@ -12,16 +12,19 @@
 # nagemaakte systemd-run (alle drie hebben daarvoor een omgevingsvariabele). Zo is te zien dat
 # het venster stopt bij een spel en weer start als het spel weg is.
 set -u
-# De binary: het eerste argument (CMake geeft $<TARGET_FILE:ravengun_app> mee, dus de GEBOUWDE app),
-# anders RAVENGUN_APP, anders de geinstalleerde app. Zonder binary: skip (77).
+# De binary: het eerste argument (CMake geeft $<TARGET_FILE:ravengun_app> mee, dus de GEBOUWDE app), anders
+# RAVENGUN_APP. Nooit de geinstalleerde app (~/.local/opt/ravengun): dan test de proef niet wat er net gebouwd is
+# en draait hij bovendien op een live installatie. Zonder binary: skip (77). Een binary die WEL is opgegeven maar niet
+# uitvoerbaar is, is een fout (stille terugval zou een kapotte of vergeten bouw verbergen).
 BIN=${1:-}
 [ -z "$BIN" ] && BIN=${RAVENGUN_APP:-}
-for k in "$BIN" "$HOME/.local/opt/ravengun/bin/ravengun" /usr/local/bin/ravengun; do
-    [ -n "$k" ] && [ -x "$k" ] && BIN=$k && break
-done
-if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
-    echo "skip: geen ravengun-app (Qt) om de saver-lus te draaien (zet RAVENGUN_APP)"
+if [ -z "$BIN" ]; then
+    echo "skip: geen ravengun-app (Qt) om de saver-lus te draaien (geef het pad als argument of zet RAVENGUN_APP)"
     exit 77
+fi
+if [ ! -f "$BIN" ] || [ ! -x "$BIN" ]; then
+    echo "FAIL: de opgegeven ravengun-app is niet uitvoerbaar of bestaat niet: $BIN (is de app gebouwd?)"
+    exit 1
 fi
 
 T=$(mktemp -d) || exit 1
@@ -65,6 +68,16 @@ wacht_op() {
     done
     return 1
 }
+# Wachten tot het bestand het patroon minstens $3 keer (regels) bevat; hooguit tien seconden.
+wacht_aantal() {
+    patroon=$1; bestand=$2; minimum=$3; i=0
+    while [ "$i" -lt 10 ]; do
+        [ "$(grep -c -- "$patroon" "$bestand" 2>/dev/null)" -ge "$minimum" ] && return 0
+        sleep 1
+        i=$((i + 1))
+    done
+    return 1
+}
 fail() { echo "FAIL: $*"; exit 1; }
 
 # 1. Venster staat aan, spel zichtbaar -> het venster moet uit.
@@ -83,14 +96,22 @@ stop_lus
 rm -rf "$T/proc/1001"
 : > "$VIEW_ON"
 : > "$CTL_LOG"; : > "$RUN_LOG"
+rm -f "$T/state/ravengun/saver-game.txt"   # geen resten van proef 1: alleen een NIEUWE schrijfbeurt telt als bewijs
 start_lus
-wacht_op "is-active" "$CTL_LOG" || true
+# Bewijs dat de lus echt draait en minstens een hele ronde heeft afgemaakt: de spelstand op het bord is 'geen' en het
+# venster is minstens twee keer gecontroleerd (een controle per ronde). Zonder dit slaagt de proef ook als de lus
+# nooit start, want dan staat er niets in het logboek om over te klagen.
+wacht_op '^geen' "$T/state/ravengun/saver-game.txt" ||
+    fail "de lus schreef de spelstand niet (draait hij wel?) (bestand: $(cat "$T/state/ravengun/saver-game.txt" 2>/dev/null))"
+wacht_aantal "is-active.*ravengun-oled-view.service" "$CTL_LOG" 2 ||
+    fail "de lus controleerde het saver-venster geen twee keer (log: $(tr '\n' '|' < "$CTL_LOG"))"
 grep -q ' stop ' "$CTL_LOG" && fail "de lus zette het venster uit terwijl er geen spel was (log: $(tr '\n' '|' < "$CTL_LOG"))"
 [ -s "$RUN_LOG" ] && fail "de lus startte het venster opnieuw terwijl het al aan stond"
 stop_lus
 
 # 3. Geen spel, venster uit -> na de wachttijd moet het venster weer starten.
 rm -rf "$T/proc/1001"; rm -f "$VIEW_ON"
+rm -f "$T/state/ravengun/saver-game.txt"   # de stand van proef 2 is ook 'geen': die mag hier niet meetellen
 : > "$CTL_LOG"; : > "$RUN_LOG"
 start_lus
 wacht_op -- "--unit=ravengun-oled-view" "$RUN_LOG" || true
