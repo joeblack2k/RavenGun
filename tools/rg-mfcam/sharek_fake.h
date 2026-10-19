@@ -33,6 +33,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 
 namespace rg_sharek {
@@ -61,7 +62,16 @@ enum class Kind : uint8_t {
     Restart,  // [out] WORD = 0
 };
 constexpr int16_t kStartOk = -1;     // VARIANT_TRUE
-constexpr int16_t kStatusIdle = 2;   // "wacht op het netwerk": de tick op 0x47ecd0 doet dan niets
+// Status die het eigen object teruggeeft. 2 = "wacht op het netwerk" (de tick van het spel doet dan
+// niets, vandaar het zwarte beeld); 1 = "配信機能OFF" (het spel ruimt de distributie een keer op en
+// doet daarna gewoon werk); 0 = gewoon werk. Met RG_SHAREK_STATUS is dit te kiezen (standaard 1:
+// een losse kast heeft niets te verspreiden, maar moet wel doorlopen).
+constexpr int16_t kStatusIdle = 2;
+inline int16_t status_keuze() {
+    const char* v = std::getenv("RG_SHAREK_STATUS");
+    if (v && *v) return static_cast<int16_t>(std::atoi(v));
+    return 1;
+}
 constexpr int16_t kRestartNo = 0;
 
 struct Slot {
@@ -123,7 +133,7 @@ constexpr const Slot* find_slot(int index) {
 inline bool out_word(Kind k, int16_t& v) {
     switch (k) {
         case Kind::Start: v = kStartOk; return true;
-        case Kind::Status: v = kStatusIdle; return true;
+        case Kind::Status: v = status_keuze(); return true;
         case Kind::Restart: v = kRestartNo; return true;
         case Kind::Nop: break;
     }

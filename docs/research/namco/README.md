@@ -592,3 +592,32 @@ de registratie, de echte client en de server ernaast: de volgende vraag is waar 
 (luistert `ShareK.exe` wel op de poort/pijp die `ipccl.dll` zoekt? `ShareK` schrijft geen
 `ShareKLog.log`; `LogPath = E:/` in `ShareK.exe.config` is op de kast een schrijfbare schijf en
 `E:` is bij ons niet gemapt).
+
+## ShareK IPC (Mario Kart Arcade GP DX): waar het spel blijft wachten (2026-10-19 03:45)
+
+De eigen ShareK-client (`rg-mfcam.dll`, `tools/rg-mfcam/sharek_fake.h`) wordt **wel** gebruikt: het
+logboek laat `CoCreateInstance({CCC44B2A-709A-33A8-A1B0-5DBE25B19C2C}) -> eigen object` zien en
+daarna `ShareK-object: slot 7 aangeroepen` (`StartIpcClient`, antwoord VARIANT_TRUE).
+
+**Maar slot 35 (de ShareK-status) wordt nooit aangeroepen** (nul keer in het hele logboek, over drie
+runs). De tick van het spel (`0x47ecd0`) vraagt de status pas als de client klaar is met opstarten,
+en dat punt wordt nooit bereikt. De conclusie die daaruit volgt: de client meldt de verbinding
+normaal **terug** aan het spel (een callback/event vanuit de client-DLL naar het spel), en die
+melding komt van ons lege object nooit. Daarom blijft het beeld zwart, ongeacht de statuswaarde.
+
+Wat er nu wel is:
+* `RG_SHAREK_STATUS` in `tools/rg-mfcam/sharek_fake.h` kiest de status die slot 35 teruggeeft
+  (standaard **1** = "配信機能OFF": het spel ruimt de distributie een keer op en doet daarna gewoon
+  werk; 2 = "wacht op het netwerk" was de oude vaste waarde en laat de tick niets doen; 0 = gewoon
+  werk). Dit is een knop voor de volgende stap, geen oplossing: met de callback er niet is komt de
+  tick niet aan de status toe.
+* Gemeten met een run van 75 seconden: het spel draait door (geen crash), `rg-mfcam.log` toont de
+  CoCreateInstance en slot 7, en het beeld blijft zwart (`bench-captures/MarioKartDX/`).
+
+**Volgende stap (precies):** uitzoeken welke callback het spel aan de client meegeeft. Kijk naar de
+argumenten van slot 7 (`0x47e892` in de exe: `StartIpcClient([out] VARIANT_BOOL*)`) en naar de
+gebruikte slots ernaast -- de client krijgt vrijwel zeker een interface-pointer van het spel (een
+event sink) die bij "verbonden" wordt aangeroepen. Zolang die niet nagemaakt wordt, blijft het spel
+op het zwarte beeld. Het alternatief blijft de echte `ShareK.exe` (met dotnet48 in de prefix, dat is
+gemeten) als tweede programma, maar dat brak de run af (docs/research/namco/README.md, ouder
+gedeelte) en vraagt de tweede-Programma-route van de engine.
