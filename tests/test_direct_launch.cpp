@@ -1738,6 +1738,80 @@ int main() {
             write(ugi2, std::string("[Launch]\nViewWritable = ") + fout + "\n");
             CHECK(plan_direct("Spel", p, o, wp, w) == Verdict::Refused && contains(w, "ViewWritable"));
         }
+        // A8-schrijflaag: de moeilijke gevallen van de schrijflaag (review 10).
+        {
+            namespace D = ravengun::launch::direct_detail;
+            std::vector<std::string> wlog;
+            std::string werr2;
+
+            // (1) Een mislukte kopie laat de koppeling staan en niets halfs achter.
+            const fs::path nas2 = home / "mnt/nas/Spel2/Logs";
+            write(nas2 / "goed.log", "inhoud\n");
+            write(nas2 / "onleesbaar.log", "geheim\n");
+            const fs::path view2 = view / "Logs";
+            fs::remove_all(view2);
+            fs::create_symlink(nas2.string(), view2.string());
+            ::chmod((nas2 / "onleesbaar.log").c_str(), 0);
+            DirectPlan pl3;
+            pl3.view_writable = {view2.string()};
+            CHECK(!D::place_view_writable(pl3, p, wlog, werr2));            // moet falen
+            CHECK(fs::is_symlink(view2));                                   // de koppeling staat er nog
+            CHECK(!fs::exists(view2.string() + ".ravengun-tmp"));           // geen tijdelijke map achter
+            ::chmod((nas2 / "onleesbaar.log").c_str(), 0644);
+            wlog.clear();
+            CHECK(D::place_view_writable(pl3, p, wlog, werr2));             // nu wel
+            CHECK(!fs::is_symlink(view2) && fs::is_directory(view2));
+            CHECK(slurp(view2 / "goed.log") == "inhoud\n");
+            CHECK(slurp(nas2 / "goed.log") == "inhoud\n");                 // NAS ongemoeid
+
+            // (2) Een ontbrekend pad onder een ouder die naar de NAS wijst: weigeren.
+            const fs::path nas3 = home / "mnt/nas/Spel3";
+            write(nas3 / "x.dat", "x\n");
+            const fs::path view3 = view / "sub";
+            fs::remove_all(view3);
+            fs::create_symlink(nas3.string(), view3.string());
+            DirectPlan pl4;
+            pl4.view_writable = {(view3 / "AMCUS").string()};
+            std::vector<std::string> wlog4;
+            std::string werr4;
+            CHECK(!D::place_view_writable(pl4, p, wlog4, werr4));           // ouder op de NAS
+            CHECK(contains(werr4, "NAS"));
+
+            // (3) Een kind dat naar een NAS-bestand wijst wordt lokaal gemaakt.
+            const fs::path nas4 = home / "mnt/nas/Spel4/AMCUS";
+            write(nas4 / "AMConfig.ini", "ALL.NET\n");
+            const fs::path view4 = view / "AMCUS";
+            fs::remove_all(view4);
+            fs::create_directories(view4);
+            fs::create_symlink((nas4 / "AMConfig.ini").string(), (view4 / "AMConfig.ini").string());
+            DirectPlan pl5;
+            pl5.view_writable = {view4.string()};
+            std::vector<std::string> wlog5;
+            std::string werr5;
+            CHECK(D::place_view_writable(pl5, p, wlog5, werr5));
+            CHECK(!fs::is_symlink(view4 / "AMConfig.ini") && fs::is_regular_file(view4 / "AMConfig.ini"));
+            write(view4 / "AMConfig.ini", "OFFLINE\n");
+            CHECK(slurp(nas4 / "AMConfig.ini") == "ALL.NET\n");             // NAS ongemoeid
+
+            // (4) Een mislukte stap (ouder niet beschrijfbaar) laat niets halfs achter.
+            const fs::path nas5 = home / "mnt/nas/Spel5/Logs";
+            write(nas5 / "a.log", "a\n");
+            const fs::path view5 = view / "vast";
+            fs::remove_all(view5);
+            fs::create_directories(view5);
+            const fs::path link5 = view5 / "Logs";
+            fs::create_symlink(nas5.string(), link5.string());
+            ::chmod(view5.c_str(), 0500);
+            DirectPlan pl6;
+            pl6.view_writable = {link5.string()};
+            std::vector<std::string> wlog6;
+            std::string werr6;
+            CHECK(!D::place_view_writable(pl6, p, wlog6, werr6));
+            CHECK(fs::is_symlink(link5));                                   // de koppeling staat er nog
+            ::chmod(view5.c_str(), 0755);
+            CHECK(!fs::exists(link5.string() + ".ravengun-tmp"));
+        }
+
         write(ugi2, "[Launch]\nViewCopies = GameRecords1.dat\n");
     }
 

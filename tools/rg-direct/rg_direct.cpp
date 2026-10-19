@@ -67,6 +67,7 @@
 #include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/json.hpp"
 #include "ravengun/launch/direct.hpp"
+#include "ravengun/launch/direct_internal.hpp"
 #include "ravengun/launch/amdaemon.hpp"
 #include "ravengun/launch/jvs_pipe.hpp"
 #include "ravengun/launch/native.hpp"
@@ -936,6 +937,22 @@ int run_plan(const std::string& plan_file) {
     L::DirectPlan plan;
     std::string err;
     if (!L::plan_from_json(text, plan, err)) { log(err); return 2; }
+    /* Review 10, A4: dezelfde controle als in de daemon-route (apply_direct). --run start de game en
+     * zou anders een schrijfmap kunnen starten die (nog) een koppeling naar de NAS is. */
+    namespace D = ravengun::launch::direct_detail;
+    const L::DirectPaths wp = L::default_direct_paths(L::environ_map());
+    for (const std::string& pad : plan.view_writable) {
+        if (D::islink(pad) || (D::lexists(pad) && D::on_nas(D::realpath_(pad), wp))) {
+            log("schrijfmap: --run weigert: " + pad + " is (nog) een koppeling naar de NAS; "
+                "start via de daemon of laat de view omzetten");
+            return 2;
+        }
+        const std::string ouder = D::dirname(pad);
+        if (D::lexists(ouder) && D::on_nas(D::realpath_(ouder), wp)) {
+            log("schrijfmap: --run weigert: " + ouder + " komt uit op de NAS");
+            return 2;
+        }
+    }
     {
         char self[4096];
         const ssize_t n = ::readlink("/proc/self/exe", self, sizeof self - 1);

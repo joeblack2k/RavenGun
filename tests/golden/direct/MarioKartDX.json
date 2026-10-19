@@ -11,7 +11,7 @@
   },
   "launch_mode": "direct",
   "verdict": "refused",
-  "why": "Instelling geweigerd: [Launch] StackReserve vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de exe met de grotere stapel wordt een lokaal bestand in de view, nooit op de NAS; @TMP@/home/games/MarioKartDX/MK_AGP3_FINAL.exe ligt daar niet"
+  "why": "Instelling geweigerd: [Launch] Mod = english: de mod staat niet (of niet in deze versie) in @TMP@/home/.local/share/ravengun/mods/MarioKartDX/english/files: draai scripts/fetch-mods.py MarioKartDX"
  },
  "start": {
   "input": {
@@ -25,6 +25,6 @@
   },
   "launch_mode": "direct",
   "verdict": "refused",
-  "why": "Instelling geweigerd: [Launch] StackReserve vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de exe met de grotere stapel wordt een lokaal bestand in de view, nooit op de NAS; @TMP@/home/games/MarioKartDX/MK_AGP3_FINAL.exe ligt daar niet"
+  "why": "Instelling geweigerd: [Launch] Mod = english: de mod staat niet (of niet in deze versie) in @TMP@/home/.local/share/ravengun/mods/MarioKartDX/english/files: draai scripts/fetch-mods.py MarioKartDX"
  }
 }

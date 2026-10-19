@@ -28,6 +28,10 @@ struct GameViewSpec {
     // Proton meldt een gelinkte map als map plus reparse point (GetFileAttributes 0x410, gemeten 2026-10-16); een game die op precies
     // FILE_ATTRIBUTE_DIRECTORY (0x10) controleert, mist hem dan (Haunted Museum II: ".\data" -> chdir("..\"), SOUND ERROR).
     std::vector<std::string> real_dirs;
+    // [Launch] ViewWritable: paden ten opzichte van de view-wortel waar de game zelf in schrijft. De
+    // verversing maakt daar NOOIT een link naar de NAS (review 10, A6): een link binnen zo'n map laat
+    // een schrijvende game alsnog op de NAS uitkomen.
+    std::vector<std::string> writable_dirs;
 };
 
 // Maakt de view zoals tp-add-game.py --view: links van de vorige keer op het hoogste niveau weg, lege mappen weg, alles linken

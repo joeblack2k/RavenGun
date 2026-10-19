@@ -87,6 +87,7 @@ def cpp_side(rg, name, tp, patches, user, env, extra=()):
                              "size": p["control_size"], "interval_ms": p["control_interval_ms"]} if p.get("control_pipe") else None,
             "stack": {"reserve": p["stack_reserve"], "src": p["stack_src"], "dest": p["stack_dest"]} if p.get("stack_reserve") else None,
             "view_links": p.get("view_links", []),
+            "view_writable": p.get("view_writable", []),
         }
     return out
 
@@ -133,6 +134,8 @@ def sparse(path, size, magic):
 
 def in_gamemap(name):
     """Vaste keuze per naam (niet per plaats in de lijst): een nieuw profiel verschuift de andere niet."""
+    if name in ("RobinHood", "MarioKartDX"):
+        return False   # hun profiel vraagt een view (ViewWritable/StackReserve); zie fixture()
     return zlib.crc32(name.encode()) % 2 == 1
 
 
@@ -198,6 +201,17 @@ def fixture(tmp, patches, profiles, gs):
             sparse(os.path.join(games, name, path), size, magic)
         else:
             sparse(os.path.join(views, name, path), size, magic)
+            if name == "RobinHood":
+                os.makedirs(os.path.join(nas, name, "log"), exist_ok=True)
+                write(os.path.join(nas, name, "log", "PR0.CFG"), "van de NAS\n")
+                os.symlink(os.path.join(nas, name, "log"), os.path.join(views, name, "log"))
+            elif name == "MarioKartDX":
+                os.makedirs(os.path.join(nas, name, "AMCUS"), exist_ok=True)
+                write(os.path.join(nas, name, "AMCUS", "AMConfig.ini"), "van de NAS\n")
+                os.makedirs(os.path.join(views, name, "AMCUS"), exist_ok=True)
+                os.symlink(os.path.join(nas, name, "AMCUS", "AMConfig.ini"),
+                           os.path.join(views, name, "AMCUS", "AMConfig.ini"))
+                write(os.path.join(views, name, "AMCUS", "AMAuthd.exe"), "MZ")
         # Een tweede exe (HasTwoExecutables): [Identify] Path2, relatief aan dezelfde gamemap als Path.
         path2 = (g.get("Identify", "Path2", "") or "").replace("\\", "/").strip("/")
         if path2 and name not in ("TC5", "Rampage"):
@@ -426,7 +440,8 @@ def main(argv):
             d = diff(want, got[name])
             fails += bool(d)
             r = got[name]["plan"]
-            print("  %-26s %-8s %s" % (name, r["verdict"], "gelijk" if not d else "VERSCHILT  <-- FOUT"))
+            print("  %-26s %-8s %s%s" % (name, r["verdict"], "gelijk" if not d else "VERSCHILT  <-- FOUT",
+                                          ("  [" + (r.get("why") or "")[:70] + "]") if r["verdict"] != "ok" else ""))
             for x in d[:40] if (d or a.verbose) else []:
                 print("      " + x)
         weg = sorted(f[:-5] for f in os.listdir(a.golden)

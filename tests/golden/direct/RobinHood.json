@@ -10,8 +10,152 @@
    "why": ""
   },
   "launch_mode": "direct",
-  "verdict": "refused",
-  "why": "Instelling geweigerd: [Launch] ViewWritable vraagt een view van de game; die mappen komen alleen in de view, nooit op de NAS"
+  "plan": {
+   "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
+    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\game.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/RobinHood/dropin/ravengun-patchmem32.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/patchmem.txt",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/patchmem.txt"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/rg-rhio.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-rhio.dll"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/rg-compat.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll"
+    ]
+   ],
+   "dropin_lines": [
+    "ravengun-patchmem32.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
+    "patchmem.txt -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/patchmem.txt",
+    "rg-rhio.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-rhio.dll",
+    "rg-compat.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll",
+    "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
+    "RAVENGUN_PATCHMEM_VERBOSE": "1",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
+    "RG_LOADER_CORE": "ravengun",
+    "RG_RHIO_LOG": "rg-rhio.log",
+    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+    "TP_GAMESCOPE": "1",
+    "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d9=n,b",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\n"
+    ]
+   ],
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/game.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "game.exe",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": true,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
+    "RAVENGUN_PATCHMEM_VERBOSE": "1",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
+    "RG_RHIO_LOG": "rg-rhio.log",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
+    "WINEDEBUG": "-all"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\game.exe"
+     ],
+     "comms": [
+      "game.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/game.exe",
+     "gamescope": true,
+     "name": "game.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "view_writable": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/log"
+   ],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+  },
+  "verdict": "ok",
+  "why": ""
  },
  "start": {
   "input": {
@@ -24,7 +168,151 @@
    "why": ""
   },
   "launch_mode": "direct",
-  "verdict": "refused",
-  "why": "Instelling geweigerd: [Launch] ViewWritable vraagt een view van de game; die mappen komen alleen in de view, nooit op de NAS"
+  "plan": {
+   "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
+    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\game.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/RobinHood/dropin/ravengun-patchmem32.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/patchmem.txt",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/patchmem.txt"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/rg-rhio.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-rhio.dll"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/rg-compat.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll"
+    ]
+   ],
+   "dropin_lines": [
+    "ravengun-patchmem32.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
+    "patchmem.txt -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/patchmem.txt",
+    "rg-rhio.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-rhio.dll",
+    "rg-compat.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll",
+    "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
+    "RAVENGUN_PATCHMEM_VERBOSE": "1",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
+    "RG_LOADER_CORE": "ravengun",
+    "RG_RHIO_LOG": "rg-rhio.log",
+    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+    "TP_GAMESCOPE": "1",
+    "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d9=n,b",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=RawInput\nWindowed=1\nHideCursor=1\nUse Relative Input=0\nPlayer 1 Relative Sensitivity=8\n"
+    ]
+   ],
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/game.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "game.exe",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": true,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
+    "RAVENGUN_PATCHMEM_VERBOSE": "1",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
+    "RG_RHIO_LOG": "rg-rhio.log",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
+    "WINEDEBUG": "-all"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": null,
+   "starts": [
+    {
+     "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
+      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\game.exe"
+     ],
+     "comms": [
+      "game.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/game.exe",
+     "gamescope": true,
+     "name": "game.exe",
+     "role": "main",
+     "wait_before": 0.0
+    }
+   ],
+   "view_links": [],
+   "view_writable": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/log"
+   ],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+  },
+  "verdict": "ok",
+  "why": ""
  }
 }

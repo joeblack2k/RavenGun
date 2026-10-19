@@ -289,6 +289,16 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
     }
     std::set<std::string> leeg_bedoeld;
     for (const std::string& e : s.empty_dirs) leeg_bedoeld.insert(strip_slashes(e));
+    /* Review 10, A6: binnen een schrijfmap ([Launch] ViewWritable) komt nooit een link naar de NAS.
+     * Anders zet de verversing bijvoorbeeld SwordGame/Logs/Launch.log weer als link neer en schrijft
+     * de game via die link op de NAS. */
+    auto in_writable = [&](const std::string& rel) {
+        for (const std::string& w : s.writable_dirs) {
+            const std::string ww = strip_slashes(w);
+            if (!ww.empty() && (rel == ww || rel.compare(0, ww.size() + 1, ww + "/") == 0)) return true;
+        }
+        return false;
+    };
     // Een echte map van de view verversen: links bij voor wat er in de gamemap bij kwam, verdwenen links weg.
     auto ververs = [&](const std::string& vd, const std::string& sd, bool wortel) -> bool {
         std::vector<std::string> names;
@@ -301,6 +311,7 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
                 // Die wordt weer een link. Een map met inhoud, of een die bewust leeg is, blijft staan.
                 if (lexists(dp) && !islink(dp) && isdir(dp)) {
                     const std::string rel = fs::path(dp).lexically_relative(s.view).generic_string();
+                    if (in_writable(rel)) continue;   // een schrijfmap blijft een echte map
                     std::vector<std::string> in_view, in_bron;
                     if (!leeg_bedoeld.count(rel) && listdir(dp, in_view) && in_view.empty() && isdir(pjoin(sd, e)) &&
                         listdir(pjoin(sd, e), in_bron) && !in_bron.empty()) {
@@ -313,6 +324,10 @@ bool refresh_game_view(const GameViewSpec& s, const NasFn& on_nas, std::vector<s
                     continue;
                 }
                 if (lexists(dp)) continue;
+                if (in_writable(fs::path(dp).lexically_relative(s.view).generic_string())) {
+                    log.push_back("view: " + e + " valt binnen een schrijfmap; geen link naar de NAS");
+                    continue;
+                }
                 if (!do_symlink(pjoin(sd, e), dp, g)) return false;
                 ++bij;
             }

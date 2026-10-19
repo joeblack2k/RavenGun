@@ -96,3 +96,51 @@ Dat maakt de volgende stap scherp: welke draad houdt dat slot, en welke van onze
 hem wachten? Elke haak (`ReadFile`, `WriteFile`, `ClearCommError`, `GetCommTimeouts`,
 `WaitCommEvent`) moet snel terugkeren. De volledige tabel met sleuven, aanroepen en het patroon staat
 in `docs/research/wartran/README.md`; de volgende drie stappen staan daar ook.
+
+## (A) hard gemaakt volgens reviewronde 10
+
+* **A1**: de koppeling gaat pas weg als de kopie **volledig** gelukt is. Er wordt eerst naar
+  `<pad>.ravengun-tmp` gekopieerd met `directory_iterator` + `increment(ec)` (geen worp in de
+  daemon-draad, die zou `std::terminate` zijn), elke fout wordt gemeld, en pas daarna volgt
+  `unlink` + `rename`. Een NAS-hapering laat zo nooit een lege of halve map achter die als spelstand
+  bewaard blijft.
+* **A2**: de uitslag van `unlink` en `rename` wordt gecontroleerd; vóór elke aanraking wordt de
+  **ouder** getest (`on_nas(realpath_(dirname(pad)))`) zodat een koppeling in een koppelingsmap niet
+  alsnog op de NAS schrijft.
+* **A3**: ook als het pad niet bestaat wordt de ouder gecontroleerd, en een **case-variant** die naar
+  de NAS wijst (Wine is niet hoofdlettergevoelig) wordt behandeld.
+* **A5**: kinderen die naar de NAS wijzen worden **lokaal gemaakt** (bestand kopiëren, koppeling
+  weg, echt bestand terug); een kind dat een NAS-**map** is wordt geweigerd met uitleg.
+* **A4**: `rg-direct --run PLAN.json` weigert nu ook een schrijfmap die een koppeling is of op de NAS
+  uitkomt (dezelfde controle als de daemon-route).
+* **A6**: `refresh_game_view` zet **nooit** een link naar de NAS binnen een schrijfmap (nieuw veld
+  `writable_dirs` in `GameViewSpec`, gevuld uit `[Launch] ViewWritable`). `InfinityBladeFX`
+  (`SwordGame/Logs`), `BugBusters` (`config`) en `HauntedMuseumII` (`data`) hebben de sleutel nu ook.
+* **A7**: `on_nas` kiest bij twee regels met hetzelfde koppelpunt (autofs boven cifs op deze Deck) de
+  **laatste**; eerst bleef de autofs-regel staan en werkte het alleen door de `~/mnt`-voorwaarde.
+* **A8**: vier nieuwe proeven in `ravengun_direct_launch_tests` (mislukte kopie laat de koppeling
+  staan en niets halfs achter; ontbrekend pad onder een koppeling naar de NAS wordt geweigerd; een
+  kind dat naar een NAS-bestand wijst wordt lokaal; een mislukte stap laat niets halfs achter) --
+  **475 controles, 0 fout**. De gouden vergelijking laat nu `view_writable` zien en **RobinHood staat
+  weer op `ok`** (het volle plan), doordat de proefopstelling RobinHood en MarioKartDX in een view
+  zet. MarioKartDX blijft daar geweigerd op `[Launch] Mod = english` (de fan-vertaling is een
+  download die de proefopstelling niet heeft); de tweede exe wordt in de C++-proeven gedekt.
+* **Installatiestap (voor de volgende keer)**: de daemon komt uit **`build/`** (niet `build-app/`;
+  die heeft geen `ravengund`-doel). Na een bouw: `cmake --install build --prefix
+  ~/.local/opt/ravengun` en daarna `systemctl --user restart ravengund`, anders draait de oude
+  engine. `build-app` bouwt hier niet (geen `archive.h`); alleen `ravengund`/`ravengunctl` komen uit
+  `build/`.
+
+### Nog open: de schrijflaag vuurt niet in de daemon (eerlijk)
+
+De functie is proefondervindelijk goed (475 controles, inclusief de volle `apply_direct`), maar in de
+**daemon** wordt `place_view_writable` niet bereikt: met een `fprintf(stderr, ...)` op de eerste regel
+(het daemon-stderr gaat naar `logs/ravengund.log`) kwam er bij een gewone start **geen enkele regel**,
+terwijl `games.cpp` `L::apply_direct` wel aanroept. Drie routes zijn geprobeerd: `rg-direct --run`
+(blijkt volgens de review alleen te *starten*, niet te plaatsen), de daemon met een verse binary (de
+geïnstalleerde `ravengund` bevat de nieuwe code, gecontroleerd met `strings`) en instrumentatie in de
+functie zelf (geen uitvoer). De volgende stap is dus *vóór* de functie: uitzoeken welke weg de daemon
+voor RobinHood werkelijk loopt (`direct_route` → `plan_direct` → `apply_direct`, of de write_layer-
+route) en of `pl.view_writable` daar gevuld is. **Stopgap**: `views/RobinHood/log` en
+`views/MarioKartDX/AMCUS` zijn met de hand echte mappen met een kopie; de NAS is onaangeroerd
+(`ls --full-time` van `Robin Hood/log` is vóór en na de proef identiek: 02:09:35 en 10-15).

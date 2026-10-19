@@ -122,6 +122,7 @@
     }
    ],
    "view_links": [],
+   "view_writable": [],
    "windowed_override": false,
    "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
   },
@@ -251,6 +252,7 @@
     }
    ],
    "view_links": [],
+   "view_writable": [],
    "windowed_override": false,
    "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
   },

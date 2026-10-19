@@ -167,6 +167,21 @@ std::string view_wortel(const std::string& base, const DirectPaths& p) {
 }
 
 // --- de view ([Launch] View; launch-direct.py plan_view, de opbouw in gameview.cpp) ------------------------------------------------
+// [Launch] ViewWritable: de schrijf mappen (komma of puntkomma gescheiden), voor de verversing van
+// de view (review 10, A6).
+namespace {
+std::vector<std::string> schrijf_mappen(const gsn::Ini& settings) {
+    std::vector<std::string> uit;
+    std::string in = settings.get("Launch", "ViewWritable");
+    for (char& c : in) if (c == ';') c = ',';
+    for (const std::string& r : nonempty_split(in, ',')) {
+        const std::string t = trim(r);
+        if (!t.empty()) uit.push_back(t);
+    }
+    return uit;
+}
+}  // namespace
+
 // Het pad van de game waarmee het plan verder rekent. auto: staat de game op de NAS en is er nog geen view, dan wordt views/<Profiel>
 // gemaakt zoals tp-add-game.py --view (de wortel waar [Identify] Path begint); een getal N: altijd een view, N mappen omhoog; off: de
 // oude route. Een bestaande view met deze game blijft staan, alleen de links worden ververst. Zonder o.make_view (--plan) wordt er

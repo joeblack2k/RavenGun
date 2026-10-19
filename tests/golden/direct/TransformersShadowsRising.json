@@ -93,6 +93,7 @@
     }
    ],
    "view_links": [],
+   "view_writable": [],
    "windowed_override": false,
    "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
   },
@@ -193,6 +194,7 @@
     }
    ],
    "view_links": [],
+   "view_writable": [],
    "windowed_override": false,
    "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
   },

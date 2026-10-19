@@ -180,7 +180,10 @@ bool on_nas(const std::string& path, const DirectPaths& p) {
         for (size_t at = mp.find("\\040"); at != std::string::npos; at = mp.find("\\040", at + 1)) mp.replace(at, 4, " ");
         std::string mps = mp;
         while (!mps.empty() && mps.back() == '/') mps.pop_back();
-        if ((real == mp || real.starts_with(mps + "/")) && mp.size() > best.size()) { best = mp; fstype = type; }
+        /* Review 10, A7: bij twee regels met hetzelfde koppelpunt (autofs boven cifs, zoals op deze
+         * Deck) wint de LAATSTE; met ">" bleef de autofs-regel staan en was de uitkomst alleen goed
+         * door de ~/mnt-voorwaarde hierboven. */
+        if ((real == mp || real.starts_with(mps + "/")) && mp.size() >= best.size()) { best = mp; fstype = type; }
     }
     return fstype == "cifs" || fstype == "smb3" || fstype == "smbfs" || fstype == "nfs" || fstype == "nfs4" || fstype == "fuse.sshfs";
 }
