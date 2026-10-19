@@ -9,7 +9,6 @@
 #   0x491498  ...                  <- goedpad: gebiedscode naar 0x68411c
 # Zonder dongle is er geen antwoord, dus altijd het foutpad. Twee NOP's laten de vergelijking
 # vervallen; de rest van het goedpad loopt gewoon door.
-game.exe|0x91496|7519|9090
 #
 # game.exe+0x1526 (VA 0x491526): de uitslag zelf. 0x491521 zet de vlag 0x1a6be80 op 2
 # ("onbekende HASP-uitslag": de aanroep 0x57a9e0 gaf iets buiten 0..0x1f, of de sprongtabel koos de
@@ -26,4 +25,26 @@ game.exe|0x91496|7519|9090
 # Van 0x1a6be80 is dit de ENIGE lezer buiten de controle zelf (0x4914xx). Met een gewone sprong in
 # plaats van een voorwaardelijke gaat het spel altijd door, wat de uitslag ook is. De uitslag blijft
 # wel staan, dus het spelgedrag verder verandert niet.
-game.exe|0x1526|02000000|00000000
+# --- proef A (2026-10-19 02:40): de controle laten slagen in plaats van alleen de melding dempen.
+#
+# De functie 0x4913c0 werkt zo: 0x55cffd opent de dongle (edi=0 als dat niet lukt -> 0x4914c2 zet
+# vlag 3), daarna leest 0x55db52 0x20 bytes in een stapelbuffer, controleert die met een CRC
+# (0x491402-0x491496) en leest met 0x57b350 nog eens 0x20 bytes naar 0xde7098. Die tweede buffer
+# wordt met 'GWRH' vergeleken (0x491547, 0x49155a, 0x491563, 0x49156c) en de twee waarden op
+# 0xde709c en 0xde70a0 gaan naar 0x1a6be78/0x1a6be7c (die gebruikt het spel later). Lukt alles, dan
+# zet 0x491587 de vlag op 0 en geeft de functie 1 terug. Zonder dongle: geen van beide reads lukt,
+# dus de buffers blijven leeg en de vlag blijft staan.
+#
+# Deze proef laat de controle slagen met lege buffers: alle vergelijkingen tegen 0, de takken naar
+# het foutpad dicht, en de functie loopt zo naar de goedkeuring. Dat is nog steeds dempen (geen
+# echte dongle-antwoorden), maar nu met de vlag op 0, zodat het spel niet in de foutafhandeling
+# komt. Werkt dit niet, dan is de volgende stap een antwoord emuleren (stub op 0x491504).
+game.exe|0x91496|7519|9090
+game.exe|0x913e6|0f84d6000000|909090909090
+game.exe|0x914e1|773e|eb0e
+game.exe|0x9154d|47|00
+game.exe|0x91560|57|00
+game.exe|0x91569|52|00
+game.exe|0x91572|48|00
+game.exe|0x9150b|7431|eb31
+game.exe|0x9159c|7d06|eb06

@@ -36,11 +36,37 @@
 
 /* ---------------------------------------------------------------- de twee haken */
 
+/* Tijdens de SYNCHRONE eerste ronde (zie DllMain) melden we alleen de hoofdmodule. Reden: die ronde
+ * loopt in DllMain, waar de loader-lock van deze draad is; CreateToolhelp32Snapshot zou daar op
+ * wachten. GetModuleHandle(NULL) mag wel (de lock is herintreedbaar voor dezelfde draad) en de
+ * hoofdmodule is precies wat een spel als Robin Hood nodig heeft: zijn beveiligingscontrole loopt
+ * meteen bij het opstarten, nog vóór de achtergrondthread aan de beurt komt. */
+static int g_alleen_hoofdmodule = 0;
+
 static int loop_modules(int (*cb)(const char *naam, void *basis, void *user), void *user)
 {
     HANDLE momentopname;
     MODULEENTRY32 module;
     int gestopt = 0;
+
+    if (g_alleen_hoofdmodule) {
+        HMODULE hoofd = GetModuleHandleW(NULL);
+        wchar_t pad[MAX_PATH];
+        const wchar_t *naam = L"";
+        if (!hoofd) return 0;
+        if (GetModuleFileNameW(hoofd, pad, (DWORD)(sizeof pad / sizeof pad[0])) > 0) {
+            const wchar_t *schuin = wcsrchr(pad, L'\\');
+            naam = schuin ? schuin + 1 : pad;
+        }
+        {
+            char smal[MAX_PATH];
+            int i;
+            for (i = 0; i < (int)(sizeof smal / sizeof smal[0]) - 1 && naam[i]; ++i)
+                smal[i] = (char)(naam[i] < 128 ? naam[i] : '?');
+            smal[i] = '\0';
+            return cb(smal, (void *)hoofd, user) ? 1 : 0;
+        }
+    }
 
     momentopname = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32,
                                             GetCurrentProcessId());
@@ -145,7 +171,20 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID gereserveerd)
 
     if (reden == DLL_PROCESS_ATTACH) {
         HANDLE draad;
+        int verslag;
         DisableThreadLibraryCalls(instantie);
+
+        /* EERST synchroon de hoofdmodule: de lader laadt deze DLL vlak voordat het spel zijn eerste
+         * code draait, en een controle die meteen bij het opstarten loopt (Robin Hood: game.exe
+         * 0x4913c0, aangeroepen vanuit de wikkel op 0x401093) is anders al voorbij voordat de
+         * achtergrondthread aan de beurt is -- gemeten: de patch stond in het geheugen, maar de vlag
+         * van het spel stond al op 2. Hier patchen we dus alleen de exe van het spel zelf; alle
+         * andere modules blijven voor de achtergrondthread. */
+        g_alleen_hoofdmodule = 1;
+        verslag = patchmem_apply_from_env();
+        g_alleen_hoofdmodule = 0;
+        if (verslag < 0) return TRUE;   /* geen RAVENGUN_PATCHMEM_FILE: niets doen */
+
         draad = CreateThread(NULL, 0, achtergrond, NULL, 0, NULL);
         if (draad) {
             CloseHandle(draad);
