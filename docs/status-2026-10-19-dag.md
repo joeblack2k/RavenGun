@@ -81,7 +81,10 @@ PRbk*.dat) zijn niet verplaatst, gewijzigd of verwijderd.
   De mutex-haken zijn gebouwd maar mogen niet aan (ze laten de game stoppen), en ook het uitbreiden
   van de meetdraad met stapelwoorden bleek fataal (teruggedraaid; de meetdraad is weer precies zoals
   in de repo). De volgende stap staat in de wartran-README: het handvat van de wacht lezen zonder te
-  haken. **Eerlijk: I/O CHECKING is nog niet voorbij.**
+  haken. Er is nu ook een **wachthandvat-lezer** in rg_rhio (draden even stilzetten, `Eip`/`Esp` en
+  de stapelwoorden lezen, geen import-haak): de game blijft er goed van draaien, maar de aanroep wordt
+  nog niet bereikt -- zie de wartran-README voor de exacte plek. **Eerlijk: I/O CHECKING is nog niet
+  voorbij.**
   **Oudere notitie:** de wachtende hoofddraad -- **deels gedaan**: de mutex is gevonden en
   gedocumenteerd (`docs/research/wartran/README.md`), en de valkuilen bij het meten staan er ook
   (controller voor de daemon, `pgrep` die je eigen shell matcht). De meetdraad zelf moet nog

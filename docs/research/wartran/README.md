@@ -922,3 +922,16 @@ kwartier).
 3. Blijkt de bezitter een van onze draden (352/356 wachten met geen enkele exe-aanroep op de stapel),
    dan is dat de kant om te repareren: die draden horen het bord te voeden en het slot daarna vrij te
    geven.
+
+### Stand van de wachthandvat-lezer (einde (D))
+
+`LeesWachthandvatten()` staat in `rg_rhio.cpp` en is gebouwd: het zet elke draad even stil, leest
+`Eip`/`Esp` en de vier stapelwoorden, en schrijft `stack: draad <tid> pc=<module+rva> esp=... args=...`
+naar het bordlogboek. Aan met `rg-rhio-stack.aan` naast de DLL of `RG_RHIO_STACK=1`. **De game blijft
+er goed van draaien** (foto 23 kB, I/O CHECKING) -- dat is de winst ten opzichte van de import-haken.
+
+Alleen: de functie wordt nog **niet bereikt**. De aanroep staat naast `LaadMeetdraad()` in
+`rg_CreateFileA`, maar in het logboek staat wel `CreateFileA(COM1, ...) -> nagebootst bordhandvat
+52480002` en **geen** `stack:`-regel. De volgende ronde moet dus uitzoeken in welke tak van
+`rg_CreateFileA` die twee aanroepen staan (er zijn meer `CreateFileA`-paden: het bord, de pijp, de
+gewone bestanden) en ze in de **bordtak** zetten -- precies waar het bordhandvat wordt gemaakt.

@@ -34,6 +34,7 @@
 //   RG_RHIO_STIL=1         alleen fouten loggen
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <tlhelp32.h>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -968,6 +969,86 @@ void LaadMeetdraad() {
     GetEnvironmentVariableA("RG_COMPAT_SAMPLE", ms, sizeof ms);
     HMODULE m = LoadLibraryA("rg-compat.dll");
     Log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", ms);
+}
+
+/* --- (D) Wie wacht waarop, zonder een import-haak -------------------------------------------
+ * De mutex-haken (WaitForSingleObject/ReleaseMutex/CreateMutexA) laten de game stoppen. Deze functie
+ * raakt de importtabel daarom niet aan: ze zet elke draad heel even stil, leest de instructiewijzer
+ * en de stapel, en laat hem weer door. Dat is precies wat de meetdraad van rg-compat ook doet en dat
+ * is veilig gebleken. Alleen aan met rg-rhio-stack.aan of RG_RHIO_STACK=1. */
+bool StackAan() {
+    static const bool aan = [] {
+        char v[8] = {0};
+        if (GetEnvironmentVariableA("RG_RHIO_STACK", v, sizeof v) != 0) return v[0] != '0';
+        const std::string map = EigenMap();
+        return !map.empty() && Bestaat(map + "\\rg-rhio-stack.aan");
+    }();
+    return aan;
+}
+
+/* Waar ligt dit adres? module+rva, zodat een treffer met de meting van rg-compat te vergelijken is. */
+std::string WaarTekst(ULONG_PTR a) {
+    char buf[96];
+    HMODULE m = nullptr;
+    if (a && GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                reinterpret_cast<LPCSTR>(a), &m)) {
+        char pad[MAX_PATH] = {0};
+        GetModuleFileNameA(m, pad, sizeof pad);
+        const char* b = std::strrchr(pad, '\\');
+        std::snprintf(buf, sizeof buf, "%s+0x%lx", b ? b + 1 : pad, static_cast<unsigned long>(a - reinterpret_cast<ULONG_PTR>(m)));
+    } else {
+        std::snprintf(buf, sizeof buf, "%p", reinterpret_cast<void*>(a));
+    }
+    return buf;
+}
+
+void LeesWachthandvatten() {
+    if (!StackAan()) return;
+    static DWORD laatst = 0;
+    const DWORD nu = GetTickCount();
+    if (nu - laatst < 1000) return;   // een keer per seconde is genoeg
+    laatst = nu;
+
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE) return;
+    THREADENTRY32 te;
+    te.dwSize = sizeof te;
+    const DWORD ik = GetCurrentThreadId();
+    if (Thread32First(snap, &te)) {
+        do {
+            if (te.dwSize < FIELD_OFFSET(THREADENTRY32, th32OwnerProcessID) + sizeof(DWORD)) continue;
+            if (te.th32OwnerProcessID != GetCurrentProcessId()) continue;
+            if (te.th32ThreadID == ik) continue;
+            HANDLE th = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION,
+                                   FALSE, te.th32ThreadID);
+            if (!th) continue;
+            if (SuspendThread(th) != static_cast<DWORD>(-1)) {
+                CONTEXT ctx = {0};
+                ctx.ContextFlags = CONTEXT_CONTROL;
+                if (GetThreadContext(th, &ctx)) {
+                    ULONG_PTR a[4] = {0, 0, 0, 0};
+                    MEMORY_BASIC_INFORMATION mi;
+                    if (VirtualQuery(reinterpret_cast<LPCVOID>(ctx.Esp), &mi, sizeof mi) &&
+                        mi.State == MEM_COMMIT) {
+                        const ULONG_PTR eind =
+                            reinterpret_cast<ULONG_PTR>(mi.BaseAddress) + mi.RegionSize;
+                        for (int k = 0; k < 4; ++k) {
+                            const ULONG_PTR p = ctx.Esp + static_cast<ULONG_PTR>(k) * sizeof(ULONG_PTR);
+                            if (p + sizeof(ULONG_PTR) <= eind) a[k] = *reinterpret_cast<const ULONG_PTR*>(p);
+                        }
+                    }
+                    Log("stack: draad %lu pc=%s esp=%p args=%p %p %p %p", static_cast<unsigned long>(te.th32ThreadID),
+                        WaarTekst(ctx.Eip).c_str(), reinterpret_cast<void*>(ctx.Esp),
+                        reinterpret_cast<void*>(a[0]), reinterpret_cast<void*>(a[1]),
+                        reinterpret_cast<void*>(a[2]), reinterpret_cast<void*>(a[3]));
+                }
+                ResumeThread(th);
+            }
+            CloseHandle(th);
+        } while (Thread32Next(snap, &te));
+    }
+    CloseHandle(snap);
 }
 
 BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
