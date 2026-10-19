@@ -144,3 +144,25 @@ voor RobinHood werkelijk loopt (`direct_route` → `plan_direct` → `apply_dire
 route) en of `pl.view_writable` daar gevuld is. **Stopgap**: `views/RobinHood/log` en
 `views/MarioKartDX/AMCUS` zijn met de hand echte mappen met een kopie; de NAS is onaangeroerd
 (`ls --full-time` van `Robin Hood/log` is vóór en na de proef identiek: 02:09:35 en 10-15).
+
+## (C) De regressies van reviewronde 10 in de RobinHood-bordkant
+
+* **C1 (hoog)**: `BouwAntwoord` zet `g_antwoord_op` weer op `false` als er een nieuw antwoord klaarstaat.
+  Zonder dat meldde `ClearCommError` na het eerste volledige kader voor altijd `cbInQue = 0` en ging
+  het bordprotocol na frame 1 dood.
+* **C2**: bij stand `niks` staat er niets klaar, dus `g_antwoord_op = true` (cbInQue 0) en draait de
+  leeslus niet warm.
+* **C3**: de oude `InitializeCriticalSection(&g_bord_cs)` onderaan `DllMain` is weg; het slot wordt nu
+  één keer gezet, vóór de haken.
+* **C4**: `GetOverlappedResult` leest de teller onder het slot; `char bord[8]` is geïnitialiseerd;
+  `RG_RHIO_EERSTEBYTE` en `RG_RHIO_BORD` worden één keer gelezen; de kop van het bestand noemt alle
+  negen omgevingsvariabelen; `std::call_once` is vervangen door een `InterlockedCompareExchange`-vlag
+  (geen winpthreads meer) en `build-rhio.sh` stript nu: de DLL ging van 2,3 MB naar **197 kB**; het
+  logboek is begrensd op 20.000 regels met één afsluitende regel.
+* **C5**: de conclusie over "slot 9" is in `docs/research/namco/README.md` en
+  `docs/status-2026-10-19-nacht.md` ingetrokken (de proef gebruikte stdcall met een vaste ariteit).
+
+**Eerlijk punt:** de *runtime*-controle van C1 kon ik niet doen omdat `rg-rhio.log` niet verschijnt —
+het plan bevat `RG_RHIO_LOG` wel (nagekeken in `rg-direct --plan`) en de DLL staat in de view, maar er
+komt geen logboek. Dat hoort bij hetzelfde raadsel als de schrijflaag hierboven (de daemon-route), en
+het is de eerste vraag voor de volgende ronde.

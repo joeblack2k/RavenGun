@@ -62,8 +62,23 @@ void LogVan(const void* beller, const char* fmt, ...) {
     std::fflush(g_log);
 }
 
+/* Begrensd: zonder dit groeit rg-rhio.log onbeperkt (elke ClearCommError/ReadFile/WriteFile schrijft
+ * en flusht). Na het maximum komt er nog een keer een regel en daarna niets meer (review 10, C4). */
+unsigned long g_log_regels = 0;
+constexpr unsigned long kLogMax = 20000;
+
 void Log(const char* fmt, ...) {
     if (!g_log || g_stil) return;
+    if (g_log_regels >= kLogMax) {
+        if (g_log_regels == kLogMax) {
+            ++g_log_regels;
+            std::fprintf(g_log, "[log] maximum van %lu regels bereikt; verdere regels worden niet "
+                                "meer geschreven (zet RG_RHIO_STIL of verwijder rg-rhio.log)\n", kLogMax);
+            std::fflush(g_log);
+        }
+        return;
+    }
+    ++g_log_regels;
     va_list ap;
     va_start(ap, fmt);
     std::vfprintf(g_log, fmt, ap);
@@ -403,7 +418,7 @@ BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLA
             if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
             g_wachtend_antwoord = 0;
             g_antwoord_gelezen = 0;
-    g_antwoord_op = false;
+            g_antwoord_op = true;   // niets klaarstaands: cbInQue 0 (review 10, C2)
             if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
             SetLastError(ERROR_TIMEOUT);
             return TRUE;
@@ -491,7 +506,18 @@ bool CodeGoed(unsigned char c) {
 
 /* Het antwoord op een opdrachtkader opbouwen: het kader terug, maar met een eerste byte die het spel
  * goedkeurt (anders gaat het naar het foutpad) en de som van de eerste zes bytes in byte 6. Met
- * RG_RHIO_EERSTEBYTE is de eerste byte te kiezen (hex); RG_RHIO_ANTWOORD=nul blijft als proefstand. */
+ * RG_RHIO_EERSTEBYTE is de eerste byte te kiezen (hex); RG_RHIO_ANTWOORD=nul blijft als proefstand.
+ *
+ * Alle omgevingsvariabelen van deze DLL (review 10, C4):
+ *   RG_RHIO_LOG        = pad van het logboek (leeg/afwezig = geen logboek)
+ *   RG_RHIO_STIL       = 1: niet loggen
+ *   RG_RHIO_ANTWOORD   = echo (standaard) | 0 (uit) | niks (geen antwoord) | nul (nullen)
+ *   RG_RHIO_EERSTEBYTE = hex; forceert alleen de eerste byte van het antwoord
+ *   RG_RHIO_TOETS      = cyclus | nul | vol | buiten (proefstanden op de besturingsbyte/richtas)
+ *   RG_RHIO_BORD       = 0: geen bordtoestand uit het gedeelde geheugen (alleen echo)
+ *   RG_COMPAT_SAMPLE   = ms; laadt de meetdraad van rg-compat (lazy, bij de eerste bordaanraking)
+ *   RAVENGUN_PATCHMEM_HOOK = de DLL die de motor laadt (dit is rg-rhio.dll)
+ *   RAVENGUN_PATCHMEM_FILE / RAVENGUN_PATCHMEM_VERBOSE = van de geheugenmotor (zie memory/) */
 /* RG_RHIO_ANTWOORD, een keer gelezen (deze functie loopt per bordopdracht):
  *   (niet gezet) of 0 = echo met een geldige code (het gewone bedrijf)
  *   nul              = alle bytes 0 (proef: de beveiligingscontrole valt om)
@@ -583,22 +609,28 @@ void VulToestand(unsigned char* k) {
 
 void BouwAntwoord() {
     if (g_laatste_lengte < 7) return;
+    g_antwoord_op = false;   // er staat een nieuw antwoord klaar (review 10, C1)
     unsigned char* k = g_laatste_kader;
     const char* mode = AntwoordStand();
     if (mode && std::strcmp(mode, "nul") == 0) {
         std::memset(k, 0, g_laatste_lengte);
         return;
     }
-    const char* keuze = std::getenv("RG_RHIO_EERSTEBYTE");
-    if (keuze && *keuze) {
-        k[0] = static_cast<unsigned char>(std::strtoul(keuze, nullptr, 16));
+    static const std::string keuze = [] {
+        const char* v = std::getenv("RG_RHIO_EERSTEBYTE");
+        return std::string(v ? v : "");
+    }();
+    if (!keuze.empty()) {
+        k[0] = static_cast<unsigned char>(std::strtoul(keuze.c_str(), nullptr, 16));
     } else if (!CodeGoed(k[0])) {
         k[0] = 0x94;   /* deze opdrachtcode is geen geldig antwoord: "bord aanwezig" */
     }
     /* De toestand uit ons eigen gedeelde geheugen (de daemon schrijft die), tenzij de proefstand
      * "niks" of "nul" aan staat. Met RG_RHIO_BORD=0 blijft het een echo. */
-    char bord[8];
-    const bool met_bord = GetEnvironmentVariableA("RG_RHIO_BORD", bord, sizeof bord) == 0 || bord[0] != '0';
+    static const bool met_bord = [] {
+        char v[8] = {0};
+        return GetEnvironmentVariableA("RG_RHIO_BORD", v, sizeof v) == 0 || v[0] != '0';
+    }();
     if (met_bord) {
         OpenBordbeeld();
         VulToestand(k);
@@ -705,7 +737,11 @@ BOOL WINAPI rg_WaitCommEvent(HANDLE h, LPDWORD masker, LPOVERLAPPED ov) {
 
 BOOL WINAPI rg_GetOverlappedResult(HANDLE h, LPOVERLAPPED ov, LPDWORD aantal, BOOL wachten) {
     if (h == g_com_handle) {
-        Log("GetOverlappedResult(bord) -> %lu bytes", static_cast<unsigned long>(g_laatste_lengte));
+        DWORD lengte;
+        if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
+        lengte = g_laatste_lengte;
+        if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
+        Log("GetOverlappedResult(bord) -> %lu bytes", static_cast<unsigned long>(lengte));
         if (aantal) *aantal = g_laatste_lengte;
         return TRUE;
     }
@@ -789,13 +825,12 @@ DWORD WINAPI Herprobeer(LPVOID) {
 /* Niet in DllMain (daar kan LoadLibrary de loader-lock pakken): pas bij de eerste echte haak-aanroep.
  * eenmalig, en alleen als RG_COMPAT_SAMPLE gezet is. */
 void LaadMeetdraad() {
-    static std::once_flag een_keer;
-    std::call_once(een_keer, [] {
-        char v[8] = {0};
-        if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) == 0) return;
-        HMODULE m = LoadLibraryA("rg-compat.dll");
-        Log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", v);
-    });
+    static volatile LONG gedaan = 0;
+    if (InterlockedCompareExchange(&gedaan, 1, 0) != 0) return;   // geen call_once (winpthreads)
+    char v[8] = {0};
+    if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) == 0) return;
+    HMODULE m = LoadLibraryA("rg-compat.dll");
+    Log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", v);
 }
 
 BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
@@ -812,8 +847,6 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
             HANDLE draad = CreateThread(nullptr, 0, Herprobeer, nullptr, 0, nullptr);
             if (draad) CloseHandle(draad);
         }
-        InitializeCriticalSection(&g_bord_cs);
-        g_bord_cs_klaar = true;
     }
     return TRUE;
 }

@@ -79,7 +79,7 @@ muisgeweer op speler 1).
   wordt niet meer aangeraakt. Resultaat van de proef zelf: de IAuth-aanroep
   geeft nog steeds `hr 0` en het beeld blijft zwart, dus OFFLINE maakt voor deze hobbel geen verschil.
   De methodeaanroepen van de echte AMAuthd zijn van buiten niet te zien; onze eigen proef liet wel
-  zien dat het spel direct na het aanmaken **slot 9** (vtable+0x24) aanroept en daarna netjes afsluit
+; (ingetrokken, review 10: de proef gebruikte stdcall met een vaste ariteit, dus deze conclusie is niet betrouwbaar)
   (met de echte server blijft het draaien). Een doorgeefobject dat logt en doorgeeft vraagt de
   ariteiten van de 32 methodes uit `AMCUS/iauthdll.dll` -- dat is de volgende stap.
 
@@ -133,7 +133,7 @@ weggooien).
   altijd voor Robin Hood omdat drie *optionele* imports ontbreken -- alleen de imports eisen die de
   exe echt heeft; (d) `OpenBordbeeld` heeft geen herhaalpoging en lekt een handvat; (e) de
   proefstand `RG_AMAUTH_PROBE` gebruikt stdcall met een vaste ariteit, dus de conclusie "het spel
-  roept slot 9 aan" is niet betrouwbaar; (f) `strip -s` op de DLL kan de haken lastiger debugbaar
+; (ingetrokken, review 10: de proef gebruikte stdcall met een vaste ariteit, dus deze conclusie is niet betrouwbaar)
   maken.
 * **TC5**: de noot bij `[Input]` staat dubbel.
 * **Robin Hood**: de wachtende hoofddraad volgen (op welk handvat wacht hij, en wie hoort dat te
