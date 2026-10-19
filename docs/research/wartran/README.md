@@ -768,3 +768,25 @@ tellers van die lus op **0**: `0x1a6be5c = 0`, `0x1a6bf04 = 0`, `0x1a6bf00 = 0` 
 wordt dus **niet uitgevoerd**; het spel wacht ergens anders, terwijl het die tekst al op het scherm
 heeft gezet. Volgende stap: uitzoeken welke draad het scherm tekent en waar die op wacht (de
 meetdraad van rg-compat kan dat per draad laten zien, zoals bij Mario Kart).
+
+### De meetdraad op Robin Hood: alle draden wachten (2026-10-19 06:02)
+
+`rg-rhio` laadt nu ook de meetdraad van `rg-compat` als `RG_COMPAT_SAMPLE` gezet is (Robin Hood heeft
+maar een haak-DLL). Een run van 40 s met `RG_COMPAT_SAMPLE=200` levert dit beeld per draad:
+
+```
+draad 248   177x ntdll+0xd410 (wacht)        <- de hoofddraad
+draad 348   214x ntdll+0xd410 (wacht)
+draad 352   214x ntdll+0xd410 (wacht)
+draad 360   208x ntdll+0xe0c0 + winevulkan   <- de beelddraad
+draad 364    82x ntdll+0xe0c0
+draad 368    71x ntdll+0xe0c0
+```
+
+Alles wacht of tekent; **geen enkele draad is aan het peilen**. Dat past bij de meting in het levende
+proces: de tellers van de peillus (0x1a6be5c, 0x1a6bf04, 0x1a6bf00) staan op 0, dus die lus loopt
+niet. Het spel heeft de tekst `I/O ... CHECKING` dus al getekend en wacht daarna op iets anders -- een
+gebeurtenis die niet komt. Volgende stap: de wachtende draad 248 volgen (op welk handvat wacht hij?
+`ntdll+0xd410` is een wachtsyscall; met de draad-id uit de prefix kan dat verder uitgezocht worden)
+en de vraag stellen wie dat handvat hoort te seinen -- vermoedelijk de I/O-draad die de kaders naar de
+poort stuurt.

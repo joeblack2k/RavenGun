@@ -754,6 +754,16 @@ DWORD WINAPI Herprobeer(LPVOID) {
     return 0;
 }
 
+/* De meetdraad van rg-compat (docs/rg-compat.md, RG_COMPAT_SAMPLE=<ms>) ook hier: Robin Hood
+ * heeft maar een haak-DLL (deze), dus laden we rg-compat.dll zelf als de variabele gezet is. Hij
+ * laat per draad zien waar het spel zit -- precies wat nodig is om te zien waar het op wacht. */
+void LaadMeetdraad() {
+    char v[8];
+    if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) == 0) return;
+    HMODULE m = LoadLibraryA("rg-compat.dll");
+    Log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", v);
+}
+
 BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
     if (reden == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(instantie);
@@ -765,6 +775,7 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
             HANDLE draad = CreateThread(nullptr, 0, Herprobeer, nullptr, 0, nullptr);
             if (draad) CloseHandle(draad);
         }
+        LaadMeetdraad();
         InitializeCriticalSection(&g_bord_cs);
         g_bord_cs_klaar = true;
     }
