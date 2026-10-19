@@ -1815,6 +1815,40 @@ int main() {
         write(ugi2, "[Launch]\nViewCopies = GameRecords1.dat\n");
     }
 
+    // --- pass 2 van de schrijflaag (2026-10-19) ---------------------------------------------------------------------------------------
+    // (a) Een lokale installatie: ViewWritable doet niets (geen view nodig) en weigert de start niet; een game op de NAS zonder view
+    // weigert wel.
+    {
+        const fs::path lgame = home / "games/Lokaal";
+        write(lgame / "bin/lok.exe", std::string("MZ") + std::string(8, '\0'));
+        write(lgame / "Logs/a.log", "a\n");
+        write(fs::path(p.dirs.shipped) / "Lokaal/game.ini",
+              "[Game]\nProfile = Lokaal\nType = TeknoParrot\nEmulationProfile = WartranTroopers\nExecutable = lok.exe\nIs64Bit = true\n"
+              "GamePath = ~/games/Lokaal/bin/lok.exe\n\n[Launch]\nMode = direct\nViewWritable = Logs\n\n[Input]\nRoute = evdev\n"
+              "Layout = WartranTroopers\n\n[Identify]\nPath = bin/lok.exe\n\n[Config]\nGeneral/Windowed = 1\n\n[ConfigType]\nGeneral/Windowed = Bool\n");
+        DirectPlan lp;
+        std::string lw;
+        DirectOptions mo = o;
+        mo.make_view = true;
+        for (const DirectOptions* opt : {&o, &mo}) {
+            CHECK(plan_direct("Lokaal", p, *opt, lp, lw) == Verdict::Ok);
+            if (!lw.empty()) std::fprintf(stderr, "lokaal: %s\n", lw.c_str());
+            CHECK(lp.view_writable.empty() && lp.game == (lgame / "bin/lok.exe").string());
+            CHECK(std::any_of(lp.notes.begin(), lp.notes.end(), [](const std::string& l) { return contains(l, "lokale installatie"); }));
+        }
+        CHECK(!fs::exists(fs::path(p.views()) / "Lokaal"));
+        // Een ongeldig pad weigert ook bij een lokale installatie.
+        write(fs::path(p.dirs.user) / "Lokaal/game.ini", "[Launch]\nViewWritable = ../buiten\n");
+        CHECK(plan_direct("Lokaal", p, o, lp, lw) == Verdict::Refused && contains(lw, "ViewWritable"));
+        fs::remove(fs::path(p.dirs.user) / "Lokaal/game.ini");
+        // De game op de NAS en (nog) geen view (--plan): weigeren, want dan zou de game op de NAS schrijven.
+        const fs::path nuser = fs::path(p.dirs.user) / "Nas/game.ini";
+        write(nuser, "[Launch]\nViewWritable = Data\n");
+        fs::remove_all(fs::path(p.views()) / "Nas");
+        CHECK(plan_direct("Nas", p, o, lp, lw) == Verdict::Refused && contains(lw, "ViewWritable vraagt een view"));
+        fs::remove(nuser);
+    }
+
     fs::remove_all(root);
     std::printf("direct-launch: %d controles, %d fout\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

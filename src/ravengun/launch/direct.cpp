@@ -576,6 +576,15 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     // echte map met een kopie van de NAS-inhoud; de game schrijft dus nooit naar de NAS. Verschil
     // met ViewCopies: dat gaat over losse bestanden, dit over hele mappen.
     if (const std::string vw = trim(lini("ViewWritable")); !vw.empty()) {
+        // Alleen een game op de NAS heeft een view nodig. Een lokale installatie schrijft al lokaal:
+        // daar doet ViewWritable niets (pass 2; eerder weigerde dit elke lokale installatie).
+        const bool in_view = binnen(abspath(game), abspath(p.views())) && !on_nas(dirname(game), p);
+        if (!in_view && on_nas(dirname(game), p))
+            return setting_refused("[Launch] ViewWritable vraagt een view van de game; die mappen "
+                                   "komen alleen in de view, nooit op de NAS");
+        if (!in_view)
+            pl.notes.push_back("ViewWritable: " + dirname(game) + " is een lokale installatie; de game schrijft daar al lokaal, "
+                               "er is geen view nodig");
         for (std::string r : nonempty_split(vw, ',')) {
             r = trim(r);
             std::replace(r.begin(), r.end(), '\\', '/');
@@ -583,6 +592,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             if (r.empty() || r[0] == '/' || n == "." || n == ".." || n.starts_with("../"))
                 return setting_refused("[Launch] ViewWritable = " + vw + " ('" + r +
                                        "': een pad binnen de gamemap, relatief en zonder ..)");
+            if (!in_view) continue;
             // Ten opzichte van de WORTEL van de view (de werkmap van de game), niet van de map van
             // de exe: Robin Hood start uit de view zelf en schrijft in log/ naast data/.
             std::string wortel = dirname(game);
@@ -590,9 +600,6 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
                 wortel = dirname(wortel);
             pl.view_writable.push_back(normpath(pjoin(wortel, n)));
         }
-        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
-            return setting_refused("[Launch] ViewWritable vraagt een view van de game; die mappen "
-                                   "komen alleen in de view, nooit op de NAS");
     }
     // 6c3. [Launch] ViewTtcAsTtf: een TrueType-collectie (.ttc) wordt in de view face 0 als losse font (ttc.hpp): Wine's
     // GdipPrivateAddMemoryFont neemt geen collectie aan. Paden ten opzichte van de wortel van de view, zoals ViewRealDirs; de map
