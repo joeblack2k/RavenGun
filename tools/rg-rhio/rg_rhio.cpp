@@ -664,7 +664,9 @@ bool CodeGoed(unsigned char c) {
  *                        elke start liet stoppen, daarom standaard uit).
  *   RG_RHIO_STACK      = (eerste gebruik) idem voor rg-rhio-stack.aan: "0" uit, anders aan; zet de
  *                        stapelregels "stack:" aan (LeesWachthandvatten, een keer per seconde).
- *   RG_COMPAT_SAMPLE   = ms; laadt de meetdraad van rg-compat (lazy, bij de eerste CreateFileA)
+ *   RG_COMPAT_SAMPLE   = ms; laadt de meetdraad van rg-compat (lazy, bij de eerste CreateFileA).
+ *                        Zoals hierboven: gezet beslist ("0" is uit, ook met rg-compat.aan);
+ *                        afwezig: kijk naar rg-compat.aan
  *   RG_COMPAT_SAMPLE_LOG = pad van het meetlogboek; afwezig = rg-compat-sample.txt naast de DLL (wordt
  *                        door LaadMeetdraad gezet als er een meting is)
  *   Markerbestanden, gezocht in de map van deze DLL (alleen of ze bestaan; de inhoud telt niet,
@@ -1177,15 +1179,17 @@ void LaadMeetdraad() {
 
     char v[32] = {0};
     /* Nul betekent UIT, net als bij RG_RHIO_MUTEX en RG_RHIO_STACK (review 14, punt d): eerst telde
-     * elke waarde als "aan", dus RG_COMPAT_SAMPLE=0 zette de meetdraad juist aan. */
-    const bool via_omgeving = GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0 && v[0] != '0';
+     * elke waarde als "aan", dus RG_COMPAT_SAMPLE=0 zette de meetdraad juist aan. En zoals daar beslist
+     * een GEZETTE variabele, ook "0": eerder telde "0" als niet gezet, zodat een marker hem alsnog
+     * overschreef en de meetdraad toch laadde (review 14, ronde 2). */
+    const bool omgeving_gezet = GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0;
+    bool aan = omgeving_gezet && v[0] != '0';
 
     /* Markerbestand: <map van deze DLL>\rg-compat.aan. De inhoud is het aantal milliseconden
      * (leeg of onleesbaar = 200). Zo kan de meetdraad aan zonder de omgeving aan te raken.
      * BELANGRIJK (review 12, punt 4): een expliciet gezette omgevingsvariabele wint. Eerder zette het
      * markerbestand de variabele overschrijvend, waardoor een marker in de view een bewust gekozen
      * waarde stil veranderde. */
-    bool via_marker = false;
     if (!map.empty()) {
         const std::string marker = map + "\\rg-compat.aan";
         FILE* m = std::fopen(marker.c_str(), "rb");
@@ -1193,12 +1197,12 @@ void LaadMeetdraad() {
             char inhoud[32] = {0};
             const size_t n = std::fread(inhoud, 1, sizeof inhoud - 1, m);
             std::fclose(m);
-            via_marker = true;
-            if (via_omgeving) {
+            if (omgeving_gezet) {
                 Log("meetdraad: markerbestand %s gevonden, maar RG_COMPAT_SAMPLE staat al expliciet op "
-                    "%s; de omgeving wint",
-                    marker.c_str(), v);
+                    "%s (%s); de omgeving wint",
+                    marker.c_str(), v, aan ? "aan" : "uit");
             } else {
+                aan = true;
                 long ms = n ? std::strtol(inhoud, nullptr, 10) : 0;
                 if (ms <= 0) ms = 200;
                 char tekst[32];
@@ -1208,9 +1212,8 @@ void LaadMeetdraad() {
             }
         }
     }
-    if (!via_omgeving && !via_marker) {
-        if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0)
-            Log("meetdraad: RG_COMPAT_SAMPLE=%s betekent uit", v);
+    if (!aan) {
+        if (omgeving_gezet) Log("meetdraad: RG_COMPAT_SAMPLE=%s betekent uit", v);
         return;
     }
 
@@ -1241,16 +1244,21 @@ void MeldMarkers() {
         {"rg-rhio-mutex.aan", "mutex-haken (RG_RHIO_MUTEX)"},
         {"rg-compat.aan", "meetdraad (RG_COMPAT_SAMPLE)"},
     };
+    /* Voor alle drie geldt dezelfde regel: een gezette variabele beslist (ook "0" = uit), de marker
+     * telt alleen als de variabele niet gezet is (MutexAan, StackAan, LaadMeetdraad; review 14,
+     * ronde 2). De regel noemt daarom de waarde en wat die betekent. */
     for (const auto& l : lijst) {
-        const bool aan = Bestaat(map + "\\" + l.naam);
-        char omg[8] = {0};
-        const bool via_omg = GetEnvironmentVariableA(
-                                 std::strcmp(l.naam, "rg-compat.aan") == 0      ? "RG_COMPAT_SAMPLE"
-                                 : std::strcmp(l.naam, "rg-rhio-mutex.aan") == 0 ? "RG_RHIO_MUTEX"
-                                 : "RG_RHIO_STACK",
-                                 omg, sizeof omg) != 0;
-        Log("marker %s: %s%s%s (%s)", l.naam, aan ? "aanwezig" : "afwezig",
-            via_omg ? ", omgeving expliciet" : "", aan && via_omg ? " -- de omgeving wint" : "", l.wat);
+        const bool aanwezig = Bestaat(map + "\\" + l.naam);
+        const char* var = std::strcmp(l.naam, "rg-compat.aan") == 0       ? "RG_COMPAT_SAMPLE"
+                          : std::strcmp(l.naam, "rg-rhio-mutex.aan") == 0 ? "RG_RHIO_MUTEX"
+                                                                          : "RG_RHIO_STACK";
+        char omg[32] = {0};
+        const bool via_omg = GetEnvironmentVariableA(var, omg, sizeof omg) != 0;
+        if (via_omg)
+            Log("marker %s: %s, omgeving expliciet %s=%s (%s)%s (%s)", l.naam, aanwezig ? "aanwezig" : "afwezig",
+                var, omg, omg[0] != '0' ? "aan" : "uit", aanwezig ? " -- de omgeving wint" : "", l.wat);
+        else
+            Log("marker %s: %s (%s)", l.naam, aanwezig ? "aanwezig" : "afwezig", l.wat);
     }
 }
 
