@@ -723,7 +723,10 @@ namespace {
 // (Haunted Museum II data/: gigabytes) mag nooit stil van de NAS gekopieerd worden.
 constexpr uintmax_t kMaxSchrijfmapKopie = 256ull << 20;
 
-bool kopieer_bestand_veilig(const std::string& van, const std::string& naar, uintmax_t& totaal, std::string& err) {
+// Past `van` nog binnen de grens van een kopie (kMaxSchrijfmapKopie)? Telt de grootte bij `totaal` op. Alleen stat, niets lezen:
+// ook de voorcontrole van maak_kinderen_lokaal en place_view_local_files gebruikt hem, zodat een te grote map weigert VOOR er
+// iets gekopieerd is.
+bool past_in_grens(const std::string& van, uintmax_t& totaal, std::string& err) {
     std::error_code ec;
     const uintmax_t grootte = std::filesystem::file_size(van, ec);   // eerst de grootte: een te grote map wordt niet eerst gelezen
     if (ec) { err = "kan " + van + " niet bekijken: " + ec.message(); return false; }
@@ -732,6 +735,13 @@ bool kopieer_bestand_veilig(const std::string& van, const std::string& naar, uin
               "kleine bestanden (stand, instellingen, logs) -- zet de bestanden die de game schrijft in [Launch] ViewCopies";
         return false;
     }
+    totaal += grootte;
+    return true;
+}
+
+bool kopieer_bestand_veilig(const std::string& van, const std::string& naar, uintmax_t& totaal, std::string& err) {
+    uintmax_t na = totaal;
+    if (!past_in_grens(van, na, err)) return false;
     std::string data, werr;
     if (!read_file_strict(van, data, err)) return false;
     totaal += data.size();
@@ -777,8 +787,11 @@ bool kopieer_map_veilig(const std::string& bron, const std::string& doel, uintma
  * A5; zonder dit schrijft een game via zo'n kind alsnog op de NAS). Geen unlink vooraf: write_atomic zet de kopie met rename() op
  * de plek van de koppeling (rename vervangt de koppeling zelf, nooit het doel), dus een mislukte kopie laat de koppeling staan.
  * Een echte submap die zelf op de NAS ligt (een koppelpunt, of direct onder ~/mnt) weigert VOOR er iets in geschreven wordt
- * (pre-merge F1). De kopieën tellen mee in dezelfde grens als de migratie (totaal, F4). */
-bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, uintmax_t& totaal, std::string& err, int diepte = 0) {
+ * (pre-merge F1). De kopieën tellen mee in dezelfde grens als de migratie (totaal, F4).
+ * Twee rondes (pass 2, R4c): eerst alleen nakijken (kopieer = false: weigeringen en de grens, met een kopie van het totaal), dan
+ * pas kopiëren. Eerder kon een bestands-koppeling al lokaal gemaakt zijn voordat een geweigerde map-koppeling aan de beurt was
+ * (de map wordt in leesorde doorlopen), en bleef er een half omgezette map achter. */
+bool loop_kinderen(const std::string& pad, const DirectPaths& p, uintmax_t& totaal, std::string& err, bool kopieer, int diepte) {
     if (diepte > 16) { err = "te diep om na te kijken: " + pad; return false; }
     if (on_nas(pad, p)) { err = pad + " ligt op de NAS (" + realpath_(pad) + "); daar wordt nooit iets geschreven"; return false; }
     std::error_code ec;
@@ -798,12 +811,18 @@ bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, uintmax_
                       "schrijft in [Launch] ViewCopies in plaats van de map in ViewWritable";
                 return false;
             }
-            if (!kopieer_bestand_veilig(doel, kind, totaal, err)) return false;
+            if (kopieer ? !kopieer_bestand_veilig(doel, kind, totaal, err) : !past_in_grens(doel, totaal, err)) return false;
         } else if (isdir(kind)) {
-            if (!maak_kinderen_lokaal(kind, p, totaal, err, diepte + 1)) return false;
+            if (!loop_kinderen(kind, p, totaal, err, kopieer, diepte + 1)) return false;
         }
     }
     return true;
+}
+
+bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, uintmax_t& totaal, std::string& err) {
+    uintmax_t schatting = totaal;
+    if (!loop_kinderen(pad, p, schatting, err, false, 0)) return false;
+    return loop_kinderen(pad, p, totaal, err, true, 0);
 }
 
 bool zelfde_naam(const std::string& a, const std::string& b) {

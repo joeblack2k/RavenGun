@@ -1761,10 +1761,28 @@ int main() {
             CHECK(!D::place_view_writable(heel, p, wl, we));
             CHECK(contains(we, "koppeling naar een map"));
             CHECK(fs::is_symlink(v_shell / "variables"));                        // de map-koppeling blijft staan
-            /* Een bestands-koppeling kan al lokaal gemaakt zijn voordat de map-koppeling aan de beurt was
-             * (de map wordt in leesorde doorlopen). Dat is onschadelijk -- het is een kopie, en de start
-             * wordt geweigerd -- maar de NAS mag er niets van merken: */
+            /* Pass 2, R4c: eerst alles nakijken, dan pas kopiëren. Eerder kon een bestands-koppeling al lokaal gemaakt zijn
+             * voordat de map-koppeling aan de beurt was (leesorde) en bleef er een half omgezette map achter. */
+            CHECK(fs::is_symlink(v_shell / "Attract - 261009.log"));
             CHECK(slurp(nas_shell / "Attract - 261009.log") == "oud logboek\n");
+            /* Hetzelfde met veel bestands-koppelingen en de map-koppeling in het midden: in aanmaakvolgorde (tmpfs), omgekeerd of
+             * in hashvolgorde (ext4) staan er dan bestands-koppelingen VOOR hem in de leesorde. Geen enkele mag lokaal zijn. */
+            {
+                const fs::path vh = view / "SGS/half";
+                fs::create_directories(vh);
+                for (int i = 0; i < 32; ++i) {
+                    if (i == 16) fs::create_symlink((nas_shell / "variables").string(), (vh / "variables").string());
+                    const std::string n = "Attract - 2610" + std::to_string(10 + i) + ".log";
+                    write(nas_shell / n, "log\n");
+                    fs::create_symlink((nas_shell / n).string(), (vh / n).string());
+                }
+                DirectPlan half;
+                half.view_writable = {vh.string()};
+                CHECK(!D::place_view_writable(half, p, wl, we) && contains(we, "koppeling naar een map"));
+                size_t links = 0;
+                for (const auto& e : fs::directory_iterator(vh)) links += fs::is_symlink(e.symlink_status()) ? 1 : 0;
+                CHECK(links == 33);
+            }
             DirectPlan alleen;
             alleen.view_writable = {(v_shell / "variables").string()};
             CHECK(D::place_view_writable(alleen, p, wl, we));
