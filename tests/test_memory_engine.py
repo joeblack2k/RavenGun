@@ -292,6 +292,25 @@ class TestLinuxMotor(unittest.TestCase):
         self.assertNotIn("GEWEIGERD", fout)
         self.assertNotIn("MISLUKT", fout)
 
+    def test_al_goed_gaat_voor_verwacht(self):
+        """R6-1: staat `nieuw` er al, dan telt `verwacht` niet meer. Dat is de tweede ronde van de
+        Windows-kant: de eerste ronde heeft al geschreven, dus het geheugen bevat nu `nieuw` en
+        `verwacht` (de ORIGINELE bytes) klopt niet meer. Met de controle in de verkeerde volgorde
+        wordt dat een GEWEIGERD (verkeerde spelversie). De proef hierboven heeft een leeg `verwacht`
+        en vangt dat dus niet; deze wel."""
+        # Het doel staat in het geheugen op DOEL_ORIGINEEL; `nieuw` is gelijk daaraan en `verwacht`
+        # is iets anders (niet-leeg, klopt niet).
+        schrijf_lijst(self.lijst, [
+            "%s|%s|99999999|%s" % (self.nul["module"], self.nul["doel_offset"], DOEL_ORIGINEEL)])
+        uit, fout, _ = met_motor(PROEF, self.lijst)
+        self.assertEqual(uit.get("doel"), DOEL_ORIGINEEL)
+        self.assertIn("stond er al", fout)
+        self.assertNotIn("GEWEIGERD", fout)
+        self.assertNotIn("verkeerde spelversie", fout)
+        self.assertNotIn("MISLUKT", fout)
+        self.assertIn("1 stond er al", fout)
+        self.assertIn("0 geweigerd", fout)
+
 
 class TestNietPie(unittest.TestCase):
     """Een niet-PIE programma heeft modulebasis 0. Dat is de lastige randvoorwaarde: 'gevonden met
