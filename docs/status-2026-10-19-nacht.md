@@ -57,3 +57,24 @@ muisgeweer op speler 1).
   SegaGameShell, 3DCosplayMahjong, AliensArmageddon, TNXK0O~C) en de geheugen-haken op
   `CreateFileMappingA`/`OpenFileMappingA`/`MapViewOfFile` voor Robin Hood (die lieten de DLL niet
   meer laden).
+
+## Laatste twee blokken (05:25-06:05)
+
+* **Robin Hood, bordtoestand in het antwoord.** `rg_rhio` vult de bytes 1-5 van zijn antwoord nu uit
+  **ons eigen gedeelde geheugen**: de mapping `TeknoParrot_JvsState` die de daemon al schrijft
+  (indeling WartranTroopers; besturing op offset 8, richtbytes op 12..19). In het logboek staat
+  `bordbeeld: mapping TeknoParrot_JvsState gekoppeld` en bijvoorbeeld
+  `opdracht 25 c7 66 1b 23 00 90 -> antwoord 94 00 80 80 00 00 94` (byte 1 = besturing, byte 2/3 =
+  richtas van speler 1 op het midden 0x80, byte 6 = de som). Met `RG_RHIO_BORD=0` valt hij terug op
+  de echo. **Het spel blijft nog op `BOOTING . / I/O ... CHECKING` staan.** Wel belangrijk: de lezer
+  op 0x490357-0x4904a0 vergelijkt *alleen* byte 0 (de lijst geldige codes) en byte 6 (de som) --
+  onze kaders worden dus geaccepteerd, en de I/O-controle hangt aan iets anders. Twee sporen staan in
+  `docs/research/wartran/README.md`: de aanroeper van de hulpfunctie volgen (het echte functiebegin
+  ligt vóór 0x4902a0), en de daemon een munt/start laten aanbieden terwijl de controle loopt.
+* **Mario Kart, `authType=OFFLINE`.** Een kopie van `AMCUS/AMConfig.ini` in de view met
+  `amdcfg-authType=OFFLINE` (de NAS-original is niet aangeraakt) is geprobeerd: de IAuth-aanroep
+  geeft nog steeds `hr 0` en het beeld blijft zwart, dus OFFLINE maakt voor deze hobbel geen verschil.
+  De methodeaanroepen van de echte AMAuthd zijn van buiten niet te zien; onze eigen proef liet wel
+  zien dat het spel direct na het aanmaken **slot 9** (vtable+0x24) aanroept en daarna netjes afsluit
+  (met de echte server blijft het draaien). Een doorgeefobject dat logt en doorgeeft vraagt de
+  ariteiten van de 32 methodes uit `AMCUS/iauthdll.dll` -- dat is de volgende stap.

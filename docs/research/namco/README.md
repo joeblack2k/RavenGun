@@ -701,3 +701,19 @@ toen sloot het spel juist af). Met de echte AMAuthd blijft het draaien, dus de v
 welke van de 29 methodes roept het spel aan, en wat antwoordt de echte server daarop?
 (`AMCUS/AMConfig.ini` kent `amdcfg-authType` = `ALL.NET` | `OFFLINE` | `NBLINE`; op ALL.NET werkt de
 registratie, een OFFLINE-kopie is nog niet geprobeerd.)
+
+### IAuth: OFFLINE geprobeerd, en wat er nog te meten valt (2026-10-19 05:28)
+
+`AMCUS/AMConfig.ini` kent `amdcfg-authType` = `ALL.NET` | `OFFLINE` | `NBLINE`. Een kopie in de view
+(de NAS blijft ongemoeid) met `amdcfg-authType=OFFLINE` is geprobeerd: de IAuth-aanroep geeft nog
+steeds `hr 0` (de registratie werkt dus in beide standen) en het beeld blijft zwart. OFFLINE maakt
+voor deze hobbel dus geen verschil.
+
+**Methodeaanroepen loggen** vraagt een *doorgeefobject*: de game praat nu met de echte AMAuthd over
+COM, en die aanroepen zijn van buiten niet te zien. Onze eigen proef (lege object, elke methode S_OK)
+liet wel zien *welke* methode het spel aanroept: **slot 9** (vtable+0x24), direct na het aanmaken, en
+daarna sloot het spel netjes af. Met de echte server blijft het draaien (zwart beeld). Een echte
+proxy moet de aanroepen doorgeven aan het originele object, en daarvoor zijn de *ariteiten* van de 32
+methodes nodig; die staan in het proxy/stub-bestand `AMCUS/iauthdll.dll`. Dat is de volgende stap:
+`iauthdll.dll` uitlezen (de stub-functies hebben elk hun eigen stapelgrootte), een proxy per methode
+maken die logt en doorgeeft, en dan zien wat de echte server per aanroep teruggeeft.
