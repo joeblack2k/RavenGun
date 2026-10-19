@@ -12,13 +12,43 @@ bestanden), want `find` ziet geen verwijderingen en de schrijflaag verbergt het 
 | **MenInBlack** | **working** | GESPEELD, apart in MUISMODUS gemeten (15:05-15:08): munt en START via het virtuele toetsenbord -> "PLAYER 1 READY", de missie begint en de trekker laat de score naar 0024 en de tickets naar 001 lopen (`docs/screenshots/meninblack-muismodus-gereed-2026-10-19.png` en `-score-...png`) | -- (de meting van 17-10 blijft staan voor de MUISKNOPPEN: die hebben geen munt- of START-functie) |
 | **HOTD4SP** | parked | attract op de NATIVE Lindbergh-route (geen Wine, geen TeknoParrot): spel-ID 0x7d6ab3e3, JVS naar de pty van de IO-brug, twee fotos | munt en START starten geen spel; de veronderstelling is dat de ride-versie op stoelsignalen wacht (meting van 15-10; op 19-10 NIET opnieuw gemeten) |
 | **TNXK0OC** | parked | start en tekent op onze kern, foto `docs/screenshots/tnxk0oc-amilb-error-2026-10-19.png` | de game meldt zelf "ERROR 3005 / AMLIB INITIALZE FAILED"; de kaststap mxGetHwInfo.exe eindigt onder wine met status 1 (staat nu als commentaar in het profiel) |
-| **SegaGameShell** | parked | de shell start en tekent op onze kern, foto `docs/screenshots/segamegameshell-game-error-2026-10-19.png` | de shell meldt zelf "GAME ERROR": in deze map staat geen spel voor hem. Correctie 2026-10-19 (review 17): de hele shell-map in ViewWritable zetten liet ELKE start weigeren (Graphics, Sounds en variables zijn map-koppelingen naar de NAS en dat weigert de motor); nu staat alleen shell/variables erin. Bewezen met een eenheidspenproef en een echte start: niet geweigerd, shell/variables een echte map, 0 nieuwe whiteouts of bestanden in de schrijflaag (157/2 voor en na) en de NAS ongemoeid (209 logbestanden voor en na) |
-| **LostLandAdventure** | parked | start op onze kern (Loading core, Have fun, JVS-pijp verbonden) | Correctie 2026-10-19 (review 17): met gamescope ECHT aan (sleutel in [Display], 3,5 minuut gewacht) bleef het beeld zwart en kwam er geen venster; de opname is byte-identiek aan de Mario Kart-opname van 13:28 (10.669 bytes), dus een lege opname. Zonder gamescope was er wel een venster van 113x28 (RSLauncher). De AMAuth-oorzaak is een veronderstelling (de stappen stonden in die meting uit) | de AMAuth-kant: `PreprocessAmAuth.exe` zegt "Checking. / NG!" (status 1) waar het bij Mario Kart DX "Ok!" zegt; veronderstelling: regio- of donglecontrole |
+| **SegaGameShell** | parked | de shell start en tekent op onze kern, foto `docs/screenshots/segamegameshell-game-error-2026-10-19.png` | de shell meldt zelf "GAME ERROR": in deze map staat geen spel voor hem. De logbestanden in shell/ waren bestands-koppelingen naar de NAS en Wine VERWIJDERT DOOR die koppelingen heen (alleen de schrijflaag van bwrap beschermde de NAS; een naakte --run was niet veilig). Pass 2 (review 18) lost dat op met `[Launch] ViewLocalFiles = shell`: bij de start worden alle bestands-koppelingen lokale kopieen en blijven alleen de map-koppelingen (Graphics, Sounds) staan. Live nagekeken: 264 bestanden lokaal, 3 koppelingen over (Shell.exe, Graphics, Sounds), schrijflaag 157 whiteouts/2 bestanden voor en na, NAS-find 0. |
+| **LostLandAdventure** | parked | start op onze kern (Loading core, Have fun, JVS-pijp verbonden) | met gamescope ECHT aan (sleutel in [Display], 3,5 minuut gewacht) bleef het beeld zwart; of er een venster was is NIET vast te stellen (gamescope draait zijn eigen Xwayland, xdotool op het scherm van de host ziet daar niets van). Zonder gamescope was er wel een venster van 113x28 (RSLauncher). De AMAuth-oorzaak is een veronderstelling (de stappen stonden in die meting uit). |
 | **HauntedMuseumII** | **working** | speelt (eerdere meting op onze kern); de calibratie wordt door de game zelf bijgewerkt | Correctie 2026-10-19 (review 17): OpenParrot was een map-koppeling naar de NAS en de calibratie (HM20/21.CFG/.CRC, HM2bk1/2.dat) werd daardoor heen geschreven -- de start van 10:50 zette zes bestanden in de schrijflaag. OpenParrot staat nu in ViewWritable; de nieuwste calibratie van 10:50 is in de lokale kopie gezet. Bewezen met een echte start: OpenParrot een echte map, de HM2-bestanden erin, 0 nieuwe bestanden of whiteouts in de schrijflaag (6/0 voor en na), NAS ongemoeid |
 | **AfterDark** | parked | start op onze kern, foto `docs/screenshots/afterdark-dongle-failed-2026-10-19.png` | de game meldt zelf "Init Dongle Failed !" |
 | **PigsMightFly** | parked | de game loopt op onze kern (gamescope, Shell.exe), de foto is het bureaublad | veronderstelling: zonder aangesloten en gekoppelde PS Move komt er geen venster; bevestiging zou een start met Move zijn, vijf keer |
 | **3DCosplayMahjong** | parked | -- | de game staat niet op deze machine. Het profiel is NIET klaar om te proberen: het mist Mode = direct, [Loader] Core = ravengun en [Identify], en die zijn zonder bestanden niet toe te voegen |
 | **AliensArmageddon** | parked | -- | de NAS-map is leeg. Openstaande punten staan in het profiel: de HASP-controle, het richten met de IR-camera en de schakelaar-id's |
+
+
+## Pass 2 van review 18: ViewLocalFiles, live nagekeken (17:59 en 18:01)
+
+De nieuwe sleutel `[Launch] ViewLocalFiles` maakt bij de start elke BESTANDSkoppeling naar de NAS in die
+map lokaal en laat map-koppelingen staan; een naakte `rg-direct --run` weigert (status 2) als er nog zo
+een koppeling staat. Allebei via de daemon gestart (nooit een naakte --run).
+
+**SegaGameShell** (`direct-SegaGameShell-20261019-175918.log` en `.plan.json`): het plan heeft
+`view_local_files: [.../views/SegaGameShell/shell]`, het logboek zegt "264 bestands-koppelingen naar de
+NAS nu lokale kopieen", en in de view staan daarna nog 3 koppelingen: Shell.exe (het plan-exe) plus de
+map-koppelingen Graphics en Sounds. De schrijflaag was 157 whiteouts en 2 bestanden voor de start en
+daarna nog precies zo (0 nieuw), en `find` op de NAS sinds 06:30 geeft 0. (Eerste poging om 17:57
+mislukte omdat de daemon nog de binary van voor de samenvoeging gebruikte: het plan had daar
+`view_local_files: null`. Na een herstart van de daemon klopte het.)
+
+**TransformersShadowsRising** (regressieproef, `direct-TransformersShadowsRising-20261019-180143.log`):
+de schrijflaag was 105 whiteouts en 60 bestanden voor en is dat erna nog; ShellData, temp en
+shell/variables zijn nu echte mappen, in shell/ staan nog 3 koppelingen (het plan-exe plus de
+map-koppelingen), het logboek heeft de "lokale bestanden"-regel en `find` op de NAS sinds 06:30 geeft 0.
+De attract kwam in beeld: `docs/screenshots/transformersshadowsrising-attract-pass2-2026-10-19.png`
+(2.203.780 bytes, "PRESS START BUTTON / FREE PLAY"), dus de game werkt nog.
+
+**HauntedMuseumII** (R2): staat een schrijfmap in DEZE start nog als NAS-koppeling, dan wint het
+zaaigoed van de NAS-kopie. Een verse view krijgt daardoor de meegeleverde calibratie in plaats van de
+12-10-versie van de NAS; een map die al echt was houdt wat de game er zelf in schreef.
+
+**Openstaande punten.** MenInBlack en PigsMightFly hebben ook bestands-koppelingen naar de NAS in hun
+shell-map. Hun schrijflagen laten daar geen schrijfacties zien, maar een naakte `--run` is er niet
+beschermd. Kandidaten voor `ViewLocalFiles`.
 
 Wat deze ronde verder opleverde: de (A)-(G)-lijst met tijdvakken staat verderop; de A/B-proef van de
 rg-rhio-varianten is afgerond en zegt nu "in deze proef niet bevestigd" in plaats van "weerlegd", met
