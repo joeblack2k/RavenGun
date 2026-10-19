@@ -15,8 +15,13 @@
  *   - naar de NAS schrijven (dit is procesgeheugen; er komt geen bestand aan te pas);
  *   - gokken waar een module staat (niet gevonden = wachten, niet schrijven).
  */
+#if !defined(_WIN32) && !defined(_GNU_SOURCE)
+#  define _GNU_SOURCE 1                /* voor realpath() */
+#endif
+
 #include "patchmem.h"
 
+#include <limits.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -531,29 +536,72 @@ static int lees_offset(const char *tekst, unsigned long long *uit)
     return 1;
 }
 
-/* Het pad van de lijst wordt EEN keer onthouden. Reden: het pad uit de omgeving is meestal
- * betrekkelijk (patchmem.txt naast de exe) en de tweede ronde loopt pas als het spel al draait --
- * en een spel mag van werkmap veranderen. Zonder dit leest die ronde een lege lijst en wist hij de
- * hele toestand. */
+/* Het pad van de lijst wordt per aangevraagd pad EEN keer absoluut gemaakt en dan onthouden. Reden:
+ * het pad uit de omgeving is meestal betrekkelijk (patchmem.txt naast de exe) en de tweede ronde
+ * loopt pas als het spel al draait -- en een spel mag van werkmap veranderen. Zonder dit leest die
+ * ronde een lege lijst (of, erger, een ander bestand met dezelfde naam) en wist hij de hele toestand.
+ *
+ *   g_aanvraag   het pad zoals de aanroeper het gaf (de sleutel)
+ *   g_lijstpad   het absolute pad dat daar bij de eerste geslaagde keer uit gekomen is
+ *
+ * Geeft de aanroeper hetzelfde pad nog eens, dan wordt g_lijstpad gebruikt (werkmap-onafhankelijk).
+ * Geeft hij een ANDER pad, dan wordt dat opnieuw opgelost en gewonnen: een eerder pad mag een
+ * latere expliciete keuze nooit overschrijven. Onthouden gebeurt pas als fopen gelukt is, zodat een
+ * mislukte poging het vorige pad niet kwijt laat raken. */
+static char g_aanvraag[1024];
 static char g_lijstpad[1024];
+
+/* `pad` naar een absoluut pad in `uit`. Lukt dat niet (te lang, bestand bestaat niet en er is geen
+ * werkmap), dan komt het pad ongewijzigd terug: dan blijft het gedrag gelijk aan vroeger. */
+static void maak_absoluut(const char *pad, char *uit, size_t groot)
+{
+#if defined(_WIN32)
+    DWORD n = GetFullPathNameA(pad, (DWORD)groot, uit, NULL);
+    if (n == 0 || n >= groot) snprintf(uit, groot, "%s", pad);
+#else
+    char buf[PATH_MAX];
+    int n;
+
+    if (realpath(pad, buf)) {
+        n = snprintf(uit, groot, "%s", buf);
+    } else if (pad[0] == '/') {
+        n = snprintf(uit, groot, "%s", pad);
+    } else if (getcwd(buf, sizeof buf)) {
+        n = snprintf(uit, groot, "%s/%s", buf, pad);
+    } else {
+        n = snprintf(uit, groot, "%s", pad);
+    }
+    if (n < 0 || (size_t)n >= groot) snprintf(uit, groot, "%s", pad);
+#endif
+}
 
 static int lees_lijst(const char *pad)
 {
     FILE *fh;
     char regel[PATCHMEM_REGEL_MAX];
+    char nieuw_pad[sizeof g_lijstpad];
     unsigned int nummer = 0;
     size_t k;
-    const char *gebruik = pad;
+    const char *gebruik;
 
-    if (pad && *pad && g_lijstpad[0] == 0) {
-        snprintf(g_lijstpad, sizeof g_lijstpad, "%s", pad);
+    if (g_lijstpad[0] != 0 && strcmp(g_aanvraag, pad) == 0) {
+        gebruik = g_lijstpad;                  /* dezelfde aanvraag als vorige keer: het onthouden pad */
+    } else {
+        maak_absoluut(pad, nieuw_pad, sizeof nieuw_pad);
+        gebruik = nieuw_pad;
     }
-    if (g_lijstpad[0] != 0) gebruik = g_lijstpad;
 
     fh = fopen(gebruik, "r");
     if (!fh) {
         fprintf(stderr, "patchmem: kan de patchlijst %s niet openen\n", gebruik);
         return 0;
+    }
+
+    /* Nu pas onthouden: het bestand bestaat en is leesbaar. */
+    if (gebruik != g_lijstpad) {
+        snprintf(g_aanvraag, sizeof g_aanvraag, "%s", pad);
+        snprintf(g_lijstpad, sizeof g_lijstpad, "%s", gebruik);
+        gebruik = g_lijstpad;
     }
 
     /* Pas leegmaken als het bestand echt open is: anders wist een mislukte tweede ronde de lijst
@@ -653,7 +701,7 @@ static int lees_lijst(const char *pad)
     for (k = 0; k < g_aantal; k++) {
         if (g_lijst[k].vormfout) {
             fprintf(stderr, "patchmem: regel %u van %s: %s\n",
-                    g_lijst[k].regel, pad, g_lijst[k].melding);
+                    g_lijst[k].regel, gebruik, g_lijst[k].melding);
         }
     }
     return 1;
@@ -809,6 +857,7 @@ int patchmem_apply_file(const char *pad)
 {
     size_t i;
     patchmem_verslag v;
+    char gebruikt[sizeof g_lijstpad];
 
     slot_klaarmaken();
     if (!pad || !*pad) {
@@ -823,11 +872,12 @@ int patchmem_apply_file(const char *pad)
     }
     for (i = 0; i < g_aantal; i++) pas_toe(&g_lijst[i]);
     v = maak_verslag();
+    snprintf(gebruikt, sizeof gebruikt, "%s", g_lijstpad);   /* het pad dat echt gelezen is */
     SLOT_GEVEN();
 
     fprintf(stderr, "patchmem: %s: %zu patch(es) gelezen -- %zu toegepast, %zu stond er al, "
                     "%zu wacht op een module, %zu geweigerd (verwacht klopte niet), %zu mislukt\n",
-            pad, v.gelezen, v.toegepast, v.al_goed, v.geen_module,
+            gebruikt, v.gelezen, v.toegepast, v.al_goed, v.geen_module,
             v.verwacht_fout + v.vormfout, v.mislukt);
 
     if (v.verwacht_fout || v.vormfout || v.mislukt) return (int)(v.verwacht_fout + v.vormfout + v.mislukt);

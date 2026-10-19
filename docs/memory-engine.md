@@ -178,7 +178,7 @@ bestand** — dat is niet een belofte maar een test (§6 proef 7).
 ## 6. Het bewijs
 
 Alles hieronder is op de Deck gemeten. De geautomatiseerde versie staat in
-`tests/test_memory_engine.py` (**38 proeven**); dezelfde proeven met de hand staan in
+`tests/test_memory_engine.py` (**45 proeven**); dezelfde proeven met de hand staan in
 `re/proef_laat.sh`, `re/proef_wine.sh`, `re/proef_extra.sh` en `re/proef_appinit.sh`.
 
 > De **offsets** in de uitvoer hieronder hangen af van de build van het proefprogramma: verandert
@@ -186,7 +186,7 @@ Alles hieronder is op de Deck gemeten. De geautomatiseerde versie staat in
 > uitvoer en het **resultaat**; de tests controleren dat, niet de getallen.
 
 ```bash
-python3 tests/test_memory_engine.py        # 38 proeven, ~55 s (inclusief Wine)
+python3 tests/test_memory_engine.py        # 45 proeven, ~55 s (inclusief Wine)
 ```
 
 ### Proef 1 — een patch in het programma zelf (Linux, 64-bits)
