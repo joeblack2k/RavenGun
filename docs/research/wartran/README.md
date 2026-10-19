@@ -615,3 +615,83 @@ seconden met exitcode 0, zonder boodschap en zonder venster. Het verschil zit du
 het proces doet, niet in Wine. Volgende stap: de bron van de kern in huis halen en de haken een voor
 een uitzetten, of een debugger op het spel zetten (dan is de aanroep die naar 0x4fd8aed0 springt
 direct te zien).
+
+### Het antwoordkader van het bord: de lezer gevonden (2026-10-19 06:55)
+
+De doorbraak kwam van een klein trucje: de haken van `rg_rhio` loggen nu ook **wie er belt**
+(`__builtin_return_address(0)`). Daarmee zijn de aanroepen van het spel te vinden zonder de IAT te
+hoeven volgen:
+
+```
+0x49025b ClearCommError (wachtlus)      0x490324 ClearCommError (peiling)
+0x490359 ReadFile                       0x49077c ClearCommError (na de lezing)
+```
+
+De bordhulpfunctie van het spel staat dus op **0x4902a0-0x4907xx**. De lezer van het antwoord, na de
+`ReadFile` op 0x490357:
+
+```
+0x490357  call *%ebp                 ; ReadFile(bord, buf, 1, &gelezen, NULL)   <- eerst 1 byte
+0x490359  test %eax,%eax / je ...    ; leesfout -> foutpad
+0x490361  cmpl $0x0,0x14(%esp)       ; gelezen == 0 -> foutpad
+0x490368  mov 0x30(%esp),%al         ; al = HET EERSTE ANTWOORDBYTE
+0x49036f  test %al,%al          -> 0x49049c
+0x490377  cmp $0xff,%al         -> 0x49049c
+0x49037f  cmp $0x94,%al         -> 0x49049c
+0x490387  cmp $0x95,%al         -> 0x49049c
+0x49038f  cmp $0x96,%al         -> 0x49049c
+0x490397  cmp $0x97,%al         -> 0x49049c
+0x49039f  cmp $0x98,%al         -> 0x49049c
+0x4903a7  cmp $0x23,%al         -> 0x49049c
+0x4903af  cmp $0x24,%al         -> 0x49049c
+0x4903b7  cmp $0x29,%al         -> 0x49049c
+0x4903bf  cmp $0x30,%al         -> 0x49049c
+                                    (anders: het foutpad, en de peiling begint opnieuw)
+0x49045d  mov 0x30(%esp),%al         ; de som van de eerste zes bytes ...
+0x490463  add 0x34(%esp),%cl         ;   + byte 4
+0x490467  add 0x33(%esp),%cl         ;   + byte 3
+0x49046b  add %dh,%cl                ;   + byte 2
+0x49046d  add %dl,%cl                ;   + byte 1
+0x49046f  add %al,%cl                ;   + byte 0
+0x490471  cmp 0x36(%esp),%cl         ; ... moet gelijk zijn aan byte 6
+0x490475  je 0x49048b                ; klopt: de waarde wordt bewaard
+```
+
+Dus: **byte 0 moet een van {0x00, 0xFF, 0x94, 0x95, 0x96, 0x97, 0x98, 0x23, 0x24, 0x29, 0x30}
+zijn, en byte 6 is de som van de eerste zes bytes** -- precies dezelfde kaderregel als de
+opdrachtkaders van het spel zelf.
+
+**Wat er misging in onze echo (twee fouten, allebei gerepareerd):** de echo gaf het opdrachtkader
+terug, dus byte 0 was de *opdrachtcode* (bv. 0x25) en die staat **niet** in de lijst -- meteen het
+foutpad. En de tweede lezing gaf byte 0..5 in plaats van byte 1..6, waardoor de som nooit kon
+kloppen. `rg_rhio` bouwt het antwoord nu bij de opdracht op (kies `RG_RHIO_EERSTEBYTE`, anders 0x94
+als de opdrachtcode geen geldige antwoordcode is) en rekent byte 6 uit; de lezingen komen uit een
+leeswijzer, zodat 1+6 samen precies het kader vormen. Elk frame-paar staat in het logboek:
+
+```
+frame-paar: opdracht 00 e4 b3 f5 22 00 ae -> antwoord 00 e4 b3 f5 22 00 ae
+frame-paar: opdracht 23 ee b3 f5 22 00 db -> antwoord 23 ee b3 f5 22 00 db
+frame-paar: opdracht 25 f3 b3 f5 22 00 e2 -> antwoord 94 f3 b3 f5 22 00 51
+```
+
+**Protocoltabel tot nu toe** (158 kaders in 26 s):
+
+| opdracht | aantal | kader | antwoord van ons |
+| --- | --- | --- | --- |
+| 0x00 | 3 | `00 e4 b3 f5 22 00 ae` | echo (geldig) |
+| 0x23 | 2 | `23 ee b3 f5 22 00 db` | echo (geldig) |
+| 0x25 | 153 | `25 f3 b3 f5 22 00 e2` | `94 f3 b3 f5 22 00 51` |
+
+Byte 1 is een teller (loopt op), bytes 4-5 zijn constant `22 00`, bytes 2-3 veranderen per sessie.
+Het spel stuurt 0x00 en 0x23 een keer (bij het opstarten) en **peilt daarna 153 keer opdracht 0x25**
+-- dat is de I/O-controle. Alle tien geldige antwoordcodes zijn geprobeerd (`RG_RHIO_EERSTEBYTE=95`,
+`96`, `97`, `98`, `00`, `ff`, `23`, `24`, `29`, `30`): het beeld blijft `BOOTING . / I/O ...
+CHECKING`. De code is dus niet de laatste hobbel; **de lading (bytes 1-5) moet de bordtoestand
+bevatten** die het spel verwacht.
+
+**Volgende stap:** de aanroeper van de hulpfunctie op 0x4902a0 nakijken -- wat doet hij met de
+bewaarde waarde (0x49048b bewaart bytes 1-4 en de code) en waarmee vergelijkt hij die? Daaruit volgt
+welke bytes van het antwoord de bordtoestand (schakelaars, bord-id, dongle-antwoord) moeten zijn.
+Voor de andere Wartran-spellen (Coopers 9!) is dit protocol vermoedelijk hetzelfde: dezelfde
+7-byte kaders, dezelfde somregel en dezelfde lijst geldige codes -- dat is de eerste zaak om daar te
+proberen.

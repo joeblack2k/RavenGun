@@ -44,6 +44,17 @@ bool g_stil = false;
 bool g_ioctl_ok = true;
 char g_pad[256] = {0};
 
+void LogVan(const void* beller, const char* fmt, ...) {
+    if (!g_log || g_stil) return;
+    va_list ap;
+    va_start(ap, fmt);
+    char tekst[512];
+    vsnprintf(tekst, sizeof tekst, fmt, ap);
+    va_end(ap);
+    std::fprintf(g_log, "[%8lu] beller=%p %s\n", static_cast<unsigned long>(GetTickCount()), beller, tekst);
+    std::fflush(g_log);
+}
+
 void Log(const char* fmt, ...) {
     if (!g_log || g_stil) return;
     va_list ap;
@@ -161,6 +172,10 @@ DWORD g_laatste_lengte = 0;
  * ClearCommError (kijk naar cbInQue) en dan ReadFile alleen als er iets klaarstaat. Zonder dit
  * leest het spel nooit en lijkt het alsof het de poort niet leest. */
 DWORD g_wachtend_antwoord = 0;
+/* Hoeveel bytes van het antwoord al aan het spel gegeven zijn (het leest eerst 1 byte, dan 6). */
+DWORD g_antwoord_gelezen = 0;
+/* Het laatste opdrachtkader, apart bewaard voor het logboek (het antwoordkader wordt overschreven). */
+unsigned char g_opdracht_kader[64];
 
 FARPROC WINAPI rg_GetProcAddress(HMODULE mod, LPCSTR naam);
 HANDLE WINAPI rg_CreateFileA(LPCSTR pad, DWORD toegang, DWORD deel, LPSECURITY_ATTRIBUTES sa, DWORD aanmaak, DWORD vlaggen, HANDLE sjabloon);
@@ -357,6 +372,9 @@ BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD inl, LPVOI
     return g_echte_ioctl ? g_echte_ioctl(h, code, in, inl, uit, uitl, terug, ov) : FALSE;
 }
 
+bool CodeGoed(unsigned char c);
+void BouwAntwoord();
+
 BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLAPPED ov) {
     if (h == g_com_handle) {
         /* Eerste proef: het laatste opdrachtkader terugsturen (bord aanwezig, geen schakelaars).
@@ -369,29 +387,22 @@ BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLA
             SetLastError(ERROR_TIMEOUT);
             return TRUE;
         }
-        DWORD m = g_laatste_lengte;
+        /* Het antwoord in stukken: het spel leest eerst 1 byte (de code) en dan 6 (de rest). De
+         * leeswijzer houdt bij waar we zijn; anders kreeg het spel de eerste zes bytes twee keer. */
+        const DWORD vanaf = g_antwoord_gelezen;
+        DWORD beschikbaar = g_laatste_lengte > vanaf ? g_laatste_lengte - vanaf : 0;
+        DWORD m = beschikbaar;
         if (m > n) m = n;
-        if (buf && m) {
-            std::memcpy(buf, g_laatste_kader, m);
-            /* Welk antwoord geeft het bord? Proeven (RG_RHIO_ANTWOORD): echo (standaard), nul,
-             * ack (eerste byte 0), teller (de teller in bytes 1-2 eentje hoger), vast. */
-            const char* mode = std::getenv("RG_RHIO_ANTWOORD");
-            if (mode && std::strcmp(mode, "nul") == 0) {
-                std::memset(buf, 0, m);
-            } else if (mode && std::strcmp(mode, "ack") == 0) {
-                reinterpret_cast<unsigned char*>(buf)[0] = 0x00;
-            } else if (mode && std::strcmp(mode, "teller") == 0 && m >= 3) {
-                auto* b = reinterpret_cast<unsigned char*>(buf);
-                const unsigned oud = (unsigned)b[1] | ((unsigned)b[2] << 8);
-                const unsigned nieuw = (oud + 0x46) & 0xffff;
-                b[1] = (unsigned char)(nieuw & 0xff);
-                b[2] = (unsigned char)(nieuw >> 8);
-            }
+        if (buf && m) std::memcpy(buf, g_laatste_kader + vanaf, m);
+        g_antwoord_gelezen += m;
+        if (g_antwoord_gelezen >= g_laatste_lengte) {
+            g_antwoord_gelezen = 0;
+            g_wachtend_antwoord = 0;   /* het hele antwoord is opgehaald */
         }
         if (gelezen) *gelezen = m;
-        g_wachtend_antwoord = 0;   /* opgehaald */
-        Log("ReadFile(bord, %lu bytes gevraagd) -> %lu bytes antwoord (echo)", static_cast<unsigned long>(n),
-            static_cast<unsigned long>(m));
+        LogVan(__builtin_return_address(0), "ReadFile(bord, %lu bytes gevraagd, vanaf %lu) -> %lu bytes",
+               static_cast<unsigned long>(n), static_cast<unsigned long>(vanaf),
+               static_cast<unsigned long>(m));
         return TRUE;
     }
     return g_echte_read ? g_echte_read(h, buf, n, gelezen, ov) : FALSE;
@@ -406,7 +417,20 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD geschreven, LPO
         Log("WriteFile(bord, %lu bytes): %s", static_cast<unsigned long>(n), hex);
         g_laatste_lengte = n < sizeof g_laatste_kader ? n : (DWORD)(sizeof g_laatste_kader);
         if (buf) std::memcpy(g_laatste_kader, buf, g_laatste_lengte);
-        g_wachtend_antwoord = g_laatste_lengte;   /* het antwoord staat klaar voor de volgende lezing */
+        std::memcpy(g_opdracht_kader, g_laatste_kader, g_laatste_lengte);
+        BouwAntwoord();
+        g_wachtend_antwoord = g_laatste_lengte;
+        g_antwoord_gelezen = 0;
+        {
+            char opdracht_hex[3 * 64 + 1], antwoord_hex[3 * 64 + 1];
+            for (DWORD i = 0; i < g_laatste_lengte; ++i)
+                std::snprintf(opdracht_hex + i * 3, 4, "%02x ", g_opdracht_kader[i]);
+            for (DWORD i = 0; i < g_laatste_lengte; ++i)
+                std::snprintf(antwoord_hex + i * 3, 4, "%02x ", g_laatste_kader[i]);
+            opdracht_hex[g_laatste_lengte * 3] = '\0';
+            antwoord_hex[g_laatste_lengte * 3] = '\0';
+            Log("frame-paar: opdracht %s -> antwoord %s", opdracht_hex, antwoord_hex);
+        }
         if (geschreven) *geschreven = n;
         return TRUE;
     }
@@ -416,6 +440,39 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD geschreven, LPO
 BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD vlaggen) {
     if (h == g_com_handle) { Log("PurgeComm(bord, 0x%lx)", static_cast<unsigned long>(vlaggen)); return TRUE; }
     return g_echte_purge ? g_echte_purge(h, vlaggen) : FALSE;
+}
+
+/* De codes die het spel als eerste antwoordbyte goedkeurt (0x49036f-0x4903c1). */
+bool CodeGoed(unsigned char c) {
+    switch (c) {
+        case 0x00: case 0xff: case 0x94: case 0x95: case 0x96: case 0x97: case 0x98:
+        case 0x23: case 0x24: case 0x29: case 0x30:
+            return true;
+        default:
+            return false;
+    }
+}
+
+/* Het antwoord op een opdrachtkader opbouwen: het kader terug, maar met een eerste byte die het spel
+ * goedkeurt (anders gaat het naar het foutpad) en de som van de eerste zes bytes in byte 6. Met
+ * RG_RHIO_EERSTEBYTE is de eerste byte te kiezen (hex); RG_RHIO_ANTWOORD=nul blijft als proefstand. */
+void BouwAntwoord() {
+    if (g_laatste_lengte < 7) return;
+    unsigned char* k = g_laatste_kader;
+    const char* mode = std::getenv("RG_RHIO_ANTWOORD");
+    if (mode && std::strcmp(mode, "nul") == 0) {
+        std::memset(k, 0, g_laatste_lengte);
+        return;
+    }
+    const char* keuze = std::getenv("RG_RHIO_EERSTEBYTE");
+    if (keuze && *keuze) {
+        k[0] = static_cast<unsigned char>(std::strtoul(keuze, nullptr, 16));
+    } else if (!CodeGoed(k[0])) {
+        k[0] = 0x94;   /* deze opdrachtcode is geen geldig antwoord: "bord aanwezig" */
+    }
+    unsigned som = 0;
+    for (int i = 0; i < 6; ++i) som += k[i];
+    k[6] = static_cast<unsigned char>(som & 0xff);
 }
 
 BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD fouten, LPCOMSTAT stat) {
