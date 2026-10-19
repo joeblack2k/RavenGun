@@ -65,6 +65,33 @@ ets te zien was); de instelling is daarna teruggezet op `false`.
 
 
 
+
+### De USB-dongel is `muchacd` -- en onze eigen webinterface houdt zijn poort bezet (21:00)
+
+Het spel zoekt zijn dongel niet via HID/SetupAPI (die imports heeft het niet); het **start
+`AMCUS\MuchaBin\muchacd.exe`** op, de Mucha-dienst, volgens `AMCUS/AMConfig.ini`:
+`syscfg-daemon_exe=.\MuchaBin\muchacd.exe`, `syscfg-daemon_pidfile=muchacd.pid`,
+`syscfg-daemon_listen=tcp:0.0.0.0:8765`. Zijn logboek (`muchacd.log`) zegt:
+
+```
+INFO  MUCHA Daemon ident: 2.1-release-0088-9e7a6a10
+INFO  Started pid 1040
+INFO  SVM: Service started
+ERROR SVM: muchaut_nipc_listen() failed: tcp:0.0.0.0:8765: MUCHA_ERROR_SYSTEM_NET
+INFO  SVM: Service terminated
+INFO  Daemon terminated, code 1
+```
+
+**Poort 8765 wordt bezet door onze eigen `ravengund`**: `ss -ltnp` geeft
+`0.0.0.0:8765 users:(("ravengund",pid=...))` -- dat is de webinterface (`--web-port`, standaard
+8765). De Mucha-dienst kan dus niet luisteren, sterft, en het spel meldt E19-10 "USB-dongel ontbreekt".
+Dat verklaart ook waarom dit nooit eerder opviel: met de TP-kern start dezelfde dienst, maar daar was
+onze daemon nog niet met de webinterface op 8765 bezig.
+
+**Proef**: de daemon met `--web-port 18765` gestart -> 8765 is vrij, MK start met 6.334 JVS-pakketten
+en een niet-zwarte opname (760.915 bytes), maar `muchacd` startte in die run nog niet vanzelf en met de
+hand gestart stopt hij stil (verkeerde aanroep/cwd). Dat is de volgende stap.
+
 ### DE OPLOSSING: RG_WINDOWED=1 (20:08), vijf starts
 
 Review 21 van de leiding vond het: de 18-10-metingen op ONZE kern (`direct-MarioKartDX-20261018-130004`
