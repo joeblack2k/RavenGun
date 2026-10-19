@@ -1017,3 +1017,30 @@ De weg vooruit is dus niet de kern en niet Wine, maar dat pad: ofwel de tabel la
 echte beveiliging doet (daar is een dongle voor nodig, en de eigenaar heeft gezegd dat die er niet
 komt), ofwel de exe op dat punt **patchen** zodat hij de controle overslaat -- dezelfde aanpak als bij
 de andere dongle-spellen in dit document.
+
+### Robin Hood: wie er wacht, met de meetdraad (2026-10-19 11:41)
+
+De volgorde-fout in `rg_rhio.cpp` (de meetdraad werd voor `LogOpen()` geladen, dus zijn regels
+verdwenen) is hersteld en de meetdraad schrijft nu zijn **eigen** logboek:
+`views/RobinHood/data/rg-compat-sample.txt` (de marker `rg-compat.aan` in de drop-in zet
+`RG_COMPAT_SAMPLE=200`). Een meting tijdens I/O CHECKING, 675 rondes, per draad de twaalf meest
+geziene plekken (`aantal pc | aanroeper 1 | aanroeper 2`):
+
+| draad | wat hij doet |
+|---|---|
+| **256 (hoofd)** | **607 van 675** in `ntdll.dll+0xd410`, aangeroepen uit **`game.exe+0x9e7bc8`**, die uit **`game.exe+0x8ff9b`**; 38 rondes in `ntdll+0xd410` uit `game.exe+0x8f9b2` (die twee keer, dus een lus); 12 in `ntdll+0xd1e0` uit `game.exe+0x28005c`; verder losse rondes |
+| 368 | 657 van 675 in `ntdll+0xe0c0` uit `game.exe+0x34696d`, met een paar rondes in **`winevulkan.dll`** uit `game.exe+0x589680` -- dit is de teken-draad |
+| 380 | 666 van 675 in `ntdll+0xe0c0` uit `game.exe+0xa00000` |
+| 352, 356, 376, 384, 388-448 | 100% in `ntdll+0xd410` of `+0xe0c0`, **zonder aanroeper** -- gewone wachtdraden |
+
+**De vraag van de leiding is hiermee beantwoord**: er is **geen enkele draad in de sluis-helper
+`0x580fa0`** (die komt in het hele logboek niet voor) en **geen enkele draad in een van onze haken**.
+De hoofddraad wacht in **de eigen code van het spel** (`game.exe+0x9e7bc8`, terug naar
+`game.exe+0x8ff9b`), en alle andere draden wachten in gewone ntdll-wachtdiensten. De vergrendeling
+van `0x580fa0` is dus niet wat Robin Hood tegenhoudt; het spel staat in zijn eigen wachtpad op
+bordgegevens, precies zoals de leiding vermoedde ("in een lus wachten op bordgegevens").
+
+**Volgende stap**: `game.exe+0x9e7bc8` en `0x8ff9b` in de ontleder opzoeken (de exe van Robin Hood
+staat niet rechtstreeks in de view: `data/game.exe` is een hulpje van 71 bytes, het echte spel komt
+uit de NAS-map via `sh/` en `start.bat`) en kijken welke wachtdienst daar met welk handvat wordt
+aangeroepen. Dat geeft het bordobject waar de game op wacht.
