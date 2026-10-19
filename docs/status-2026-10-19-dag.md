@@ -59,6 +59,29 @@ regels), maar de game sterft met `X Error of failed request: BadWindow ... X_Unm
 niet beter; de instelling is daarna teruggezet op `false`.
 
 
+
+### De kern van het verschil: de JVS-pijp deed het toen wel (19:23)
+
+Het laatste regeltje van de werkende 15-10-meting is de sleutel:
+
+```
+[rg-direct 00:29:32] JVS-pipe: verbinding dicht (2646415 bytes van de game, 49102 pakketten,
+                                             1497729 bytes van de daemon terug)
+```
+
+Toen praatte het spel dus **49.102 pakketten** met zijn bord. Vandaag zegt de brug bij een lopende
+start: "route jvs ... **0 packets, 0x identificatie, 0 schakelaarpolls, 0 analoogpolls**", en het
+spel-logboek (`direct-MarioKartDX-20261019-191133.log`) blijft staan op "pipe TeknoParrot_JVS
+created, waiting for game...": het spel **verbindt nooit** met de pijp. Het spel komt dus niet eens
+aan zijn bordinitialisatie toe.
+
+En de 15-10-meting liep, volgens zijn eigen plan.json, op `core_source: runtime` met
+`core_dll: .../TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll` -- dat is de
+**TeknoParrot-kern**, niet de onze. Er is dus voor zover de logboeken teruggaan **geen enkele meting
+waarin Mario Kart DX op ONZE kern beeld gaf**. Dat is een vraag voor de leiding: of de TP-kern hier
+als vergelijkingsbasis mag (alleen om te kijken wat die doet), of dat we het verschil in onze eigen
+kern moeten zoeken.
+
 ### Proeven met de omgevingsverschillen (19:04-19:21), alle drie geneutraliseerd
 
 Telkens een start via de daemon, ~65 s wachten en een opname met `rg-tv-env.sh --no-hold --
