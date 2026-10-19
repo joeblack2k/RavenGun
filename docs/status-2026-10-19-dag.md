@@ -21,6 +21,56 @@ bestanden), want `find` ziet geen verwijderingen en de schrijflaag verbergt het 
 | **AliensArmageddon** | parked | -- | de NAS-map is leeg. Openstaande punten staan in het profiel: de HASP-controle, het richten met de IR-camera en de schakelaar-id's |
 
 
+
+## Mario Kart DX: het zwarte scherm, tweede ronde
+
+### (1) Waar wacht het? (19:00, PID 1775676, 90 s na de start)
+
+- 75 draden. Veel daarvan zijn van **DXVK** (`dxvk-frame`, `dxvk-queue`, `dxvk-submit`,
+  `dxvk-descriptor`, `dxvk-cs`, twaalf `dxvk-shader-*`): de D3D9-apparaat is dus aangemaakt en DXVK
+  staat volledig op.
+- De **hoofddraad** zit niet vast: drie metingen met 6 s ertussen tonen hem steeds in
+  `peek_message` -> `NtUserPeekMessage` -> `wine_server_call` (soms via `X11DRV_ClipCursor`), dus in
+  de **berichtenlus van wine**. Het is geen wacht op de JVS, geen pijp, geen mutex en geen slaplus.
+- De **dxvk-frame**-draad staat in `NtWaitForAlertByThreadId`: hij wacht op een frame. Er is dus
+  **geen enkele Present**.
+- **Geen enkele draad** voert code uit de spelimage uit: in de volledige `thread apply all bt` komt
+  geen frame uit `0x004xxxxx`. Alle speeldraden zitten in wine-wachtdiensten (epoll/futex).
+- `winedbg` kan niet aanhaken ("Can't attach process 1b183c: error 87"); de native backtraces hierboven
+  komen van `gdb -p`.
+
+### (2) Verschil met de werkende 15-10-meting
+
+De 15-10-meting die met beeld werkte (`direct-MarioKartDX-20261015-002121.plan.json`) verschilt op
+twee grote punten en acht omgevingsvariabelen:
+
+| punt | 15-10 (werkte) | 19-10 (zwart) |
+|---|---|---|
+| gamescope | **aan** (`/usr/bin/gamescope -W 1920 -H 1080 -S fit -f --backend wayland -- ...`) | **uit** (`Gamescope = false` in het profiel) |
+| kern | TeknoParrot (`runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot.dll`, `core_source: runtime`) | de onze (`openparrot/current/OpenParrotWin32/OpenParrot.dll`, `core_source: ravengun`) |
+| omgeving | alleen `LIBVA_DRIVER_NAME`, `SANSO_MODE_FILE` | daar **acht** sleutels bij: `PULSE_PROP`, `RAVENGUN_PATCHMEM_FILE=patchmem.txt`, `RG_CAMERA_EXPOSURE=photo`, `RG_DRIVE_FIXUP=F`, `RG_JVS_COMPORT=COM3`, `RG_LOADER_CORE=ravengun`, `RG_MOD=english`, `RG_SHAREK_FAKE=1` |
+
+De drop-ins verschillen ook (wij zetten rg-compat, ravengun-patchmem32 en rg-rhio in de view), maar
+die horen bij onze eigen route en staan los van het beeld.
+
+**Eerste proef: gamescope aan** (`direct-MarioKartDX-20261019-190049.log`). Gamescope start wel (67
+regels), maar de game sterft met `X Error of failed request: BadWindow ... X_UnmapWindow` en
+"gamescope: Primary child shut down!", waarna de lader stopt. Gamescope aan maakt het dus **erger**,
+niet beter; de instelling is daarna teruggezet op `false`.
+
+### (3) Het bord tijdens de start
+
+`ravengunctl iobridge status` tijdens een lopende start: "IO-brug: route jvs voor MarioKartDX,
+dialect jvs, lijn /dev/pts/0 (modemstatus 16), **0 packets**". De brug staat dus, maar er komt geen
+enkel pakket van de game binnen.
+
+### (4) Het venster
+
+Met de omgeving van `tools/dev/rg-tv-env.sh` (DISPLAY=:0, Wayland-0) opgezocht. Er is **geen
+spelvenster**: het enige venster dat bij de start hoort is het consolevenster van **AMAuthd.exe**
+(697x562 op 6,43). Een venster van MK zelf bestaat niet. (Mijn eerste poging met `DISPLAY=:0` uit deze
+shell gaf "Authorization required" en zei dus niets.)
+
 ## Pass 2 van review 18: ViewLocalFiles, live nagekeken (17:59 en 18:01)
 
 De nieuwe sleutel `[Launch] ViewLocalFiles` maakt bij de start elke BESTANDSkoppeling naar de NAS in die
