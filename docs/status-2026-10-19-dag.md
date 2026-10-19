@@ -321,3 +321,22 @@ volgende om uit te zoeken.
 Proeven: `ravengun_direct_launch_tests` heeft er twee blokken bij (SecondBare: de tweede start heeft
 alleen wine, het spel houdt lader en kern, plus de JSON-rondgang; PrefixSetup: de drie stappen, de
 stempels, `prefix:` en vier weigeringen) -- **568 controles, 0 fout** -- en **ctest 94/94**.
+
+### Het zwarte scherm van Mario Kart: gemeten, en waar het nu op wacht
+
+Met de automatisering op zijn plaats is het spel **echt gaan lopen**:
+
+* de vier prefixstappen lopen, `WritableConfig.ini` staat in de view, **AMAuthd blijft draaien**;
+* `start 1/2` (AMAuthd) en `start 2/2` (het spel) lopen; het spel blijft in leven;
+* in deze sessie kan gamescope niet starten ("Failed to bind socket @/tmp/.X11-unix/X0: Address already
+  in use" -- de Xwayland van het bureaublad heeft X0), en dan sluit het spel met een X11-fout
+  (`BadWindow`, `X_UnmapWindow`, serienummer 156). Met gamescope uit blijft het spel draaien;
+* **het scherm is dan helemaal zwart** (foto 10.669 bytes, egaal zwart) en het eigen logboek van het
+  spel eindigt na het aanmaken van het D3D9-apparaat:
+  `Format: D3D9Format::A8R8G8B8`, `Windowed: true`, `Swap effect: 1`, `DXGI: MakeWindowAssociation:
+  Ignoring flags` -- daarna niets meer. Het spel leeft dus, maar er wordt niets getoond.
+
+DXVK staat al aan in dit profiel (met de notitie dat wined3d 144.000 keer `GL_INVALID_OPERATION` gaf)
+en de view heeft de DXVK-DLL's; het maakt voor het zwarte scherm geen verschil. De volgende stap is
+dus aan de renderkant: `DXVK_HUD`/`DXVK_LOG_LEVEL=debug`, `WINEDEBUG=+d3d`, of kijken wat de
+camera-drop-in (`rg-mfcam.dll`, die het spel ook laadt) met de presentatie doet.
