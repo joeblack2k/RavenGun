@@ -815,21 +815,34 @@ void setup_dongle_trace() {
     rg_dongle::g_log = &rg_log;
     rg_dongle::g_fake = lstrcmpiA(v, "fake") == 0;
     rg_dongle::g_chain = lstrcmpiA(v, "chain") == 0;
-    rg_log("dongel: aan (%s), SetupAPI en DeviceIoControl worden gevolgd", v);
+    rg_log("dongle: on (%s), tracing SetupAPI and DeviceIoControl", v);
     HMODULE self = GetModuleHandleW(nullptr);
     auto koppel = [self](const char* dll, const char* fn, void* repl, void** oud) {
         void* old = patch_iat(self, dll, fn, repl);
         if (old) {
             *oud = old;
-            rg_log("dongel: importtabel %s!%s omgezet", dll, fn);
+            rg_log("dongle: import table %s!%s redirected", dll, fn);
         } else {
-            rg_log("dongel: importtabel %s!%s NIET gevonden", dll, fn);
+            rg_log("dongle: import table %s!%s NOT found", dll, fn);
         }
     };
     koppel("KERNEL32.dll", "DeviceIoControl", reinterpret_cast<void*>(&rg_dongle::hook_device_io_control),
            reinterpret_cast<void**>(&rg_dongle::g_device_io_control));
     koppel("KERNEL32.dll", "CreateFileW", reinterpret_cast<void*>(&rg_dongle::hook_create_file_w),
            reinterpret_cast<void**>(&rg_dongle::g_create_file_w));
+    koppel("KERNEL32.dll", "ExitProcess", reinterpret_cast<void*>(&rg_dongle::hook_exit_process),
+           reinterpret_cast<void**>(&rg_dongle::g_exit_process));
+    koppel("msvcr100.dll", "exit", reinterpret_cast<void*>(&rg_dongle::hook_crt_exit),
+           reinterpret_cast<void**>(&rg_dongle::g_crt_exit));
+    koppel("KERNEL32.dll", "TerminateProcess", reinterpret_cast<void*>(&rg_dongle::hook_terminate_process),
+           reinterpret_cast<void**>(&rg_dongle::g_terminate_process));
+    // The C runtime exits through its own import table, so hook that one too.
+    if (HMODULE crt = GetModuleHandleA("msvcr100.dll")) {
+        void* old_exit = patch_iat(crt, "KERNEL32.dll", "ExitProcess",
+                                   reinterpret_cast<void*>(&rg_dongle::hook_exit_process));
+        if (old_exit) rg_dongle::g_exit_process = reinterpret_cast<rg_dongle::exit_process_fn>(old_exit);
+        rg_log("dongle: msvcr100 ExitProcess hook %s", old_exit ? "ok" : "NOT found");
+    }
     koppel("setupapi.dll", "SetupDiGetClassDevsW", reinterpret_cast<void*>(&rg_dongle::hook_get_class_devs),
            reinterpret_cast<void**>(&rg_dongle::g_get_class_devs));
     koppel("setupapi.dll", "SetupDiEnumDeviceInterfaces", reinterpret_cast<void*>(&rg_dongle::hook_enum_device_interfaces),

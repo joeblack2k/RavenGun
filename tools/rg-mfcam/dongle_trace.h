@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// De USB-dongel van Mario Kart DX: het spel zoekt hem via SetupAPI (SetupDiGetClassDevsW met de klasse
-// {3abf6f2d-71c4-462a-8a92-1e6861e6af27}) en praat er daarna mee via CreateFile/DeviceIoControl.
-// In de TP-vergelijking zijn er GEEN apparaat-handvatten in het proces te zien: de TP-kern beantwoordt
-// dit dus in het proces zelf.
+// Mario Kart DX's USB dongle: the game looks for it through SetupAPI (SetupDiGetClassDevsW with
+// class {3abf6f2d-71c4-462a-8a92-1e6861e6af27}) and then talks to it via CreateFile/DeviceIoControl.
+// In the TeknoParrot comparison run there were NO device handles in the process, so the TP core
+// answers this check inside the process itself.
 //
-// Met RG_DONGLE=trace loggen we alleen wat het spel vraagt. Met RG_DONGLE=fake wijzen we een eigen
-// apparaat aan: de klasse-enumeratie geeft één interface, de detail-aanroep geeft een pad, en
-// CreateFile op dat pad geeft een pijp waarvan wij het andere eind vasthouden. De ioctl-codes en de
-// antwoorden worden gelogd; een eerste antwoord is een nul-buffer van de gevraagde lengte.
+// RG_DONGLE=trace only logs what the game asks for. RG_DONGLE=fake presents its own device: the
+// class enumeration yields one interface, the detail call yields a path, and CreateFile on that path
+// becomes a pipe whose other end we hold. The ioctl codes and buffers are logged; the first answer
+// is a zero buffer of the requested length.
+//
+// Every log line carries the caller address (the game's return address into the hook) so we can find
+// the exact check in the game's code.
 #pragma once
 
-// SetupDiCreateDeviceInfoW is in de huidige MinGW-koppen als verouderd gemarkeerd; wij hebben hem
-// juist nodig om een eigen apparaat in de lijst te zetten.
+// SetupDiCreateDeviceInfoW is marked deprecated in the current MinGW headers; we need it to put a
+// device of our own into the list.
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 #include <windows.h>
@@ -19,6 +22,7 @@
 #include <cfgmgr32.h>
 #include <cstdio>
 #include <cstring>
+#include <cstdint>
 #include <string>
 
 namespace rg_dongle {
@@ -29,6 +33,12 @@ using setupdi_get_device_interface_detail_w_fn = BOOL(WINAPI*)(HDEVINFO, PSP_DEV
 using create_file_w_fn = HANDLE(WINAPI*)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
 using device_io_control_fn = BOOL(WINAPI*)(HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
 using read_file_fn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using exit_process_fn = void(WINAPI*)(UINT);
+inline exit_process_fn g_exit_process = nullptr;
+using crt_exit_fn = void(__cdecl*)(int);
+inline crt_exit_fn g_crt_exit = nullptr;
+using terminate_process_fn = BOOL(WINAPI*)(HANDLE, UINT);
+inline terminate_process_fn g_terminate_process = nullptr;
 
 inline setupdi_get_class_devs_w_fn g_get_class_devs = nullptr;
 inline setupdi_enum_device_interfaces_fn g_enum_interfaces = nullptr;
@@ -38,59 +48,64 @@ inline device_io_control_fn g_device_io_control = nullptr;
 inline read_file_fn g_read_file = nullptr;
 inline void (*g_log)(const char*, ...) = nullptr;
 inline bool g_fake = false;
-inline bool g_chain = false;   // RG_DONGLE=chain: alleen loggen wat het origineel antwoordt
+inline bool g_chain = false;   // RG_DONGLE=chain: only log what the original answers
 
-inline constexpr wchar_t kDonglePad[] = L"\\\\?\\rg-dongle#vid_0000&pid_0000#1";
-inline constexpr wchar_t kDonglePijp[] = L"\\\\.\\pipe\\rg-dongle";
-inline GUID g_dongle_klasse = {};   // de klasse die het spel vroeg
-inline bool g_dongle_klasse_gezet = false;
+inline constexpr wchar_t kDonglePath[] = L"\\\\?\\rg-dongle#vid_0000&pid_0000#1";
+inline constexpr wchar_t kDonglePipe[] = L"\\\\.\\pipe\\rg-dongle";
+inline GUID g_dongle_class = {};   // the class the game asked for
+inline bool g_dongle_class_set = false;
 
-inline void guid_tekst(const GUID* g, char* out, size_t n) {
-    if (!g) { std::snprintf(out, n, "(geen)"); return; }
+inline unsigned long caller_of(void* ra) {
+    return static_cast<unsigned long>(reinterpret_cast<uintptr_t>(ra));
+}
+
+inline void guid_text(const GUID* g, char* out, size_t n) {
+    if (!g) { std::snprintf(out, n, "(none)"); return; }
     std::snprintf(out, n, "{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
                   static_cast<unsigned long>(g->Data1), g->Data2, g->Data3,
                   g->Data4[0], g->Data4[1], g->Data4[2], g->Data4[3],
                   g->Data4[4], g->Data4[5], g->Data4[6], g->Data4[7]);
 }
 
-inline bool is_dongle_pad(const wchar_t* p) {
-    return p && _wcsicmp(p, kDonglePad) == 0;
+inline bool is_dongle_path(const wchar_t* p) {
+    return p && _wcsicmp(p, kDonglePath) == 0;
 }
 
-// De bedoelde klasse: die van het spel, of anders een vaste (alleen voor de zekerheid).
-inline const GUID* klasse() {
-    static const GUID vast = {0x3abf6f2d, 0x71c4, 0x462a, {0x8a, 0x92, 0x1e, 0x68, 0x61, 0xe6, 0xaf, 0x27}};
-    return g_dongle_klasse_gezet ? &g_dongle_klasse : &vast;
+// The class the game asked for, or a fixed one as a fallback.
+inline const GUID* dongle_class() {
+    static const GUID fixed = {0x3abf6f2d, 0x71c4, 0x462a, {0x8a, 0x92, 0x1e, 0x68, 0x61, 0xe6, 0xaf, 0x27}};
+    return g_dongle_class_set ? &g_dongle_class : &fixed;
 }
 
 inline HDEVINFO WINAPI hook_get_class_devs(const GUID* cls, PCWSTR enumerator, HWND parent, DWORD flags) {
     char g[64];
-    guid_tekst(cls, g, sizeof g);
+    guid_text(cls, g, sizeof g);
     if (g_log)
-        g_log("dongel: SetupDiGetClassDevsW %s (enumerator %ls, vlaggen 0x%lx)", g,
-              enumerator ? enumerator : L"(geen)", static_cast<unsigned long>(flags));
-    if (cls) { g_dongle_klasse = *cls; g_dongle_klasse_gezet = true; }
+        g_log("dongle: SetupDiGetClassDevsW %s (enumerator %ls, flags 0x%lx) caller 0x%08lx", g,
+              enumerator ? enumerator : L"(none)", static_cast<unsigned long>(flags),
+              caller_of(__builtin_return_address(0)));
+    if (cls) { g_dongle_class = *cls; g_dongle_class_set = true; }
     if (g_fake) {
-        // Een echte lijst met een eigen (denkbeeldig) apparaat erin, zodat de rest van SetupAPI werkt.
-        HDEVINFO lijst = SetupDiCreateDeviceInfoList(cls, nullptr);
-        if (lijst == INVALID_HANDLE_VALUE) {
-            if (g_log) g_log("dongel: SetupDiCreateDeviceInfoList mislukt (%lu)", static_cast<unsigned long>(GetLastError()));
-            return lijst;
+        // A real list with our own (imaginary) device in it, so the rest of SetupAPI keeps working.
+        HDEVINFO list = SetupDiCreateDeviceInfoList(cls, nullptr);
+        if (list == INVALID_HANDLE_VALUE) {
+            if (g_log) g_log("dongle: SetupDiCreateDeviceInfoList failed (%lu)", static_cast<unsigned long>(GetLastError()));
+            return list;
         }
         SP_DEVINFO_DATA info = {};
         info.cbSize = sizeof info;
-        if (!SetupDiCreateDeviceInfoW(lijst, L"RGUSB\\VID_0000&PID_0000", cls, nullptr, nullptr, 0, &info)) {
-            if (g_log) g_log("dongel: SetupDiCreateDeviceInfoW mislukt (%lu)", static_cast<unsigned long>(GetLastError()));
-            return lijst;
+        if (!SetupDiCreateDeviceInfoW(list, L"RGUSB\\VID_0000&PID_0000", cls, nullptr, nullptr, 0, &info)) {
+            if (g_log) g_log("dongle: SetupDiCreateDeviceInfoW failed (%lu)", static_cast<unsigned long>(GetLastError()));
+            return list;
         }
         SP_DEVICE_INTERFACE_DATA iface = {};
         iface.cbSize = sizeof iface;
-        if (!SetupDiCreateDeviceInterfaceW(lijst, &info, cls, nullptr, 0, &iface)) {
-            if (g_log) g_log("dongel: SetupDiCreateDeviceInterfaceW mislukt (%lu)", static_cast<unsigned long>(GetLastError()));
+        if (!SetupDiCreateDeviceInterfaceW(list, &info, cls, nullptr, 0, &iface)) {
+            if (g_log) g_log("dongle: SetupDiCreateDeviceInterfaceW failed (%lu)", static_cast<unsigned long>(GetLastError()));
         } else if (g_log) {
-            g_log("dongel: eigen apparaat in de lijst gezet");
+            g_log("dongle: own device put into the list");
         }
-        return lijst;
+        return list;
     }
     if (!g_get_class_devs) return INVALID_HANDLE_VALUE;
     return g_get_class_devs(cls, enumerator, parent, flags);
@@ -98,103 +113,141 @@ inline HDEVINFO WINAPI hook_get_class_devs(const GUID* cls, PCWSTR enumerator, H
 
 inline BOOL WINAPI hook_enum_device_interfaces(HDEVINFO set, PSP_DEVINFO_DATA info, const GUID* cls, DWORD index,
                                                PSP_DEVICE_INTERFACE_DATA data) {
+    const unsigned long caller = caller_of(__builtin_return_address(0));
     if (g_fake) {
-        if (index != 0 || !cls) return FALSE;   // precies één dongel
+        if (index != 0 || !cls) return FALSE;   // exactly one dongle
         if (data) {
             data->cbSize = sizeof *data;
             data->InterfaceClassGuid = *cls;
             data->Flags = 0;
             data->Reserved = 0;
         }
-        if (g_log) g_log("dongel: SetupDiEnumDeviceInterfaces index %lu -> eigen dongel", static_cast<unsigned long>(index));
+        if (g_log) g_log("dongle: SetupDiEnumDeviceInterfaces index %lu -> own dongle, caller 0x%08lx",
+                         static_cast<unsigned long>(index), caller);
         return TRUE;
     }
-    if (g_log) g_log("dongel: SetupDiEnumDeviceInterfaces index %lu", static_cast<unsigned long>(index));
+    if (g_log) g_log("dongle: SetupDiEnumDeviceInterfaces index %lu caller 0x%08lx",
+                     static_cast<unsigned long>(index), caller);
     if (!g_enum_interfaces) return FALSE;
     return g_enum_interfaces(set, info, cls, index, data);
 }
 
 inline BOOL WINAPI hook_get_device_interface_detail_w(HDEVINFO set, PSP_DEVICE_INTERFACE_DATA iface,
                                                       PSP_DEVICE_INTERFACE_DETAIL_DATA_W detail, DWORD size,
-                                                      PDWORD nodig) {
+                                                      PDWORD needed) {
+    const unsigned long caller = caller_of(__builtin_return_address(0));
     if (g_fake) {
-        const DWORD bytes = static_cast<DWORD>(sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W) + (wcslen(kDonglePad) + 1) * sizeof(wchar_t));
-        if (nodig) *nodig = bytes;
+        const DWORD bytes = static_cast<DWORD>(sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W) + (wcslen(kDonglePath) + 1) * sizeof(wchar_t));
+        if (needed) *needed = bytes;
         if (!detail || size < sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W)) {
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
             return FALSE;
         }
         detail->cbSize = sizeof *detail;
-        wcscpy(detail->DevicePath, kDonglePad);
-        if (g_log) g_log("dongel: apparaatpad %ls", detail->DevicePath);
+        wcscpy(detail->DevicePath, kDonglePath);
+        if (g_log) g_log("dongle: device path %ls caller 0x%08lx", detail->DevicePath, caller);
         return TRUE;
     }
     if (!g_get_detail) return FALSE;
-    const BOOL ok = g_get_detail(set, iface, detail, size, nodig);
-    if (g_log && ok) g_log("dongel: apparaatpad %ls", detail ? detail->DevicePath : L"(geen)");
+    const BOOL ok = g_get_detail(set, iface, detail, size, needed);
+    if (g_log && ok) g_log("dongle: device path %ls caller 0x%08lx", detail ? detail->DevicePath : L"(none)", caller);
     return ok;
 }
 
-inline HANDLE WINAPI hook_create_file_w(LPCWSTR naam, DWORD toegang, DWORD deel, LPSECURITY_ATTRIBUTES sa,
-                                        DWORD maken, DWORD vlaggen, HANDLE sjabloon) {
-    if (g_fake && is_dongle_pad(naam)) {
-        // Het pad van ons apparaat wordt een pijp: het spel krijgt het clienteinde, wij het andere.
-        HANDLE pijp = CreateNamedPipeW(kDonglePijp, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-                                      PIPE_UNLIMITED_INSTANCES, 4096, 4096, 0, nullptr);
-        if (pijp == INVALID_HANDLE_VALUE) {
-            if (g_log) g_log("dongel: CreateNamedPipeW mislukt (%lu)", static_cast<unsigned long>(GetLastError()));
+inline HANDLE WINAPI hook_create_file_w(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa,
+                                        DWORD create, DWORD flags, HANDLE tmpl) {
+    const unsigned long caller = caller_of(__builtin_return_address(0));
+    if (g_fake && is_dongle_path(name)) {
+        // The path of our device becomes a pipe: the game gets the client end, we keep the other.
+        HANDLE pipe = CreateNamedPipeW(kDonglePipe, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+                                       PIPE_UNLIMITED_INSTANCES, 4096, 4096, 0, nullptr);
+        if (pipe == INVALID_HANDLE_VALUE) {
+            if (g_log) g_log("dongle: CreateNamedPipeW failed (%lu)", static_cast<unsigned long>(GetLastError()));
             return INVALID_HANDLE_VALUE;
         }
-        HANDLE client = CreateFileW(kDonglePijp, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        HANDLE client = CreateFileW(kDonglePipe, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
         if (client == INVALID_HANDLE_VALUE) {
-            if (g_log) g_log("dongel: verbinden met eigen pijp mislukt (%lu)", static_cast<unsigned long>(GetLastError()));
-            CloseHandle(pijp);
+            if (g_log) g_log("dongle: connecting to own pipe failed (%lu)", static_cast<unsigned long>(GetLastError()));
+            CloseHandle(pipe);
             SetLastError(ERROR_FILE_NOT_FOUND);
             return INVALID_HANDLE_VALUE;
         }
-        if (g_log) g_log("dongel: het spel opent de dongel -> eigen pijp");
+        if (g_log) g_log("dongle: the game opens the dongle -> own pipe, caller 0x%08lx", caller);
         return client;
     }
     if (!g_create_file_w) return INVALID_HANDLE_VALUE;
-    return g_create_file_w(naam, toegang, deel, sa, maken, vlaggen, sjabloon);
+    return g_create_file_w(name, access, share, sa, create, flags, tmpl);
 }
 
 inline BOOL WINAPI hook_device_io_control(HANDLE dev, DWORD code, LPVOID in, DWORD in_len, LPVOID out, DWORD out_len,
-                                          LPDWORD terug, LPOVERLAPPED ov) {
+                                          LPDWORD back, LPOVERLAPPED ov) {
+    const unsigned long caller = caller_of(__builtin_return_address(0));
     if (g_fake && dev && dev != INVALID_HANDLE_VALUE) {
-        // Wat vraagt het spel, en met welke buffer? (De eerste versie antwoordt met nullen.)
         char hex[3 * 32 + 1] = {};
         const auto* b = static_cast<const unsigned char*>(in);
         if (b)
             for (DWORD i = 0; i < in_len && i < 32; ++i) std::snprintf(hex + i * 3, 4, "%02x ", b[i]);
         if (g_log)
-            g_log("dongel: DeviceIoControl code 0x%08lx in %lu [%s] uit %lu", static_cast<unsigned long>(code),
-                  static_cast<unsigned long>(in_len), hex, static_cast<unsigned long>(out_len));
+            g_log("dongle: DeviceIoControl code 0x%08lx in %lu [%s] out %lu caller 0x%08lx",
+                  static_cast<unsigned long>(code), static_cast<unsigned long>(in_len), hex,
+                  static_cast<unsigned long>(out_len), caller);
         if (out && out_len) {
             std::memset(out, 0, out_len);
-            if (terug) *terug = out_len;
+            // The game asks with a 6-byte buffer first and expects the first dword to be the size of
+            // the dongle payload (> 6); it then asks again with that size. Answer that size here.
+            if (code == 0x00220424u && out_len >= 6) {
+                const unsigned long payload = 0x104;
+                std::memcpy(out, &payload, sizeof payload);
+                // Probe the payload layout: ASCII digits cycling, so whatever the game shows on its
+                // boot check (board id / serial) tells us at which offset it reads.
+                auto* p = static_cast<unsigned char*>(out) + 4;
+                for (DWORD i = 0; i + 4 < 0x104 && i < out_len; ++i) p[i] = static_cast<unsigned char>('0' + (i % 10));
+            }
+            if (back) *back = out_len;
             SetLastError(ERROR_SUCCESS);
             return TRUE;
         }
-        if (terug) *terug = 0;
+        if (back) *back = 0;
         SetLastError(ERROR_SUCCESS);
         return TRUE;
     }
     if (g_log)
-        g_log("dongel: DeviceIoControl code 0x%08lx in %lu uit %lu", static_cast<unsigned long>(code),
-              static_cast<unsigned long>(in_len), static_cast<unsigned long>(out_len));
+        g_log("dongle: DeviceIoControl code 0x%08lx in %lu out %lu caller 0x%08lx",
+              static_cast<unsigned long>(code), static_cast<unsigned long>(in_len),
+              static_cast<unsigned long>(out_len), caller);
     if (!g_device_io_control) return FALSE;
-    const BOOL ok = g_device_io_control(dev, code, in, in_len, out, out_len, terug, ov);
+    const BOOL ok = g_device_io_control(dev, code, in, in_len, out, out_len, back, ov);
     if (g_chain && g_log) {
-        const DWORD n = terug ? *terug : 0;
+        const DWORD n = back ? *back : 0;
         char hex[3 * 32 + 1] = {};
         const auto* b = static_cast<const unsigned char*>(out);
         if (ok && b)
             for (DWORD i = 0; i < n && i < 32; ++i) std::snprintf(hex + i * 3, 4, "%02x ", b[i]);
-        g_log("dongel: keten code 0x%08lx -> %s, %lu bytes: %s", static_cast<unsigned long>(code), ok ? "ok" : "fout",
+        g_log("dongle: chain code 0x%08lx -> %s, %lu bytes: %s", static_cast<unsigned long>(code), ok ? "ok" : "error",
               static_cast<unsigned long>(n), hex);
     }
     return ok;
+}
+
+inline BOOL WINAPI hook_terminate_process(HANDLE h, UINT code) {
+    if (g_log)
+        g_log("dongle: TerminateProcess(%p, %u) caller 0x%08lx", h, static_cast<unsigned>(code),
+              caller_of(__builtin_return_address(0)));
+    if (g_terminate_process) return g_terminate_process(h, code);
+    return FALSE;
+}
+
+inline void __cdecl hook_crt_exit(int code) {
+    if (g_log)
+        g_log("dongle: exit(%d) caller 0x%08lx", code, caller_of(__builtin_return_address(0)));
+    if (g_crt_exit) g_crt_exit(code);
+}
+
+inline void WINAPI hook_exit_process(UINT code) {
+    if (g_log)
+        g_log("dongle: ExitProcess(%u) caller 0x%08lx", static_cast<unsigned>(code),
+              caller_of(__builtin_return_address(0)));
+    if (g_exit_process) g_exit_process(code);
 }
 
 }  // namespace rg_dongle
