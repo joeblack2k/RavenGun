@@ -35,6 +35,39 @@ profiel niet meer als "eigen profiel met `[Launch] Mode = direct`". Met de kop t
 de proefopstelling wordt Robin Hood nu eerder geweigerd omdat de schrijfmap daar niet in een view
 ligt — precies het gedrag dat we willen). **ctest: 94 van 94.**
 
+## (C) De open punten in de RobinHood I/O-kant — klaar
+
+* **Geen spookdata meer:** `ClearCommError` meldt nu **0** zodra het antwoord helemaal gelezen is
+  (vlag `g_antwoord_op`), ook bij stand `niks`; `PurgeComm` wist het wachtende antwoord. Zonder dit
+  las het spel na een volledig kader opnieuw 7 bytes en begon het rondje opnieuw — een van de
+  kandidaten voor de hang.
+* **Slot vóór de haken:** `InitializeCriticalSection` gebeurt nu als eerste in `DllMain`.
+* **Herprobeer-draad alleen als het echt nodig is:** per import staat nu of hij verplicht is; de
+  optionele (PurgeComm, Get/SetCommState, SetCommTimeouts, EscapeCommFunction, SetCommMask,
+  WaitCommEvent, GetOverlappedResult) laten de draad niet meer starten en worden als "optioneel"
+  gelogd.
+* **`OpenBordbeeld`:** herhaalpoging bij elke aanroep, het handvat blijft bewaard (geen lek) en de
+  melding komt één keer.
+* **Geen `LoadLibrary` in `DllMain`:** de meetdraad van rg-compat wordt nu lazy geladen bij de eerste
+  bord-aanraking (`std::call_once`).
+* **`RG_RHIO_TOETS`** wordt één keer gelezen, niet per kader.
+* **De AMAuth-proefariteit:** de proef gebruikte stdcall met een vaste ariteit, dus de conclusie "het
+  spel roept slot 9 aan" is **niet betrouwbaar** en wordt hierbij **ingetrokken**; met de echte
+  AMAuthd draait het spel door, dat is de meting die telt.
+* De dubbele TC5-noot was al weg.
+
+## Let op: de schrijflaag vuurt (nog) niet op de echte view
+
+De nieuwe `[Launch] ViewWritable` is ingebouwd en de proef bewijst hem (460 controles, via
+`apply_direct`), maar op de **echte** view bleef `views/RobinHood/log` een koppeling: met
+`rg-direct --plan` staat `view_writable` goed in het plan en de tekst "schrijfmap" zit in de binary,
+maar bij `--run` gebeurt er niets. Dat is één open punt met een scherpe volgende stap (de
+`--run`-weg van plan naar uitvoering nalopen, of het loggen van de schrijflaag naar de console
+zetten). **Stopgap voor vandaag:** de twee mappen zijn met de hand één keer omgezet (een kopie in de
+view, de NAS alleen gelezen), dus `views/RobinHood/log` en `views/MarioKartDX/AMCUS` zijn nu echte
+mappen en de games schrijven daar lokaal. De NAS-bestanden (PR0/PR1.CFG, .CRC, AMConfig.ini,
+PRbk*.dat) zijn niet verplaatst, gewijzigd of verwijderd.
+
 ## Nog te doen (op volgorde van de leiding)
 
 * **(C)** de open `rg_rhio`-punten (spookdata in `ClearCommError`, slot vóór de haken,

@@ -38,6 +38,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
+#include <string>
+
+void LaadMeetdraad();   // de meetdraad van rg-compat, lazy geladen (buiten de anonieme naamruimte)
 
 namespace {
 
@@ -177,6 +181,7 @@ DWORD g_laatste_lengte = 0;
 DWORD g_wachtend_antwoord = 0;
 /* Hoeveel bytes van het antwoord al aan het spel gegeven zijn (het leest eerst 1 byte, dan 6). */
 DWORD g_antwoord_gelezen = 0;
+bool g_antwoord_op = false;   // het antwoord is helemaal gelezen: cbInQue moet 0 zijn
 /* Meerdere draden van het spel komen bij deze poort; alles hieronder is met dit slot beschermd. */
 CRITICAL_SECTION g_bord_cs;
 bool g_bord_cs_klaar = false;
@@ -316,6 +321,7 @@ FARPROC WINAPI rg_GetProcAddress(HMODULE mod, LPCSTR naam) {
 
 HANDLE WINAPI rg_CreateFileA(LPCSTR pad, DWORD toegang, DWORD deel, LPSECURITY_ATTRIBUTES sa, DWORD aanmaak,
                              DWORD vlaggen, HANDLE sjabloon) {
+    LaadMeetdraad();   // lazy: niet in DllMain (daar kan LoadLibrary de loader-lock pakken)
     LogOpen();
     if (pad && std::strcmp(pad, g_pad) == 0) {
         Log("CreateFileA(%s) -> nagebootst handvat %p", pad, g_nep_handle);
@@ -397,6 +403,7 @@ BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLA
             if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
             g_wachtend_antwoord = 0;
             g_antwoord_gelezen = 0;
+    g_antwoord_op = false;
             if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
             SetLastError(ERROR_TIMEOUT);
             return TRUE;
@@ -412,6 +419,7 @@ BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLA
         g_antwoord_gelezen += m;
         if (g_antwoord_gelezen >= g_laatste_lengte) {
             g_antwoord_gelezen = 0;
+            g_antwoord_op = true;
             g_wachtend_antwoord = 0;   /* het hele antwoord is opgehaald */
         }
         if (gelezen) *gelezen = m;
@@ -457,7 +465,16 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD geschreven, LPO
 }
 
 BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD vlaggen) {
-    if (h == g_com_handle) { Log("PurgeComm(bord, 0x%lx)", static_cast<unsigned long>(vlaggen)); return TRUE; }
+    if (h == g_com_handle) {
+        if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
+        g_laatste_lengte = 0;
+        g_antwoord_gelezen = 0;
+        g_antwoord_op = false;
+        g_wachtend_antwoord = 0;
+        if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
+        Log("PurgeComm(bord, 0x%lx) -> wachtend antwoord gewist", static_cast<unsigned long>(vlaggen));
+        return TRUE;
+    }
     return g_echte_purge ? g_echte_purge(h, vlaggen) : FALSE;
 }
 
@@ -496,21 +513,24 @@ using OpenFileMappingAFn2 = HANDLE(WINAPI*)(DWORD, BOOL, LPCSTR);
 using MapViewOfFileFn2 = LPVOID(WINAPI*)(HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 
 void OpenBordbeeld() {
+    static HANDLE bewaard = nullptr;      // het handvat blijft leven; niet elke aanroep een nieuw
+    static bool al_gemeld = false;
     if (g_bordbeeld) return;
     HMODULE k = GetModuleHandleA("KERNEL32.dll");
     if (!k) return;
     auto open = reinterpret_cast<OpenFileMappingAFn2>(GetProcAddress(k, "OpenFileMappingA"));
     auto view = reinterpret_cast<MapViewOfFileFn2>(GetProcAddress(k, "MapViewOfFile"));
     if (!open || !view) return;
-    /* Onze eigen haken staan op de importtabel van het spel, niet op deze aanroepen; we gebruiken
-     * daarom de echte functies rechtstreeks via GetProcAddress. */
-    HANDLE h = open(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
-    if (!h) {
-        Log("bordbeeld: mapping TeknoParrot_JvsState niet gevonden (fout %lu)",
-            static_cast<unsigned long>(GetLastError()));
+    if (!bewaard) bewaard = open(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
+    if (!bewaard) {
+        if (!al_gemeld) {   // een keer melden; hij blijft het daarna wel proberen
+            Log("bordbeeld: mapping TeknoParrot_JvsState (nog) niet gevonden (fout %lu)",
+                static_cast<unsigned long>(GetLastError()));
+            al_gemeld = true;
+        }
         return;
     }
-    g_bordbeeld = static_cast<unsigned char*>(view(h, FILE_MAP_READ, 0, 0, 0));
+    g_bordbeeld = static_cast<unsigned char*>(view(bewaard, FILE_MAP_READ, 0, 0, 0));
     Log("bordbeeld: mapping TeknoParrot_JvsState %s", g_bordbeeld ? "gekoppeld" : "NIET gekoppeld");
 }
 
@@ -525,22 +545,26 @@ void OpenBordbeeld() {
  *   buiten  richtas van speler 1 op 0x20/0xE0 in plaats van het midden
  * Zonder deze variabele (of met een lege waarde) komt de toestand gewoon uit het bordbeeld. */
 void ProefToestand(unsigned char* k) {
-    char stand[16];
-    if (GetEnvironmentVariableA("RG_RHIO_TOETS", stand, sizeof stand) == 0 || !stand[0]) return;
-    if (std::strcmp(stand, "nul") == 0) {
+    static const std::string stand = [] {
+        char v[16] = {0};
+        GetEnvironmentVariableA("RG_RHIO_TOETS", v, sizeof v);
+        return std::string(v);
+    }();
+    if (stand.empty()) return;
+    if (stand == "nul") {
         k[1] = 0x00;
         return;
     }
-    if (std::strcmp(stand, "vol") == 0) {
+    if (stand == "vol") {
         k[1] = 0xff;
         return;
     }
-    if (std::strcmp(stand, "buiten") == 0) {
+    if (stand == "buiten") {
         k[2] = 0x20;
         k[3] = 0xe0;
         return;
     }
-    if (std::strcmp(stand, "cyclus") == 0) {
+    if (stand == "cyclus") {
         static const unsigned char stappen[4] = {0x04, 0x40, 0x80, 0x00};   /* munt, start, trekker, niets */
         k[1] = stappen[(GetTickCount() / 1000u) % 4u];
     }
@@ -588,7 +612,9 @@ BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD fouten, LPCOMSTAT stat) {
     if (h == g_com_handle) {
         DWORD rest;
         if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
-        rest = g_laatste_lengte > g_antwoord_gelezen ? g_laatste_lengte - g_antwoord_gelezen : 0;
+        /* Geen spookdata: is het antwoord helemaal gelezen (of is er geen), dan is cbInQue 0. Zonder
+         * dit las het spel na een volledig kader opnieuw 7 bytes en begon het rondje opnieuw. */
+        rest = g_antwoord_op ? 0 : (g_laatste_lengte > g_antwoord_gelezen ? g_laatste_lengte - g_antwoord_gelezen : 0);
         if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
         if (fouten) *fouten = 0;
         if (stat) {
@@ -721,24 +747,27 @@ bool installeer_haken() {
     Log("importtabel: KERNEL32!CreateFileA %s", oud2 ? "omgezet" : "NIET gevonden");
     void* oud3 = PatchIat(exe, "KERNEL32.dll", "DeviceIoControl", reinterpret_cast<void*>(&rg_DeviceIoControl));
     Log("importtabel: KERNEL32!DeviceIoControl %s", oud3 ? "omgezet" : "NIET gevonden");
-    struct { const char* naam; void* nep; void** echt; } comm[] = {
-        {"ReadFile", reinterpret_cast<void*>(&rg_ReadFile), reinterpret_cast<void**>(&g_echte_read)},
-        {"WriteFile", reinterpret_cast<void*>(&rg_WriteFile), reinterpret_cast<void**>(&g_echte_write)},
-        {"PurgeComm", reinterpret_cast<void*>(&rg_PurgeComm), reinterpret_cast<void**>(&g_echte_purge)},
-        {"ClearCommError", reinterpret_cast<void*>(&rg_ClearCommError), reinterpret_cast<void**>(&g_echte_clear)},
-        {"GetCommState", reinterpret_cast<void*>(&rg_GetCommState), reinterpret_cast<void**>(&g_echte_getstate)},
-        {"SetCommState", reinterpret_cast<void*>(&rg_SetCommState), reinterpret_cast<void**>(&g_echte_setstate)},
-        {"GetCommTimeouts", reinterpret_cast<void*>(&rg_GetCommTimeouts), reinterpret_cast<void**>(&g_echte_gettimeouts)},
-        {"SetCommTimeouts", reinterpret_cast<void*>(&rg_SetCommTimeouts), reinterpret_cast<void**>(&g_echte_settimeouts)},
-        {"EscapeCommFunction", reinterpret_cast<void*>(&rg_EscapeCommFunction), reinterpret_cast<void**>(&g_echte_escape)},
-        {"SetCommMask", reinterpret_cast<void*>(&rg_SetCommMask), reinterpret_cast<void**>(&g_echte_setmask)},
-        {"WaitCommEvent", reinterpret_cast<void*>(&rg_WaitCommEvent), reinterpret_cast<void**>(&g_echte_wait)},
-        {"GetOverlappedResult", reinterpret_cast<void*>(&rg_GetOverlappedResult), reinterpret_cast<void**>(&g_echte_ovl)},
+    // Niet elke exe importeert elke comm-functie. De essentiële moeten er zijn (anders werkt de
+    // bordkant niet); de rest is optioneel en mag ontbreken zonder dat de herprobeer-draad start.
+    struct { const char* naam; void* nep; void** echt; bool nodig; } comm[] = {
+        {"ReadFile", reinterpret_cast<void*>(&rg_ReadFile), reinterpret_cast<void**>(&g_echte_read), true},
+        {"WriteFile", reinterpret_cast<void*>(&rg_WriteFile), reinterpret_cast<void**>(&g_echte_write), true},
+        {"PurgeComm", reinterpret_cast<void*>(&rg_PurgeComm), reinterpret_cast<void**>(&g_echte_purge), false},
+        {"ClearCommError", reinterpret_cast<void*>(&rg_ClearCommError), reinterpret_cast<void**>(&g_echte_clear), true},
+        {"GetCommState", reinterpret_cast<void*>(&rg_GetCommState), reinterpret_cast<void**>(&g_echte_getstate), false},
+        {"SetCommState", reinterpret_cast<void*>(&rg_SetCommState), reinterpret_cast<void**>(&g_echte_setstate), false},
+        {"GetCommTimeouts", reinterpret_cast<void*>(&rg_GetCommTimeouts), reinterpret_cast<void**>(&g_echte_gettimeouts), true},
+        {"SetCommTimeouts", reinterpret_cast<void*>(&rg_SetCommTimeouts), reinterpret_cast<void**>(&g_echte_settimeouts), false},
+        {"EscapeCommFunction", reinterpret_cast<void*>(&rg_EscapeCommFunction), reinterpret_cast<void**>(&g_echte_escape), false},
+        {"SetCommMask", reinterpret_cast<void*>(&rg_SetCommMask), reinterpret_cast<void**>(&g_echte_setmask), false},
+        {"WaitCommEvent", reinterpret_cast<void*>(&rg_WaitCommEvent), reinterpret_cast<void**>(&g_echte_wait), false},
+        {"GetOverlappedResult", reinterpret_cast<void*>(&rg_GetOverlappedResult), reinterpret_cast<void**>(&g_echte_ovl), false},
     };
     for (auto& c : comm) {
         void* oud = PatchIat(exe, "KERNEL32.dll", c.naam, c.nep);
-        if (!oud) alles = false;
-        Log("importtabel: KERNEL32!%s %s", c.naam, oud ? "omgezet" : "NIET gevonden");
+        if (!oud && c.nodig) alles = false;
+        Log("importtabel: KERNEL32!%s %s%s", c.naam, oud ? "omgezet" : "NIET gevonden",
+            (!oud && !c.nodig) ? " (optioneel)" : "");
         (void)oud;
     }
     return alles;
@@ -757,16 +786,24 @@ DWORD WINAPI Herprobeer(LPVOID) {
 /* De meetdraad van rg-compat (docs/rg-compat.md, RG_COMPAT_SAMPLE=<ms>) ook hier: Robin Hood
  * heeft maar een haak-DLL (deze), dus laden we rg-compat.dll zelf als de variabele gezet is. Hij
  * laat per draad zien waar het spel zit -- precies wat nodig is om te zien waar het op wacht. */
+/* Niet in DllMain (daar kan LoadLibrary de loader-lock pakken): pas bij de eerste echte haak-aanroep.
+ * eenmalig, en alleen als RG_COMPAT_SAMPLE gezet is. */
 void LaadMeetdraad() {
-    char v[8];
-    if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) == 0) return;
-    HMODULE m = LoadLibraryA("rg-compat.dll");
-    Log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", v);
+    static std::once_flag een_keer;
+    std::call_once(een_keer, [] {
+        char v[8] = {0};
+        if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) == 0) return;
+        HMODULE m = LoadLibraryA("rg-compat.dll");
+        Log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", v);
+    });
 }
 
 BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
     if (reden == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(instantie);
+        /* Eerst het slot: de haken kunnen meteen door een andere draad gebruikt worden. */
+        InitializeCriticalSection(&g_bord_cs);
+        g_bord_cs_klaar = true;
         LogOpen();
         Log("--- nieuw proces: de I/O-bordkant van RavenGun geladen ---");
         /* N6: alleen een draad als er iets niet gevonden is; anders herhaalt hij hetzelfde werk en
@@ -775,7 +812,6 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
             HANDLE draad = CreateThread(nullptr, 0, Herprobeer, nullptr, 0, nullptr);
             if (draad) CloseHandle(draad);
         }
-        LaadMeetdraad();
         InitializeCriticalSection(&g_bord_cs);
         g_bord_cs_klaar = true;
     }
