@@ -71,7 +71,6 @@ struct DirectSetupStep {
     std::string cwd;                     // map waarin de stap draait (run)
     std::vector<std::string> argv;       // run: wine + het bestand + de argumenten
     std::string from, to;                // copy: van, naar
-    std::string mark;                    // stempelbestand in de prefix
     std::string tekst;                   // de stap zoals in het profiel (voor het logboek)
 };
 
@@ -123,6 +122,10 @@ struct DirectPlan {
     // nooit op de NAS uit (besluit eigenaar 2026-10-19).
     std::vector<std::string> view_writable;
     std::vector<DirectSetupStep> prefix_setup;             // [Launch] PrefixSetup
+    // Een stempel voor de HELE lijst (review 13, punt 3): pas geschreven als alle stappen gelukt
+    // zijn. Per stap stempelen liet eerdere stappen "klaar" staan toen een latere faalde, en de
+    // stempel is per prefix terwijl een kopieerdoel per view is.
+    std::string prefix_setup_mark;
     // [Launch] SecondBare = true: de tweede exe zonder onze lader en kern starten. De
     // ALL.Net-server van Mario Kart DX (AMAuthd) is een gewone server; met onze kern stopt
     // hij meteen met "Failed to Load DLL! (Error 4)" (gemeten 2026-10-19).

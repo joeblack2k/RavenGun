@@ -2202,7 +2202,8 @@ int main() {
             const DirectSetupStep& a = sp.prefix_setup[0];
             CHECK(!a.copy && (a.cwd == sview.string() || a.cwd == (sview / ".").string()));
             CHECK(a.argv.size() == 3 && a.argv[1] == wine_path((sview / "klaar.exe").string()) && a.argv[2] == "-wait");
-            CHECK(!a.mark.empty() && a.mark.find(".ravengun-prefixsetup") != std::string::npos);
+            CHECK(!sp.prefix_setup_mark.empty() &&
+                  sp.prefix_setup_mark.find(".ravengun-prefixsetup") != std::string::npos);
             const DirectSetupStep& b = sp.prefix_setup[1];
             /* De prefix komt uit de omgeving (RG_WINEPREFIX/TP_WINEPREFIX), dus op de staart
              * controleren: de bron moet in de prefix staan, niet in de spelmap. */
@@ -2211,13 +2212,14 @@ int main() {
             const DirectSetupStep& c = sp.prefix_setup[2];
             CHECK(!c.copy && c.cwd == (sview / "AMCUS").string() && c.argv.size() == 4 &&
                   c.argv[1] == "regsvr32.exe" && c.argv[3] == "ding.dll");
-            CHECK(a.mark != b.mark && b.mark != c.mark);   // een stempel per stap
+            /* Een stempel voor de hele lijst, niet per stap (review 13, punt 3). */
         }
         DirectPlan back;
         std::string serr;
         CHECK(plan_from_json(plan_to_json(sp), back, serr) && back.prefix_setup.size() == 3 &&
               back.prefix_setup[1].copy && back.prefix_setup[1].from == sp.prefix_setup[1].from &&
-              back.prefix_setup[0].argv == sp.prefix_setup[0].argv && back.prefix_setup[0].mark == sp.prefix_setup[0].mark);
+              back.prefix_setup[0].argv == sp.prefix_setup[0].argv &&
+              back.prefix_setup_mark == sp.prefix_setup_mark);
         // Weigeren: een pad met .., een verkeerd aantal woorden, een onbekende soort en een bestand dat
         // niet bestaat. De gebruikerlaag overschrijft de sleutel (zoals in de proeven hierboven).
         const fs::path su = fs::path(p.dirs.user) / "Stap/game.ini";
@@ -2234,6 +2236,39 @@ int main() {
         write(su, "[Launch]\nPrefixSetup = run . klaar.exe | run AMCUS regsvr32.exe /s ding.dll\n");
         CHECK(plan_direct("Stap", p, o, sp, swhy) == Verdict::Ok && sp.prefix_setup.size() == 2 &&
               sp.prefix_setup[1].argv[1] == "regsvr32.exe");
+
+        // --- review 13, punt 1 en 5: wat er niet meer door mag -------------------------------------
+        // prefix: met een absoluut pad of met .. kwam hier eerder door; nu niet.
+        const std::string mark_vast = sp.prefix_setup_mark;
+        write(su, "[Launch]\nPrefixSetup = copy prefix:/etc/passwd AMCUS/conf.ini\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        write(su, "[Launch]\nPrefixSetup = copy prefix:../../buiten AMCUS/conf.ini\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        // Een kale naam die geen bestand is en niet op de lijst staat: weigeren, niet stil een
+        // programma uit de prefix worden.
+        write(su, "[Launch]\nPrefixSetup = run . regsvr32x.exe\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        write(su, "[Launch]\nPrefixSetup = run . calc.exe\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        // Een doel door een koppeling: de map bestaat, maar er loopt een koppeling in de weg.
+        {
+            std::error_code lec;
+            fs::create_directories(sview / "ergens-heen", lec);
+            fs::create_directory_symlink(sview / "ergens-heen", sview / "AMCUS/link", lec);
+            write(su, "[Launch]\nPrefixSetup = copy prefix:drive_c/windows/conf.ini AMCUS/link/conf.ini\n");
+            CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        }
+        // Een werkmap die niet bestaat blijft geweigerd.
+        write(su, "[Launch]\nPrefixSetup = run nergens klaar.exe\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        // Dezelfde lijst geeft dezelfde stempel; een andere lijst een andere (review 13, punt 3).
+        write(su, "[Launch]\nPrefixSetup = run . klaar.exe\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) == Verdict::Ok && !sp.prefix_setup_mark.empty());
+        const std::string mark_een = sp.prefix_setup_mark;
+        CHECK(plan_direct("Stap", p, o, sp, swhy) == Verdict::Ok && sp.prefix_setup_mark == mark_een);
+        CHECK(mark_een != mark_vast);
+        write(su, "[Launch]\nPrefixSetup = run . klaar.exe -anders\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) == Verdict::Ok && sp.prefix_setup_mark != mark_een);
     }
 
     fs::remove_all(root);

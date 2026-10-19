@@ -79,37 +79,6 @@ bool dropin_materialiseer(const std::string& base, const std::string& dest_in, c
     return true;
 }
 
-// rename() vervangt op `path` alleen de naam: staat daar een koppeling, dan wordt de koppeling zelf vervangen en nooit wat erachter
-// staat (ook niet op de NAS). De tijdelijke naam wordt nooit gevolgd (O_EXCL | O_NOFOLLOW) en blijft na een fout niet achter.
-bool write_atomic(const std::string& path, const std::string& data, std::string& err) {
-    const std::string tmp = path + ".ravengun-tmp";
-    ::unlink(tmp.c_str());   // een oude tijdelijke naam van een afgebroken keer (een bestand, of een koppeling: alleen de link)
-    const int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0666);
-    if (fd < 0) { err = tmp + ": niet te schrijven: " + std::strerror(errno); return false; }
-    size_t klaar = 0;
-    while (klaar < data.size()) {
-        const ssize_t n = ::write(fd, data.data() + klaar, data.size() - klaar);
-        if (n < 0 && errno == EINTR) continue;
-        if (n <= 0) {
-            err = tmp + ": niet te schrijven: " + std::strerror(n < 0 ? errno : EIO);
-            ::close(fd);
-            ::unlink(tmp.c_str());
-            return false;
-        }
-        klaar += static_cast<size_t>(n);
-    }
-    if (::close(fd) != 0) {
-        err = tmp + ": niet te schrijven: " + std::strerror(errno);
-        ::unlink(tmp.c_str());
-        return false;
-    }
-    if (::rename(tmp.c_str(), path.c_str()) != 0) {
-        err = path + ": " + std::strerror(errno);
-        ::unlink(tmp.c_str());
-        return false;
-    }
-    return true;
-}
 
 // [Launch] StackReserve (launch-direct.py place_stack_copy): de exe in de view wordt een lokale kopie van het origineel met een
 // grotere SizeOfStackReserve. De koppeling naar het origineel blijft als <exe>.ravengun-orig staan, zodat een volgende start weer
@@ -498,6 +467,7 @@ std::string plan_to_json(const DirectPlan& pl) {
     strs("view_copies", pl.view_copies);
     strs("view_writable", pl.view_writable);
     w.key("second_bare").value(pl.second_bare);
+    w.key("prefix_setup_mark").value(pl.prefix_setup_mark);
     w.key("prefix_setup").begin_array();
     for (const auto& st : pl.prefix_setup) {
         w.begin_object();
@@ -508,7 +478,6 @@ std::string plan_to_json(const DirectPlan& pl) {
         w.end_array();
         w.key("from").value(st.from);
         w.key("to").value(st.to);
-        w.key("mark").value(st.mark);
         w.key("tekst").value(st.tekst);
         w.end_object();
     }
@@ -593,6 +562,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
         for (const auto& e : f->arr)
             if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.view_links.emplace_back(e.arr[0].str, e.arr[1].str);
     if (const auto* f = v.find("second_bare"); f && f->is_bool()) pl.second_bare = f->b;
+    if (const auto* f = v.find("prefix_setup_mark"); f && f->is_string()) pl.prefix_setup_mark = f->str;
     if (const auto* f = v.find("prefix_setup"); f && f->is_array())
         for (const auto& e : f->arr) {
             if (!e.is_object()) continue;
@@ -604,7 +574,6 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
                     if (a.is_string()) st.argv.push_back(a.str);
             if (const auto* x = e.find("from"); x && x->is_string()) st.from = x->str;
             if (const auto* x = e.find("to"); x && x->is_string()) st.to = x->str;
-            if (const auto* x = e.find("mark"); x && x->is_string()) st.mark = x->str;
             if (const auto* x = e.find("tekst"); x && x->is_string()) st.tekst = x->str;
             pl.prefix_setup.push_back(st);
         }
@@ -708,6 +677,41 @@ std::vector<std::string> plan_tp_refs(const DirectPlan& pl, const std::string& t
 // Staat er al een echte map, dan blijft die staan -- dat is de stand van de game. Daarna een harde
 // controle (schrijfmap_problemen): komt er nog iets op de NAS uit, dan weigert de start.
 namespace direct_detail {
+
+/* Schrijft een bestand zonder een koppeling te volgen. Staat hier (en niet in de anonieme
+ * naamruimte hierboven) omdat rg-direct hem ook gebruikt voor de kopieerstap van
+ * [Launch] PrefixSetup: dezelfde waarborg in de motor en in de loper (review 13, punt 1). */
+// rename() vervangt op `path` alleen de naam: staat daar een koppeling, dan wordt de koppeling zelf vervangen en nooit wat erachter
+// staat (ook niet op de NAS). De tijdelijke naam wordt nooit gevolgd (O_EXCL | O_NOFOLLOW) en blijft na een fout niet achter.
+bool write_atomic(const std::string& path, const std::string& data, std::string& err) {
+    const std::string tmp = path + ".ravengun-tmp";
+    ::unlink(tmp.c_str());   // een oude tijdelijke naam van een afgebroken keer (een bestand, of een koppeling: alleen de link)
+    const int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0666);
+    if (fd < 0) { err = tmp + ": niet te schrijven: " + std::strerror(errno); return false; }
+    size_t klaar = 0;
+    while (klaar < data.size()) {
+        const ssize_t n = ::write(fd, data.data() + klaar, data.size() - klaar);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) {
+            err = tmp + ": niet te schrijven: " + std::strerror(n < 0 ? errno : EIO);
+            ::close(fd);
+            ::unlink(tmp.c_str());
+            return false;
+        }
+        klaar += static_cast<size_t>(n);
+    }
+    if (::close(fd) != 0) {
+        err = tmp + ": niet te schrijven: " + std::strerror(errno);
+        ::unlink(tmp.c_str());
+        return false;
+    }
+    if (::rename(tmp.c_str(), path.c_str()) != 0) {
+        err = path + ": " + std::strerror(errno);
+        ::unlink(tmp.c_str());
+        return false;
+    }
+    return true;
+}
 
 namespace {
 

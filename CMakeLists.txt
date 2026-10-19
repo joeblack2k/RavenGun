@@ -536,6 +536,13 @@ if(RAVENGUN_BUILD_TESTS)
   add_test(NAME ravengun_markers
     COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/markers_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}")
   set_tests_properties(ravengun_markers PROPERTIES TIMEOUT 60)
+  # De LOPER van [Launch] PrefixSetup: koppeling en NAS als doel geweigerd, een mislukte stap stopt
+  # de start zonder stempel, een hangende stap wordt afgebroken, en de stempel slaat over of herhaalt.
+  # Zie tests/prefix_setup_test.sh (review 13, punt 6).
+  add_test(NAME ravengun_prefix_setup
+    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/prefix_setup_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_BINARY_DIR}/rg-direct")
+  set_tests_properties(ravengun_prefix_setup PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 180)
   add_executable(ravengun_hid_board_tests tests/test_hid_board.cpp)
   target_link_libraries(ravengun_hid_board_tests PRIVATE ravengun)
   target_compile_definitions(ravengun_hid_board_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")

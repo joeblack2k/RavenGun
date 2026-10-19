@@ -508,7 +508,8 @@ private:
 struct Child { pid_t pid = -1; int out = -1; };
 
 // Start argv in cwd met precies deze omgeving. stdout (en stderr als merge) naar een pijp; stdout_null: stdout naar /dev/null.
-Child spawn(const std::vector<std::string>& argv, const std::string& cwd, const L::EnvMap& env, bool merge_stderr, bool stdout_null) {
+Child spawn(const std::vector<std::string>& argv, const std::string& cwd, const L::EnvMap& env, bool merge_stderr,
+             bool stdout_null, bool eigen_groep = false) {
     Child c;
     int pfd[2];
     if (::pipe2(pfd, O_CLOEXEC) != 0) return c;
@@ -534,7 +535,14 @@ Child spawn(const std::vector<std::string>& argv, const std::string& cwd, const 
     sigaddset(&def, SIGTERM);
     sigaddset(&def, SIGINT);
     posix_spawnattr_setsigdefault(&at, &def);
-    posix_spawnattr_setflags(&at, POSIX_SPAWN_SETSIGDEF);
+    short vlaggen = POSIX_SPAWN_SETSIGDEF;
+    if (eigen_groep) {
+        /* Eigen procesgroep (pgid = het kind): een time-out kan dan de hele boom meenemen. wine start
+         * meer dan een proces, dus alleen de eerste doden laat de rest staan. */
+        posix_spawnattr_setpgroup(&at, 0);
+        vlaggen |= POSIX_SPAWN_SETPGROUP;
+    }
+    posix_spawnattr_setflags(&at, vlaggen);
     pid_t pid = 0;
     // Het programma is een absoluut pad (wine, gamescope); anders zoekt posix_spawnp in de PATH van het plan niet, maar in de onze.
     const int rc = ::posix_spawnp(&pid, av[0], &fa, &at, av.data(), ev.data());
@@ -925,6 +933,169 @@ struct ControlSide {
 
 int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, Helper& helper, JvsPipeServer& server, ControlSide* ctl, A11& a11);
 
+// De stappen van [Launch] PrefixSetup. Apart van run_plan zodat de proeven precies deze weg kunnen
+// draaien zonder een spel te starten (rg-direct --alleen-stappen PLAN.json). Geeft 0 als alle stappen
+// gelukt zijn (of overgeslagen werden door de stempel), 1 bij een mislukte stap.
+int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L::DirectPaths& wp) {
+    namespace D = ravengun::launch::direct_detail;
+    /* De koppelpuntentabel een keer inlezen voor alle on_nas()-vragen hieronder. Nodig omdat deze
+     * functie ook los draait (--alleen-stappen), en dan leest on_nas() anders de echte tabel. */
+    const D::MountTableScope koppelpunten(wp);
+    /* De wortel van de view en de twee controles die de loper zelf opnieuw doet (review 13, punt 1):
+     * tussen het plan en het uitvoeren kan er van alles veranderd zijn. */
+    const std::string wortel = D::view_wortel(D::dirname(plan.game), wp);
+    auto koppeling_op_weg = [&](const std::string& pad) {
+        std::string loop = D::abspath(wortel);
+        for (const std::string& deel : D::nonempty_split(D::relpath(D::abspath(pad), loop), '/')) {
+            loop = D::pjoin(loop, deel);
+            if (D::islink(loop)) return true;
+        }
+        return false;
+    };
+    auto in_schrijfmap = [&](const std::string& pad) {
+        for (const std::string& w : plan.view_writable)
+            if (D::binnen(D::abspath(pad), D::abspath(w))) return true;
+        return false;
+    };
+    // 2z. [Launch] PrefixSetup: de eenmalige stappen per prefix, met EEN stempel voor de HELE lijst
+    // (review 13, punt 3). Die stempel wordt pas geschreven als alle stappen gelukt zijn; een
+    // kopieerstap loopt opnieuw als het doel ontbreekt (de stempel is per prefix, het doel per view).
+    // Draait met de wine van de lader, zonder WINEARCH (de prefix van Mario Kart DX is 64-bits en met
+    // WINEARCH=win32 weigert wine).
+    if (!plan.prefix_setup.empty()) {
+        const bool stempel_gezet =
+            !plan.prefix_setup_mark.empty() && ::access(plan.prefix_setup_mark.c_str(), F_OK) == 0;
+        if (stempel_gezet)
+            log("prefixstappen: stempel " + plan.prefix_setup_mark +
+                " staat er; alleen ontbrekende kopieen lopen opnieuw");
+        for (const auto& stap : plan.prefix_setup) {
+            if (stempel_gezet && !(stap.copy && ::access(stap.to.c_str(), F_OK) != 0)) {
+                log("prefixstap: al gedaan (" + stap.tekst + ")");
+                continue;
+            }
+            bool goed = true;
+            if (stap.copy) {
+                /* Nog een keer kijken, nu met lstat en on_nas: tussen het plan en het uitvoeren kan er
+                 * van alles veranderd zijn (review 13, punt 1). Geschreven wordt met write_atomic
+                 * (rename vervangt de naam, volgt geen koppeling), niet met copy_file(overwrite). */
+                const std::string doelmap = D::dirname(stap.to);
+                std::string fout;
+                if (D::islink(stap.to)) {
+                    fout = stap.to + " is een koppeling";
+                } else if (!D::isdir(doelmap)) {
+                    fout = "de map " + doelmap + " bestaat niet";
+                } else if (D::on_nas(doelmap, wp)) {
+                    fout = "de map " + doelmap + " ligt op de NAS";
+                } else if (koppeling_op_weg(doelmap)) {
+                    /* LET OP: hier NIET schrijfmap_problemen() gebruiken. Die kijkt ook naar de
+                     * kinderen, en het doel kan de wortel van de view zijn: dan zou elke koppeling
+                     * naar de NAS in de hele view de stap laten mislukken (dat gebeurde ook echt, de
+                     * proef ving het). Voor een kopieerdoel telt de weg ernaartoe: geen koppeling in
+                     * een van de delen, en de map zelf niet op de NAS. */
+                    fout = "er loopt een koppeling in de weg naar " + doelmap;
+                } else if (!in_schrijfmap(doelmap) && D::islink(doelmap)) {
+                    fout = doelmap + " staat niet in een schrijfmap (ViewWritable) en is een koppeling";
+                }
+                std::string inhoud, rerr, werr;
+                if (fout.empty() && !D::read_file_strict(stap.from, inhoud, rerr)) fout = rerr;
+                if (fout.empty() && !D::write_atomic(stap.to, inhoud, werr)) fout = werr;
+                goed = fout.empty();
+                log(std::string("prefixstap: kopieren ") + (goed ? "klaar" : "GEWEIGERD") + ": " + stap.from +
+                    " -> " + stap.to + (goed ? "" : " (" + fout + ")"));
+            } else {
+                log("prefixstap: " + join_quoted(stap.argv) + " (cwd " + stap.cwd + ")");
+                /* Eigen procesgroep: een time-out moet de hele boom meenemen. */
+                Child c = spawn(stap.argv, stap.cwd, env, true, false, true);
+                if (c.pid <= 0) return 1;
+                /* Standaard 180 s; RG_PREFIXSTAP_TIMEOUT verzet hem (proeven). */
+                int kPrefixstapTimeout = 180;
+                if (const char* t = ::getenv("RG_PREFIXSTAP_TIMEOUT")) {
+                    const int w = std::atoi(t);
+                    if (w > 0) kPrefixstapTimeout = w;
+                }
+                const auto einde = std::chrono::steady_clock::now() + std::chrono::seconds(kPrefixstapTimeout);
+                std::string rest;
+                int st = 0;
+                bool klaar = false, afgebroken = false, gestopt = false;
+                while (true) {
+                    if (g_stop.load()) { gestopt = true; break; }
+                    if (std::chrono::steady_clock::now() >= einde) { afgebroken = true; break; }
+                    const pid_t r = ::waitpid(c.pid, &st, WNOHANG);
+                    if (r == c.pid) { klaar = true; break; }
+                    if (r < 0 && errno != EINTR) break;
+                    /* De pijp leegmaken met poll() en niet met read_lines(): dat wacht op EOF en liet
+                     * een hangende stap de hele start ophouden (review 13, punt 2). */
+                    if (c.out < 0) { std::this_thread::sleep_for(std::chrono::milliseconds(50)); continue; }
+                    struct pollfd pfd { c.out, POLLIN, 0 };
+                    const int pr = ::poll(&pfd, 1, 100);
+                    if (pr > 0 && (pfd.revents & (POLLIN | POLLHUP | POLLERR))) {
+                        char b[4096];
+                        const ssize_t n = ::read(c.out, b, sizeof b);
+                        if (n > 0) {
+                            rest.append(b, static_cast<size_t>(n));
+                            size_t pos = 0;
+                            while ((pos = rest.find('\n')) != std::string::npos) {
+                                log("prefixstap: " + decode_console(rest.substr(0, pos)));
+                                rest.erase(0, pos + 1);
+                            }
+                        } else if (n == 0) {
+                            ::close(c.out);
+                            c.out = -1;
+                        }
+                    }
+                }
+                if (!rest.empty()) log("prefixstap: " + decode_console(rest));
+                if (c.out >= 0) { ::close(c.out); c.out = -1; }
+                if (afgebroken || gestopt) {
+                    log(std::string("prefixstap: ") +
+                        (gestopt ? "stop gevraagd" : "na " + std::to_string(kPrefixstapTimeout) + " s") +
+                        "; de procesgroep gaat dood");
+                    ::kill(-c.pid, SIGKILL);
+                    ::kill(c.pid, SIGKILL);
+                    ::waitpid(c.pid, &st, 0);
+                    /* wine kan nog processen in deze prefix hebben staan; die horen bij deze stap. */
+                    const std::string ws = D::dirname(plan.wine) + "/wineserver";
+                    if (::access(ws.c_str(), X_OK) == 0) {
+                        std::vector<std::string> ka{ws, "-k"};
+                        Child k = spawn(ka, plan.cwd, env, true, true);
+                        if (k.pid > 0) {
+                            int ks = 0;
+                            ::waitpid(k.pid, &ks, 0);
+                        }
+                    }
+                    goed = false;
+                    if (gestopt) return 1;
+                } else if (klaar) {
+                    goed = WIFEXITED(st) && WEXITSTATUS(st) == 0;
+                    log(std::string("prefixstap: klaar (status ") + std::to_string(st) + ")" +
+                        (goed ? "" : " -- MISLUKT"));
+                } else {
+                    log("prefixstap: de wachtdienst op de stap gaf een fout");
+                    goed = false;
+                }
+            }
+            if (!goed) {
+                log("prefixstap MISLUKT: " + stap.tekst + "; de game wordt niet gestart");
+                return 1;
+            }
+        }
+        /* De stempel voor de hele lijst, pas nu alles gelukt is. Mislukt het schrijven, dan zeggen we
+         * dat: anders zou de volgende start alles opnieuw doen zonder dat iemand weet waarom. */
+        if (!plan.prefix_setup_mark.empty() && !stempel_gezet) {
+            std::error_code ec;
+            std::filesystem::create_directories(std::filesystem::path(plan.prefix_setup_mark).parent_path(), ec);
+            std::string werr;
+            if (!D::write_atomic(plan.prefix_setup_mark, "klaar\n", werr))
+                log("prefixstappen: de stempel " + plan.prefix_setup_mark + " kon niet geschreven worden (" + werr +
+                    "); de volgende start doet de stappen opnieuw");
+            else
+                log("prefixstappen: stempel " + plan.prefix_setup_mark);
+        }
+    }
+
+    return 0;
+}
+
 int run_plan(const std::string& plan_file) {
     std::string text;
     {
@@ -945,7 +1116,21 @@ int run_plan(const std::string& plan_file) {
      * een zuster in andere hoofdletters en elk kind, ook diep. Een echte map met kinderen die naar de NAS wijzen kwam hier eerder door. */
     {
         const D::MountTableScope koppelpunten(wp);
-        for (const std::string& pad : plan.view_writable) {
+        /* De schrijfmappen van de view EN de paden waar een prefixstap schrijft of draait (review 13,
+         * punt 1): een kopieerdoel en een werkmap mogen nooit op de NAS uitkomen. */
+        std::vector<std::string> te_controleren = plan.view_writable;
+        for (const auto& stap : plan.prefix_setup) {
+            if (stap.copy) {
+                te_controleren.push_back(D::dirname(stap.to));
+                if (D::islink(stap.to)) {
+                    log("schrijfmap: --run weigert " + stap.to + ": het doel van een prefixstap is een koppeling");
+                    return 2;
+                }
+            } else {
+                te_controleren.push_back(stap.cwd);
+            }
+        }
+        for (const std::string& pad : te_controleren) {
             const std::vector<std::string> fout = D::schrijfmap_problemen(pad, wp);
             if (fout.empty()) continue;
             log("schrijfmap: --run weigert " + pad + ": een game mag nooit op de NAS schrijven; start via de daemon (die zet de "
@@ -1013,60 +1198,9 @@ int run_plan(const std::string& plan_file) {
         }
     }
 
-    // 2z. [Launch] PrefixSetup: de eenmalige stappen per prefix, elk met een stempelbestand in de
-    // prefix (zie direct.hpp). Een stap die al gedaan is wordt overgeslagen; een mislukte stap stopt
-    // de start. Draait met de wine van de lader, zonder WINEARCH (de prefix van Mario Kart DX is
-    // 64-bits en met WINEARCH=win32 weigert wine).
-    for (const auto& stap : plan.prefix_setup) {
-        if (!stap.mark.empty() && ::access(stap.mark.c_str(), F_OK) == 0) {
-            log("prefixstap: al gedaan (" + stap.tekst + ")");
-            continue;
-        }
-        bool goed = true;
-        if (stap.copy) {
-            std::error_code ec;
-            std::filesystem::create_directories(std::filesystem::path(stap.to).parent_path(), ec);
-            std::filesystem::copy_file(stap.from, stap.to, std::filesystem::copy_options::overwrite_existing, ec);
-            goed = !ec;
-            log(std::string("prefixstap: kopieren ") + (goed ? "klaar" : "MISLUKT") + ": " + stap.from + " -> " +
-                stap.to + (goed ? "" : " (" + ec.message() + ")"));
-        } else {
-            log("prefixstap: " + join_quoted(stap.argv) + " (cwd " + stap.cwd + ")");
-            Child c = spawn(stap.argv, stap.cwd, env, true, false);
-            if (c.pid <= 0) return 1;
-            read_lines(c.out, [&](const std::string& l) { log("prefixstap: " + decode_console(l)); });
-            /* Een prefixstap mag de start nooit laten hangen (regsvr32 zonder /s wacht bijvoorbeeld op
-             * een venster). Na deze tijd gaat hij dood en mislukt de stap. */
-            constexpr int kPrefixstapTimeout = 180;
-            const auto einde = std::chrono::steady_clock::now() + std::chrono::seconds(kPrefixstapTimeout);
-            int st = 0;
-            bool klaar = false;
-            while (std::chrono::steady_clock::now() < einde) {
-                const pid_t r = ::waitpid(c.pid, &st, WNOHANG);
-                if (r == c.pid) { klaar = true; break; }
-                if (r < 0 && errno != EINTR) break;
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            }
-            if (!klaar) {
-                ::kill(c.pid, SIGKILL);
-                ::waitpid(c.pid, &st, 0);
-                log("prefixstap: na " + std::to_string(kPrefixstapTimeout) + " s afgebroken (hing)");
-                goed = false;
-            } else {
-                goed = WIFEXITED(st) && WEXITSTATUS(st) == 0;
-            }
-            log(std::string("prefixstap: klaar (status ") + std::to_string(st) + ")" + (goed ? "" : " -- MISLUKT"));
-        }
-        if (!goed) {
-            log("prefixstap MISLUKT: " + stap.tekst + "; de game wordt niet gestart");
-            return 1;
-        }
-        if (!stap.mark.empty()) {
-            std::error_code ec;
-            std::filesystem::create_directories(std::filesystem::path(stap.mark).parent_path(), ec);
-            if (FILE* f = std::fopen(stap.mark.c_str(), "w")) { std::fputs(stap.tekst.c_str(), f); std::fclose(f); }
-            log("prefixstap klaar: " + stap.mark);
-        }
+    if (!plan.prefix_setup.empty()) {
+        const int rc = voer_prefixstappen(plan, env, wp);
+        if (rc != 0) return rc;
     }
 
     // 2a. [Launch] Install: het installatieprogramma uit de spelmap één keer per prefix (de markering zegt of het al gebeurd is).
@@ -1490,6 +1624,22 @@ int jvs_check() {
 int main(int argc, char** argv) {
     if (const char* s = std::getenv("RG_DIRECT_SHM_PATH"); s && *s) g_shm_path = s;
     if (argc >= 3 && std::strcmp(argv[1], "--run") == 0) return run_plan(argv[2]);
+    /* Alleen de prefixstappen van een plan uitvoeren (proeven; tests/prefix_setup_test.sh). */
+    if (argc >= 3 && std::strcmp(argv[1], "--alleen-stappen") == 0) {
+        std::string tekst;
+        {
+            std::ifstream f(argv[2], std::ios::binary);
+            if (!f) { log(std::string("plan ") + argv[2] + " niet te lezen"); return 2; }
+            std::ostringstream ss;
+            ss << f.rdbuf();
+            tekst = ss.str();
+        }
+        L::DirectPlan plan;
+        std::string err;
+        if (!L::plan_from_json(tekst, plan, err)) { log(err); return 2; }
+        const L::DirectPaths wp = L::default_direct_paths(L::environ_map());
+        return voer_prefixstappen(plan, plan.env, wp);
+    }
     if (argc >= 2 && std::strcmp(argv[1], "--plan") == 0) return show_plan(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "--jvs-check") == 0) return jvs_check();
     if (argc >= 2 && std::strcmp(argv[1], "--tp-refs") == 0) return show_tp_refs(argc, argv);

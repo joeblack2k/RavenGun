@@ -133,6 +133,9 @@ std::string lindbergh_ini(const std::string& base, const std::vector<IniKey>& fo
 bool apply_layer(const NativePlan& plan, std::vector<std::string>& log, std::string& err);
 // Kleine hex-sha256 van een bestand (leeg = niet te lezen).
 std::string sha256_file(const std::string& path);
+// Dezelfde sha256, maar van een stuk tekst in het geheugen (voor de stempel van de
+// prefixstappen: die sleutel is de genormaliseerde lijst, niet een bestand).
+std::string sha256_text(const std::string& tekst);
 // Het identiteitsblok: per regel "label: pad sha256 <hex>" (of "niet te lezen").
 std::vector<std::string> identity_lines(const NativePlan& plan);
 

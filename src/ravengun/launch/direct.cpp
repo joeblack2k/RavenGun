@@ -19,6 +19,7 @@
 #include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/launch/amdaemon.hpp"
 #include "ravengun/launch/direct_internal.hpp"
+#include "ravengun/launch/native.hpp"   // sha256_text (stempel van de prefixstappen)
 #include "ravengun/launch/pe_stack.hpp"
 
 namespace ravengun::launch {
@@ -755,55 +756,111 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         pl.install_mark = pjoin(pjoin(prefix, ".ravengun-install"), basename(pad) + "." + std::to_string(static_cast<unsigned long long>(fec ? 0 : grootte)));
         pl.notes.push_back("installatie: " + pad + " (eenmalig per prefix)");
     }
-    // 6f3. [Launch] PrefixSetup: stappen die eenmalig per prefix gebeuren, met een stempelbestand per
-    // stap in <prefix>/.ravengun-prefixsetup/. Zie direct.hpp voor de vorm. Alles gebeurt met de wine
-    // van de lader en zonder WINEARCH (de prefix van Mario Kart DX is 64-bits; met WINEARCH=win32
-    // weigert wine). Paden zijn relatief aan de view-wortel; `..` en absolute paden worden geweigerd.
+    // 6f3. [Launch] PrefixSetup: stappen die eenmalig per prefix gebeuren, met EEN stempel voor de hele
+    // lijst in <prefix>/.ravengun-prefixsetup/ (review 13, punt 3). Zie direct.hpp voor de vorm.
+    // Alles gebeurt met de wine van de lader en zonder WINEARCH (de prefix van Mario Kart DX is
+    // 64-bits; met WINEARCH=win32 weigert wine).
+    //
+    // VEILIGHEID (review 13, punt 1). Een prefixstap start een programma en schrijft bestanden, dus hij
+    // mag nooit op de NAS uitkomen. Zonder view is view_wortel() de spelmap zelf en die kan op de NAS
+    // liggen: daarom eisen we eerst een view. Een kopieerdoel moet in de view liggen, in een
+    // schrijfmap (ViewWritable) of in een echte lokale map, met geen enkele koppeling onderweg en niet
+    // op de NAS. De werkmap van een run-stap mag ook niet op de NAS liggen. De loper controleert dat
+    // daarna nog eens met lstat en schrijft met write_atomic.
     if (std::string ruw = trim(lini("PrefixSetup")); !ruw.empty()) {
+        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
+            return setting_refused("[Launch] PrefixSetup vraagt een view van de game (scripts/tp-add-game.py <Game>): "
+                                   "een stap start een programma en schrijft bestanden, en " + game +
+                                   " ligt buiten de views; zo kan er op de NAS geschreven worden");
         const std::string wortel = view_wortel(dirname(game), p);
+        if (on_nas(wortel, p))
+            return setting_refused("[Launch] PrefixSetup: de view " + wortel + " ligt op de NAS");
+        auto schoon = [&](const std::string& x) {
+            return x.empty() || x.front() == '/' || x.find("..") != std::string::npos;
+        };
+        /* Geen enkele koppeling op de weg naar dit pad (de ouders en het pad zelf). */
+        auto koppeling_op_weg = [&](const std::string& pad) {
+            std::string loop = abspath(wortel);
+            for (const std::string& deel : nonempty_split(relpath(abspath(pad), loop), '/')) {
+                loop = pjoin(loop, deel);
+                if (islink(loop)) return true;
+            }
+            return false;
+        };
+        /* Een kale naam is een programma uit de prefix zelf (regsvr32.exe zoekt wine in system32).
+         * Alleen deze namen mogen dat: anders werd een tikfout in een bestandsnaam stil een programma
+         * uit de prefix (review 13, punt 5). */
+        auto kale_naam_toegestaan = [](const std::string& naam) {
+            const std::string n = lower(naam);
+            return n == "regsvr32.exe" || n == "regsvr32";
+        };
+        std::string sleutel;
         for (const std::string& deel : nonempty_split(ruw, '|')) {
             const std::string stap = trim(deel);
             if (stap.empty()) continue;
+            sleutel += stap + "\n";
             bool ok = true;
             const auto woorden = shlex_split(stap, &ok);
             if (!ok || woorden.empty()) return setting_refused("[Launch] PrefixSetup = " + stap + " is niet op te delen");
             DirectSetupStep st;
             st.tekst = stap;
-            st.mark = pjoin(pjoin(prefix, ".ravengun-prefixsetup"),
-                            std::to_string(std::hash<std::string>{}(stap)) + ".done");
-            auto schoon = [&](const std::string& x) {
-                return x.empty() || x.front() == '/' || x.find("..") != std::string::npos;
-            };
             if (woorden[0] == "copy") {
                 if (woorden.size() != 3 || schoon(woorden[1]) || schoon(woorden[2]))
                     return setting_refused("[Launch] PrefixSetup = " + stap +
                                            " (copy <van> <naar>, beide in de map van de game, zonder ..)");
                 st.copy = true;
-                /* prefix:<pad> wijst in de prefix zelf (PreprocessAmAuth van Mario Kart DX houdt zijn
-                 * WritableConfig.ini in <prefix>/drive_c/windows/ bij, niet in de spelmap). */
                 const std::string van = woorden[1];
-                st.from = van.rfind("prefix:", 0) == 0 ? pjoin(prefix, van.substr(7)) : pjoin(wortel, van);
+                if (van.rfind("prefix:", 0) == 0) {
+                    /* prefix:<pad> wijst in de prefix zelf. Ook dat deel moet schoon zijn:
+                     * prefix:/etc/x en prefix:../.. kwamen hier eerder door (review 13, punt 1). */
+                    const std::string rest = van.substr(7);
+                    if (schoon(rest))
+                        return setting_refused("[Launch] PrefixSetup: " + van +
+                                               " (na prefix: een pad zonder .. en zonder leidende schuine streep)");
+                    st.from = pjoin(prefix, rest);
+                } else {
+                    st.from = pjoin(wortel, van);
+                }
                 st.to = pjoin(wortel, woorden[2]);
-                /* Niet controleren of st.from bestaat: die kan door een eerdere stap gemaakt worden
-                 * (PreprocessAmAuth schrijft WritableConfig.ini). De loper controleert het bij het
-                 * uitvoeren en stopt dan met een duidelijke regel. */
+                if (!binnen(abspath(st.to), abspath(p.views())))
+                    return setting_refused("[Launch] PrefixSetup: het doel " + st.to + " ligt buiten de view");
+                if (!isdir(dirname(st.to)))
+                    return setting_refused("[Launch] PrefixSetup: de map " + dirname(st.to) +
+                                           " van het doel bestaat niet (de motor maakt hem niet aan: dat zou door "
+                                           "een koppeling kunnen lopen)");
+                if (on_nas(dirname(st.to), p))
+                    return setting_refused("[Launch] PrefixSetup: het doel " + st.to + " ligt op de NAS");
+                if (koppeling_op_weg(st.to))
+                    return setting_refused("[Launch] PrefixSetup: het doel " + st.to + " loopt door een koppeling");
+                bool in_schrijfmap = false;
+                for (const std::string& w : pl.view_writable)
+                    if (binnen(abspath(st.to), abspath(w))) in_schrijfmap = true;
+                if (!in_schrijfmap && islink(dirname(st.to)))
+                    return setting_refused("[Launch] PrefixSetup: het doel " + st.to +
+                                           " staat niet in een schrijfmap (ViewWritable) en de map is een koppeling");
+                /* De bron kan door een eerdere stap gemaakt worden (PreprocessAmAuth schrijft
+                 * WritableConfig.ini), dus hier niet op bestaan controleren; de loper doet dat. */
             } else if (woorden[0] == "run") {
                 if (woorden.size() < 3 || schoon(woorden[1]) || schoon(woorden[2]))
                     return setting_refused("[Launch] PrefixSetup = " + stap +
                                            " (run <map> <bestand> [argumenten], beide in de map van de game)");
                 st.cwd = pjoin(wortel, woorden[1]);
+                if (!isdir(st.cwd)) return setting_refused("[Launch] PrefixSetup: de map " + st.cwd + " bestaat niet");
+                if (on_nas(st.cwd, p))
+                    return setting_refused("[Launch] PrefixSetup: de werkmap " + st.cwd + " ligt op de NAS");
+                if (koppeling_op_weg(st.cwd))
+                    return setting_refused("[Launch] PrefixSetup: de werkmap " + st.cwd + " loopt door een koppeling");
                 const std::string pad = pjoin(wortel, woorden[2]);
                 std::string programma;
                 if (isfile(pad)) {
                     programma = wine_path(pad);
-                } else if (woorden[2].find('/') == std::string::npos) {
-                    /* Geen bestand in de spelmap maar ook geen pad: een programma uit de prefix zelf,
-                     * bijvoorbeeld regsvr32.exe (dan zoekt wine het in system32). */
+                } else if (woorden[2].find('/') == std::string::npos && kale_naam_toegestaan(woorden[2])) {
                     programma = woorden[2];
                 } else {
-                    return setting_refused("[Launch] PrefixSetup: " + pad + " bestaat niet");
+                    return setting_refused("[Launch] PrefixSetup: " + pad +
+                                           " bestaat niet (en " + woorden[2] +
+                                           " is geen toegestane programmanaam uit de prefix)");
                 }
-                if (!isdir(st.cwd)) return setting_refused("[Launch] PrefixSetup: de map " + st.cwd + " bestaat niet");
                 st.argv = {wine, programma};
                 for (size_t i = 3; i < woorden.size(); ++i) st.argv.push_back(woorden[i]);
             } else {
@@ -812,6 +869,8 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             pl.prefix_setup.push_back(st);
             pl.notes.push_back("prefixstap: " + stap + " (eenmalig per prefix)");
         }
+        pl.prefix_setup_mark = pjoin(pjoin(prefix, ".ravengun-prefixsetup"),
+                                     sha256_text(sleutel).substr(0, 16) + ".done");
     }
     // 6g. [Launch] Registry: .reg-bestanden uit patches/<Game>/ (meestal data/; gebruikerslaag eerst) die rg-direct één keer per prefix inleest met
     // "wine reg import" in de registerweergave van de game (32 of 64 bits; docs/registry.md). Operation G.H.O.S.T.: .wmv via de

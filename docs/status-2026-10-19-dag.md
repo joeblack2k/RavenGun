@@ -434,3 +434,57 @@ omgeving ze expliciet zet en wie er dan wint. En er kan geen marker meer in de k
 in .gitignore wint de laatste regel die past), met de nieuwe proef `tests/markers_test.sh`
 (ctest-doel `ravengun_markers`) die beide kanten controleert: geen enkel `.aan` in git, markers in een
 drop-in-map genegeerd, en de DLL's en `dropin.ini` nog steeds mee.
+
+## Review 13: de prefixstappen van de NAS af (P1-P3, P5, P6)
+
+**P1 (NAS-veiligheid).** De kopieerstap deed `create_directories` + `copy_file(overwrite_existing)`:
+dat volgt koppelingen bij het doel en in de ouders, en er was geen `on_nas`- of schrijfmapcontrole.
+Een `rg-direct --run` zonder view, of een game die niet in een view staat (`view_wortel()` geeft dan de
+spelmap zelf, en die kan op de NAS liggen), schreef zo rechtstreeks op de NAS. Nu:
+
+* de motor weigert `[Launch] PrefixSetup` als de game niet in een view staat of als de view op de NAS
+  ligt;
+* een kopieerdoel moet in de view liggen, de map moet bestaan (de motor maakt hem niet aan -- dat zou
+  door een koppeling kunnen lopen), er mag geen koppeling in de weg zitten, de map mag niet op de NAS
+  liggen, en staat het doel niet in een schrijfmap (`ViewWritable`) dan mag de map zelf geen koppeling
+  zijn;
+* de werkmap van een run-stap moet bestaan, niet op de NAS liggen en niet door een koppeling lopen;
+* `schoon()` wordt nu ook op het deel **na** `prefix:` toegepast (`prefix:/etc/x` en `prefix:../..`
+  kwamen er eerst door);
+* de loper doet dat allemaal **opnieuw** met `lstat` en `on_nas` en schrijft met `write_atomic`
+  (tijdelijke naam met `O_EXCL|O_NOFOLLOW`, dan `rename` -- dat vervangt de naam en volgt geen
+  koppeling), niet met `copy_file(overwrite_existing)`;
+* de `--run`-controle kijkt nu ook naar de kopieerdoelen en de werkmappen van de stappen.
+
+**Een echte fout die de nieuwe proef ving**: in de loper gebruikte ik eerst `schrijfmap_problemen()` op
+de *doelmap*. Die kijkt ook naar alle kinderen, en het doel mag de **wortel van de view** zijn -- dan
+maakt elke koppeling naar de NAS in de hele view de stap onklaar. Mario Kart DX werd zo geweigerd
+(".../ipccl.dll is een koppeling naar de NAS"). Voor een kopieerdoel telt de weg ernaartoe, niet de
+kinderen; dat is nu een componentcontrole.
+
+**P2 (de time-out was dode code).** `read_lines(c.out)` wacht op EOF en liep vóór de `waitpid`-lus:
+een hangende stap hing de hele start (mijn eigen logboeken van 11:07 en 11:10 laten dat zien). De stap
+draait nu in een **eigen procesgroep**, de pijp wordt met `poll()` geleegd en `waitpid(WNOHANG)` loopt
+tegen één deadline; bij een time-out gaat de hele groep dood en daarna `wineserver -k` voor die prefix.
+`g_stop` (SIGTERM) wordt tijdens de stap geëerd. De tijd is met `RG_PREFIXSTAP_TIMEOUT` te verzetten
+(proeven).
+
+**P3 (stempels).** Er was een stempel per stap: faalde een latere stap, dan stonden de eerdere al
+"klaar" (11:03: PreprocessAmAuth gestempeld, daarna mislukte de kopie), en de stempel is per prefix
+terwijl het kopieerdoel per view is (na een view-verversing liep de kopie nooit meer). Nu is er **één
+stempel voor de hele lijst** (sha256 van de genormaliseerde stappen), die pas na de laatste geslaagde
+stap wordt geschreven -- en het schrijven wordt gecontroleerd. Een kopieerstap loopt opnieuw als het
+doel ontbreekt.
+
+**P5.** Een kale naam is alleen nog `regsvr32(.exe)`; al het andere wordt geweigerd in plaats van stil
+een programma uit de prefix te worden. `PrefixSetup` en `SecondBare` worden op de Unity- en
+native-route nu **geweigerd** in plaats van stil genegeerd (in `writable_route_refusal`).
+
+**P6 (proeven).** Nieuw: `tests/prefix_setup_test.sh` (ctest `ravengun_prefix_setup`) drijft de
+**loper** aan met `rg-direct --alleen-stappen PLAN.json` op een echt plan waarvan alleen de
+prefixvelden vervangen zijn, en dekt: doel door een koppeling (ook een losse), doel op een nagebootste
+NAS (cifs in een nagebootste koppelpuntentabel), een mislukte stap (stopt, latere stap loopt niet,
+géén stempel), een hangende stap (na de tijd afgebroken), de stempel (tweede keer overslaan, ontbrekend
+doel opnieuw kopiëren) en "er staat niets op de nagebootste NAS". In `ravengun_direct_launch_tests`
+staan er proeven bij voor `prefix:` met `/` en `..`, de whitelist, een koppeling in de weg en de
+stempelsleutel (zelfde lijst = zelfde stempel, andere lijst = andere): **577 controles, 0 fout**.

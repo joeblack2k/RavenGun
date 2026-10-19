@@ -86,6 +86,10 @@ std::string resolve_case(const std::string& pad);
 // zelf (een koppeling) op de NAS, een kind (diep, ook achter een koppeling naar een lokale map) dat op de NAS uitkomt, en hetzelfde
 // voor een zuster die alleen in hoofdletters verschilt. place_view_writable (de laatste controle) en rg-direct --run gebruiken hem.
 std::vector<std::string> schrijfmap_problemen(const std::string& pad, const DirectPaths& p);
+// Schrijft een bestand zonder een koppeling te volgen: de tijdelijke naam wordt met O_EXCL|O_NOFOLLOW
+// aangemaakt en daarna met rename() op zijn plaats gezet (rename vervangt de naam zelf, ook als daar
+// een koppeling staat). rg-direct gebruikt hem voor de kopieerstap van [Launch] PrefixSetup.
+bool write_atomic(const std::string& path, const std::string& data, std::string& err);
 
 std::string xml_tag(const std::string& xml, const std::string& tag, bool* found = nullptr);   // de tekst van het eerste <tag>
 std::string kv_get(const std::vector<std::pair<std::string, std::string>>& kv, const std::string& k, const std::string& def = {});

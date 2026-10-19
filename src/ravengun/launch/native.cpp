@@ -597,6 +597,12 @@ std::string sha256_file(const std::string& path) {
     return s.hex();
 }
 
+std::string sha256_text(const std::string& tekst) {
+    Sha256 s;
+    s.add(reinterpret_cast<const unsigned char*>(tekst.data()), tekst.size());
+    return s.hex();
+}
+
 std::string profile_file(const NativePaths& p, const std::string& game) {
     // Alleen een gewone profielnaam: hij komt in een pad en in de JSON-tekst.
     if (game.empty() || game.size() > 64) return {};
