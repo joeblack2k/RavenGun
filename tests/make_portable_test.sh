@@ -15,6 +15,9 @@
 # hij vrij is), rsync-code 24 wordt gemeld, de bronrechten via een journaal (ook na SIGKILL, met inodecontrole), de wissel van
 # bin/lib/share via <naam>.old, het slot per map, --help/onbekende optie, een fifo als koppelingsdoel, het bewijs van een
 # portabele map, de starter en de padherschrijving nooit door een koppeling of in place, en geen merkbestand van de installatie.
+# Ronde 5: User.old komt alleen terug bij een onderbroken wissel (merk .user-swap), de ruimtecontrole komt vóór het weggooien
+# van User.old (en telt zijn ruimte mee), het journaal is bestand tegen een afgekapte regel, dubbele regels, rommel en een
+# andere bron, het slot nooit door een koppeling, en een achtergebleven .ravengun.sh.new gaat weg.
 #
 # Gebruik: make_portable_test.sh <repo> [builddir]    (de tijdelijke map komt in builddir, nooit in /tmp)
 set -u
@@ -451,6 +454,79 @@ if [[ "$(id -u)" != 0 ]]; then
     mv "$T/verhuisd2" "$O"
 fi
 ok "bewijs van de map, starter en padherschrijving"
+
+# --- 7j. H1: User.old komt alleen terug na een onderbroken wissel; zelf weggegooide User/ wordt opnieuw opgebouwd ----------
+run --drop-old "$O" || fail "H1: run met --drop-old mislukte: $(cat "$T/uit.txt")"
+echo MARK5 > "$U/MARK5"
+echo "wissel van User/ bezig" > "$O/.user-swap"; mv "$O/User" "$O/User.old"      # afgebroken tussen de twee renames
+run "$O" || fail "H1: run na een onderbroken wissel mislukte: $(cat "$T/uit.txt")"
+grep -q "midden in de wissel" "$T/uit.txt" || fail "H1: het terugzetten na een onderbroken wissel is niet gemeld"
+[[ "$(cat "$U/MARK5" 2>/dev/null)" == MARK5 && ! -e "$O/User.old" && ! -e "$O/.user-swap" ]] ||
+    fail "H1: na een onderbroken wissel staat User/ niet terug (of User.old/.user-swap bleef staan): $(ls -A "$O")"
+run --reset-user "$O" || fail "H1: reset mislukte: $(cat "$T/uit.txt")"
+[[ "$(cat "$O/User.old/share/ravengun/MARK5" 2>/dev/null)" == MARK5 && ! -e "$O/.user-swap" ]] || fail "H1: na de reset klopt User.old niet, of het merk bleef staan"
+remove_out "$O/User"                                  # de gebruiker gooit een kapotte User/ zelf weg
+run "$O" || fail "H1: run zonder User/ mislukte: $(cat "$T/uit.txt")"
+grep -q "gebruikersmap opbouwen" "$T/uit.txt" || fail "H1: zonder User/ is er geen nieuwe User/ opgebouwd"
+[[ -d "$O/User/state" && ! -e "$U/MARK5" ]] || fail "H1: de oude User.old (van vóór de reset) is stil teruggezet in plaats van een nieuwe User/"
+[[ "$(cat "$O/User.old/share/ravengun/MARK5" 2>/dev/null)" == MARK5 ]] || fail "H1: User.old is niet blijven staan"
+# H5: de melding dat User.old blijft staan, meet hem niet (du over 19 GB)
+grep -q "reset-user) blijft staan" "$T/uit.txt" || fail "H5: de melding over User.old noemt nog een grootte (of ontbreekt): $(grep User.old "$T/uit.txt")"
+ok "User.old alleen terug na een onderbroken wissel"
+
+# --- 7k. H2: de ruimtecontrole komt vóór het weggooien van User.old en telt zijn ruimte mee -------------------------------
+dd if=/dev/zero of="$O/User.old/ballast" bs=1M count=64 status=none
+RG_PORTABLE_EXTRA_FREE=$((1 << 50)) run --reset-user "$O" && fail "H2: reset ging door zonder ruimte"
+grep -q "te weinig ruimte" "$T/uit.txt" || fail "H2: geen melding over de ruimte: $(cat "$T/uit.txt")"
+[[ -f "$O/User.old/ballast" && "$(cat "$O/User.old/share/ravengun/MARK5" 2>/dev/null)" == MARK5 ]] ||
+    fail "H2: User.old is weggegooid door een run die daarna op ruimte stopte"
+# net te weinig vrij, maar genoeg met de 64 MB van User.old erbij: de reset gaat door
+avail="$(df -B1 --output=avail "$O" | tail -1)"
+need="$(du -sb --exclude=bench-captures --exclude=halo-overlay "$RUN" 2>/dev/null | cut -f1)"
+RG_PORTABLE_EXTRA_FREE=$((avail - need + 32 * 1048576)) run --reset-user "$O" ||
+    fail "H2: de ruimte van User.old telde niet mee: $(grep -i ruimte "$T/uit.txt")"
+[[ ! -e "$O/User.old/ballast" ]] || fail "H2: User.old is na een geslaagde reset niet vervangen"
+ok "ruimtecontrole vóór het weggooien van User.old"
+
+# --- 7l. H3: het journaal: afgekapte regel, dubbele regels, rommel, een pad buiten de bron, een andere bron ---------------
+if [[ "$(id -u)" != 0 ]]; then
+    RT="$(realpath -m "$RUN")"
+    mkdir -p "$RUN/h3/a" "$T/elders/h3buiten"; chmod 500 "$RUN/h3/a" "$T/elders/h3buiten"
+    ia="$(stat -c %i "$RUN/h3/a")"; ib="$(stat -c %i "$T/elders/h3buiten")"
+    J="$O/.portable-perms.journal"
+    {
+        printf '%s\0%s\0%s\0%s\0' "#bron" 1 - "$RT"
+        printf '%s\0%s\0%s\0%s\0' "$ia" 0 500 "$RUN/h3/a"          # de echte oude rechten
+        printf '%s\0%s\0%s\0%s\0' "$ib" 0 500 "$T/elders/h3buiten"  # buiten de bron: niet aanraken
+        printf '%s\0%s\0%s\0%s\0' "$ia" x9 500 "$RUN/h3/a"         # rommel: overslaan, niet afbreken
+        printf '%s\0%s\0%s\0%s\0' "$ia" 700 500 "$RUN/h3/a"        # dubbel: de eerste telt
+        printf '%s\0%s\0' 12345 0                                     # afgekapt (SIGKILL midden in een regel)
+    } > "$J"
+    run "$O" || fail "H3: run met een beschadigd journaal mislukte: $(cat "$T/uit.txt")"
+    [[ "$(stat -c %a "$RUN/h3/a")" == 0 ]] || fail "H3: de rechten uit het journaal zijn niet (goed) teruggezet: $(stat -c %a "$RUN/h3/a")"
+    [[ "$(stat -c %a "$T/elders/h3buiten")" == 500 ]] || fail "H3: een pad buiten de bron is teruggezet"
+    [[ ! -e "$J" ]] || fail "H3: het journaal is blijven staan"
+    chmod 500 "$RUN/h3/a"
+    {
+        printf '%s\0%s\0%s\0%s\0' "#bron" 1 - "$T/andere-bron"
+        printf '%s\0%s\0%s\0%s\0' "$ia" 0 500 "$RUN/h3/a"
+    } > "$J"
+    run "$O" || fail "H3: run met een journaal van een andere bron mislukte: $(cat "$T/uit.txt")"
+    grep -q "andere bron" "$T/uit.txt" || fail "H3: een journaal van een andere bron is niet gemeld"
+    [[ "$(stat -c %a "$RUN/h3/a")" == 500 && ! -e "$J" ]] || fail "H3: een journaal van een andere bron is toch toegepast"
+    chmod 700 "$RUN/h3/a" "$T/elders/h3buiten"; rm -rf "$RUN/h3" "$T/elders/h3buiten"
+fi
+
+# --- 7m. H4: het slot nooit door een koppeling; H6: een achtergebleven tijdelijke starter gaat weg ------------------------
+rm -f "$O/.make-portable.lock"; echo inhoud > "$T/elders/slotdoel"; ln -s "$T/elders/slotdoel" "$O/.make-portable.lock"
+run "$O" && fail "H4: een slot dat een koppeling is, werd gebruikt"
+[[ "$(cat "$T/elders/slotdoel")" == inhoud ]] || fail "H4: het slot heeft door een koppeling heen geschreven"
+rm -f "$O/.make-portable.lock"
+echo half > "$O/.ravengun.sh.new"                      # van een afgebroken run; deze run stopt zelf vóór de starter
+ONDER mv-share "$O" && fail "H6: de wissel van share/ met een falende mv slaagde"
+[[ ! -e "$O/.ravengun.sh.new" ]] || fail "H6: de tijdelijke starter is blijven staan"
+[[ -f "$O/ravengun.sh" ]] || fail "H6: ravengun.sh is weg"
+ok "journaal, slot en tijdelijke starter"
 
 # --- 8. een relatieve koppeling die uit de map wijst: exitcode, geen User/ -----------------------------------------------------------
 ln -s ../../../../nas/game "$RUN/ontsnapt"

@@ -53,7 +53,7 @@ The target folder must be new, empty, or an existing portable folder: it has the
 configuration, the TeknoParrot Proton build or the repository, or a parent of one of them (a run replaces
 `bin/`, `lib/`, `share/` and `User*` in the target), and a target inside one of them except under
 `<repo>/dist`. All of this is compared on real paths. Only one run per folder at a time: a run holds `flock` on
-`<folder>/.make-portable.lock`, and a second run on the same folder stops before it touches anything. `--help` prints the
+`<folder>/.make-portable.lock` (opened for appending; a lock that is a symlink is refused), and a second run on the same folder stops before it touches anything. `--help` prints the
 whole header of the script; an unknown option is a usage error (it is never taken as the target folder).
 
 `make-portable.sh` copies `bin/`, `lib/` and `share/ravengun/` from the install
@@ -76,9 +76,13 @@ touches the user's state. Only `--reset-user` rebuilds it, and it refuses to sta
 process it can inspect still uses `User/` (a mount of or inside it, also as a bind under another path in a bwrap sandbox; its
 working directory; an open or mapped file: `scripts/portable_tools.py busy`). After the swap the old tree stays as
 `User.old`, so a game that still runs from it keeps its overlay upper, prefix and saves, and it is the only copy of the
-saves from before the reset. A plain refresh keeps `User.old` and prints its size. It is removed only at the START of the
-next `--reset-user`, or by a run with `--drop-old`, and only when no process uses it; otherwise that run stops before it
-builds anything ("User.old ... is nog in gebruik"). A `User.old` that cannot be removed completely is reported as such, never
+saves from before the reset. A plain refresh keeps `User.old` and says so (without measuring it). It is removed only at
+the START of the next `--reset-user`, or by a run with `--drop-old`, and only when no process uses it; otherwise that run
+stops before it builds anything ("User.old ... is nog in gebruik"). The cheap checks come first: `rsync` must be there and
+the free space plus the size of `User.old` must hold the runtime; if not, the run stops and nothing is removed. During the
+two renames of the swap the marker `<folder>/.user-swap` exists; only when a run finds that marker, `User/` missing and
+`User.old` present (a swap that was cut off) does it move `User.old` back. If `User/` is simply gone (deleted by hand), a
+fresh `User/` is built and `User.old` stays where it is. A `User.old` that cannot be removed completely is reported as such, never
 as "in use". So a reset needs room for two copies of the runtime (about 2 x 19 GB on the Deck). If the second rename of the
 swap fails, the old `User/` is put back. When rsync ends with code 24 (files vanished from the source during the copy, a
 running game) the script finishes but warns that those files are missing from the copy. Unreadable overlay work directories
@@ -87,7 +91,10 @@ source runtime, never a write bit: Wine reads a missing write bit as read-only).
 journal `<folder>/.portable-perms.journal` (inode, original mode, new mode, path) and the modes are restored right after the
 copy (and on any exit). A mode is only restored when the inode is the same and the mode is still the one the script set;
 otherwise it is skipped with a note. If a run is killed hard (SIGKILL, power loss), the next run restores the journal first
-and then deletes it, so the source runtime is left exactly as it was. In trees the script owns they are removed with
+and then deletes it, so the source runtime is left exactly as it was. The journal starts with a header that names the real
+path of the source runtime; a journal for another source (a folder copied with its journal, another `RG_PORTABLE_RUNTIME`)
+is not applied. A cut-off last record, duplicate records (the first one wins), malformed fields and paths outside the source
+are skipped; reading the journal never stops a run. In trees the script owns they are removed with
 write permission. The overlay state of the write layers
 (`writelayer/`, `native/*/upper`: whiteouts are character devices 0:0, plus `user.overlay.*` xattrs; bwrap mounts them as kernel
 overlayfs in a user namespace) is carried over too: an unprivileged rsync skips the devices, so

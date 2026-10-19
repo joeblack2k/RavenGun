@@ -32,8 +32,10 @@
 # een bestaande User/ blijft bij een fout ongemoeid. De wissel gebeurt niet zolang een
 # proces User/ gebruikt (mount, werkmap, open bestand; portable_tools.py busy). De oude
 # User/ blijft daarna als User.old staan: een gewone verversing laat hem staan (met een
-# regel over zijn grootte); alleen de volgende --reset-user of --drop-old gooit hem weg, aan
-# het begin en alleen als niets hem gebruikt. bin/, lib/ en share/ worden als <naam>.new
+# regel); alleen de volgende --reset-user of --drop-old gooit hem weg, aan het begin (na de
+# controles op rsync en ruimte, waarin zijn ruimte meetelt) en alleen als niets hem gebruikt.
+# Tijdens de wissel staat het merk .user-swap; alleen dan zet een volgende run een User.old
+# terug als User/ ontbreekt (anders wordt User/ gewoon opnieuw opgebouwd). bin/, lib/ en share/ worden als <naam>.new
 # gebouwd en via <naam>.old gewisseld. Eén run tegelijk per map (flock op .make-portable.lock).
 # De rechten die het script in de bron tijdelijk opent, staan in .portable-perms.journal in de
 # map; een volgende run zet ze terug als een run hard afgebroken werd (SIGKILL, stroom weg).
@@ -106,6 +108,8 @@ MARK="$DEST/.ravengun-portable"   # deze map is van make-portable
 STARTER_LINE="# Starter van de portabele RavenGun-map"   # kopregel van ravengun.sh (write_launcher)
 LOCK="$DEST/.make-portable.lock"     # één run tegelijk per map
 JOURNAL="$DEST/.portable-perms.journal"   # rechten die fix_perms read in de bron opende (restore_src_perms)
+SWAPMARK="$DEST/.user-swap"          # staat er alleen tijdens de wissel van User/ (tussen de twee renames)
+LAUNCHER_TMP="$DEST/.ravengun.sh.new"     # tijdelijke starter (write_launcher)
 
 die() { echo "make-portable: $*" >&2; exit 1; }
 
@@ -175,6 +179,8 @@ fix_perms() {
                 mapfile -d '' -t bd < <(find "$d" \( \( -type d ! -perm -u+rx \) -o \( -type f ! -perm -u+r \) \) -printf '%y\0%i\0%m\0%p\0' 2>/dev/null || true)
                 (( ${#bd[@]} )) || break
                 paths=()
+                # kopregel (zelfde vorm als een regel: 4 velden): voor welke bron dit journaal is
+                [[ -s "$JOURNAL" ]] || printf '%s\0%s\0%s\0%s\0' "#bron" 1 - "$(realpath -m -- "$RUNTIME")" > "$JOURNAL"
                 for ((k = 0; k + 3 < ${#bd[@]}; k += 4)); do
                     m=$((8#${bd[k + 2]}))
                     if [[ "${bd[k]}" == d ]] || (( m & 8#111 )); then n=$((m | 8#500)); else n=$((m | 8#400)); fi
@@ -192,14 +198,41 @@ fix_perms() {
 # De rechten uit het journaal terugzetten, binnenste eerst (in omgekeerde volgorde: een buitenste map die weer 000 wordt, zou
 # de binnenste onbereikbaar maken). Alleen als het pad nog hetzelfde inode heeft en nog precies de rechten die wij zetten; is er
 # intussen iets veranderd (een game, de gebruiker), dan blijft het zoals het is, met een melding. Daarna weg met het journaal.
+# Het journaal is zelf niet te vertrouwen (een afgekapte laatste regel na SIGKILL, een map die met journaal en al gekopieerd is):
+# alleen hele regels van 4 velden, met getallen waar getallen horen, elk (inode, pad) één keer (de eerste regel heeft de echte
+# oude rechten), en alleen als de kopregel dezelfde bron noemt en het pad in die bron ligt. Breekt nooit de run af.
 restore_src_perms() {
-    local k cur skipped=0
+    local k n cur key skipped=0 rt runtime_real
     local -a e
+    local -A first=()
     [[ -f "$JOURNAL" ]] || return 0
-    mapfile -d '' -t e < "$JOURNAL"
-    for ((k = ${#e[@]} - 4; k >= 0; k -= 4)); do
+    mapfile -d '' -t e < "$JOURNAL" || true
+    n=$(( ${#e[@]} / 4 * 4 ))           # een afgekapte laatste regel telt niet mee
+    runtime_real="$(realpath -m -- "$RUNTIME")"
+    if (( n < 4 )) || [[ "${e[0]}" != "#bron" ]]; then
+        (( n == 0 )) || echo "make-portable: let op: $JOURNAL heeft geen kopregel; niets teruggezet" >&2
+        rm -f -- "$JOURNAL"; return 0
+    fi
+    rt="${e[3]}"
+    if [[ "$rt" != "$runtime_real" ]]; then
+        echo "make-portable: let op: $JOURNAL hoort bij een andere bron ($rt, niet $runtime_real); niets teruggezet" >&2
+        rm -f -- "$JOURNAL"; return 0
+    fi
+    for ((k = 4; k < n; k += 4)); do
+        key="${e[k]}/${e[k + 3]}"
+        [[ -n "${first[$key]+x}" ]] || first[$key]=$k
+    done
+    for ((k = n - 4; k >= 4; k -= 4)); do
+        key="${e[k]}/${e[k + 3]}"
+        [[ "${first[$key]}" == "$k" ]] || continue     # dubbele regel: alleen de eerste telt
+        if ! [[ "${e[k]}" =~ ^[0-9]+$ && "${e[k + 1]}" =~ ^[0-7]{1,4}$ && "${e[k + 2]}" =~ ^[0-7]{1,4}$ ]] ||
+           ! [[ "${e[k + 3]}" == "$RUNTIME"/* || "${e[k + 3]}" == "$RUNTIME" || "${e[k + 3]}" == "$rt"/* || "${e[k + 3]}" == "$rt" ]]; then
+            skipped=$((skipped + 1))
+            (( skipped <= 10 )) && echo "make-portable: let op: ongeldige regel in $JOURNAL overgeslagen (${e[k + 3]})" >&2
+            continue
+        fi
         cur="$(stat -c '%i %a' -- "${e[k + 3]}" 2>/dev/null || true)"
-        if [[ -n "$cur" && "${cur%% *}" == "${e[k]}" ]] && (( 8#${cur#* } == 8#${e[k + 2]} )); then
+        if [[ "$cur" =~ ^([0-9]+)\ ([0-7]+)$ && "${BASH_REMATCH[1]}" == "${e[k]}" ]] && (( 8#${BASH_REMATCH[2]} == 8#${e[k + 2]} )); then
             chmod -- "${e[k + 1]}" "${e[k + 3]}" 2>/dev/null || true
         else
             skipped=$((skipped + 1))
@@ -264,6 +297,7 @@ cleanup() {
             remove_tree "$NEWUSER" || true
         fi
         remove_tree "$PATCH_TMP" || true
+        rm -f -- "$LAUNCHER_TMP" || true
         recover_app_dirs || true
     fi
     exit "$rc"
@@ -319,15 +353,23 @@ refresh_app() {
 }
 
 # 2. Voor het kopiëren van de runtime: rsync aanwezig en genoeg ruimte? Dit gebeurt
-# voordat er iets aangeraakt is, zodat een afbreker niets achterlaat.
+# voordat er iets aangeraakt is (ook vóór het weggooien van User.old), zodat een afbreker niets achterlaat.
+# Argument: 1 als User.old straks weggegooid wordt; zijn ruimte telt dan mee (alleen gemeten als de vrije ruimte alleen niet
+# genoeg is: du over 19 GB kost tijd).
 preflight_user() {
-    local need avail
-    command -v rsync >/dev/null || die "rsync ontbreekt (nodig om de runtime te kopiëren)"
+    local need avail old=0 drop="${1:-0}"
+    command -v rsync >/dev/null || die "rsync ontbreekt (nodig om de runtime te kopiëren); User.old en User/ blijven staan"
     fix_perms read "$RUNTIME"   # du en rsync mogen niet struikelen over de mode-000 werkmapjes (alleen lees-/zoekrechten)
     need="$(du -sb --exclude=bench-captures --exclude=halo-overlay "$RUNTIME" 2>/dev/null | cut -f1 || true)"
     avail="$(df -B1 --output=avail "$DEST" 2>/dev/null | tail -1 || true)"
-    if [[ -n "$need" && -n "$avail" && "$avail" -lt $((need + EXTRA_FREE)) ]]; then
-        echo "make-portable: te weinig ruimte in $DEST: nodig ~$((need / 1048576)) MB, vrij $((avail / 1048576)) MB" >&2
+    [[ "$need" =~ ^[0-9]+$ && "$avail" =~ ^[0-9]+$ ]] || return 0
+    if [[ "$drop" == 1 && "$avail" -lt $((need + EXTRA_FREE)) && -d "$OLDUSER" ]]; then
+        old="$(du -sb -- "$OLDUSER" 2>/dev/null | cut -f1 || true)"
+        [[ "$old" =~ ^[0-9]+$ ]] || old=0
+    fi
+    if [[ $((avail + old)) -lt $((need + EXTRA_FREE)) ]]; then
+        echo "make-portable: te weinig ruimte in $DEST: nodig ~$((need / 1048576)) MB, vrij $((avail / 1048576)) MB" \
+             "(plus $((old / 1048576)) MB van User.old); er is niets weggegooid" >&2
         if [[ -d "$USERDIR" ]]; then
             echo "make-portable: de oude User/ blijft tot het eind staan; gooi hem zelf weg als je hem niet meer nodig hebt en draai opnieuw" >&2
         fi
@@ -522,7 +564,7 @@ rewrite_config_paths() {
 
 # 8. De starter: zet de omgeving op de map en kies een binary. Via een tijdelijk bestand en mv -T, nooit door een koppeling heen.
 write_launcher() {
-    local tmp="$DEST/.ravengun.sh.new"
+    local tmp="$LAUNCHER_TMP"
     rm -f -- "$tmp"
     {
         cat <<'EOF'
@@ -591,7 +633,8 @@ mkdir -p "$DEST"
 [[ -e "$MARK" ]] || echo "map van scripts/make-portable.sh (docs/portable.md)" > "$MARK"
 # Eén run tegelijk: een tweede run op dezelfde map zou de User.new van de eerste weggooien.
 command -v flock >/dev/null || die "flock ontbreekt (util-linux)"
-exec 9>"$LOCK"
+[[ -L "$LOCK" ]] && die "$LOCK is een koppeling; weg ermee en draai opnieuw"
+exec 9>>"$LOCK"
 flock -n 9 || die "er draait al een make-portable op $DEST (slot $LOCK); wacht tot die klaar is"
 LOCKED=1
 
@@ -601,12 +644,18 @@ if [[ -f "$JOURNAL" ]]; then
     echo "make-portable: een vorige run is afgebroken; de rechten in de bron uit $JOURNAL terugzetten"
     restore_src_perms
 fi
-if [[ ! -d "$USERDIR" && -d "$OLDUSER" ]]; then
-    echo "make-portable: User/ ontbrak maar User.old bestaat (onderbroken wissel); terugzetten"
-    mv -T -- "$OLDUSER" "$USERDIR"
+# User.old komt alleen terug als het merk van een onderbroken wissel er staat; heeft de gebruiker User/ zelf weggegooid, dan
+# wordt een nieuwe User/ opgebouwd en blijft User.old (de saves van vóór de vorige reset) gewoon staan.
+if [[ -e "$SWAPMARK" ]]; then
+    if [[ ! -e "$USERDIR" && ! -L "$USERDIR" && -d "$OLDUSER" ]]; then
+        echo "make-portable: de vorige run is midden in de wissel van User/ afgebroken; User.old teruggezet als User/"
+        mv -T -- "$OLDUSER" "$USERDIR"
+    fi
+    rm -f -- "$SWAPMARK"
 fi
 recover_app_dirs
 remove_tree "$NEWUSER" "$PATCH_TMP"
+rm -f -- "$LAUNCHER_TMP"
 # Geen fix_perms op de bestaande User/: die blijft ongemoeid (de games maken er mode-000
 # overlay-mapjes in); bij --reset-user wordt hij aan het eind User.old.
 
@@ -617,22 +666,29 @@ if [[ ! -d "$USERDIR" || "$RESET_USER" == 1 ]]; then
         die "User/ is in gebruik (zie hierboven: een game of programma draait vanuit de map); stop het en draai opnieuw"
     fi
 fi
-# User.old: weg aan het begin van een --reset-user (de naam is straks nodig, en zijn ruimte telt zo mee in de ruimtecontrole)
-# of met --drop-old; anders blijft hij staan.
+# User.old: weg aan het begin van een --reset-user (de naam is straks nodig, en zijn ruimte telt mee in de ruimtecontrole)
+# of met --drop-old; anders blijft hij staan (ook als User/ ontbreekt en opnieuw opgebouwd wordt). Eerst de goedkope
+# controles (in gebruik, rsync, ruimte), pas dan weggooien: een run die toch niet kan, gooit niets weg.
+DROP_NOW=0
 if [[ -e "$OLDUSER" || -L "$OLDUSER" ]]; then
-    if [[ "$BUILD_USER" == 1 || "$DROP_OLD" == 1 ]]; then
-        rc=0; drop_old_user || rc=$?
-        case "$rc" in
-            0) ;;
-            1) die "User.old (de User/ van vóór de vorige --reset-user) is nog in gebruik (zie hierboven); stop wat er vanuit draait en draai opnieuw" ;;
-            *) die "User.old weggooien mislukt; ruim hem zelf op (chmod -R u+rwX '$OLDUSER' && rm -rf '$OLDUSER') en draai opnieuw" ;;
-        esac
+    if [[ "$RESET_USER" == 1 || "$DROP_OLD" == 1 ]]; then
+        DROP_NOW=1
+        is_free "$OLDUSER" ||
+            die "User.old (de User/ van vóór de vorige --reset-user) is nog in gebruik (zie hierboven); stop wat er vanuit draait en draai opnieuw"
     else
-        echo "make-portable: User.old (de User/ van vóór de vorige --reset-user, $(du -sh -- "$OLDUSER" 2>/dev/null | cut -f1)) blijft staan; weggooien met --drop-old"
+        echo "make-portable: User.old (de User/ van vóór de vorige --reset-user) blijft staan; weggooien met --drop-old"
     fi
 fi
 if [[ "$BUILD_USER" == 1 ]]; then
-    preflight_user      # rsync en ruimte, vóór er iets veranderd is
+    preflight_user "$DROP_NOW"     # rsync en ruimte, vóór er iets veranderd of weggegooid is
+fi
+if [[ "$DROP_NOW" == 1 ]]; then
+    rc=0; drop_old_user || rc=$?
+    case "$rc" in
+        0) ;;
+        1) die "User.old (de User/ van vóór de vorige --reset-user) is nog in gebruik (zie hierboven); stop wat er vanuit draait en draai opnieuw" ;;
+        *) die "User.old weggooien mislukt; ruim hem zelf op (chmod -R u+rwX '$OLDUSER' && rm -rf '$OLDUSER') en draai opnieuw" ;;
+    esac
 fi
 
 refresh_app
@@ -666,19 +722,23 @@ if [[ "$BUILD_USER" == 1 ]]; then
     if [[ -d "$USERDIR" ]] && ! is_free "$USERDIR"; then
         die "User/ is in gebruik (zie hierboven); de wissel gaat niet door. Stop wat er vanuit de map draait en draai opnieuw"
     fi
-    [[ ! -e "$OLDUSER" && ! -L "$OLDUSER" ]] || die "User.old staat er (weer); de wissel gaat niet door"
     trap '' INT TERM
     if [[ -d "$USERDIR" ]]; then
-        mv -T -- "$USERDIR" "$OLDUSER" || die "User/ opzij zetten (User.old) mislukt; User/ blijft staan"
+        [[ ! -e "$OLDUSER" && ! -L "$OLDUSER" ]] || die "User.old staat er (weer); de wissel gaat niet door"
+        # Het merk zegt de volgende run: "User/ ontbreekt en User.old staat er? Dan is dit een onderbroken wissel."
+        echo "wissel van User/ bezig" > "$SWAPMARK"; sync -- "$SWAPMARK" 2>/dev/null || true
+        mv -T -- "$USERDIR" "$OLDUSER" || { rm -f -- "$SWAPMARK"; die "User/ opzij zetten (User.old) mislukt; User/ blijft staan"; }
     fi
     if ! mv -T -- "$NEWUSER" "$USERDIR"; then
-        if [[ -d "$OLDUSER" && ! -e "$USERDIR" ]] && mv -T -- "$OLDUSER" "$USERDIR"; then
+        if [[ -e "$SWAPMARK" && -d "$OLDUSER" && ! -e "$USERDIR" ]] && mv -T -- "$OLDUSER" "$USERDIR"; then
+            rm -f -- "$SWAPMARK"
             die "User.new op zijn plek zetten mislukt; de oude User/ is teruggezet"
         fi
-        BUILDING=0     # niets weggooien: de volgende run zet User.old terug
+        BUILDING=0     # niets weggooien: de volgende run zet User.old terug (het merk blijft staan)
         die "User.new op zijn plek zetten mislukt en de oude User/ terugzetten ook; User.new en User.old blijven staan"
     fi
     [[ -d "$USERDIR" && ! -e "$NEWUSER" ]] || die "de wissel van User/ is niet gelukt"
+    rm -f -- "$SWAPMARK"
     BUILDING=0
     ACTUAL_USER="$USERDIR"
     trap 'exit 130' INT
