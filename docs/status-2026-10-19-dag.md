@@ -26,6 +26,21 @@ van Mario Kart DX komen nooit op de NAS uit en de stempel wordt vlak voor het sc
 gecontroleerd; de gouden proef legt SegaGameShell en TNXK0OC nu echt vast (geen fallback meer); en de
 hele proefreeks is **97/97 groen**.
 
+Wat er in de laatste ronde nog bij kwam (review 16): **MenInBlack** is apart in MUISMODUS gemeten
+(munt en START via het virtuele toetsenbord, de missie begint, score 0024/tickets 001) -- de oude
+meting blijft staan voor de muisknoppen; **LostLandAdventure** is opnieuw gemeten met gamescope ECHT
+aan (de sleutel stond in [Launch] en hoort in [Display]): er komt een venster en de game tekent een
+zwart scherm; **SegaGameShell** heeft nu de hele shell-map als ViewWritable, zodat de logboekrotatie
+en shell/variables lokaal gebeuren in plaats van door een koppeling naar de NAS (in de schrijflaag
+stonden 157 whiteouts en 2 bestanden, de NAS zelf is ongemoeid); **TNXK0OC** heeft gs2.ini en
+mxRingwide.ini nu als ViewCopies in het profiel, met een Sega-JVS-profiel in plaats van een
+Taito-profiel; de stempelronde van de leiding is samengevoegd en live nagelopen (eerste start: vier
+keer "klaar (status 0)", de wineserver -w-regel, de stempelregel, 0 weigert; tweede start: vier keer
+"al gedaan"); en in dat gebied zijn drie kleine punten gerepareerd -- het wachten op wineserver -w
+kijkt nu naar een stopsignaal, een foutstatus van wineserver -w staat in het logboek, en een
+betrekkelijke prefix wordt bij de stempel geweigerd (alle drie met een proef die omvalt als je de
+clausule weghaalt).
+
 # Stand 2026-10-19 — de volledige lijst (A)-(G) met tijdvakken
 
 Deze lijst staat bewust bovenaan: hij is eerder in een bericht genoemd en daarna zoekgeraakt. Per punt
