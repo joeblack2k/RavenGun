@@ -954,3 +954,29 @@ om, zonder kern sluit het na ~3 s met exitcode 0. **De volgende stap blijft dus 
 nieuwe infrastructuur: de bron van de kern in huis halen om de haken een voor een uit te zetten, of
 een debugger op het spel zetten zodat de aanroep naar `0x4fd8aed0` direct te zien is. In deze ronde
 was daarvoor geen tijd meer; (E) blijft **geparkeerd** met deze notitie als vertrekpunt.
+
+### Coopers 9: de crash is van het spel zelf, niet van onze kern (2026-10-19 11:35)
+
+WINEDEBUG deed wat de opdracht beloofde. `game.exe` **zonder onze kern**, rechtstreeks onder wine, met
+`WINEDEBUG=-all,+seh`:
+
+```
+Unhandled page fault on read access to 0x4fd8aed0 in wow64 32-bit code (0x4fd8aed0)
+ EIP:4fd8aed0 ESP:02c2fcf0 EBP:7ffd1000 EFLAGS:00010206
+Backtrace:
+=>0 0x4fd8aed0 (0x7ffd1000)
+```
+
+en uit het `+seh`-spoor: `code=c0000005 (EXCEPTION_ACCESS_VIOLATION) addr=4FD8AED0`, met
+`eax=fc728db1 ebx=0055e3c8 ecx=0055e3c8 edx=00402480 esi=0055e3c8 edi=00000000`, `ebp=7ffd1000`,
+`esp=02c2fcf0`. Het adres `0x4fd8aed0` ligt in **geen enkele module** en de stapel is rommel
+(`ebp=0x7ffd1000`), dus het spel **springt door een kapotte functiewijzer**. De aanroeper is niet te
+zien (geen geldige frames).
+
+**Dit is de correctie op de notitie van 05:55**: daar stond dat het verschil tussen wel en geen kern
+bepaalt of het spel omvalt. Deze meting laat zien dat de crash er **ook zonder onze kern** is -- het is
+het eigen vroege startpad van het spel. Dat past bij wat er in dit document over Coopers 9 staat: het
+heeft **HASP HL statisch gelinkt**, en zo'n beveiligingslaag springt door een tabel die pas met een
+echte dongle klopt. De volgende stap is dus niet de kern maar dat pad: met `winedbg` (of
+`WINEDEBUG=+relay` op een *klein* stuk) de laatste sprong voor `0x4fd8aed0` vinden en kijken welke
+tabel daar gelezen wordt -- precies de "dongle"-route die de leiding al als open item heeft.
