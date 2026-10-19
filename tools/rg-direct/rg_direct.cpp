@@ -128,6 +128,14 @@ std::string env_get(const L::EnvMap& e, const char* k) { auto it = e.find(k); re
 
 std::atomic<bool> g_stop{false};
 void on_term(int) { g_stop.store(true); }
+// SIGTERM en SIGINT zetten g_stop (run_plan en --alleen-stappen; review 13, ronde 2, punt 4).
+void zet_stopsignalen() {
+    struct sigaction sa{};
+    sa.sa_handler = on_term;
+    sigemptyset(&sa.sa_mask);
+    ::sigaction(SIGTERM, &sa, nullptr);
+    ::sigaction(SIGINT, &sa, nullptr);
+}
 
 // Het bronbestand dat de helper naar het gedeelde geheugen van de game spiegelt (plan.shm_source). Op de route tp-shm is dat
 // /dev/shm/ravengun_JvsState van de daemon, en de helper kopieert byte 0 daaruit vlak voor elk antwoord; leeg = gelijk aan g_shm_path.
@@ -933,29 +941,199 @@ struct ControlSide {
 
 int run_einde(const L::DirectPlan& plan, bool have_rc, int rc, Helper& helper, JvsPipeServer& server, ControlSide* ctl, A11& a11);
 
+// --- [Launch] PrefixSetup ------------------------------------------------------------------------------------------------------------
+// waitpid met een grens: true = het kind is opgehaald (of was er al niet meer). Een kind dat in de D-toestand op een haperende
+// CIFS-koppeling hangt, houdt de start zo niet voor altijd vast (review 13, ronde 2, punt 4).
+bool wacht_begrensd(pid_t pid, int& st, int ms) {
+    const auto einde = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    for (;;) {
+        const pid_t r = ::waitpid(pid, &st, WNOHANG);
+        if (r == pid || (r < 0 && errno == ECHILD)) return true;
+        if (std::chrono::steady_clock::now() >= einde) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+}
+
+// Leeft er nog een proces in deze procesgroep? (signaal 0; EPERM telt als ja.)
+bool groep_leeft(pid_t pgid) { return ::kill(-pgid, 0) == 0 || errno == EPERM; }
+
+bool wacht_op_groep(pid_t pgid, int ms) {
+    const auto einde = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    while (groep_leeft(pgid)) {
+        if (std::chrono::steady_clock::now() >= einde) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    return true;
+}
+
+// Seconden uit de omgeving van rg-direct zelf (niet die van het plan): RG_PREFIXSTAP_TIMEOUT en RG_PREFIXSTAP_NALOOP (proeven).
+int seconden_uit_omgeving(const char* naam, int standaard) {
+    if (const char* t = ::getenv(naam)) {
+        const int w = std::atoi(t);
+        if (w > 0) return w;
+    }
+    return standaard;
+}
+
+// De wineserver bij de wine van het plan, en de omgeving waarmee hij de prefix vindt. De wrapper wine-prefix
+// (scripts/wine-prefix.sh) zet zelf WINESERVER = <map van RG_WINE, anders de standaard-wine>/wineserver en WINEPREFIX =
+// RG_WINEPREFIX; naast de wrapper staat geen wineserver, dus dirname(plan.wine) vond hem nooit en de kill werd stil overgeslagen
+// (review 13, ronde 2, punt 4). Zonder wrapper: WINESERVER uit het plan als die er is (die volgt wine zelf ook), anders naast wine.
+std::string wineserver_van(const L::DirectPlan& plan, const L::EnvMap& env, L::EnvMap& kenv) {
+    namespace D = ravengun::launch::direct_detail;
+    kenv = env;
+    std::string ws;
+    if (D::basename(plan.wine) == "wine-prefix") {
+        std::string echt = env_get(env, "RG_WINE");
+        if (echt.empty()) {
+            std::string home = env_get(env, "HOME");
+            if (home.empty())
+                if (const char* h = ::getenv("HOME")) home = h;
+            echt = home + "/.local/share/ravengun/wine/proton-11.0-2/bin/wine";
+        }
+        ws = D::dirname(echt) + "/wineserver";
+        if (!env_get(env, "RG_WINEPREFIX").empty()) kenv["WINEPREFIX"] = env_get(env, "RG_WINEPREFIX");
+    } else {
+        ws = env_get(env, "WINESERVER");
+        if (ws.empty()) ws = D::dirname(plan.wine) + "/wineserver";
+    }
+    if (env_get(kenv, "WINEPREFIX").empty()) kenv["WINEPREFIX"] = plan.prefix;
+    return ws;
+}
+
+// De uitvoer van een stap: regels uit de pijp naar het logboek.
+struct StapUitvoer {
+    int fd = -1;
+    std::string kop, rest;
+    // 1 = er is gelezen, 0 = niets klaar (binnen ms), -1 = de pijp is dicht.
+    int lees(int ms) {
+        if (fd < 0) return -1;
+        struct pollfd pfd { fd, POLLIN, 0 };
+        const int pr = ::poll(&pfd, 1, ms);
+        if (pr == 0 || (pr < 0 && errno == EINTR)) return 0;
+        if (pr < 0) { sluit(); return -1; }
+        char b[4096];
+        const ssize_t n = ::read(fd, b, sizeof b);
+        if (n < 0 && (errno == EINTR || errno == EAGAIN)) return 0;
+        if (n <= 0) { sluit(); return -1; }
+        rest.append(b, static_cast<size_t>(n));
+        size_t pos = 0;
+        while ((pos = rest.find('\n')) != std::string::npos) {
+            log(kop + decode_console(rest.substr(0, pos)));
+            rest.erase(0, pos + 1);
+        }
+        return 1;
+    }
+    // Na het einde van het kind wat er nog in de pijp staat: de laatste regels zijn vaak de foutmelding (N6). Begrensd (1 MiB),
+    // want een achtergebleven proces kan de pijp openhouden en blijven schrijven.
+    void einde() {
+        for (int i = 0; i < 256 && lees(0) == 1; ++i) {}
+        if (!rest.empty()) log(kop + decode_console(rest));
+        rest.clear();
+        sluit();
+    }
+    void sluit() {
+        if (fd >= 0) ::close(fd);
+        fd = -1;
+    }
+};
+
+// Na een time-out of een stop: de hele procesgroep van de stap weg, en dan wineserver -k voor wat wine nog in de prefix heeft
+// staan (dat hoort bij deze stap). Alles met een grens: een proces in de D-toestand op de NAS houdt de start niet vast.
+void stap_afbreken(const L::DirectPlan& plan, const L::EnvMap& env, pid_t pid, StapUitvoer& uit) {
+    ::kill(-pid, SIGKILL);
+    ::kill(pid, SIGKILL);
+    int st = 0;
+    if (!wacht_begrensd(pid, st, 5000))
+        log("prefixstap: proces " + std::to_string(pid) + " is 5 s na SIGKILL nog niet weg (hangt het op de NAS?); verder zonder te wachten");
+    uit.einde();
+    L::EnvMap kenv;
+    const std::string ws = wineserver_van(plan, env, kenv);
+    if (::access(ws.c_str(), X_OK) != 0) {
+        log("prefixstap: wineserver -k overgeslagen: " + ws + " bestaat niet of is niet uitvoerbaar");
+        return;
+    }
+    log("prefixstap: " + ws + " -k (WINEPREFIX=" + env_get(kenv, "WINEPREFIX") + ")");
+    Child k = spawn({ws, "-k"}, "/", kenv, true, true);
+    if (k.pid <= 0) return;
+    StapUitvoer ku{k.out, "prefixstap: wineserver: ", ""};
+    int ks = 0;
+    if (!wacht_begrensd(k.pid, ks, 10000)) {
+        log("prefixstap: wineserver -k is na 10 s niet klaar; die wordt gestopt en de start gaat verder zonder te wachten");
+        ::kill(k.pid, SIGKILL);
+        wacht_begrensd(k.pid, ks, 1000);
+    }
+    ku.einde();   // ook de pijp dicht (die lekte eerder)
+}
+
+// Na een GESLAAGDE stap: wat er nog van de stap draait (wine start meer dan een proces) mag niet doorlopen terwijl de volgende
+// stap controleert en schrijft. Eerst laten uitlopen (Wine stopt services.exe en co. zelf als het laatste programma weg is), dan
+// SIGTERM, dan SIGKILL. false = de groep is niet leeg te krijgen (een proces hangt in de D-toestand): dan start er niets.
+bool groep_opruimen(pid_t pgid, int naloop_s) {
+    if (!groep_leeft(pgid)) return true;
+    log("prefixstap: er draait nog iets van de stap (procesgroep " + std::to_string(pgid) + "); hoogstens " + std::to_string(naloop_s) +
+        " s laten uitlopen");
+    if (wacht_op_groep(pgid, naloop_s * 1000)) {
+        log("prefixstap: de procesgroep is vanzelf leeg");
+        return true;
+    }
+    log("prefixstap: de procesgroep loopt nog; SIGTERM");
+    ::kill(-pgid, SIGTERM);
+    if (wacht_op_groep(pgid, 2000)) return true;
+    log("prefixstap: de procesgroep loopt nog; SIGKILL");
+    ::kill(-pgid, SIGKILL);
+    if (wacht_op_groep(pgid, 2000)) return true;
+    log("prefixstap: de procesgroep " + std::to_string(pgid) + " is niet leeg te krijgen (hangt een proces op de NAS?)");
+    return false;
+}
+
+// De controle voor er iets start, voor rg-direct --run en --alleen-stappen (review 13, ronde 2, punt 6: --alleen-stappen draaide
+// de stappen zonder controle). De schrijfmappen zoals de laatste stap van de daemon (schrijfmap_problemen: de ouder, het pad, een
+// zuster in andere hoofdletters en elk kind), en de prefixstappen met prefixstappen_problemen: het pad zelf en de weg ernaartoe,
+// NIET de kinderen. Eerder gingen ook werkmap en doelmap door schrijfmap_problemen; voor Mario Kart DX is dat de view-wortel
+// met ~24 koppelingen naar de NAS, en dan weigerde elke start (N1). 0 = in orde, 2 = geweigerd.
+int controle_voor_start(const L::DirectPlan& plan, const L::DirectPaths& wp, const std::string& wie) {
+    namespace D = ravengun::launch::direct_detail;
+    if (plan.view_writable.empty() && plan.prefix_setup.empty()) return 0;
+    const D::MountTableScope koppelpunten(wp);
+    if (const std::string k = D::koppelpunten_fout(wp); !k.empty()) {
+        log("schrijfmap: " + wie + " weigert: " + k);
+        return 2;
+    }
+    for (const std::string& pad : plan.view_writable) {
+        const std::vector<std::string> fout = D::schrijfmap_problemen(pad, wp);
+        if (fout.empty()) continue;
+        log("schrijfmap: " + wie + " weigert " + pad + ": een game mag nooit op de NAS schrijven; start via de daemon (die zet de "
+            "schrijfmap om) of los dit op:");
+        for (const std::string& f : fout) log("schrijfmap:   " + f);
+        return 2;
+    }
+    const std::vector<std::string> fout = D::prefixstappen_problemen(plan, wp);
+    if (!fout.empty()) {
+        log("prefixstappen: " + wie + " weigert: een prefixstap mag nooit door een koppeling of op de NAS uitkomen; start via de "
+            "daemon (die zet de schrijfmappen eerst om) of los dit op:");
+        for (const std::string& f : fout) log("prefixstappen:   " + f);
+        return 2;
+    }
+    return 0;
+}
+
 // De stappen van [Launch] PrefixSetup. Apart van run_plan zodat de proeven precies deze weg kunnen
-// draaien zonder een spel te starten (rg-direct --alleen-stappen PLAN.json). Geeft 0 als alle stappen
-// gelukt zijn (of overgeslagen werden door de stempel), 1 bij een mislukte stap.
+// draaien zonder een spel te starten (rg-direct --alleen-stappen PLAN.json, met dezelfde controle_voor_start). Geeft 0 als alle
+// stappen gelukt zijn (of overgeslagen werden door de stempel), 1 bij een mislukte of geweigerde stap.
 int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L::DirectPaths& wp) {
     namespace D = ravengun::launch::direct_detail;
     /* De koppelpuntentabel een keer inlezen voor alle on_nas()-vragen hieronder. Nodig omdat deze
      * functie ook los draait (--alleen-stappen), en dan leest on_nas() anders de echte tabel. */
     const D::MountTableScope koppelpunten(wp);
-    /* De wortel van de view en de twee controles die de loper zelf opnieuw doet (review 13, punt 1):
-     * tussen het plan en het uitvoeren kan er van alles veranderd zijn. */
+    /* De loper controleert elke stap VLAK voor hij draait of schrijft opnieuw, met dezelfde helper als de controle vooraf en de
+     * motor (prefixstap_problemen): tussen het plan en nu, en tussen twee stappen, kan er van alles veranderd zijn (review 13,
+     * punt 1; ronde 2, punt 3: de werkmap van een run-stap werd hier eerder niet meer bekeken). */
     const std::string wortel = D::view_wortel(D::dirname(plan.game), wp);
-    auto koppeling_op_weg = [&](const std::string& pad) {
-        std::string loop = D::abspath(wortel);
-        for (const std::string& deel : D::nonempty_split(D::relpath(D::abspath(pad), loop), '/')) {
-            loop = D::pjoin(loop, deel);
-            if (D::islink(loop)) return true;
-        }
-        return false;
-    };
-    auto in_schrijfmap = [&](const std::string& pad) {
-        for (const std::string& w : plan.view_writable)
-            if (D::binnen(D::abspath(pad), D::abspath(w))) return true;
-        return false;
+    auto geweigerd = [&](const L::DirectSetupStep& stap) {
+        const std::vector<std::string> f = D::prefixstap_problemen(stap, wortel, wp);
+        for (const std::string& x : f) log("prefixstap: GEWEIGERD (" + stap.tekst + "): " + x);
+        return !f.empty();
     };
     // 2z. [Launch] PrefixSetup: de eenmalige stappen per prefix, met EEN stempel voor de HELE lijst
     // (review 13, punt 3). Die stempel wordt pas geschreven als alle stappen gelukt zijn; een
@@ -968,60 +1146,47 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
         if (stempel_gezet)
             log("prefixstappen: stempel " + plan.prefix_setup_mark +
                 " staat er; alleen ontbrekende kopieen lopen opnieuw");
+        const int timeout_s = seconden_uit_omgeving("RG_PREFIXSTAP_TIMEOUT", 180);   // standaard 180 s
+        const int naloop_s = seconden_uit_omgeving("RG_PREFIXSTAP_NALOOP", 10);
         for (const auto& stap : plan.prefix_setup) {
             if (stempel_gezet && !(stap.copy && ::access(stap.to.c_str(), F_OK) != 0)) {
                 log("prefixstap: al gedaan (" + stap.tekst + ")");
                 continue;
             }
+            if (g_stop.load()) {
+                log("prefixstap: stop gevraagd; de game wordt niet gestart");
+                return 1;
+            }
             bool goed = true;
             if (stap.copy) {
-                /* Nog een keer kijken, nu met lstat en on_nas: tussen het plan en het uitvoeren kan er
-                 * van alles veranderd zijn (review 13, punt 1). Geschreven wordt met write_atomic
-                 * (rename vervangt de naam, volgt geen koppeling), niet met copy_file(overwrite). */
-                const std::string doelmap = D::dirname(stap.to);
-                std::string fout;
-                if (D::islink(stap.to)) {
-                    fout = stap.to + " is een koppeling";
-                } else if (!D::isdir(doelmap)) {
-                    fout = "de map " + doelmap + " bestaat niet";
-                } else if (D::on_nas(doelmap, wp)) {
-                    fout = "de map " + doelmap + " ligt op de NAS";
-                } else if (koppeling_op_weg(doelmap)) {
-                    /* LET OP: hier NIET schrijfmap_problemen() gebruiken. Die kijkt ook naar de
-                     * kinderen, en het doel kan de wortel van de view zijn: dan zou elke koppeling
-                     * naar de NAS in de hele view de stap laten mislukken (dat gebeurde ook echt, de
-                     * proef ving het). Voor een kopieerdoel telt de weg ernaartoe: geen koppeling in
-                     * een van de delen, en de map zelf niet op de NAS. */
-                    fout = "er loopt een koppeling in de weg naar " + doelmap;
-                } else if (!in_schrijfmap(doelmap) && D::islink(doelmap)) {
-                    fout = doelmap + " staat niet in een schrijfmap (ViewWritable) en is een koppeling";
-                }
                 /* De bron in de prefix opnieuw in elkaar zetten met de prefix van DIT plan: het plan
-                 * kan met een andere prefix gemaakt zijn dan waarmee het nu draait (review 13, punt 4). */
-                const std::string bron = stap.from_prefix && !stap.from_rel.empty()
-                                             ? D::pjoin(plan.prefix, stap.from_rel)
-                                             : stap.from;
+                 * kan met een andere prefix gemaakt zijn dan waarmee het nu draait (review 13, punt 4).
+                 * from_rel is in prefixstap_problemen() gecontroleerd (geen .., niet absoluut). */
+                const std::string bron = stap.from_prefix ? D::pjoin(plan.prefix, stap.from_rel) : stap.from;
                 if (stap.from_prefix && bron != stap.from)
                     log("prefixstap: bron in de prefix: " + bron + " (het plan noemde " + stap.from + ")");
-                std::string inhoud, rerr, werr;
+                std::string fout, inhoud, rerr, werr;
+                if (geweigerd(stap)) fout = "zie hierboven";
                 if (fout.empty() && !D::read_file_strict(bron, inhoud, rerr)) fout = rerr;
+                /* Nog een keer vlak voor het schrijven (het lezen van de bron kan duren). Geschreven wordt met write_atomic
+                 * (rename vervangt de naam, volgt geen koppeling), niet met copy_file(overwrite). */
+                if (fout.empty() && geweigerd(stap)) fout = "zie hierboven";
                 if (fout.empty() && !D::write_atomic(stap.to, inhoud, werr)) fout = werr;
                 goed = fout.empty();
                 log(std::string("prefixstap: kopieren ") + (goed ? "klaar" : "GEWEIGERD") + ": " + bron +
                     " -> " + stap.to + (goed ? "" : " (" + fout + ")"));
             } else {
+                /* De werkmap vlak voor het starten opnieuw (een eerdere stap kan hem veranderd hebben). */
+                if (geweigerd(stap)) {
+                    log("prefixstap MISLUKT: " + stap.tekst + "; de game wordt niet gestart");
+                    return 1;
+                }
                 log("prefixstap: " + join_quoted(stap.argv) + " (cwd " + stap.cwd + ")");
                 /* Eigen procesgroep: een time-out moet de hele boom meenemen. */
                 Child c = spawn(stap.argv, stap.cwd, env, true, false, true);
                 if (c.pid <= 0) return 1;
-                /* Standaard 180 s; RG_PREFIXSTAP_TIMEOUT verzet hem (proeven). */
-                int kPrefixstapTimeout = 180;
-                if (const char* t = ::getenv("RG_PREFIXSTAP_TIMEOUT")) {
-                    const int w = std::atoi(t);
-                    if (w > 0) kPrefixstapTimeout = w;
-                }
-                const auto einde = std::chrono::steady_clock::now() + std::chrono::seconds(kPrefixstapTimeout);
-                std::string rest;
+                StapUitvoer uit{c.out, "prefixstap: ", ""};
+                const auto einde = std::chrono::steady_clock::now() + std::chrono::seconds(timeout_s);
                 int st = 0;
                 bool klaar = false, afgebroken = false, gestopt = false;
                 while (true) {
@@ -1032,53 +1197,22 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                     if (r < 0 && errno != EINTR) break;
                     /* De pijp leegmaken met poll() en niet met read_lines(): dat wacht op EOF en liet
                      * een hangende stap de hele start ophouden (review 13, punt 2). */
-                    if (c.out < 0) { std::this_thread::sleep_for(std::chrono::milliseconds(50)); continue; }
-                    struct pollfd pfd { c.out, POLLIN, 0 };
-                    const int pr = ::poll(&pfd, 1, 100);
-                    if (pr > 0 && (pfd.revents & (POLLIN | POLLHUP | POLLERR))) {
-                        char b[4096];
-                        const ssize_t n = ::read(c.out, b, sizeof b);
-                        if (n > 0) {
-                            rest.append(b, static_cast<size_t>(n));
-                            size_t pos = 0;
-                            while ((pos = rest.find('\n')) != std::string::npos) {
-                                log("prefixstap: " + decode_console(rest.substr(0, pos)));
-                                rest.erase(0, pos + 1);
-                            }
-                        } else if (n == 0) {
-                            ::close(c.out);
-                            c.out = -1;
-                        }
-                    }
+                    if (uit.lees(100) < 0) std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 }
-                if (!rest.empty()) log("prefixstap: " + decode_console(rest));
-                if (c.out >= 0) { ::close(c.out); c.out = -1; }
-                if (afgebroken || gestopt) {
+                if (klaar) {
+                    uit.einde();   // de laatste regels uit de pijp (N6)
+                    goed = WIFEXITED(st) && WEXITSTATUS(st) == 0;
+                    log(std::string("prefixstap: klaar (status ") + std::to_string(st) + ")" + (goed ? "" : " -- MISLUKT"));
+                    /* Niets van deze stap mag nog lopen als de volgende begint (review 13, ronde 2, punt 4). */
+                    if (!groep_opruimen(c.pid, naloop_s)) goed = false;
+                } else {
                     log(std::string("prefixstap: ") +
-                        (gestopt ? "stop gevraagd" : "na " + std::to_string(kPrefixstapTimeout) + " s") +
+                        (gestopt ? "stop gevraagd" : afgebroken ? "afgebroken na " + std::to_string(timeout_s) + " s" :
+                                                                  "de wachtdienst op de stap gaf een fout") +
                         "; de procesgroep gaat dood");
-                    ::kill(-c.pid, SIGKILL);
-                    ::kill(c.pid, SIGKILL);
-                    ::waitpid(c.pid, &st, 0);
-                    /* wine kan nog processen in deze prefix hebben staan; die horen bij deze stap. */
-                    const std::string ws = D::dirname(plan.wine) + "/wineserver";
-                    if (::access(ws.c_str(), X_OK) == 0) {
-                        std::vector<std::string> ka{ws, "-k"};
-                        Child k = spawn(ka, plan.cwd, env, true, true);
-                        if (k.pid > 0) {
-                            int ks = 0;
-                            ::waitpid(k.pid, &ks, 0);
-                        }
-                    }
+                    stap_afbreken(plan, env, c.pid, uit);
                     goed = false;
                     if (gestopt) return 1;
-                } else if (klaar) {
-                    goed = WIFEXITED(st) && WEXITSTATUS(st) == 0;
-                    log(std::string("prefixstap: klaar (status ") + std::to_string(st) + ")" +
-                        (goed ? "" : " -- MISLUKT"));
-                } else {
-                    log("prefixstap: de wachtdienst op de stap gaf een fout");
-                    goed = false;
                 }
             }
             if (!goed) {
@@ -1116,36 +1250,11 @@ int run_plan(const std::string& plan_file) {
     std::string err;
     if (!L::plan_from_json(text, plan, err)) { log(err); return 2; }
     /* Review 10, A4: dezelfde controle als in de daemon-route (apply_direct). --run start de game en
-     * zou anders een schrijfmap kunnen starten die (nog) een koppeling naar de NAS is. */
-    namespace D = ravengun::launch::direct_detail;
+     * zou anders een schrijfmap kunnen starten die (nog) een koppeling naar de NAS is. Pass 2 (bevinding 5): voor de schrijfmappen
+     * precies de laatste stap van de daemon (schrijfmap_problemen, ook elk kind). De prefixstappen apart (review 13, ronde 2, N1):
+     * zie controle_voor_start. */
     const L::DirectPaths wp = L::default_direct_paths(L::environ_map());
-    /* Pass 2 (bevinding 5): precies dezelfde controle als de laatste stap van de daemon (schrijfmap_problemen): de ouder, het pad,
-     * een zuster in andere hoofdletters en elk kind, ook diep. Een echte map met kinderen die naar de NAS wijzen kwam hier eerder door. */
-    {
-        const D::MountTableScope koppelpunten(wp);
-        /* De schrijfmappen van de view EN de paden waar een prefixstap schrijft of draait (review 13,
-         * punt 1): een kopieerdoel en een werkmap mogen nooit op de NAS uitkomen. */
-        std::vector<std::string> te_controleren = plan.view_writable;
-        for (const auto& stap : plan.prefix_setup) {
-            if (stap.copy) {
-                te_controleren.push_back(D::dirname(stap.to));
-                if (D::islink(stap.to)) {
-                    log("schrijfmap: --run weigert " + stap.to + ": het doel van een prefixstap is een koppeling");
-                    return 2;
-                }
-            } else {
-                te_controleren.push_back(stap.cwd);
-            }
-        }
-        for (const std::string& pad : te_controleren) {
-            const std::vector<std::string> fout = D::schrijfmap_problemen(pad, wp);
-            if (fout.empty()) continue;
-            log("schrijfmap: --run weigert " + pad + ": een game mag nooit op de NAS schrijven; start via de daemon (die zet de "
-                "schrijfmap om) of los dit op:");
-            for (const std::string& f : fout) log("schrijfmap:   " + f);
-            return 2;
-        }
-    }
+    if (const int rc = controle_voor_start(plan, wp, "--run"); rc != 0) return rc;
     {
         char self[4096];
         const ssize_t n = ::readlink("/proc/self/exe", self, sizeof self - 1);
@@ -1153,11 +1262,7 @@ int run_plan(const std::string& plan_file) {
         log("launcher: " + me + " sha256 " + L::sha256_file(me) + " (C++, gestart door ravengund)");
         log("plan: " + plan_file + " sha256 " + L::sha256_file(plan_file));
     }
-    struct sigaction sa{};
-    sa.sa_handler = on_term;
-    sigemptyset(&sa.sa_mask);
-    ::sigaction(SIGTERM, &sa, nullptr);
-    ::sigaction(SIGINT, &sa, nullptr);
+    zet_stopsignalen();
     ::signal(SIGPIPE, SIG_IGN);
 
     const L::EnvMap& env = plan.env;
@@ -1645,6 +1750,10 @@ int main(int argc, char** argv) {
         std::string err;
         if (!L::plan_from_json(tekst, plan, err)) { log(err); return 2; }
         const L::DirectPaths wp = L::default_direct_paths(L::environ_map());
+        /* Dezelfde controle als --run en dezelfde stopsignalen (review 13, ronde 2, punt 6 en 4): deze weg zit in het
+         * programma dat ook in productie staat, en draait wine. */
+        if (const int rc = controle_voor_start(plan, wp, "--alleen-stappen"); rc != 0) return rc;
+        zet_stopsignalen();
         return voer_prefixstappen(plan, plan.env, wp);
     }
     if (argc >= 2 && std::strcmp(argv[1], "--plan") == 0) return show_plan(argc, argv);

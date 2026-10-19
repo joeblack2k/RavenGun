@@ -538,6 +538,7 @@ if(RAVENGUN_BUILD_TESTS)
   set_tests_properties(ravengun_markers PROPERTIES TIMEOUT 60)
   # De LOPER van [Launch] PrefixSetup: koppeling en NAS als doel geweigerd, een mislukte stap stopt
   # de start zonder stempel, een hangende stap wordt afgebroken, en de stempel slaat over of herhaalt.
+  # Met een eigen plan en view in een tijdelijke map (review 13, ronde 2): slaat nergens over.
   # Zie tests/prefix_setup_test.sh (review 13, punt 6).
   add_test(NAME ravengun_prefix_setup
     COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/prefix_setup_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}"
