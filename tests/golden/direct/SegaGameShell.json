@@ -90,6 +90,9 @@
    ],
    "view_copies": [],
    "view_links": [],
+   "view_local_files": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/shell"
+   ],
    "view_writable": [
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/ShellData",
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/temp",
@@ -192,6 +195,9 @@
    ],
    "view_copies": [],
    "view_links": [],
+   "view_local_files": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/shell"
+   ],
    "view_writable": [
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/ShellData",
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/temp",
