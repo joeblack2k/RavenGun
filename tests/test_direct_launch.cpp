@@ -2345,6 +2345,23 @@ int main() {
             CHECK(!stempel(pfx + "/.ravengun-prefixsetup/../buiten.done"));
             CHECK(!stempel(pfx + "/.ravengun-prefixsetup/zonder-einde"));      // geen .done
             CHECK(!stempel(pfx + "/.ravengun-prefixsetup/sub/naam.done"));     // niet direct in de map
+            /* Review 16, punt 3c: een BETREKKELIJKE prefix moet ook geweigerd worden. Zonder die eis
+             * kwam deze er door: abspath() rekent beide kanten met de werkmap van dit proces, dus de
+             * vergelijking hierboven klopte en de stempel kon ergens anders uitkomen dan de loper hem
+             * schrijft. */
+            {
+                DirectPlan x = gp;
+                for (const std::string& betrekkelijk : {std::string("wine"), std::string("pfx"), std::string("./pfx")}) {
+                    x.prefix = betrekkelijk;
+                    x.prefix_setup_mark = betrekkelijk + "/.ravengun-prefixsetup/3b92f495.done";
+                    const auto f = D::stempel_problemen(x, pg);
+                    if (!f.empty()) std::fprintf(stderr, "  betrekkelijke prefix geweigerd: %s\n", f.front().c_str());
+                    CHECK(!f.empty());
+                }
+                x.prefix = pfx;   // en met een absolute prefix is dezelfde stempel wel goed
+                x.prefix_setup_mark = pfx + "/.ravengun-prefixsetup/3b92f495.done";
+                CHECK(D::stempel_problemen(x, pg).empty());
+            }
         }
         /* Review 15, ronde 2, punt 3: een prefix:-bron zonder (absolute) prefix weigert, want dan las de loper drive_c/...
          * ten opzichte van zijn werkmap. Een prefix die alleen in RG_WINEPREFIX staat is wel goed (prefix_van_plan). */

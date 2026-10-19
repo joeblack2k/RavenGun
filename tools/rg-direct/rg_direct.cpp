@@ -954,6 +954,21 @@ bool wacht_begrensd(pid_t pid, int& st, int ms) {
     }
 }
 
+/* Als wacht_begrensd(), maar kijkt ook naar g_stop. Review 16, punt 3a: het wachten op wineserver -w
+ * gebruikte de gewone wacht_begrensd, en die negeert een stopsignaal -- een stop werkte daar dus pas
+ * door nadat de volle grens (10 s) verstreken was. De andere wachters laten we met rust: die halen
+ * hun kind op of ruimen een procesgroep op, en dat moet juist wel afgemaakt worden. */
+bool wacht_begrensd_stop(pid_t pid, int& st, int ms) {
+    const auto einde = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    for (;;) {
+        const pid_t r = ::waitpid(pid, &st, WNOHANG);
+        if (r == pid || (r < 0 && errno == ECHILD)) return true;
+        if (g_stop.load()) return false;
+        if (std::chrono::steady_clock::now() >= einde) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+}
+
 // Leeft er nog een proces in deze procesgroep? (signaal 0; EPERM telt als ja.)
 bool groep_leeft(pid_t pgid) { return ::kill(-pgid, 0) == 0 || errno == EPERM; }
 
@@ -1082,13 +1097,23 @@ void wacht_op_wineserver(const L::DirectPlan& plan, const L::EnvMap& env, int gr
     if (k.pid <= 0) return;
     StapUitvoer ku{k.out, "prefixstappen: wineserver: ", ""};
     int ks = 0;
-    if (!wacht_begrensd(k.pid, ks, grens_s * 1000)) {
-        log("prefixstappen: wineserver -w is na " + std::to_string(grens_s) + " s niet klaar (de grens); er loopt nog iets in de "
-            "prefix. Het wachten stopt en de stempel volgt na de controle");
+    const bool netjes = wacht_begrensd_stop(k.pid, ks, grens_s * 1000);
+    if (!netjes) {
+        if (g_stop.load())
+            log("prefixstappen: wineserver -w afgebroken door een stopsignaal; de stempel volgt na de controle");
+        else
+            log("prefixstappen: wineserver -w is na " + std::to_string(grens_s) + " s niet klaar (de grens); er loopt nog iets in de "
+                "prefix. Het wachten stopt en de stempel volgt na de controle");
         ::kill(k.pid, SIGKILL);
         wacht_begrensd(k.pid, ks, 1000);
     }
     ku.einde();
+    /* Review 16, punt 3b: eindigde wineserver -w zelf met een fout, dan hoort dat in het logboek te staan -- de
+     * stempel volgt daarna immers toch. De twee gevallen hierboven (grens, stopsignaal) hebben hun eigen regel. */
+    if (netjes && WIFEXITED(ks) && WEXITSTATUS(ks) != 0)
+        log("prefixstappen: wineserver -w eindigde met status " + std::to_string(WEXITSTATUS(ks)) + "; de stempel volgt na de controle");
+    else if (netjes && WIFSIGNALED(ks))
+        log("prefixstappen: wineserver -w eindigde door signaal " + std::to_string(WTERMSIG(ks)) + "; de stempel volgt na de controle");
 }
 
 // Na een GESLAAGDE stap: wat er nog van de stap draait (wine start meer dan een proces) mag niet doorlopen terwijl de volgende

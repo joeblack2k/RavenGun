@@ -1039,9 +1039,13 @@ std::vector<std::string> stempel_problemen(const DirectPlan& plan, const DirectP
      * prefix die zelf een koppeling naar de NAS is terwijl de stempelmap er nog niet in staat (weigeren). Review 15, ronde 2,
      * punt 2: hier stond eerst een splitsing "bestaat de map, dan dirname(m), anders de prefix" met de uitleg dat on_nas()
      * dichtklapt voor een pad dat niet bestaat; dat klopte niet (volg_pad verdraagt ENOENT) en de splitsing deed niets. */
-    if (pfx.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") || punt_punt || on_nas(dirname(m), p))
+    /* Review 16, punt 3c: de prefix moet ook ABSOLUUT zijn. Met een betrekkelijke prefix ("wine" of
+     * "./pfx") rekent abspath() hieronder met de werkmap van dit proces, en dan kan de stempel ergens
+     * anders uitkomen dan waar de loper hem schrijft. Een lege prefix valt hier ook onder. */
+    const bool absoluut = !pfx.empty() && pfx.front() == '/';
+    if (!absoluut || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") || punt_punt || on_nas(dirname(m), p))
         return {"de stempel van de prefixstappen (" + m + ") moet in " + map +
-                " liggen, op .done eindigen, geen .. bevatten en niet op de NAS liggen"};
+                " liggen (met een absolute prefix), op .done eindigen, geen .. bevatten en niet op de NAS liggen"};
     return {};
 }
 
