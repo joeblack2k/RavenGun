@@ -27,11 +27,18 @@
 //   codes laat zien, kan hier per code een echt antwoord komen (vergelijk tools/rg-winusb en
 //   tools/rg-usio voor dezelfde aanpak bij Namco-borden).
 //
-// OMGEVING
-//   RG_RHIO_LOG=<pad>      het logboek (standaard rg-rhio.log naast de DLL)
+// OMGEVING EN MARKERBESTANDEN
+//   De volledige lijst staat bij BouwAntwoord() verderop; hier de korte vorm. Alle variabelen worden
+//   een keer bij het laden van de DLL gelezen (LogOpen/LeesOmgeving), behalve RG_RHIO_ANTWOORD,
+//   RG_RHIO_TOETS, RG_RHIO_MUTEX, RG_RHIO_STACK en RG_COMPAT_* (die bij eerste gebruik).
+//   RG_RHIO_LOG=<pad>      het logboek (leeg of afwezig = rg-rhio.log naast de DLL); bij elke start
+//                          opnieuw begonnen, het vorige blijft als rg-rhio.vorige.log staan
 //   RG_RHIO_PAD=<pad>      het apparaatpad dat de opsomming teruggeeft (standaard \\.\USBPDCOM)
 //   RG_RHIO_IOCTL=0        DeviceIoControl niet "gelukt" melden maar de fout van Wine doorlaten
-//   RG_RHIO_STIL=1         alleen fouten loggen
+//   RG_RHIO_STIL=1         helemaal niet loggen (geen logbestand); elke andere waarde telt als uit
+//   RG_RHIO_EERSTEBYTE, RG_RHIO_BORD, RG_RHIO_ANTWOORD, RG_RHIO_TOETS, RG_RHIO_MUTEX, RG_RHIO_STACK,
+//   RG_COMPAT_SAMPLE, RG_COMPAT_SAMPLE_LOG, rg-compat.aan, rg-rhio-stack.aan, rg-rhio-mutex.aan:
+//   zie het blok bij BouwAntwoord().
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <tlhelp32.h>
@@ -53,6 +60,31 @@ bool g_stil = false;
 bool g_ioctl_ok = true;
 char g_pad[256] = {0};
 
+/* Het logboek (review 10 C4, pass 2). Een regel is een regel, welke functie hem ook schrijft: Log en
+ * LogVan delen een teller en een maximum, zodat rg-rhio.log niet onbeperkt groeit (de ReadFile-regels
+ * van LogVan zaten er eerder buiten). Na het maximum komt er nog een keer een regel en daarna niets
+ * meer. Elke regel wordt meteen geflusht: de nieuwste regels zijn precies die van het moment van een
+ * vastloper en gaan verloren als het spel wordt gedood. Het volume is laag genoeg doordat
+ * ClearCommError alleen een wijziging (of een levensteken per seconde) logt. */
+volatile LONG g_log_regels = 0;
+constexpr LONG kLogMax = 20000;
+
+void SchrijfRegel(const char* tekst) {
+    if (!g_log || g_stil) return;
+    if (g_log_regels > kLogMax) return;   // vooraf kijken: de teller loopt zo nooit door in een lus
+    const LONG nr = InterlockedIncrement(&g_log_regels);
+    if (nr > kLogMax + 1) return;
+    if (nr == kLogMax + 1) {
+        std::fprintf(g_log, "[log] maximum van %ld regels bereikt; verdere regels worden niet "
+                            "meer geschreven (zet RG_RHIO_STIL=1 of verwijder rg-rhio.log)\n", kLogMax);
+        std::fflush(g_log);
+        return;
+    }
+    std::fputs(tekst, g_log);
+    std::fputc('\n', g_log);
+    std::fflush(g_log);
+}
+
 void LogVan(const void* beller, const char* fmt, ...) {
     if (!g_log || g_stil) return;
     va_list ap;
@@ -60,33 +92,30 @@ void LogVan(const void* beller, const char* fmt, ...) {
     char tekst[512];
     vsnprintf(tekst, sizeof tekst, fmt, ap);
     va_end(ap);
-    std::fprintf(g_log, "[%8lu] beller=%p %s\n", static_cast<unsigned long>(GetTickCount()), beller, tekst);
-    std::fflush(g_log);
+    char regel[640];
+    std::snprintf(regel, sizeof regel, "[%8lu] beller=%p %s", static_cast<unsigned long>(GetTickCount()), beller, tekst);
+    SchrijfRegel(regel);
 }
-
-/* Begrensd: zonder dit groeit rg-rhio.log onbeperkt (elke ClearCommError/ReadFile/WriteFile schrijft
- * en flusht). Na het maximum komt er nog een keer een regel en daarna niets meer (review 10, C4). */
-unsigned long g_log_regels = 0;
-constexpr unsigned long kLogMax = 20000;
 
 void Log(const char* fmt, ...) {
     if (!g_log || g_stil) return;
-    if (g_log_regels >= kLogMax) {
-        if (g_log_regels == kLogMax) {
-            ++g_log_regels;
-            std::fprintf(g_log, "[log] maximum van %lu regels bereikt; verdere regels worden niet "
-                                "meer geschreven (zet RG_RHIO_STIL of verwijder rg-rhio.log)\n", kLogMax);
-            std::fflush(g_log);
-        }
-        return;
-    }
-    ++g_log_regels;
     va_list ap;
     va_start(ap, fmt);
-    std::vfprintf(g_log, fmt, ap);
+    char regel[640];
+    vsnprintf(regel, sizeof regel, fmt, ap);
     va_end(ap);
-    std::fputc('\n', g_log);
-    std::fflush(g_log);
+    SchrijfRegel(regel);
+}
+
+/* Zoals Log (alles wordt nu meteen weggeschreven); apart gehouden om de foutregels te kunnen onderscheiden. */
+void LogFout(const char* fmt, ...) {
+    if (!g_log || g_stil) return;
+    va_list ap;
+    va_start(ap, fmt);
+    char regel[640];
+    vsnprintf(regel, sizeof regel, fmt, ap);
+    va_end(ap);
+    SchrijfRegel(regel);
 }
 
 volatile LONG g_log_geprobeerd = 0;
@@ -96,24 +125,46 @@ void LogOpen() {
      * De vlag is atomair, want meerdere draden van het spel komen hier langs. */
     if (g_log) return;
     if (InterlockedCompareExchange(&g_log_geprobeerd, 1, 0) != 0) return;
-    const char* omgeving = std::getenv("RG_RHIO_LOG");
-    char pad[MAX_PATH];
-    if (omgeving && *omgeving) {
-        std::snprintf(pad, sizeof pad, "%s", omgeving);
-    } else {
-        HMODULE zelf = nullptr;
-        GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           reinterpret_cast<LPCSTR>(&LogOpen), &zelf);
-        GetModuleFileNameA(zelf, pad, sizeof pad);
-        char* schuin = std::strrchr(pad, '\\');
-        if (schuin) *(schuin + 1) = '\0';
-        std::strncat(pad, "rg-rhio.log", sizeof pad - std::strlen(pad) - 1);
-    }
-    g_log = std::fopen(pad, "a");
-    g_stil = std::getenv("RG_RHIO_STIL") != nullptr;
+    /* Alleen "1" is stil (RG_RHIO_STIL=0 of een andere waarde betekent gewoon loggen). Bij stil
+     * wordt het logbestand ook niet aangeraakt: er komt toch niets in. */
+    const char* stil = std::getenv("RG_RHIO_STIL");
+    g_stil = stil && std::strcmp(stil, "1") == 0;
     if (const char* v = std::getenv("RG_RHIO_IOCTL")) g_ioctl_ok = std::strcmp(v, "0") != 0;
     const char* p = std::getenv("RG_RHIO_PAD");
     std::snprintf(g_pad, sizeof g_pad, "%s", (p && *p) ? p : kStandaardPad);
+    if (!g_stil) {
+        const char* omgeving = std::getenv("RG_RHIO_LOG");
+        char pad[MAX_PATH];
+        if (omgeving && *omgeving) {
+            std::snprintf(pad, sizeof pad, "%s", omgeving);
+        } else {
+            HMODULE zelf = nullptr;
+            GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               reinterpret_cast<LPCSTR>(&LogOpen), &zelf);
+            GetModuleFileNameA(zelf, pad, sizeof pad);
+            char* schuin = std::strrchr(pad, '\\');
+            if (schuin) *(schuin + 1) = '\0';
+            std::strncat(pad, "rg-rhio.log", sizeof pad - std::strlen(pad) - 1);
+        }
+        /* Elke start een schoon logboek; het vorige blijft een start lang bewaard als <naam>.vorige.log
+         * (bij een pad dat niet op .log eindigt: <pad>.vorige). Lukt het hernoemen niet om een andere
+         * reden dan "bestaat nog niet" (bv. een sharing violation omdat een tweede proces het logboek
+         * open heeft), dan openen we met "a" en laten het bestand staan in plaats van het leeg te maken. */
+        char vorige[MAX_PATH + 16];
+        const size_t lp = std::strlen(pad);
+        if (lp > 4 && std::strcmp(pad + lp - 4, ".log") == 0)
+            std::snprintf(vorige, sizeof vorige, "%.*s.vorige.log", static_cast<int>(lp - 4), pad);
+        else
+            std::snprintf(vorige, sizeof vorige, "%s.vorige", pad);
+        DWORD hernoem_fout = 0;
+        if (!MoveFileExA(pad, vorige, MOVEFILE_REPLACE_EXISTING)) hernoem_fout = GetLastError();
+        const bool geen_vorige = hernoem_fout == 0 || hernoem_fout == ERROR_FILE_NOT_FOUND ||
+                                 hernoem_fout == ERROR_PATH_NOT_FOUND;
+        g_log = std::fopen(pad, geen_vorige ? "w" : "a");
+        if (!geen_vorige)
+            LogFout("logboek: hernoemen naar %s mislukt (fout %lu); logboek geopend met \"a\" (toevoegen)", vorige,
+                    static_cast<unsigned long>(hernoem_fout));
+    }
     Log("rg-rhio geladen (32-bits): pad=%s, ioctl-gelukt=%d", g_pad, g_ioctl_ok ? 1 : 0);
 }
 
@@ -199,6 +250,23 @@ DWORD g_wachtend_antwoord = 0;
 /* Hoeveel bytes van het antwoord al aan het spel gegeven zijn (het leest eerst 1 byte, dan 6). */
 DWORD g_antwoord_gelezen = 0;
 bool g_antwoord_op = false;   // het antwoord is helemaal gelezen: cbInQue moet 0 zijn
+/* Het aantal bytes van de laatste ReadFile/WriteFile op het bord: dat meldt GetOverlappedResult
+ * (niet de lengte van het hele kader). Onder g_bord_cs gezet en gelezen. */
+DWORD g_laatste_overdracht = 0;
+/* De laatste cbInQue die ClearCommError gelogd heeft (onder g_bord_cs); de aanroep staat in een
+ * strakke lus en logde elke keer dezelfde regel. 0xFFFFFFFF = nog niets gelogd. */
+DWORD g_clear_gelogd = 0xFFFFFFFFu;
+/* Aantal ClearCommError-aanroepen sinds de laatste ClearCommError-logregel en het tijdstip van die
+ * regel (onder g_bord_cs): zonder deze twee is "het spel pollt nog" niet te onderscheiden van "het
+ * spel roept niet meer aan" als cbInQue op 0 of 7 blijft staan. */
+DWORD g_clear_aanroepen = 0;
+DWORD g_clear_tick = 0;
+/* RG_RHIO_EERSTEBYTE en RG_RHIO_BORD, een keer gelezen in LeesOmgeving() (DllMain), dus niet per
+ * frame onder g_bord_cs. */
+bool g_eerstebyte_gezet = false;
+unsigned char g_eerstebyte = 0;
+char g_bord[64] = {0};
+bool g_met_bord = true;
 /* Meerdere draden van het spel komen bij deze poort; alles hieronder is met dit slot beschermd. */
 CRITICAL_SECTION g_bord_cs;
 bool g_bord_cs_klaar = false;
@@ -412,7 +480,8 @@ const char* AntwoordStand();
 BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLAPPED ov) {
     if (h == g_com_handle) {
         /* Eerste proef: het laatste opdrachtkader terugsturen (bord aanwezig, geen schakelaars).
-         * RG_RHIO_ANTWOORD=0 zet dat uit; RG_RHIO_ANTWOORD=niks laat het antwoord leeg. */
+         * RG_RHIO_ANTWOORD=0 (of echo) is hetzelfde als niet gezet: echo; RG_RHIO_ANTWOORD=niks laat
+         * het antwoord leeg. */
         const char* stand = AntwoordStand();
         if (stand && std::strcmp(stand, "niks") == 0) {
             Log("ReadFile(bord, %lu bytes gevraagd) -> geen antwoord (RG_RHIO_ANTWOORD=niks)",
@@ -424,6 +493,7 @@ BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLA
             g_wachtend_antwoord = 0;
             g_antwoord_gelezen = 0;
             g_antwoord_op = true;   // niets klaarstaands: cbInQue 0 (review 10, C2)
+            g_laatste_overdracht = 0;
             if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
             SetLastError(ERROR_TIMEOUT);
             return TRUE;
@@ -442,6 +512,7 @@ BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLA
             g_antwoord_op = true;
             g_wachtend_antwoord = 0;   /* het hele antwoord is opgehaald */
         }
+        g_laatste_overdracht = m;
         if (gelezen) *gelezen = m;
         if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
         LogVan(__builtin_return_address(0), "ReadFile(bord, %lu bytes gevraagd, vanaf %lu) -> %lu bytes",
@@ -467,6 +538,11 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD geschreven, LPO
         BouwAntwoord();
         g_wachtend_antwoord = g_laatste_lengte;
         g_antwoord_gelezen = 0;
+        /* Een nieuw antwoord staat klaar, ook als het frame korter dan 7 bytes is (BouwAntwoord doet dan
+         * niets): anders bleef g_antwoord_op van het vorige, helemaal gelezen frame staan en meldde
+         * ClearCommError cbInQue 0 (review 10, C1). */
+        g_antwoord_op = false;
+        g_laatste_overdracht = n;
         {
             char opdracht_hex[3 * 64 + 1], antwoord_hex[3 * 64 + 1];
             for (DWORD i = 0; i < g_laatste_lengte; ++i)
@@ -491,6 +567,7 @@ BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD vlaggen) {
         g_antwoord_gelezen = 0;
         g_antwoord_op = false;
         g_wachtend_antwoord = 0;
+        g_laatste_overdracht = 0;
         if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
         Log("PurgeComm(bord, 0x%lx) -> wachtend antwoord gewist", static_cast<unsigned long>(vlaggen));
         return TRUE;
@@ -510,17 +587,51 @@ bool CodeGoed(unsigned char c) {
 }
 
 /* Het antwoord op een opdrachtkader opbouwen: het kader terug, maar met een eerste byte die het spel
- * goedkeurt (anders gaat het naar het foutpad) en de som van de eerste zes bytes in byte 6. Met
- * RG_RHIO_EERSTEBYTE is de eerste byte te kiezen (hex); RG_RHIO_ANTWOORD=nul blijft als proefstand.
+ * goedkeurt (anders gaat het naar het foutpad) en de som van de eerste zes bytes in byte 6.
  *
- * Alle omgevingsvariabelen van deze DLL (review 10, C4):
- *   RG_RHIO_LOG        = pad van het logboek (leeg/afwezig = geen logboek)
- *   RG_RHIO_STIL       = 1: niet loggen
- *   RG_RHIO_ANTWOORD   = echo (standaard) | 0 (uit) | niks (geen antwoord) | nul (nullen)
- *   RG_RHIO_EERSTEBYTE = hex; forceert alleen de eerste byte van het antwoord
- *   RG_RHIO_TOETS      = cyclus | nul | vol | buiten (proefstanden op de besturingsbyte/richtas)
- *   RG_RHIO_BORD       = 0: geen bordtoestand uit het gedeelde geheugen (alleen echo)
- *   RG_COMPAT_SAMPLE   = ms; laadt de meetdraad van rg-compat (lazy, bij de eerste bordaanraking)
+ * ALLE omgevingsvariabelen en markerbestanden van deze DLL (review 10, C4; bijgewerkt in pass 2).
+ * Een variabele "afwezig" is ook een lege waarde. Waar hieronder "bij het laden" staat, is hij een
+ * keer gelezen (LogOpen/LeesOmgeving in DllMain); de rest bij het eerste gebruik.
+ *   RG_RHIO_LOG        = pad van het logboek; leeg of afwezig = rg-rhio.log naast de DLL. Bij elke
+ *                        start opnieuw begonnen; het vorige logboek wordt hernoemd naar
+ *                        <naam>.vorige.log (bij een pad zonder .log: <pad>.vorige). Maximaal 20000
+ *                        regels (Log en LogVan tellen samen), elke regel meteen geflusht; ClearCommError logt een
+ *                        wijziging van cbInQue en verder een levensteken per ~1 s met het aantal
+ *                        aanroepen sinds de vorige regel.
+ *   RG_RHIO_STIL       = alleen de waarde "1" zet het logboek helemaal uit (er wordt dan ook geen
+ *                        bestand aangemaakt of hernoemd); elke andere waarde telt als uit.
+ *   RG_RHIO_PAD        = het apparaatpad dat de SetupDi-opsomming teruggeeft (standaard \\.\USBPDCOM)
+ *   RG_RHIO_IOCTL      = "0": DeviceIoControl op het apparaatpad meldt een fout (ERROR_INVALID_FUNCTION)
+ *                        in plaats van "gelukt"; elke andere waarde of afwezig = gelukt (bij het laden).
+ *   RG_RHIO_ANTWOORD   = (eerste gebruik; waarden die de code kent)
+ *                          afwezig of iets anders (ook "0" en "echo") = echo met een geldige code
+ *                          "nul"  = alle zeven bytes 0 (proef: de beveiligingscontrole valt om)
+ *                          "niks" = geen antwoord; ReadFile geeft 0 bytes en wist het wachtende antwoord (daarna
+ *                                meldt ClearCommError 0)
+ *   RG_RHIO_EERSTEBYTE = hex (bv. 94, 0x94); forceert alleen byte 0 van het antwoord. Afwezig of leeg
+ *                        = byte 0 uit de opdracht als het een goedgekeurde code is, anders 0x94.
+ *                        Bij het laden gelezen.
+ *   RG_RHIO_BORD       = "0" (eerste teken): geen bordtoestand uit het gedeelde geheugen, alleen
+ *                        echo. Afwezig of iets anders = toestand uit TeknoParrot_JvsState. Bij het
+ *                        laden gelezen; past de waarde niet in 63 tekens, dan telt hij als afwezig
+ *                        (een keer gelogd).
+ *   RG_RHIO_TOETS      = (eerste gebruik) cyclus | nul | vol | buiten: proefstanden op de besturings-
+ *                        byte/richtas; afwezig = toestand uit het bordbeeld (zie ProefToestand).
+ *   RG_RHIO_MUTEX      = (eerste gebruik) afwezig: kijk naar rg-rhio-mutex.aan; gezet: "0" is uit,
+ *                        al het andere aan. Zet de logregels "mutex:" aan en installeert dan pas de
+ *                        haken op WaitForSingleObject/ReleaseMutex/CreateMutexA (die Robin Hood bij
+ *                        elke start liet stoppen, daarom standaard uit).
+ *   RG_RHIO_STACK      = (eerste gebruik) idem voor rg-rhio-stack.aan: "0" uit, anders aan; zet de
+ *                        stapelregels "stack:" aan (LeesWachthandvatten, een keer per seconde).
+ *   RG_COMPAT_SAMPLE   = ms; laadt de meetdraad van rg-compat (lazy, bij de eerste CreateFileA)
+ *   RG_COMPAT_SAMPLE_LOG = pad van het meetlogboek; afwezig = rg-compat-sample.txt naast de DLL (wordt
+ *                        door LaadMeetdraad gezet als er een meting is)
+ *   Markerbestanden, gezocht in de map van deze DLL (alleen of ze bestaan; de inhoud telt niet,
+ *   behalve bij rg-compat.aan):
+ *     rg-compat.aan      = zet de meetdraad aan; de inhoud is het aantal ms (leeg/onleesbaar = 200) en
+ *                          wordt RG_COMPAT_SAMPLE
+ *     rg-rhio-stack.aan  = zelfde als RG_RHIO_STACK=1
+ *     rg-rhio-mutex.aan  = zelfde als RG_RHIO_MUTEX=1
  *   RAVENGUN_PATCHMEM_HOOK = de DLL die de motor laadt (dit is rg-rhio.dll)
  *   RAVENGUN_PATCHMEM_FILE / RAVENGUN_PATCHMEM_VERBOSE = van de geheugenmotor (zie memory/) */
 /* RG_RHIO_ANTWOORD, een keer gelezen (deze functie loopt per bordopdracht):
@@ -531,6 +642,30 @@ bool CodeGoed(unsigned char c) {
 const char* AntwoordStand() {
     static const char* stand = std::getenv("RG_RHIO_ANTWOORD");
     return stand;
+}
+
+/* RG_RHIO_EERSTEBYTE en RG_RHIO_BORD een keer lezen, in DllMain na het aanmaken van het slot (dus
+ * voordat een andere draad BouwAntwoord kan aanroepen). Was per frame onder g_bord_cs een getenv en
+ * een GetEnvironmentVariableA op een niet-geinitialiseerde buffer van 8 bytes: bij een waarde van 8+
+ * tekens geeft de API alleen de benodigde grootte terug en laat de buffer onaangeroerd. */
+void LeesOmgeving() {
+    const char* keuze = std::getenv("RG_RHIO_EERSTEBYTE");
+    if (keuze && *keuze) {
+        g_eerstebyte = static_cast<unsigned char>(std::strtoul(keuze, nullptr, 16));
+        g_eerstebyte_gezet = true;
+    }
+    g_bord[0] = '\0';
+    const DWORD n = GetEnvironmentVariableA("RG_RHIO_BORD", g_bord, sizeof g_bord);
+    if (n >= sizeof g_bord) {   // past niet (de API geeft dan de benodigde grootte terug)
+        g_bord[0] = '\0';
+        LogFout("RG_RHIO_BORD is te lang (%lu tekens, maximaal %lu); telt als niet gezet",
+                static_cast<unsigned long>(n), static_cast<unsigned long>(sizeof g_bord - 1));
+    } else if (n == 0) {
+        g_bord[0] = '\0';
+    }
+    g_met_bord = g_bord[0] != '0';
+    Log("omgeving: RG_RHIO_EERSTEBYTE=%s, RG_RHIO_BORD=%s (bordtoestand uit gedeeld geheugen: %s)",
+        g_eerstebyte_gezet ? "gezet" : "afwezig", g_bord[0] ? g_bord : "afwezig", g_met_bord ? "ja" : "nee");
 }
 
 // --- Het bordbeeld van de daemon (ons eigen gedeelde geheugen) --------------------------------
@@ -555,7 +690,7 @@ void OpenBordbeeld() {
     if (!bewaard) bewaard = open(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
     if (!bewaard) {
         if (!al_gemeld) {   // een keer melden; hij blijft het daarna wel proberen
-            Log("bordbeeld: mapping TeknoParrot_JvsState (nog) niet gevonden (fout %lu)",
+            LogFout("bordbeeld: mapping TeknoParrot_JvsState (nog) niet gevonden (fout %lu)",
                 static_cast<unsigned long>(GetLastError()));
             al_gemeld = true;
         }
@@ -614,27 +749,21 @@ void VulToestand(unsigned char* k) {
 
 void BouwAntwoord() {
     if (g_laatste_lengte < 7) return;
-    g_antwoord_op = false;   // er staat een nieuw antwoord klaar (review 10, C1)
     unsigned char* k = g_laatste_kader;
     const char* mode = AntwoordStand();
     if (mode && std::strcmp(mode, "nul") == 0) {
         std::memset(k, 0, g_laatste_lengte);
         return;
     }
-    /* LET OP (review 11): deze twee regels bewust NIET gecached of geinitialiseerd. Elke vorm die de
-     * buffer `bord` anders neerzet (char bord[8] = {0}; of een static lambda) laat Robin Hood meteen
-     * stoppen; de oorzaak is een latente fout elders in dit bestand (zie de dagstand). */
-    const char* keuze = std::getenv("RG_RHIO_EERSTEBYTE");
-    if (keuze && *keuze) {
-        k[0] = static_cast<unsigned char>(std::strtoul(keuze, nullptr, 16));
+    /* Eerste byte en bordtoestand komen uit g_eerstebyte/g_met_bord, een keer gelezen in LeesOmgeving. */
+    if (g_eerstebyte_gezet) {
+        k[0] = g_eerstebyte;
     } else if (!CodeGoed(k[0])) {
         k[0] = 0x94;   /* deze opdrachtcode is geen geldig antwoord: "bord aanwezig" */
     }
     /* De toestand uit ons eigen gedeelde geheugen (de daemon schrijft die), tenzij de proefstand
      * "niks" of "nul" aan staat. Met RG_RHIO_BORD=0 blijft het een echo. */
-    char bord[8];
-    const bool met_bord = GetEnvironmentVariableA("RG_RHIO_BORD", bord, sizeof bord) == 0 || bord[0] != '0';
-    if (met_bord) {
+    if (g_met_bord) {
         OpenBordbeeld();
         VulToestand(k);
     }
@@ -650,6 +779,17 @@ BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD fouten, LPCOMSTAT stat) {
         /* Geen spookdata: is het antwoord helemaal gelezen (of is er geen), dan is cbInQue 0. Zonder
          * dit las het spel na een volledig kader opnieuw 7 bytes en begon het rondje opnieuw. */
         rest = g_antwoord_op ? 0 : (g_laatste_lengte > g_antwoord_gelezen ? g_laatste_lengte - g_antwoord_gelezen : 0);
+        /* Loggen bij een wijziging van cbInQue, en verder een levensteken zodra de vorige regel minstens
+         * 1000 ms geleden is (meegenomen op deze aanroep, geen extra draad). */
+        const DWORD nu = GetTickCount();
+        ++g_clear_aanroepen;
+        const bool loggen = rest != g_clear_gelogd || nu - g_clear_tick >= 1000;
+        const DWORD aanroepen = g_clear_aanroepen;
+        if (loggen) {
+            g_clear_gelogd = rest;
+            g_clear_aanroepen = 0;
+            g_clear_tick = nu;
+        }
         if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
         if (fouten) *fouten = 0;
         if (stat) {
@@ -658,7 +798,10 @@ BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD fouten, LPCOMSTAT stat) {
              * leest het de rest nooit (en dat was precies het oude misverstand). */
             stat->cbInQue = rest;
         }
-        Log("ClearCommError(bord) -> cbInQue=%lu", static_cast<unsigned long>(rest));
+        if (loggen)
+            Log("ClearCommError: cbInQue=%lu (%lu aanroepen sinds vorige regel, tick %lu)",
+                static_cast<unsigned long>(rest), static_cast<unsigned long>(aanroepen),
+                static_cast<unsigned long>(nu));
         return TRUE;
     }
     return g_echte_clear ? g_echte_clear(h, fouten, stat) : FALSE;
@@ -740,12 +883,13 @@ BOOL WINAPI rg_WaitCommEvent(HANDLE h, LPDWORD masker, LPOVERLAPPED ov) {
 
 BOOL WINAPI rg_GetOverlappedResult(HANDLE h, LPOVERLAPPED ov, LPDWORD aantal, BOOL wachten) {
     if (h == g_com_handle) {
-        DWORD lengte;
+        /* Het aantal bytes van de laatste ReadFile/WriteFile, niet de lengte van het hele kader. */
+        DWORD overdracht;
         if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
-        lengte = g_laatste_lengte;
+        overdracht = g_laatste_overdracht;
         if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
-        Log("GetOverlappedResult(bord) -> %lu bytes", static_cast<unsigned long>(lengte));
-        if (aantal) *aantal = g_laatste_lengte;
+        Log("GetOverlappedResult(bord) -> %lu bytes", static_cast<unsigned long>(overdracht));
+        if (aantal) *aantal = overdracht;
         return TRUE;
     }
     return g_echte_ovl ? g_echte_ovl(h, ov, aantal, wachten) : FALSE;
@@ -1063,6 +1207,7 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
         g_bord_cs_klaar = true;
         LogOpen();
         Log("--- nieuw proces: de I/O-bordkant van RavenGun geladen ---");
+        LeesOmgeving();   // na het slot en het logboek; voor installeer_haken, dus voor elke bordaanroep
         /* N6: alleen een draad als er iets niet gevonden is; anders herhaalt hij hetzelfde werk en
          * schrijft hij dezelfde regels nog eens. */
         if (!installeer_haken()) {

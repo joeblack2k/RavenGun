@@ -35,7 +35,9 @@ fi
 podman run --rm -v "$SRC:/w:Z" -w /w "$IMAGE" bash -lc '
     set -e
     mkdir -p out
-    i686-w64-mingw32-g++ -shared -O2 -Wall -static -o out/rg-rhio.dll rg_rhio.cpp -Wl,--kill-at
+    # -s: zonder strippen is de DLL 2,3 MB, waarvan ~2,1 MB DWARF uit de statische libstdc++/libgcc
+    # (.text is ~200 kB). Dit is al twee keer per ongeluk weggevallen; laat -s staan.
+    i686-w64-mingw32-g++ -shared -O2 -Wall -s -static -o out/rg-rhio.dll rg_rhio.cpp -Wl,--kill-at
     ls -l out/rg-rhio.dll
 '
 
