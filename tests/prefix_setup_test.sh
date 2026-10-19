@@ -107,13 +107,14 @@ STEMPEL="$PFX/.ravengun-prefixsetup/proef.done"
 #      leegwrapper  de wrapper, plan.prefix leeg, RG_WINEPREFIX = $3.
 # $3 = de prefix (standaard $PFX; "" is echt leeg: ${3-...}, niet ${3:-...}, review 15, ronde 2, punt 1).
 # De stempel komt altijd in de prefix van het plan zelf: <prefix>/.ravengun-prefixsetup/proef.done.
+# $5 = "geenstempel" voor een plan zonder stempel.
 # PLAN_ENV='{"NAAM": "waarde"}' zet daarna nog extra omgeving in het plan.
 maak_plan() {
     local extra="${PLAN_ENV-}"
     [ -n "$extra" ] || extra='{}'
-    python3 -I - "$PLAN" "$1" "${2:-}" "$W" "$V" "${3-$PFX}" "${4:-WINEPREFIX}" "$extra" <<'PY'
+    python3 -I - "$PLAN" "$1" "${2:-}" "$W" "$V" "${3-$PFX}" "${4:-WINEPREFIX}" "$extra" "${5:-}" <<'PY'
 import json, sys
-plan, stappen, soort, w, v, pfx, sleutel, extra = sys.argv[1:9]
+plan, stappen, soort, w, v, pfx, sleutel, extra, stempel = sys.argv[1:10]
 env = {"PATH": "/usr/bin:/bin", "HOME": w + "/home"}
 if soort == "leegprefix":
     # Geen prefix in het plan: de motor haalt hem dan uit de omgeving. Voor de stempelcontrole en de
@@ -150,7 +151,7 @@ for s in json.loads(stappen):
 p = {"profile": "MK", "game": v + "/spel.exe", "cwd": v, "wine": wine, "prefix": prefix, "pipehelper": "pipehelper.exe",
      "argv": [wine, "spel.exe"], "env": env, "view_writable": [v + "/AMCUS"],
      # De stempel hoort in DEZELFDE prefix te liggen als waarin de stappen lopen (review 14, punt 3).
-     "prefix_setup_mark": pfx + "/.ravengun-prefixsetup/proef.done",
+     "prefix_setup_mark": "" if stempel == "geenstempel" else pfx + "/.ravengun-prefixsetup/proef.done",
      "prefix_setup": uit}
 json.dump(p, open(plan, "w"))
 PY
@@ -299,6 +300,18 @@ for rel in "../../etc/passwd" "/etc/passwd"; do
     [ ! -e "$V/AMCUS/p.ini" ] || mislukt "prefix:$rel is gekopieerd"
 done
 zeg "prefix: met .. of / in een bewerkt plan geweigerd (goed)"
+# 8b. prefix: zonder prefix (plan.prefix leeg, niets in de omgeving, geen stempel die het eerder tegenhoudt): dan las de loper
+# drive_c/... ten opzichte van zijn werkmap (review 15, ronde 2, punt 3). Daar ligt hier een lokvogel.
+mkdir -p "$W/werkmap/drive_c/windows"
+printf 'uit-de-werkmap\n' > "$W/werkmap/drive_c/windows/WritableConfig.ini"
+for p in "" "relatief/prefix"; do
+    maak_plan '[{"copy": "AMCUS/leeg.ini", "prefix": "drive_c/windows/WritableConfig.ini"}]' leegprefix "$p" WINEPREFIX geenstempel
+    uit=$(cd "$W/werkmap" && stappen); rc=$?
+    [ "$rc" != 0 ] || mislukt "prefix: zonder prefix ('$p') gaf status 0: $uit"
+    case "$uit" in *"heeft geen prefix"*) ;; *) mislukt "prefix: zonder prefix ('$p') niet om de prefix geweigerd: $uit";; esac
+    [ ! -e "$V/AMCUS/leeg.ini" ] || mislukt "prefix: zonder prefix ('$p') heeft gekopieerd (uit de werkmap)"
+done
+[ "$fout" = 0 ] && zeg "prefix: zonder (absolute) prefix geweigerd, niets uit de werkmap gelezen (goed)"
 
 # --- 9. schrijfmap nog een koppeling naar de NAS (N2, een kale start) -------------------------
 mv "$V/AMCUS" "$W/amcus-echt"

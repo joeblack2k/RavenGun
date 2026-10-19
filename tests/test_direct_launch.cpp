@@ -2346,6 +2346,24 @@ int main() {
             CHECK(!stempel(pfx + "/.ravengun-prefixsetup/zonder-einde"));      // geen .done
             CHECK(!stempel(pfx + "/.ravengun-prefixsetup/sub/naam.done"));     // niet direct in de map
         }
+        /* Review 15, ronde 2, punt 3: een prefix:-bron zonder (absolute) prefix weigert, want dan las de loper drive_c/...
+         * ten opzichte van zijn werkmap. Een prefix die alleen in RG_WINEPREFIX staat is wel goed (prefix_van_plan). */
+        {
+            DirectPlan x = gp;
+            x.prefix.clear();
+            x.env.clear();
+            const DirectSetupStep s = stap_copy(gv / "AMCUS/z.ini");
+            x.prefix_setup = {s};
+            auto f = D::prefixstappen_problemen(x, pg);
+            CHECK(!f.empty() && contains(f.front(), "heeft geen prefix"));
+            CHECK(!D::prefixstap_problemen(s, gv.string(), "", pg).empty());
+            CHECK(!D::prefixstap_problemen(s, gv.string(), "relatief/pfx", pg).empty());
+            CHECK(D::prefixstap_problemen(s, gv.string(), gp.prefix, pg).empty());
+            x.env["RG_WINEPREFIX"] = gp.prefix;
+            f = D::prefixstappen_problemen(x, pg);
+            CHECK(f.empty());
+            toon(f);
+        }
         CHECK(weigert(stap_copy(gv / "Mucha/WritableConfig.ini"), "doelmap is een koppeling naar de NAS", pg));
         CHECK(weigert(stap_run(gv / "Mucha"), "werkmap is een koppeling naar de NAS", pg));
         std::error_code gec;

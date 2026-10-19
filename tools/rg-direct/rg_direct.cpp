@@ -1130,8 +1130,12 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
      * motor (prefixstap_problemen): tussen het plan en nu, en tussen twee stappen, kan er van alles veranderd zijn (review 13,
      * punt 1; ronde 2, punt 3: de werkmap van een run-stap werd hier eerder niet meer bekeken). */
     const std::string wortel = D::view_wortel(D::dirname(plan.game), wp);
+    /* De prefix EEN keer bepalen, voor de controle van elke stap en de prefix:-bron (review 15, ronde 2, punt 3): een lege of
+     * relatieve prefix weigert prefixstap_problemen() bij een prefix:-bron, hier vlak voor het lezen net als bij de controle
+     * vooraf. */
+    const std::string pfx = D::prefix_van_plan(plan);
     auto geweigerd = [&](const L::DirectSetupStep& stap) {
-        const std::vector<std::string> f = D::prefixstap_problemen(stap, wortel, wp);
+        const std::vector<std::string> f = D::prefixstap_problemen(stap, wortel, pfx, wp);
         for (const std::string& x : f) log("prefixstap: GEWEIGERD (" + stap.tekst + "): " + x);
         return !f.empty();
     };
@@ -1162,8 +1166,7 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                 /* De bron in de prefix opnieuw in elkaar zetten met de prefix van DIT plan: het plan
                  * kan met een andere prefix gemaakt zijn dan waarmee het nu draait (review 13, punt 4).
                  * from_rel is in prefixstap_problemen() gecontroleerd (geen .., niet absoluut). */
-                const std::string bron =
-                    stap.from_prefix ? D::pjoin(D::prefix_van_plan(plan), stap.from_rel) : stap.from;
+                const std::string bron = stap.from_prefix ? D::pjoin(pfx, stap.from_rel) : stap.from;
                 if (stap.from_prefix && bron != stap.from)
                     log("prefixstap: bron in de prefix: " + bron + " (het plan noemde " + stap.from + ")");
                 std::string fout, inhoud, rerr, werr;

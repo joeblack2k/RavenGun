@@ -929,7 +929,8 @@ std::vector<std::string> prefixstap_map_problemen(const std::string& map, const 
     return uit;
 }
 
-std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const std::string& wortel, const DirectPaths& p) {
+std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const std::string& wortel, const std::string& prefix,
+                                              const DirectPaths& p) {
     auto schoon = [](const std::string& x) {   // dezelfde regel als de motor (direct.cpp, 6f3)
         return !x.empty() && x.front() != '/' && x.find("..") == std::string::npos;
     };
@@ -940,6 +941,11 @@ std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const s
          * zijn, anders kwam een met de hand bewerkt plan (prefix:/etc/x, prefix:../..) hier alsnog door. */
         if (st.from_prefix && !schoon(st.from_rel))
             uit.push_back("de bron prefix:" + st.from_rel + " (na prefix: een pad zonder .. en zonder leidende schuine streep)");
+        /* Review 15, ronde 2, punt 3: zonder prefix (of met een relatieve) las pjoin(prefix, from_rel) drive_c/... ten opzichte
+         * van de werkmap van rg-direct. De loper zet de bron in elkaar met DEZE prefix (prefix_van_plan). */
+        if (st.from_prefix && (prefix.empty() || prefix.front() != '/'))
+            uit.push_back("de bron prefix:" + st.from_rel + " heeft geen prefix: het plan noemt geen absolute prefix (plan.prefix, "
+                          "RG_WINEPREFIX, TP_WINEPREFIX of WINEPREFIX" + (prefix.empty() ? "" : "; " + prefix + " is relatief") + ")");
         if (!st.from_prefix && (!binnen(abspath(st.from), w) || st.from.find("..") != std::string::npos))
             uit.push_back("de bron " + st.from + " ligt niet in de view " + w);
         if (st.to.empty() || basename(st.to).empty() || st.to.find("..") != std::string::npos || !binnen(abspath(st.to), w) ||
@@ -999,9 +1005,10 @@ std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const D
         return {"de prefixstappen vragen een view; " + plan.game + " ligt niet in " + p.views()};
     /* De stempel van de prefixstappen: zie stempel_problemen() hierboven. */
     if (const std::vector<std::string> fout = stempel_problemen(plan, p); !fout.empty()) return fout;
+    const std::string pfx = prefix_van_plan(plan);
     std::vector<std::string> uit;
     for (const DirectSetupStep& st : plan.prefix_setup)
-        for (const std::string& x : prefixstap_problemen(st, wortel, p)) uit.push_back(st.tekst + ": " + x);
+        for (const std::string& x : prefixstap_problemen(st, wortel, pfx, p)) uit.push_back(st.tekst + ": " + x);
     return uit;
 }
 
