@@ -195,13 +195,12 @@ inline BOOL WINAPI hook_device_io_control(HANDLE dev, DWORD code, LPVOID in, DWO
             std::memset(out, 0, out_len);
             // The game asks with a 6-byte buffer first and expects the first dword to be the size of
             // the dongle payload (> 6); it then asks again with that size. Answer that size here.
-            if (code == 0x00220424u && out_len >= 6) {
+            if ((code == 0x00220424u || code == 0x00220408u) && out_len >= 6) {
                 const unsigned long payload = 0x104;
                 std::memcpy(out, &payload, sizeof payload);
                 // Probe the payload layout: ASCII digits cycling, so whatever the game shows on its
                 // boot check (board id / serial) tells us at which offset it reads.
-                auto* p = static_cast<unsigned char*>(out) + 4;
-                for (DWORD i = 0; i + 4 < 0x104 && i < out_len; ++i) p[i] = static_cast<unsigned char>('0' + (i % 10));
+                // The payload stays zero; only the size prefix is filled in.
             }
             if (back) *back = out_len;
             SetLastError(ERROR_SUCCESS);
@@ -248,6 +247,68 @@ inline void WINAPI hook_exit_process(UINT code) {
         g_log("dongle: ExitProcess(%u) caller 0x%08lx", static_cast<unsigned>(code),
               caller_of(__builtin_return_address(0)));
     if (g_exit_process) g_exit_process(code);
+}
+
+// --- inline hooks on ntdll, to catch a direct NtTerminateProcess / RtlExitUserProcess ----------------
+using nt_terminate_fn = LONG(WINAPI*)(HANDLE, LONG);
+inline unsigned char g_nt_saved[6] = {};
+inline void* g_nt_target = nullptr;
+inline unsigned char g_rl_saved[6] = {};
+inline void* g_rl_target = nullptr;
+using exit_thread_fn = void(WINAPI*)(DWORD);
+inline exit_thread_fn g_exit_thread = nullptr;
+
+inline bool install_inline(void* target, void* repl, unsigned char* saved) {
+    DWORD prot = 0;
+    if (!target || !VirtualProtect(target, 6, PAGE_EXECUTE_READWRITE, &prot)) return false;
+    std::memcpy(saved, target, 6);
+    unsigned char patch[6];
+    patch[0] = 0x68;   // push imm32
+    const auto addr = static_cast<unsigned long>(reinterpret_cast<uintptr_t>(repl));
+    std::memcpy(patch + 1, &addr, 4);
+    patch[5] = 0xC3;   // ret
+    std::memcpy(target, patch, 6);
+    VirtualProtect(target, 6, prot, &prot);
+    return true;
+}
+
+inline void restore_inline(void* target, unsigned char* saved) {
+    DWORD prot = 0;
+    if (!target || !VirtualProtect(target, 6, PAGE_EXECUTE_READWRITE, &prot)) return;
+    std::memcpy(target, saved, 6);
+    VirtualProtect(target, 6, prot, &prot);
+}
+
+inline LONG WINAPI hook_nt_terminate(HANDLE proc, LONG code) {
+    if (g_log)
+        g_log("dongle: NtTerminateProcess(%p, %ld) caller 0x%08lx", proc, static_cast<long>(code),
+              caller_of(__builtin_return_address(0)));
+    if (!g_nt_target) return 0;
+    restore_inline(g_nt_target, g_nt_saved);
+    return reinterpret_cast<nt_terminate_fn>(g_nt_target)(proc, code);
+}
+
+inline LONG WINAPI hook_rtl_exit_user(HANDLE proc, LONG code) {
+    if (g_log)
+        g_log("dongle: RtlExitUserProcess(%p, %ld) caller 0x%08lx", proc, static_cast<long>(code),
+              caller_of(__builtin_return_address(0)));
+    if (!g_rl_target) return 0;
+    restore_inline(g_rl_target, g_rl_saved);
+    return reinterpret_cast<nt_terminate_fn>(g_rl_target)(proc, code);
+}
+
+inline void WINAPI hook_exit_thread(DWORD code) {
+    if (g_log) g_log("dongle: ExitThread(%lu) caller 0x%08lx", static_cast<unsigned long>(code),
+                     caller_of(__builtin_return_address(0)));
+    if (g_exit_thread) g_exit_thread(code);
+}
+
+// --- first-chance exceptions: log where the game faults --------------------------------------------
+inline LONG CALLBACK hook_vectored(EXCEPTION_POINTERS* ep) {
+    if (g_log && ep && ep->ExceptionRecord)
+        g_log("dongle: exception 0x%08lx at 0x%08lx", static_cast<unsigned long>(ep->ExceptionRecord->ExceptionCode),
+              static_cast<unsigned long>(reinterpret_cast<uintptr_t>(ep->ExceptionRecord->ExceptionAddress)));
+    return EXCEPTION_CONTINUE_SEARCH;
 }
 
 }  // namespace rg_dongle

@@ -814,6 +814,7 @@ void setup_dongle_trace() {
     if (GetEnvironmentVariableA("RG_DONGLE", v, sizeof v) == 0 || !v[0]) return;   // uit
     rg_dongle::g_log = &rg_log;
     rg_dongle::g_fake = lstrcmpiA(v, "fake") == 0;
+    AddVectoredExceptionHandler(1, reinterpret_cast<PVECTORED_EXCEPTION_HANDLER>(&rg_dongle::hook_vectored));
     rg_dongle::g_chain = lstrcmpiA(v, "chain") == 0;
     rg_log("dongle: on (%s), tracing SetupAPI and DeviceIoControl", v);
     HMODULE self = GetModuleHandleW(nullptr);
@@ -836,6 +837,19 @@ void setup_dongle_trace() {
            reinterpret_cast<void**>(&rg_dongle::g_crt_exit));
     koppel("KERNEL32.dll", "TerminateProcess", reinterpret_cast<void*>(&rg_dongle::hook_terminate_process),
            reinterpret_cast<void**>(&rg_dongle::g_terminate_process));
+    koppel("KERNEL32.dll", "ExitThread", reinterpret_cast<void*>(&rg_dongle::hook_exit_thread),
+           reinterpret_cast<void**>(&rg_dongle::g_exit_thread));
+    // Inline hooks on ntdll: a direct terminate does not go through any import table.
+    if (HMODULE nt = GetModuleHandleA("ntdll.dll")) {
+        rg_dongle::g_nt_target = reinterpret_cast<void*>(GetProcAddress(nt, "NtTerminateProcess"));
+        rg_log("dongle: ntdll NtTerminateProcess inline hook %s",
+               rg_dongle::install_inline(rg_dongle::g_nt_target, reinterpret_cast<void*>(&rg_dongle::hook_nt_terminate),
+                                         rg_dongle::g_nt_saved) ? "ok" : "failed");
+        rg_dongle::g_rl_target = reinterpret_cast<void*>(GetProcAddress(nt, "RtlExitUserProcess"));
+        rg_log("dongle: ntdll RtlExitUserProcess inline hook %s",
+               rg_dongle::install_inline(rg_dongle::g_rl_target, reinterpret_cast<void*>(&rg_dongle::hook_rtl_exit_user),
+                                         rg_dongle::g_rl_saved) ? "ok" : "failed");
+    }
     // The C runtime exits through its own import table, so hook that one too.
     if (HMODULE crt = GetModuleHandleA("msvcr100.dll")) {
         void* old_exit = patch_iat(crt, "KERNEL32.dll", "ExitProcess",
