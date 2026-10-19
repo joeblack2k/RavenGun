@@ -141,6 +141,59 @@
    "pipe_mode": "pipe",
    "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
    "prefix": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX",
+   "prefix_setup": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\PreprocessAmAuth.exe",
+      "-wait"
+     ],
+     "copy": false,
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/.",
+     "from": "",
+     "from_prefix": false,
+     "from_rel": "",
+     "tekst": "run . PreprocessAmAuth.exe -wait",
+     "to": ""
+    },
+    {
+     "argv": [],
+     "copy": true,
+     "cwd": "",
+     "from": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX/drive_c/windows/WritableConfig.ini",
+     "from_prefix": true,
+     "from_rel": "drive_c/windows/WritableConfig.ini",
+     "tekst": "copy prefix:drive_c/windows/WritableConfig.ini WritableConfig.ini",
+     "to": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/WritableConfig.ini"
+    },
+    {
+     "argv": [],
+     "copy": true,
+     "cwd": "",
+     "from": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX/drive_c/windows/WritableConfig.ini",
+     "from_prefix": true,
+     "from_rel": "drive_c/windows/WritableConfig.ini",
+     "tekst": "copy prefix:drive_c/windows/WritableConfig.ini AMCUS/WritableConfig.ini",
+     "to": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/WritableConfig.ini"
+    },
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "regsvr32.exe",
+      "/s",
+      "iauthdll.dll"
+     ],
+     "copy": false,
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS",
+     "from": "",
+     "from_prefix": false,
+     "from_rel": "",
+     "tekst": "run AMCUS regsvr32.exe /s iauthdll.dll",
+     "to": ""
+    }
+   ],
+   "prefix_setup_mark": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX/.ravengun-prefixsetup/3b92f495bbfda327.done",
+   "second_bare": true,
    "shm_source": "/dev/shm/TeknoParrot_JvsState",
    "stack": {
     "dest": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
@@ -338,6 +391,59 @@
    "pipe_mode": "pipe",
    "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
    "prefix": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX",
+   "prefix_setup": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\PreprocessAmAuth.exe",
+      "-wait"
+     ],
+     "copy": false,
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/.",
+     "from": "",
+     "from_prefix": false,
+     "from_rel": "",
+     "tekst": "run . PreprocessAmAuth.exe -wait",
+     "to": ""
+    },
+    {
+     "argv": [],
+     "copy": true,
+     "cwd": "",
+     "from": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX/drive_c/windows/WritableConfig.ini",
+     "from_prefix": true,
+     "from_rel": "drive_c/windows/WritableConfig.ini",
+     "tekst": "copy prefix:drive_c/windows/WritableConfig.ini WritableConfig.ini",
+     "to": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/WritableConfig.ini"
+    },
+    {
+     "argv": [],
+     "copy": true,
+     "cwd": "",
+     "from": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX/drive_c/windows/WritableConfig.ini",
+     "from_prefix": true,
+     "from_rel": "drive_c/windows/WritableConfig.ini",
+     "tekst": "copy prefix:drive_c/windows/WritableConfig.ini AMCUS/WritableConfig.ini",
+     "to": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/WritableConfig.ini"
+    },
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "regsvr32.exe",
+      "/s",
+      "iauthdll.dll"
+     ],
+     "copy": false,
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS",
+     "from": "",
+     "from_prefix": false,
+     "from_rel": "",
+     "tekst": "run AMCUS regsvr32.exe /s iauthdll.dll",
+     "to": ""
+    }
+   ],
+   "prefix_setup_mark": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX/.ravengun-prefixsetup/3b92f495bbfda327.done",
+   "second_bare": true,
    "shm_source": "/dev/shm/TeknoParrot_JvsState",
    "stack": {
     "dest": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
