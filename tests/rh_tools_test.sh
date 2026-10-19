@@ -84,8 +84,9 @@ VIEW="$VIEWMAP/rg-rhio.dll"
 mkdir -p "$BIN" "$S" "$H/.local/opt/ravengun/bin" "$(dirname "$ENG")" "$VIEWMAP"
 
 # ravengunctl: de toestand staat in $S. "plan" is per start een regel: draait (de game blijft lopen),
-# stopt (de game valt na de start om) of bezet (vlak na de herstart van de daemon start een ander een
-# game; die loopt drie statusvragen en stopt dan zelf).
+# stopt (de game valt na de start om), bezet (vlak na de herstart van de daemon start een ander een
+# game; die loopt drie statusvragen en stopt dan zelf) of mislukt (de daemon krijgt de start niet rond:
+# "Starten is mislukt.", en -- het lastigste geval -- pas een herstart van de daemon ruimt dat op).
 cat > "$H/.local/opt/ravengun/bin/ravengunctl" <<EOF
 #!/usr/bin/env bash
 S="$S"
@@ -95,14 +96,22 @@ case "\$1 \${2:-}" in
   "game status")
     a=\$(cat "\$S/ander" 2>/dev/null || echo 0)
     if [ "\$a" -gt 0 ]; then echo \$((a - 1)) > "\$S/ander"; echo "De game draait."; exit 0; fi
-    if [ "\$(status)" = draait ]; then echo "De game draait."; else echo "Er draait geen game."; fi ;;
+    case "\$(status)" in
+      draait) echo "De game draait." ;;
+      mislukt) echo "Starten is mislukt. de game stopte meteen" ;;
+      *) echo "Er draait geen game." ;;
+    esac ;;
   "game start")
     a=\$(cat "\$S/ander" 2>/dev/null || echo 0)
     stap=\$(head -1 "\$S/plan"); sed -i 1d "\$S/plan"
     if [ "\$a" -gt 0 ]; then echo "ravengunctl: er draait al een game; stop die eerst" >&2; exit 4; fi
-    case "\$stap" in draait) echo draait > "\$S/status";; *) echo geen > "\$S/status";; esac
+    case "\$stap" in
+      draait) echo draait > "\$S/status" ;;
+      mislukt) echo mislukt > "\$S/status"; echo "ravengunctl: de game stopte meteen" >&2; exit 5 ;;
+      *) echo geen > "\$S/status" ;;
+    esac
     echo "De game wordt gestart..." ;;
-  "game stop") echo geen > "\$S/status" ;;
+  "game stop") [ "\$(status)" = mislukt ] || echo geen > "\$S/status" ;;
   *) : ;;
 esac
 EOF
@@ -110,16 +119,25 @@ EOF
 cat > "$BIN/systemctl" <<EOF
 #!/usr/bin/env bash
 echo "systemctl \$*" >> "$S/aanroepen"
-case "\$*" in *restart*) [ "\$(head -1 "$S/plan")" = bezet ] && echo 3 > "$S/ander";; esac
+case "\$*" in *restart*)
+  [ "\$(cat "$S/status")" = mislukt ] && echo geen > "$S/status"
+  [ "\$(head -1 "$S/plan")" = bezet ] && echo 3 > "$S/ander";;
+esac
 exit 0
 EOF
-# sleep: meteen terug. Staat er een getal N in $S/breek-af, dan breekt de N-de "sleep 90" (de wachttijd
-# van de proef, als de proef-DLL er staat) de proef af met SIGTERM.
+# sleep: meteen terug. Staat er "N [SIGNAAL]" in $S/breek-af, dan breekt de N-de "sleep 90" (de wachttijd
+# van de proef, als de proef-DLL er staat) de proef af (standaard SIGTERM; KILL = een harde afbreking
+# zonder val). Bestaat $S/houd-vast, dan blijft "sleep 90" hangen (en meldt dat met $S/a-wacht) tot dat
+# bestand weg is: zo houdt run A het slot vast terwijl run B probeert.
 cat > "$BIN/sleep" <<EOF
 #!/usr/bin/env bash
 if [ "\${1:-}" = 90 ] && [ -s "$S/breek-af" ]; then
-    n=\$(cat "$S/breek-af")
-    if [ "\$n" -le 1 ]; then rm -f "$S/breek-af"; kill -TERM "\$PPID"; else echo \$((n - 1)) > "$S/breek-af"; fi
+    read -r n sig < "$S/breek-af"
+    if [ "\$n" -le 1 ]; then rm -f "$S/breek-af"; kill -"\${sig:-TERM}" "\$PPID"; else echo "\$((n - 1)) \${sig:-}" > "$S/breek-af"; fi
+fi
+if [ "\${1:-}" = 90 ] && [ -e "$S/houd-vast" ]; then
+    : > "$S/a-wacht"
+    while [ -e "$S/houd-vast" ]; do command -p sleep 0.1; done
 fi
 exit 0
 EOF
@@ -135,10 +153,11 @@ chmod +x "$H/.local/opt/ravengun/bin/ravengunctl" "$BIN/systemctl" "$BIN/sleep" 
 [ "$(PATH="$BIN:$PATH" command -v systemctl)" = "$BIN/systemctl" ] || { mislukt "nep-systemctl niet eerst in PATH"; exit 1; }
 
 nep() {   # draai een proefscript in de nep-omgeving
-    env HOME="$H" PATH="$BIN:$PATH" RG_AB_TVENV="$BIN/tv-env" RG_AB_MUIS=nep-muis "$@"
+    env HOME="$H" XDG_STATE_HOME="$H/.local/state" PATH="$BIN:$PATH" RG_AB_TVENV="$BIN/tv-env" \
+        RG_AB_MUIS=nep-muis "$@"
 }
 opnieuw() {   # schone staat: originele DLL's, geen game
-    rm -rf "$S"/* "$W/uit"
+    rm -rf "$S"/* "$W/uit" "$W/uit2" "$H/.local/state"
     printf 'ORIGINEEL-ENGINE' > "$ENG"
     printf 'ORIGINEEL-VIEW' > "$VIEW"
     echo geen > "$S/status"
@@ -150,8 +169,9 @@ opnieuw() {   # schone staat: originele DLL's, geen game
 teruggezet() {   # $1 = wanneer
     gelijk "$1: engine-DLL teruggezet" ORIGINEEL-ENGINE "$(cat "$ENG" 2>/dev/null)"
     gelijk "$1: view-DLL teruggezet" ORIGINEEL-VIEW "$(cat "$VIEW" 2>/dev/null)"
-    [ ! -e "$W/uit/reserve" ] || mislukt "$1: de reservemap staat er nog"
+    [ ! -e "$STAAT/reserve" ] || mislukt "$1: de reservemap staat er nog"
 }
+STAAT="$H/.local/state/ravengun/ab-rhio"
 AB="$ROOT/tools/dev/ab-rhio/ab2.sh"
 MUT="$ROOT/tools/dev/ab-rhio/mutex-hermeten.sh"
 ABENV=(RG_AB_UIT="$W/uit" RG_AB_NEW="$W/dll/new.dll" RG_AB_NOSTRIP="$W/dll/nostrip.dll")
@@ -234,6 +254,115 @@ gelijk "standaard-uitmap" "$ROOT/tools/rg-rhio/out/ab-rhio" \
 # De foto-band: BOOTING en bureaublad tellen niet.
 gelijk "foto-band" "geen-foto nee ja nee" \
     "$(bash -c '. "$1"; for s in 0 23408 300000 1460000; do foto_oordeel $s; done' _ "$ROOT/tools/dev/ab-rhio/gemeen.sh" | xargs)"
+
+# --- 5. herreview: vast slot, oude reservekopie, mislukte start ----------------------------------
+# Twee kloons met elk een eigen uit-map: B moet weigeren zolang A het slot heeft (het slot hoort bij de
+# engine, niet bij de kloon of RG_AB_UIT).
+opnieuw
+mkdir -p "$W/repo2/tools/dev"
+rm -rf "$W/repo2/tools/dev/ab-rhio"
+cp -r "$ROOT/tools/dev/ab-rhio" "$W/repo2/tools/dev/ab-rhio"
+printf '%s\n' draait draait draait > "$S/plan"
+: > "$S/houd-vast"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/a.uit" 2>&1 &
+A=$!
+for _ in $(seq 1 100); do [ -e "$S/a-wacht" ] && break; command -p sleep 0.1; done
+[ -e "$S/a-wacht" ] || mislukt "run A kwam niet bij de wachttijd"
+mkdir -p "$W/uit2"; printf OLD > "$W/uit2/old-rg-rhio.dll"
+nep env RG_AB_UIT="$W/uit2" RG_AB_NEW="$W/dll/new.dll" RG_AB_NOSTRIP="$W/dll/nostrip.dll" DOEL=1 \
+    bash "$W/repo2/tools/dev/ab-rhio/ab2.sh" > "$W/b.uit" 2>&1
+gelijk "run B uit een andere kloon en uit-map weigert terwijl A loopt: exitcode" 3 "$?"
+grep -q "er loopt al een A/B- of mutex-proef" "$W/b.uit" || mislukt "run B zegt niet dat er al een proef loopt"
+gelijk "run B liet de proef-DLL van A staan" OLD "$(cat "$ENG")"
+nep env RG_AB_UIT="$W/uit2" bash "$W/repo2/tools/dev/ab-rhio/mutex-hermeten.sh" "$W/dll/new.dll" 1 > "$W/b2.uit" 2>&1
+gelijk "mutex-hermeten weigert ook terwijl A loopt: exitcode" 3 "$?"
+rm -f "$S/houd-vast"
+wait "$A"
+gelijk "run A loopt daarna af" 0 "$?"
+teruggezet "run A na run B"
+[ ! -e "$W/uit2/reserve" ] || mislukt "run B maakte een reservekopie in zijn uit-map"
+
+# Een harde afbreking (kill -9), daarna de engine gewoon bijgewerkt: die update mag NIET overschreven
+# worden door de oude reservekopie.
+opnieuw
+printf '%s\n' draait draait > "$S/plan"
+echo "1 KILL" > "$S/breek-af"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/k1.uit" 2>&1
+gelijk "kill -9: de proef-DLL bleef staan" OLD "$(cat "$ENG")"
+[ -f "$STAAT/reserve/engine.dll" ] && [ -f "$STAAT/reserve/engine.dll.sha1" ] || mislukt "kill -9: geen reservekopie met sha1"
+printf 'UPDATE-ENGINE' > "$ENG"
+echo geen > "$S/status"   # de game van de afgebroken run is inmiddels gestopt
+printf '%s\n' draait > "$S/plan"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/k2.uit" 2>&1
+gelijk "na kill -9 en een update: de run loopt af" 0 "$?"
+grep -q "oude reservekopie (engine)" "$W/k2.uit" || mislukt "na een update: geen waarschuwing over de oude reservekopie"
+gelijk "na kill -9 en een update: de update blijft staan" UPDATE-ENGINE "$(cat "$ENG")"
+gelijk "na kill -9: de view (nog de proef-DLL) kreeg het origineel terug" ORIGINEEL-VIEW "$(cat "$VIEW")"
+[ ! -e "$STAAT/reserve" ] || mislukt "na een update: de reservemap staat er nog"
+
+# kill -9 en dan gewoon opnieuw: de heldere reservekopie wint en het origineel komt terug.
+opnieuw
+printf '%s\n' draait draait > "$S/plan"
+echo "1 KILL" > "$S/breek-af"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > /dev/null 2>&1
+echo geen > "$S/status"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/k3.uit" 2>&1
+grep -q "uit een afgebroken run gevonden en heel" "$W/k3.uit" || mislukt "kill -9 en opnieuw: de reservekopie werd niet hergebruikt"
+teruggezet "kill -9 en opnieuw"
+
+# Een afgekapte reservekopie: niet vertrouwen, en omdat de engine een proef-DLL is: weigeren met de sha.
+opnieuw
+printf '%s\n' draait draait > "$S/plan"
+echo "1 KILL" > "$S/breek-af"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > /dev/null 2>&1
+: > "$STAAT/reserve/engine.dll"
+echo geen > "$S/status"
+rm -f "$S/aanroepen"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/k4.uit" 2>&1
+gelijk "afgekapte reservekopie: weigeren, exitcode" 3 "$?"
+grep -q "sha1 $(sha1sum "$W/uit/old-rg-rhio.dll" | cut -d' ' -f1)" "$W/k4.uit" || mislukt "afgekapte reservekopie: de weigering noemt de sha1 niet"
+grep -q "Zet eerst de vastgelegde DLL terug" "$W/k4.uit" || mislukt "afgekapte reservekopie: geen aanwijzing om de DLL terug te zetten"
+gelijk "afgekapte reservekopie: de engine bleef onaangeroerd" OLD "$(cat "$ENG")"
+if grep -q "systemctl" "$S/aanroepen" 2>/dev/null; then mislukt "afgekapte reservekopie: toch de daemon herstart"; fi
+
+# De geinstalleerde DLL is gelijk aan OLD (zonder reservekopie): weigeren, tenzij
+# RG_AB_HUIDIG_IS_ORIGINEEL=1; dan bewaren en daarna terugzetten.
+opnieuw
+printf OLD > "$ENG"
+printf '%s\n' draait draait draait > "$S/plan"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/o1.uit" 2>&1
+gelijk "engine = OLD zonder reservekopie: weigeren" 3 "$?"
+nep env "${ABENV[@]}" RG_AB_HUIDIG_IS_ORIGINEEL=1 DOEL=1 bash "$AB" > "$W/o2.uit" 2>&1
+gelijk "engine = OLD met RG_AB_HUIDIG_IS_ORIGINEEL=1: loopt af" 0 "$?"
+gelijk "engine = OLD: daarna weer OLD" OLD "$(cat "$ENG")"
+
+# Een mislukte start: ongeldig-start-mislukt (telt niet), de uitvoer van de start in het logboek, en de
+# volgende start gaat door (de herstart ruimt "Starten is mislukt." op; eerder: na 60 s exit 3).
+opnieuw
+printf '%s\n' mislukt draait draait draait > "$S/plan"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/m.uit" 2>&1
+gelijk "mislukte start: de reeks loopt af" 0 "$?"
+gelijk "mislukte start: als ongeldig vastgelegd" "OLD 1 ongeldig-start-mislukt" \
+    "$(awk '$9 ~ /^ongeldig-start/ {print $1, $2, $9}' "$W/uit/resultaten.txt")"
+gelijk "mislukte start: daarna toch drie geldige" "KLAAR (OLD=1 NEW=1 NOSTRIP=1)" "$(grep '^KLAAR' "$W/m.uit")"
+grep -q "start (rc=5): ravengunctl: de game stopte meteen" "$W/m.uit" || mislukt "mislukte start: de uitvoer van de start staat niet in het logboek"
+T=$(python3 -I "$ROOT/tools/dev/ab-rhio/maak-tabel.py" "$W/uit/resultaten.txt")
+gelijk "maak-tabel: OLD 1 geldig en 1 mislukte start" "| OLD | 1 | 1 | 1 | 0 | 0 | 1 |" \
+    "$(echo "$T" | sed -n '/geldige starts/,$p' | grep '^| OLD |' | cut -d'|' -f1-8)|"
+teruggezet "na een mislukte start"
+
+# Een proef-DLL komt in een NIEUW inode (niet cp -f in hetzelfde bestand): een geladen DLL blijft heel.
+opnieuw
+ino_voor=$(stat -c %i "$ENG")
+printf '%s\n' draait draait draait > "$S/plan"
+: > "$S/houd-vast"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > /dev/null 2>&1 &
+A=$!
+for _ in $(seq 1 100); do [ -e "$S/a-wacht" ] && break; command -p sleep 0.1; done
+gelijk "tijdens de proef staat de proef-DLL er" OLD "$(cat "$ENG")"
+[ "$(stat -c %i "$ENG")" != "$ino_voor" ] || mislukt "de proef-DLL werd in hetzelfde inode geschreven"
+rm -f "$S/houd-vast"
+wait "$A"
 
 # mutex-hermeten.sh: per variant doornummeren (ook na een afbreking tussen UIT en AAN), bureaublad = nee,
 # marker en DLL's terug.
