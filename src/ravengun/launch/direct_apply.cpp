@@ -962,6 +962,21 @@ std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const D
     /* Zoals de motor: zonder view is de "wortel" de spelmap zelf, en die kan op de NAS liggen. */
     if (!binnen(abspath(wortel), abspath(p.views())) || abspath(wortel) == abspath(p.views()))
         return {"de prefixstappen vragen een view; " + plan.game + " ligt niet in " + p.views()};
+    /* De stempel is een pad dat in het plan staat, en een plan is JSON die ook met de hand te maken is.
+     * Zonder controle zou zo'n plan de stempel overal kunnen neerzetten -- op de NAS, of over een
+     * bestand van de gebruiker heen. Daarom precies <prefix>/.ravengun-prefixsetup/<naam>.done, zonder
+     * ".." en niet op de NAS (review 14, punt 3). Een lege stempel betekent "geen stempel" en mag. */
+    if (!plan.prefix_setup_mark.empty()) {
+        const std::string m = plan.prefix_setup_mark;
+        const std::string map = pjoin(plan.prefix, ".ravengun-prefixsetup");
+        bool punt_punt = false;
+        for (const std::string& deel : nonempty_split(m, '/'))
+            if (deel == "..") punt_punt = true;
+        if (plan.prefix.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") ||
+            punt_punt || on_nas(dirname(m), p))
+            return {"de stempel van de prefixstappen (" + m + ") moet in " + map +
+                    " liggen, op .done eindigen, geen .. bevatten en niet op de NAS liggen"};
+    }
     std::vector<std::string> uit;
     for (const DirectSetupStep& st : plan.prefix_setup)
         for (const std::string& x : prefixstap_problemen(st, wortel, p)) uit.push_back(st.tekst + ": " + x);

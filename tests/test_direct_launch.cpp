@@ -2327,6 +2327,25 @@ int main() {
             if (f.empty()) std::fprintf(stderr, "niet geweigerd: %s\n", waarom);
             return !f.empty();
         };
+        /* De stempel van de prefixstappen (review 14, punt 3): hij staat in het plan, dus een met de
+         * hand gemaakt plan zou hem overal kunnen neerzetten. */
+        {
+            auto stempel = [&](const std::string& m) {
+                DirectPlan x = gp;
+                x.prefix_setup_mark = m;
+                const auto f = D::prefixstappen_problemen(x, pg);
+                if (!f.empty()) std::fprintf(stderr, "  stempel geweigerd: %s\n", f.front().c_str());
+                return f.empty();
+            };
+            const std::string pfx = gp.prefix;
+            CHECK(stempel(pfx + "/.ravengun-prefixsetup/3b92f495.done"));      // zoals de motor hem maakt
+            CHECK(stempel(""));                                                // leeg = geen stempel
+            CHECK(!stempel("/tmp/ergens/anders.done"));                        // buiten de prefix
+            CHECK(!stempel(pfx + "/../buiten.done"));                          // met ..
+            CHECK(!stempel(pfx + "/.ravengun-prefixsetup/../buiten.done"));
+            CHECK(!stempel(pfx + "/.ravengun-prefixsetup/zonder-einde"));      // geen .done
+            CHECK(!stempel(pfx + "/.ravengun-prefixsetup/sub/naam.done"));     // niet direct in de map
+        }
         CHECK(weigert(stap_copy(gv / "Mucha/WritableConfig.ini"), "doelmap is een koppeling naar de NAS", pg));
         CHECK(weigert(stap_run(gv / "Mucha"), "werkmap is een koppeling naar de NAS", pg));
         std::error_code gec;
