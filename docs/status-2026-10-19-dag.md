@@ -75,9 +75,24 @@ PRbk*.dat) zijn niet verplaatst, gewijzigd of verwijderd.
   de AMAuth-proefariteit en de dubbele TC5-noot).
 * **(D)** Robin Hood 90 min: de wachtende hoofddraad volgen (op welk handvat wacht hij, waar wordt dat
   gemaakt, welk pad hoort het te seinen).
+* **(D)** Robin Hood 90 min: de wachtende hoofddraad -- **eerste uur gedaan**, zie hieronder.
 * **(E)** Coopers 9 60 min: eerst het RobinHood-kaderprotocol, dan de vroege fout op 0x4fd8aed0.
 * **(F)** Mario Kart 90 min: `iauthdll` + `PreprocessAmAuth` idempotent automatiseren in de
   prefix-opzet (in de schrijflaag), dan het zwarte beeld (welke IAuth-methodes roept het spel aan).
 * **(G)** de nog niet geteste profielen: HOTD4SP, MenInBlack, SegaGameShell, 3DCosplayMahjong,
   AliensArmageddon, TNXK0O~C — 30 min per stuk, 1 min attract + foto + eigen commit, of parkeren met
   een noot. AfterDark, PigsMightFly en LostLandAdventure alleen als er tijd over is.
+
+## (D) Robin Hood: waar de hoofddraad op wacht — eerste uur gedaan
+
+Met statische analyse (objdump) is de wacht van de hoofddraad gevonden: hij wacht met
+`WaitForSingleObject(mutex, INFINITE)` op een **wereldwijde mutex** die lazy gemaakt wordt
+(`CreateMutexA` + `InterlockedCompareExchange`, samen in één helper op 0x580fa0-0x580fde), met de
+bijbehorende `ReleaseMutex` op 0x580ff6. **`SetEvent` wordt in de hele exe nooit aangeroepen** -- dus
+"de I/O-draad moet een event seinen" is een dood spoor; de hoofddraad wacht op een **slot dat een
+andere draad vasthoudt**.
+
+Dat maakt de volgende stap scherp: welke draad houdt dat slot, en welke van onze haak-aanroepen laat
+hem wachten? Elke haak (`ReadFile`, `WriteFile`, `ClearCommError`, `GetCommTimeouts`,
+`WaitCommEvent`) moet snel terugkeren. De volledige tabel met sleuven, aanroepen en het patroon staat
+in `docs/research/wartran/README.md`; de volgende drie stappen staan daar ook.

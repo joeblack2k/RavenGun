@@ -790,3 +790,54 @@ gebeurtenis die niet komt. Volgende stap: de wachtende draad 248 volgen (op welk
 `ntdll+0xd410` is een wachtsyscall; met de draad-id uit de prefix kan dat verder uitgezocht worden)
 en de vraag stellen wie dat handvat hoort te seinen -- vermoedelijk de I/O-draad die de kaders naar de
 poort stuurt.
+
+### Waar de hoofddraad op wacht: een globale mutex, geen gebeurtenis (2026-10-19 08:45)
+
+Met alleen statische analyse (objdump) is de wacht van de hoofddraad te benoemen. De importtabel van
+`game.exe` geeft de sleuven (VA = RVA + 0x400000):
+
+| sleuf | functie |
+| --- | --- |
+| 0x5ec0bc | `WaitForSingleObject` |
+| 0x5ec1f8 | `CreateMutexA` |
+| 0x5ec15c | `InterlockedCompareExchange` |
+| 0x5ec090 | `ReleaseMutex` |
+| 0x5ec108 | `SetEvent` (staat in de importtabel maar wordt **nergens** aangeroepen) |
+| 0x5ec10c | `CreateEventA` (één aanroep, 0x4a0ec1) |
+
+Van `WaitForSingleObject` zijn er zeven aanroepen (0x490ac3, 0x4a0d5a, 0x57a3dd, 0x580fde, 0x5a53d2,
+0x5b7f6b, 0x5eb305). De belangrijkste is **0x580fde**, met dit patroon eromheen:
+
+```
+580fa0: mov  eax,[0x6c9530]        ; het globale handvat
+580fa7: jne  0x580fd6              ; al gemaakt -> wachten
+580faa: push 0 / push 0 / push 0
+580fb0: call *0x5ec1f8             ; CreateMutexA(NULL, FALSE, NULL)
+580fbb: push 0x6c9530
+580fc0: call *0x5ec15c             ; InterlockedCompareExchange(&handvat, mutex, 0)
+580fce: call *0x5ec094             ; CloseHandle van de verliezer
+580fd6: mov  eax,[0x6c9530]
+580fdb: push -1                    ; INFINITE
+580fde: call *0x5ec0bc             ; WaitForSingleObject(mutex, INFINITE)
+```
+
+Dat is een **lazy gemaakte wereldwijde mutex**: de hoofddraad **vergrendelt** hem met een oneindige
+wacht, en de bijbehorende `ReleaseMutex` staat op **0x580ff6** (plus 0x4014e3 in het CRT-einde en
+0x5a53e6). Het handvat 0x6c9530 wordt in de hele exe alleen *gelezen* (vier keer, alle in
+0x580fa0-0x5810a0); het wordt door `InterlockedCompareExchange` gezet.
+
+**Wat dat betekent:** de hoofddraad wacht niet op een gebeurtenis die iemand moet seinen -- hij wacht
+op een **slot** dat een andere draad vasthoudt. `SetEvent` wordt in deze exe nooit aangeroepen, dus
+"de I/O-draad moet een event seinen" is een dood spoor. De vraag wordt: **welke draad houdt dat slot
+en waarom geeft hij het niet terug?** Het antwoord ligt in onze eigen bordkant: elke haak-aanroep
+(`ReadFile`, `WriteFile`, `ClearCommError`, `GetCommTimeouts`, `WaitCommEvent`) moet snel
+terugkeren, anders blijft de vergrendeling staan en wacht de hoofddraad voor altijd -- precies wat we
+op het scherm zien (`BOOTING . / I/O ... CHECKING`).
+
+Volgende stappen, in deze orde:
+1. de aanroepers van 0x580fa0 (vergrendelen) en 0x580ff6 (ontgrendelen) nalopen: welke functie houdt
+   het slot tijdens de bord-I/O?
+2. in die functie kijken welke van onze haken daar tussen zit en of die ooit blijft hangen (een
+   `ReadFile` die 0 teruggeeft terwijl het spel om 7 bytes vraagt is een kandidaat, en een
+   `ClearCommError` die blijft liegen over `cbInQue` is er ook een);
+3. dezelfde analyse op Coopers 9 (zelfde familie) om te zien of daar hetzelfde slot speelt.
