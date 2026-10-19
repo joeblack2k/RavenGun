@@ -986,8 +986,9 @@ bool Bestaat(const std::string& pad) {
 
 /* --- (D) Wie houdt het slot? ---------------------------------------------------------------
  * De hoofddraad van Robin Hood wacht met WaitForSingleObject(mutex, INFINITE) in de lock-helper op
- * 0x580fa0-0x580fde, met de unlock op 0x580ff6. Deze drie haken laten zien welk handvat dat is, welke
- * draad het kreeg en welke draad het nooit teruggeeft. Alleen aan met RG_RHIO_MUTEX=1. */
+ * 0x580fa0-0x580fde, met de unlock op 0x580ff6. Deze drie haken laten zien welk handvat dat is en welke
+ * draad er lang op wacht (de wachtregels); ReleaseMutex en (na de eerste 32 regels) CreateMutexA worden
+ * alleen nog geteld (review 14, ronde 2). Alleen aan met RG_RHIO_MUTEX=1. */
 bool MutexAan() {
     static const bool aan = [] {
         char v[8] = {0};
@@ -998,7 +999,8 @@ bool MutexAan() {
     return aan;
 }
 
-/* Vanaf deze duur noemen we een wachtdienst "lang" en loggen we ook het einde (review 14, punt a). */
+/* Vanaf deze duur noemen we een wachtdienst "lang" en loggen we het einde (review 14, punt a; begrensd
+ * door kMutexMiddelMax, review 14 ronde 2). */
 constexpr DWORD kMutexLangMs = 50;
 
 using WaitForSingleObjectFn = DWORD(WINAPI*)(HANDLE, DWORD);
@@ -1039,49 +1041,116 @@ void onthoud_sloten() {
         g_echte_createmutex = reinterpret_cast<CreateMutexAFn>(GetProcAddress(k, "CreateMutexA"));
 }
 
+/* Het mutex-budget moet blijven tot er echt iets hangt (review 14, ronde 2). Daarom per aanroep alleen
+ * tellen en af en toe een samenvatting: ReleaseMutex en CreateMutexA lieten elk een regel achter, en
+ * een spel dat een slot vaak pakt en teruggeeft at zo het hele budget op. De eerste kMutexNamenMax
+ * CreateMutexA-regels blijven wel volledig (naam en handvat): daarmee is een handvat uit een
+ * wachtregel terug te vinden. */
+constexpr LONG kMutexNamenMax = 32;
+constexpr DWORD kMutexTellingMs = 10000;
+/* Vanaf deze duur kan een wachtdienst een hang zijn: dan komt het BEGIN in het logboek, voor het verder
+ * blokkeren. Wat eerder terugkomt is gewoon verkeer. */
+constexpr DWORD kMutexHangMs = 1000;
+/* Wachtdiensten tussen kMutexLangMs en kMutexHangMs (een slot dat even bezet was) krijgen samen
+ * hoogstens zoveel regels; daarna alleen de teller. Zo blijft het grootste deel van het budget over
+ * voor de wachtdiensten van een seconde en langer. */
+constexpr LONG kMutexMiddelMax = 500;
+volatile LONG g_mutex_create = 0;
+volatile LONG g_mutex_release = 0;
+volatile LONG g_mutex_wacht = 0;
+volatile LONG g_mutex_verlopen = 0;
+volatile LONG g_mutex_middel = 0;
+volatile LONG g_mutex_hang = 0;
+
+/* Hoogstens een keer per kMutexTellingMs een regel met de tellers. Atomair, zoals de tempo-poort van
+ * LeesWachthandvatten: twee draden tegelijk schrijven niet allebei. Staat het spel stil, dan roept het
+ * deze haken niet meer aan en komt er ook geen telling meer bij. */
+void MeldMutexTelling() {
+    static volatile LONG g_mutex_tik = 0;
+    const DWORD nu = GetTickCount();
+    const LONG vorige = g_mutex_tik;
+    if (vorige != 0 && nu - static_cast<DWORD>(vorige) < kMutexTellingMs) return;
+    if (InterlockedCompareExchange(&g_mutex_tik, static_cast<LONG>(nu ? nu : 1), vorige) != vorige) return;
+    if (vorige == 0) return;   // de eerste aanroep zet alleen de klok
+    LogMutex("mutex: telling: CreateMutexA=%ld ReleaseMutex=%ld wachtdiensten=%ld (verlopen=%ld, "
+             ">=%lu ms=%ld, >=%lu ms=%ld)",
+             g_mutex_create, g_mutex_release, g_mutex_wacht, g_mutex_verlopen,
+             static_cast<unsigned long>(kMutexLangMs), g_mutex_middel, static_cast<unsigned long>(kMutexHangMs),
+             g_mutex_hang);
+}
+
 HANDLE WINAPI rg_CreateMutexA(LPSECURITY_ATTRIBUTES sa, BOOL eigenaar, LPCSTR naam) {
     HANDLE h = g_echte_createmutex ? g_echte_createmutex(sa, eigenaar, naam) : nullptr;
-    if (MutexAan())
-        LogMutex("mutex: CreateMutexA(naam=%s, eigenaar=%d) -> %p  beller=%s",
-                 naam ? naam : "(geen)", (int)eigenaar, h, BellerTekst(__builtin_return_address(0)).c_str());
+    if (MutexAan()) {
+        if (InterlockedIncrement(&g_mutex_create) <= kMutexNamenMax)
+            LogMutex("mutex: CreateMutexA(naam=%s, eigenaar=%d) -> %p  beller=%s",
+                     naam ? naam : "(geen)", (int)eigenaar, h, BellerTekst(__builtin_return_address(0)).c_str());
+        MeldMutexTelling();
+    }
     return h;
 }
 
 DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
+    if (!MutexAan() || ms == 0) return g_echte_waitobj ? g_echte_waitobj(h, ms) : WAIT_FAILED;
+    /* Een wachtdienst van 0 ms kan niet blijven hangen (die komt meteen terug), en juist die vulden het
+     * budget: in de hermeting waren alle 3000 mutex-regels zo'n poll van de CRT (game.exe+0x90bdd, 0 ms).
+     * Ze lopen hierboven ongemeten door.
+     *
+     * De rest (review 14, ronde 2): het budget moet blijven tot er echt iets hangt, dus alleen een
+     * wachtdienst die LANG blijkt komt in het logboek -- ook bij INFINITE, want de lock-helper van het
+     * spel wacht INFINITE op een slot dat bijna altijd vrij is. Een wachtdienst met INFINITE of een
+     * time-out boven kMutexHangMs wachten we eerst zelf hoogstens kMutexHangMs. Komt hij binnen die tijd
+     * terug (het gewone geval), dan is dat de uitkomst. Loopt die eerste ronde af, dan schrijven we het
+     * BEGIN weg en wachten pas daarna de rest (INFINITE blijft INFINITE): een wachter die nooit
+     * terugkomt staat dus vóór het verder blokkeren in het logboek (review 12, punt 3). Voor het spel is
+     * dit hetzelfde: een WaitForSingleObject die afloopt verandert niets aan het object, en de totale
+     * wachttijd blijft gelijk. Een wachtdienst die op zijn eigen korte time-out afloopt is een poll en
+     * wordt alleen geteld. */
+    InterlockedIncrement(&g_mutex_wacht);
     const void* beller = __builtin_return_address(0);
-    const DWORD tid_voor = GetCurrentThreadId();
-    /* Voor het blokkeren loggen: een wachter die nooit terugkomt schreef anders niets weg, en juist
-     * die willen we zien (review 12, punt 3). */
-    /* Alleen het BEGIN van een wachtdienst wordt altijd gelogd (een wachter die nooit terugkomt schrijft
-     * anders niets weg). Het einde alleen als de wachtdienst lang duurde: de CRT wacht vaak even op
-     * iets onbelangrijks, en die regels verdringen juist de interessante (review 14, punt a). */
-    /* Een wachtdienst van 0 ms kan niet blijven hangen (die komt meteen terug), en juist die vullen het
-     * budget: in de hermeting waren alle 3000 mutex-regels zo'n poll van de CRT (game.exe+0x90bdd, 0 ms)
-     * en bleef er voor de interessante wachtdiensten niets over. Alleen een echte wachttijd loggen we. */
-    const bool meld = MutexAan() && ms != 0;
-    const DWORD begin = meld ? GetTickCount() : 0;
-    if (meld)
-        LogMutex("mutex: draad %lu GAAT wachten op %p (%lu ms)  beller=%s", static_cast<unsigned long>(tid_voor),
-                 h, static_cast<unsigned long>(ms), BellerTekst(beller).c_str());
-    DWORD r = g_echte_waitobj ? g_echte_waitobj(h, ms) : WAIT_FAILED;
-    if (meld) {
+    const DWORD begin = GetTickCount();
+    const bool kan_hangen = ms == INFINITE || ms > kMutexHangMs;
+    DWORD r = g_echte_waitobj ? g_echte_waitobj(h, kan_hangen ? kMutexHangMs : ms) : WAIT_FAILED;
+    if (!kan_hangen || r != WAIT_TIMEOUT) {
         const DWORD duur = GetTickCount() - begin;
-        if (duur >= kMutexLangMs || ms == INFINITE)
-            LogMutex("mutex: draad %lu wachtte op %p (%lu ms, geduurd %lu ms) -> %lu  beller=%s",
-                     static_cast<unsigned long>(tid_voor), h, static_cast<unsigned long>(ms),
-                     static_cast<unsigned long>(duur), static_cast<unsigned long>(r),
-                     BellerTekst(beller).c_str());
+        if (r == WAIT_TIMEOUT) {
+            InterlockedIncrement(&g_mutex_verlopen);
+        } else if (duur >= kMutexLangMs) {
+            if (InterlockedIncrement(&g_mutex_middel) <= kMutexMiddelMax)
+                LogMutex("mutex: draad %lu wachtte op %p (%lu ms, geduurd %lu ms) -> %lu  beller=%s",
+                         static_cast<unsigned long>(GetCurrentThreadId()), h, static_cast<unsigned long>(ms),
+                         static_cast<unsigned long>(duur), static_cast<unsigned long>(r),
+                         BellerTekst(beller).c_str());
+        }
+        MeldMutexTelling();
+        return r;
     }
+    /* Mogelijk een hang: nu het begin, voor het verder blokkeren. */
+    InterlockedIncrement(&g_mutex_hang);
+    const DWORD tid = GetCurrentThreadId();
+    LogMutex("mutex: draad %lu GAAT lang wachten op %p (%lu ms, al %lu ms bezet)  beller=%s",
+             static_cast<unsigned long>(tid), h, static_cast<unsigned long>(ms),
+             static_cast<unsigned long>(GetTickCount() - begin), BellerTekst(beller).c_str());
+    DWORD rest = INFINITE;
+    if (ms != INFINITE) {
+        const DWORD al = GetTickCount() - begin;
+        rest = al < ms ? ms - al : 0;
+    }
+    r = g_echte_waitobj(h, rest);
+    LogMutex("mutex: draad %lu wachtte op %p (%lu ms, geduurd %lu ms) -> %lu  beller=%s",
+             static_cast<unsigned long>(tid), h, static_cast<unsigned long>(ms),
+             static_cast<unsigned long>(GetTickCount() - begin), static_cast<unsigned long>(r),
+             BellerTekst(beller).c_str());
+    MeldMutexTelling();
     return r;
 }
 
 BOOL WINAPI rg_ReleaseMutex(HANDLE h) {
-    const void* beller = __builtin_return_address(0);
-    const DWORD tid = GetCurrentThreadId();
     BOOL r = g_echte_release ? g_echte_release(h) : FALSE;
-    if (MutexAan())
-        LogMutex("mutex: draad %lu geeft %p terug -> %d  beller=%s", static_cast<unsigned long>(tid), h,
-                 (int)r, BellerTekst(beller).c_str());
+    if (MutexAan()) {
+        InterlockedIncrement(&g_mutex_release);
+        MeldMutexTelling();
+    }
     return r;
 }
 
