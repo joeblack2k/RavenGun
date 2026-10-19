@@ -51,6 +51,7 @@
 
 void LaadMeetdraad();   // de meetdraad van rg-compat, lazy geladen (buiten de anonieme naamruimte)
 void LeesWachthandvatten();   // (D) de wachthandvatten van alle draden, lazy (buiten de anonieme naamruimte)
+void StartStackKlok();   // (D) de eigen tijdklok voor de stackmeting (review 14, punt b)
 
 namespace {
 
@@ -74,6 +75,13 @@ constexpr LONG kLogMax = 20000;
  * (review 12, punt 2). */
 volatile LONG g_log_stack_regels = 0;
 constexpr LONG kLogStackMax = 4000;
+
+/* De mutex-regels hebben ook hun eigen budget (review 14, punt a). De CRT roept WaitForSingleObject
+ * heel vaak aan; zonder eigen teller aten die regels het algemene maximum op voordat de wachtdienst
+ * die er echt toe doet in het logboek stond (gemeten: 18.871 mutex-regels en precies 20.001 regels in
+ * totaal, dus het maximum was op). */
+volatile LONG g_log_mutex_regels = 0;
+constexpr LONG kLogMutexMax = 3000;
 
 void SchrijfRegelMet(const char* tekst, volatile LONG* teller, LONG max) {
     if (!g_log || g_stil) return;
@@ -113,6 +121,17 @@ void Log(const char* fmt, ...) {
     vsnprintf(regel, sizeof regel, fmt, ap);
     va_end(ap);
     SchrijfRegel(regel);
+}
+
+/* De mutex-regels: eigen budget, zodat ze het algemene maximum niet opmaken (review 14, punt a). */
+void LogMutex(const char* fmt, ...) {
+    if (!g_log || g_stil) return;
+    va_list ap;
+    va_start(ap, fmt);
+    char regel[640];
+    vsnprintf(regel, sizeof regel, fmt, ap);
+    va_end(ap);
+    SchrijfRegelMet(regel, &g_log_mutex_regels, kLogMutexMax);
 }
 
 /* Zoals Log (alles wordt nu meteen weggeschreven); apart gehouden om de foutregels te kunnen onderscheiden. */
@@ -431,6 +450,7 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR pad, DWORD toegang, DWORD deel, LPSECURITY_A
     /* Pas NA LogOpen: deze twee loggen zelf, en de eenmalige vlag werd anders verbruikt voordat er
      * een logboek was (daardoor waren de "meetdraad"- en "stack"-regels eerder onzichtbaar). */
     LaadMeetdraad();   // lazy: niet in DllMain (daar kan LoadLibrary de loader-lock pakken)
+    StartStackKlok();  // en een eigen tijdklok, zodat de meting ook loopt als CreateFileA uitblijft
     LeesWachthandvatten();
     if (pad && std::strcmp(pad, g_pad) == 0) {
         Log("CreateFileA(%s) -> nagebootst handvat %p", pad, g_nep_handle);
@@ -976,6 +996,9 @@ bool MutexAan() {
     return aan;
 }
 
+/* Vanaf deze duur noemen we een wachtdienst "lang" en loggen we ook het einde (review 14, punt a). */
+constexpr DWORD kMutexLangMs = 50;
+
 using WaitForSingleObjectFn = DWORD(WINAPI*)(HANDLE, DWORD);
 using ReleaseMutexFn = BOOL(WINAPI*)(HANDLE);
 using CreateMutexAFn = HANDLE(WINAPI*)(LPSECURITY_ATTRIBUTES, BOOL, LPCSTR);
@@ -1017,8 +1040,8 @@ void onthoud_sloten() {
 HANDLE WINAPI rg_CreateMutexA(LPSECURITY_ATTRIBUTES sa, BOOL eigenaar, LPCSTR naam) {
     HANDLE h = g_echte_createmutex ? g_echte_createmutex(sa, eigenaar, naam) : nullptr;
     if (MutexAan())
-        Log("mutex: CreateMutexA(naam=%s, eigenaar=%d) -> %p  beller=%s",
-            naam ? naam : "(geen)", (int)eigenaar, h, BellerTekst(__builtin_return_address(0)).c_str());
+        LogMutex("mutex: CreateMutexA(naam=%s, eigenaar=%d) -> %p  beller=%s",
+                 naam ? naam : "(geen)", (int)eigenaar, h, BellerTekst(__builtin_return_address(0)).c_str());
     return h;
 }
 
@@ -1027,13 +1050,23 @@ DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
     const DWORD tid_voor = GetCurrentThreadId();
     /* Voor het blokkeren loggen: een wachter die nooit terugkomt schreef anders niets weg, en juist
      * die willen we zien (review 12, punt 3). */
-    if (MutexAan())
-        Log("mutex: draad %lu GAAT wachten op %p (%lu ms)  beller=%s", static_cast<unsigned long>(tid_voor),
-            h, static_cast<unsigned long>(ms), BellerTekst(beller).c_str());
+    /* Alleen het BEGIN van een wachtdienst wordt altijd gelogd (een wachter die nooit terugkomt schrijft
+     * anders niets weg). Het einde alleen als de wachtdienst lang duurde: de CRT wacht vaak even op
+     * iets onbelangrijks, en die regels verdringen juist de interessante (review 14, punt a). */
+    const bool meld = MutexAan();
+    const DWORD begin = meld ? GetTickCount() : 0;
+    if (meld)
+        LogMutex("mutex: draad %lu GAAT wachten op %p (%lu ms)  beller=%s", static_cast<unsigned long>(tid_voor),
+                 h, static_cast<unsigned long>(ms), BellerTekst(beller).c_str());
     DWORD r = g_echte_waitobj ? g_echte_waitobj(h, ms) : WAIT_FAILED;
-    if (MutexAan())
-        Log("mutex: draad %lu wachtte op %p (%lu ms) -> %lu  beller=%s", static_cast<unsigned long>(tid_voor),
-            h, static_cast<unsigned long>(ms), static_cast<unsigned long>(r), BellerTekst(beller).c_str());
+    if (meld) {
+        const DWORD duur = GetTickCount() - begin;
+        if (duur >= kMutexLangMs || ms == INFINITE)
+            LogMutex("mutex: draad %lu wachtte op %p (%lu ms, geduurd %lu ms) -> %lu  beller=%s",
+                     static_cast<unsigned long>(tid_voor), h, static_cast<unsigned long>(ms),
+                     static_cast<unsigned long>(duur), static_cast<unsigned long>(r),
+                     BellerTekst(beller).c_str());
+    }
     return r;
 }
 
@@ -1042,8 +1075,8 @@ BOOL WINAPI rg_ReleaseMutex(HANDLE h) {
     const DWORD tid = GetCurrentThreadId();
     BOOL r = g_echte_release ? g_echte_release(h) : FALSE;
     if (MutexAan())
-        Log("mutex: draad %lu geeft %p terug -> %d  beller=%s", static_cast<unsigned long>(tid), h,
-            (int)r, BellerTekst(beller).c_str());
+        LogMutex("mutex: draad %lu geeft %p terug -> %d  beller=%s", static_cast<unsigned long>(tid), h,
+                 (int)r, BellerTekst(beller).c_str());
     return r;
 }
 
@@ -1140,7 +1173,9 @@ void LaadMeetdraad() {
     const std::string map = EigenMap();
 
     char v[32] = {0};
-    const bool via_omgeving = GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0;
+    /* Nul betekent UIT, net als bij RG_RHIO_MUTEX en RG_RHIO_STACK (review 14, punt d): eerst telde
+     * elke waarde als "aan", dus RG_COMPAT_SAMPLE=0 zette de meetdraad juist aan. */
+    const bool via_omgeving = GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0 && v[0] != '0';
 
     /* Markerbestand: <map van deze DLL>\rg-compat.aan. De inhoud is het aantal milliseconden
      * (leeg of onleesbaar = 200). Zo kan de meetdraad aan zonder de omgeving aan te raken.
@@ -1170,7 +1205,11 @@ void LaadMeetdraad() {
             }
         }
     }
-    if (!via_omgeving && !via_marker) return;
+    if (!via_omgeving && !via_marker) {
+        if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0)
+            Log("meetdraad: RG_COMPAT_SAMPLE=%s betekent uit", v);
+        return;
+    }
 
     /* Het logboek van de meting naast deze DLL zetten (vaste naam; er draait er maar een). */
     if (!map.empty() && GetEnvironmentVariableA("RG_COMPAT_SAMPLE_LOG", v, sizeof v) == 0) {
@@ -1198,7 +1237,6 @@ void MeldMarkers() {
         {"rg-rhio-stack.aan", "stackregels (RG_RHIO_STACK)"},
         {"rg-rhio-mutex.aan", "mutex-haken (RG_RHIO_MUTEX)"},
         {"rg-compat.aan", "meetdraad (RG_COMPAT_SAMPLE)"},
-        {"rg-rhio-bord.aan", "nagebootst bord (RG_RHIO_BORD)"},
     };
     for (const auto& l : lijst) {
         const bool aan = Bestaat(map + "\\" + l.naam);
@@ -1206,8 +1244,7 @@ void MeldMarkers() {
         const bool via_omg = GetEnvironmentVariableA(
                                  std::strcmp(l.naam, "rg-compat.aan") == 0      ? "RG_COMPAT_SAMPLE"
                                  : std::strcmp(l.naam, "rg-rhio-mutex.aan") == 0 ? "RG_RHIO_MUTEX"
-                                 : std::strcmp(l.naam, "rg-rhio-stack.aan") == 0 ? "RG_RHIO_STACK"
-                                                                                 : "RG_RHIO_BORD",
+                                 : "RG_RHIO_STACK",
                                  omg, sizeof omg) != 0;
         Log("marker %s: %s%s%s (%s)", l.naam, aan ? "aanwezig" : "afwezig",
             via_omg ? ", omgeving expliciet" : "", aan && via_omg ? " -- de omgeving wint" : "", l.wat);
@@ -1306,6 +1343,26 @@ void LeesStackWoorden(ULONG_PTR esp, ULONG_PTR* uit, int n) {
             gelezen != sizeof(ULONG_PTR))
             uit[k] = 0;
     }
+}
+
+/* Een kleine eigen tijdklok (review 14, punt b): LeesWachthandvatten hing alleen aan rg_CreateFileA,
+ * en juist als het spel vastloopt roept het geen CreateFileA meer aan -- dan kwam er op het moment dat
+ * het erom gaat geen enkele stackregel meer. Deze draad begint na twintig seconden en doet het daarna
+ * elke twee seconden; de functie heeft zelf al een tempo-poort van een seconde. */
+DWORD WINAPI StackKlok(LPVOID) {
+    Sleep(20000);
+    for (;;) {
+        LeesWachthandvatten();
+        Sleep(2000);
+    }
+    return 0;
+}
+
+void StartStackKlok() {
+    static volatile LONG gedaan = 0;
+    if (InterlockedCompareExchange(&gedaan, 1, 0) != 0) return;
+    HANDLE d = CreateThread(nullptr, 0, StackKlok, nullptr, 0, nullptr);
+    if (d) CloseHandle(d);
 }
 
 void LeesWachthandvatten() {

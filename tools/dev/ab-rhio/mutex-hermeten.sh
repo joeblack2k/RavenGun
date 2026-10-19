@@ -24,7 +24,9 @@ wacht_vrij() {
 
 cp -f "$DLL" "$ENG"; cp -f "$DLL" "$VIEWMAP/rg-rhio.dll"
 SHA=$(sha1sum "$DLL" | cut -c1-8)
-rm -f "$OUT/mutex-resultaten.txt"
+# Niet wissen: dit script wordt in stukken gedraaid (een lange reeks wordt door een externe limiet
+# afgebroken), dus de uitslagen blijven staan en het aantal rondes is per stuk te kiezen.
+touch "$OUT/mutex-resultaten.txt"
 
 for r in $(seq 1 "$RONDES"); do
     for v in UIT AAN; do

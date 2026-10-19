@@ -11,7 +11,9 @@ set -uo pipefail
 cd /home/deck/projects/ravengun || exit 2
 CTL="$HOME/.local/opt/ravengun/bin/ravengunctl"
 VIEWMAP="$HOME/.local/share/ravengun/runtime/views/RobinHood/data"
-UIT=/tmp/rh-dump
+# Niet in /tmp: de uitvoer hoort in de uit-map van de repo (die staat in .gitignore), zodat een dump
+# terug te vinden is bij het gereedschap waar hij bij hoort.
+UIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools/rg-rhio/out/rh-dump"
 mkdir -p "$UIT"
 RVAS=("$@")
 [ ${#RVAS[@]} -eq 0 ] && RVAS=(0x9e7bc8 0x8ff9b)
@@ -20,11 +22,18 @@ echo "== spel starten =="
 "$CTL" game start RobinHood >/dev/null 2>&1
 sleep 40
 
+# Het GROOTSTE proces met de naam game.exe kiezen: er kan een klein hulp-exe met dezelfde naam staan
+# (de view heeft er een van 71 bytes, een hulpje), en dan dump je de verkeerde image (review 14, punt e).
 PID=""
+BESTE=0
 for P in $(ls /proc | grep -E '^[0-9]+$'); do
     N=$(cat "/proc/$P/comm" 2>/dev/null)
-    case "$N" in game.exe|Game.exe) PID=$P;; esac
+    case "$N" in game.exe|Game.exe) ;; *) continue;; esac
+    GROOT=$(awk '/game.exe/ {s += $2 - $1} END {print s+0}' "/proc/$P/maps" 2>/dev/null)
+    echo "kandidaat pid $P met $(printf '%d' "$GROOT") bytes aan game.exe-image"
+    if [ "${GROOT:-0}" -gt "$BESTE" ]; then BESTE=$GROOT; PID=$P; fi
 done
+echo "gekozen: pid=$PID (image $BESTE bytes)"
 [ -n "$PID" ] || { echo "geen game.exe-proces gevonden"; "$CTL" game stop >/dev/null 2>&1; exit 1; }
 echo "pid=$PID"
 

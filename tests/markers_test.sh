@@ -26,7 +26,7 @@ fi
 for m in patches/RobinHood/dropin/rg-rhio-stack.aan \
          patches/RobinHood/dropin/rg-compat.aan \
          patches/MarioKartDX/dropin/rg-rhio-mutex.aan \
-         patches/BugBusters/dropin/rg-rhio-bord.aan; do
+         patches/AfterDark/dropin/rg-rhio-stack.aan; do
     if git check-ignore -q "$m"; then
         zeg "wordt genegeerd (goed): $m"
     else
