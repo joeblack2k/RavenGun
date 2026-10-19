@@ -62,6 +62,44 @@ niet beter; de instelling is daarna teruggezet op `false`.
 
 
 
+
+### VERGELIJKING (geen route): de TeknoParrot-kern, 19:47-19:52
+
+Jeroen heeft de vergelijking met TeknoParrot expliciet toegestaan (het blijft bij een VERGELIJKING; de
+route blijft de onze). De TP-map stond als `TeknoParrotUi-2.0.0.130-linux-x64.verborgen` in de runtime;
+die is voor deze proef teruggezet en daarna weer verborgen. Instellingen als in de werkende
+15-10-meting: `[Loader] Core = teknoparrot` en `Gamescope = true`.
+
+**Drie starts, alle drie goed:**
+
+| run | status | JVS-brug |
+|---|---|---|
+| 1 (`direct-MarioKartDX-*`, core_source runtime) | De game draait | **134 packets**, 1x identificatie, 127 schakelaarpolls, 126 analoogpolls |
+| 2 | De game draait | **2.309 packets** |
+| 3 | De game draait | **2.264 packets** |
+
+De TV-opname (`docs/screenshots/mariokartdx-tp-vergelijking-io-ok-2026-10-19.png`, 300.649 bytes)
+toont het **opstartcontrolescherm van MK zelf**: "マリオカート アーケードグランプリDX 基板立ち上げ",
+met drive-bord-ID **1**, serienummer **271013-020000**, "**I/Oチェック OK JV I/O connected**",
+ナムカム(カメラ)チェック OK, ステアリングチェック 反力OFF, ICカード OK, 認証チェック OK,
+ゲームサーバー接続チェック チェック中. Er wordt dus beeld getekend en het bord is **verbonden**.
+
+**Onze kern, zelfde moment**: "STR PCB 通信エラー" op het scherm en **0 packets** op de brug.
+
+### Wat de TP-kern precies doet (statisch + runtime)
+
+- **Statisch**: `GameProfiles/MKDX118.xml` vraagt `EmulationProfile = NamcoMkdx` en bevat **nul**
+  patches. De ondersteuning zit dus volledig in de TP-kern zelf (de `NamcoMkdx`-klasse in
+  TeknoParrot.dll), niet in het profiel. `Metadata/MKDX118.json` is alleen een beschrijving.
+- **Runtime**: met de TP-kern loopt het aantal pakketten op de JVS-brug van 0 naar duizenden. De kern
+  legt dus de verbinding tussen het spel (dat zijn bord op COM3 opent) en onze brug -- precies wat
+  onze eigen drop-in `rg-mfcam` met `RG_JVS_COMPORT=COM3` ("JVS-omleiding aan: COM3 ->
+  \\.\pipe\TeknoParrot_JVS") hoort te doen.
+- **Ons probleem zit dus in de drop-in, niet in de brug**: de brug werkt (met de TP-kern telt hij
+  duizenden pakketten), maar bij onze eigen starts komt er niets binnen. De drop-in schrijft zijn
+  logboek (`views/MarioKartDX/rg-mfcam.log`) en dat stopte bij 19:37: de herbouwde `rg-mfcam.dll`
+  werd door het spel **niet geladen**. Dat is de eerstvolgende reparatie.
+
 ### Doorbraak: het scherm is NIET zwart (19:31)
 
 Ik heb het venster van AMAuthd naar voren gehaald en het scherm opnieuw opgenomen
