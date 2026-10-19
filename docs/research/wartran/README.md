@@ -1116,12 +1116,31 @@ gestopt omdat het beeld al duidelijk was).
 | NEW | 5 | 52193f86 | 23205 | nee | ja | 2936 | 1148 |
 | NOSTRIP | 5 | 299d4ac3 | 23205 | nee | ja | 2935 | 1147 |
 
-**Uitslag: NEW is niet slechter dan OLD.** In alle 15 starts bleef de game draaien (`draait=ja`) en het
-aantal bordlezers is per variant hetzelfde (OLD 1140-1148, NEW 1142-1148, NOSTRIP 1145-1149). De
-bewering "NEW / geen `bord[8]` / `-s` laat het spel stoppen" is daarmee **weerlegd**: de oude bisect
-was ruis (één start per variant, en de start is aantoonbaar wisselvallig). NEW en NOSTRIP ontlopen
-elkaar ook niet, dus het strippen is evenmin de oorzaak. Volgens de afspraak ("samenvoegen als NEW
-niet slechter is dan OLD") is de branch samengevoegd.
+**Uitslag: NEW is niet slechter dan OLD.** In alle 15 getelde starts bleef de game draaien
+(`draait=ja`) en het aantal bordlezers is per variant hetzelfde (OLD 1140-1148, NEW 1142-1148,
+NOSTRIP 1145-1149). De bewering "NEW / geen `bord[8]` / `-s` laat het spel stoppen" is daarmee
+**weerlegd**: de oude bisect was ruis (één start per variant, en de start is aantoonbaar
+wisselvallig). NEW en NOSTRIP ontlopen elkaar ook niet, dus het strippen is evenmin de oorzaak.
+Volgens de afspraak ("samenvoegen als NEW niet slechter is dan OLD") is de branch samengevoegd.
+
+**Hoeveel starts er zijn WEGGEGOOID, en waarom -- dit hoort erbij.** De uitslag "alle 15 bleven
+draaien" is deels waar **door de opzet**: het proefscript gooit een start weg waarin de game niet
+draait (die zegt niets over de DLL) en telt hem niet mee. Wat er in werkelijkheid is weggegooid:
+
+| variant | geteld | weggegooid | waarom |
+|---|---|---|---|
+| OLD | 5 | 0 | -- |
+| NEW | 5 | 0 | -- |
+| NOSTRIP | 5 | 2 | (1) om 12:20 een start waarin de game niet liep: het logboek was leeg, er waren 0 bordlezers en de foto was het BUREAUBLAD (1.463.551 bytes, geen spel); (2) eerder een start die samenviel met een tweede instantie van het script: die had het logboekprofiel van OLD (20.407 regels) in plaats van dat van NOSTRIP |
+
+Er zijn dus 17 starts gedaan voor 15 getelde. Dat de weggooi-regel bestaat is op zich goed (een start
+waarin de game niet loopt meet niets), maar het betekent wel dat deze proef **niet** kan aantonen dat
+een variant de game *niet* laat stoppen in de gevallen die weggegooid zijn. De eerlijke uitspraak is
+daarom: in 15 van de 17 starts liep de game door, met per variant dezelfde bordlezers; de twee
+weggegooide starts zaten bij NOSTRIP en zijn opnieuw gedaan (de tweede keer met de handmatige
+controle op het logboekprofiel erbij). Een variant die het spel *soms* laat stoppen zou met deze
+opzet deels onzichtbaar blijven; daarvoor is een groter aantal starts nodig, niet een strengere
+weggooi-regel.
 
 **Wat de proef NIET zegt.** `voorbij BOOTING` is in 15 van de 15 starts `nee`, **OLD inbegrepen**: geen
 enkele variant komt binnen 90 s voorbij het BOOTING-scherm. Dat criterium zegt hier dus niets over de
