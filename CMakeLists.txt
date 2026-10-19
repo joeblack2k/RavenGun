@@ -41,19 +41,17 @@ set(RAVENGUN_BUILD_DEFS
 
 # rg-exec (tools/rg-exec): het hulpprogramma tussen gamescope en bwrap van de native route; laat alleen DISPLAY van gamescope door.
 add_executable(rg-exec tools/rg-exec/rg_exec.cpp)
-# Nooit in de gegevensmap van deze gebruiker installeren (~/.local/share/ravengun, dus
-# XDG_DATA_HOME): dat is de gebruikerslaag (patches/, views, prefixen) en niet de applicatie.
+# Nooit in de gegevensmap van deze gebruiker installeren (~/.local/share/ravengun, en een absolute
+# XDG_DATA_HOME): dat is de gebruikerslaag (patches/, views, prefixen) en niet de applicatie. Ook niet
+# in de wortel van een git-werkmap of over een vreemde <prefix>/patches (cmake/CheckInstallPrefix.cmake).
 # Dit staat als eerste installatieregel, zodat er dan nog niets geschreven is. De datamap heet
 # hieronder share/ravengun (RAVENGUN_DATADIR, pas verderop gezet).
 install(CODE "
-  set(_rg_prefix \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
-  set(_rg_data \"\$ENV{XDG_DATA_HOME}\")
-  if(NOT _rg_data)
-    set(_rg_data \"\$ENV{HOME}/.local/share\")
-  endif()
-  if(_rg_data AND \"\${_rg_prefix}/share/ravengun\" STREQUAL \"\${_rg_data}/ravengun\")
-    message(FATAL_ERROR \"prefix \${CMAKE_INSTALL_PREFIX} is de gegevensmap van deze gebruiker (\${_rg_data}/ravengun). Installeer daar niet: dat overschrijft de gebruikerslaag. Kies een eigen prefix, bijvoorbeeld ~/.local/opt/ravengun, of zet XDG_DATA_HOME op iets anders voor deze installatie.\")
-  endif()
+  set(RG_PREFIX \"\${CMAKE_INSTALL_PREFIX}\")
+  set(RG_DESTDIR \"\$ENV{DESTDIR}\")
+  set(RG_DATA_HOME \"\$ENV{XDG_DATA_HOME}\")
+  set(RG_HOME \"\$ENV{HOME}\")
+  include(\"${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckInstallPrefix.cmake\")
 ")
 install(TARGETS rg-exec RUNTIME DESTINATION bin)
 
@@ -520,6 +518,11 @@ if(RAVENGUN_BUILD_TESTS)
   set_tests_properties(ravengun_elfloader_absneeded PROPERTIES SKIP_RETURN_CODE 77)
   add_test(NAME ravengun_elfloader_install COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/elfloader_install_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}")
   set_tests_properties(ravengun_elfloader_install PROPERTIES SKIP_RETURN_CODE 77)
+  # De prefixcontrole van de installatie (cmake/CheckInstallPrefix.cmake): nooit in de gegevensmap van de gebruiker installeren,
+  # ook niet met een afsluitende "/", "//" of een symlink in het pad.
+  add_test(NAME ravengun_install_prefix
+    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/install_prefix_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
+  set_tests_properties(ravengun_install_prefix PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
   add_executable(ravengun_hid_board_tests tests/test_hid_board.cpp)
   target_link_libraries(ravengun_hid_board_tests PRIVATE ravengun)
   target_compile_definitions(ravengun_hid_board_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
@@ -700,6 +703,11 @@ if(RAVENGUN_BUILD_TESTS)
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")
   endif()
 endif()
+# make_portable_test.sh draait sinds review-ronde 4 zo'n twintig runs van het script (ongeveer 40 s op de Deck, meer onder
+# ctest -j); elke run heeft zelf een limiet van 120 s. Hier los gezet zodat het add_test-blok hierboven ongemoeid blijft.
+if(TEST ravengun_make_portable)
+  set_tests_properties(ravengun_make_portable PROPERTIES TIMEOUT 400)
+endif()
 
 # Installeren (docs/build.md, "Installatie-indeling"): `cmake --install build --prefix ~/.local/opt/ravengun` (of via
 # scripts/install-user.sh). Indeling: bin/ (ravengun, ravengund, ravengunctl), lib/ (libpsmoveapi.so, de LD_PRELOAD-hulpen, rpath
@@ -783,23 +791,13 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/patches")
       endif()
     endforeach()
   ")
+  # De omzetting zelf (rename, koppeling, merkbestand) staat in cmake/PatchesLayout.cmake, zodat de test hem los kan draaien.
   install(CODE "
-    set(_rg_prefix \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
-    set(_rg_dm \"\${_rg_prefix}/${RAVENGUN_DATADIR}/patches\")
-    if(CMAKE_INSTALL_PREFIX STREQUAL \"/\" OR CMAKE_INSTALL_PREFIX MATCHES \"^/usr(/.*)?$\")
-      # Systeeminstallatie: de datamap is de enige plek (geen /usr/patches).
-    elseif(IS_SYMLINK \"\${_rg_dm}\")
-      # De productindeling staat er al; de bestanden zijn net in <prefix>/patches gezet.
-    else()
-      # (Het installatiescript weigert al eerder een prefix die de gegevensmap van de gebruiker
-      # is; anders zou de rename hieronder ~/.local/share/ravengun/patches verplaatsen.)
-      set(_rg_top \"\${_rg_prefix}/patches\")
-      if(EXISTS \"\${_rg_top}\")
-        file(REMOVE_RECURSE \"\${_rg_top}\")
-      endif()
-      file(RENAME \"\${_rg_dm}\" \"\${_rg_top}\")
-      file(CREATE_LINK \"../../patches\" \"\${_rg_dm}\" SYMBOLIC)
-    endif()
+    set(RG_PREFIX \"\${CMAKE_INSTALL_PREFIX}\")
+    set(RG_ROOT \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
+    set(RG_DATADIR \"${RAVENGUN_DATADIR}\")
+    set(RG_TEST_STOP \"\")
+    include(\"${CMAKE_CURRENT_SOURCE_DIR}/cmake/PatchesLayout.cmake\")
   ")
 else()
   message(FATAL_ERROR "patches/-map ontbreekt: profielen horen bij de applicatiecheckout")

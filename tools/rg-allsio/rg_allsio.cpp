@@ -442,23 +442,30 @@ IoctlFn g_real_ioctl = &DeviceIoControl;
 CloseFn g_real_close = &CloseHandle;
 bool g_platform_enabled = false;
 // De platformhandvatten (FddDriver, sghwmonitor, sghwreset). Het handvat is atomair en wordt pas gepubliceerd nadat `device` gezet
-// is (release); DeviceIoControl en CloseHandle zoeken zonder g_cs. g_platform_open telt de geopende handvatten: staat die op 0 (het
+// is (release); DeviceIoControl en CloseHandle zoeken zonder g_cs. `device` is zelf ook atomair (relaxed): sluit een andere draad het
+// handvat en hergebruikt hij de plek terwijl wij `device` lezen, dan is dat een gewone (goedaardige) race op een atomair, geen
+// dataracen op een gewone variabele. g_platform_open telt de geopende handvatten: staat die op 0 (het
 // spel opent ze meestal pas na het laden, en sluit ze weer), dan is er niets te vergelijken en slaan beide hooks de zoektocht over.
 // Het opschrijven (CreateFileW) blijft onder g_cs: dat gebeurt een paar keer per run.
-struct PlatformHandle { std::atomic<HANDLE> handle{nullptr}; rg_allsio::PlatformDevice device = rg_allsio::PlatformDevice::Keychip; };
+struct PlatformHandle {
+    std::atomic<HANDLE> handle{nullptr};
+    std::atomic<rg_allsio::PlatformDevice> device{rg_allsio::PlatformDevice::Keychip};
+};
 PlatformHandle g_platform_handles[16];
 std::atomic<int> g_platform_open{0};
 LONG g_platform_logs = 0;
 bool platform_device(HANDLE handle, rg_allsio::PlatformDevice& device) {
     if (!handle || g_platform_open.load(std::memory_order_acquire) == 0) return false;
     for (const auto& entry : g_platform_handles) {
-        if (entry.handle.load(std::memory_order_acquire) == handle) { device = entry.device; return true; }
+        if (entry.handle.load(std::memory_order_acquire) == handle) { device = entry.device.load(std::memory_order_relaxed); return true; }
     }
     return false;
 }
 BOOL WINAPI rg_CloseHandle(HANDLE h) {
     if (h && g_platform_open.load(std::memory_order_acquire) > 0) {
         for (auto& entry : g_platform_handles) {
+            // Eerst vergelijken, alleen bij een treffer een CAS: de meeste CloseHandle-aanroepen in het spel gaan over andere handvatten.
+            if (entry.handle.load(std::memory_order_acquire) != h) continue;
             HANDLE expected = h;
             if (entry.handle.compare_exchange_strong(expected, nullptr, std::memory_order_acq_rel)) {
                 g_platform_open.fetch_sub(1, std::memory_order_release);
@@ -618,7 +625,7 @@ HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY
             EnterCriticalSection(&g_cs);
             for (auto& entry : g_platform_handles) {
                 if (!entry.handle.load(std::memory_order_relaxed)) {
-                    entry.device = device;                                   // eerst het apparaat,
+                    entry.device.store(device, std::memory_order_relaxed);   // eerst het apparaat,
                     entry.handle.store(h, std::memory_order_release);        // dan pas het handvat zichtbaar maken
                     g_platform_open.fetch_add(1, std::memory_order_release);
                     stored = true;

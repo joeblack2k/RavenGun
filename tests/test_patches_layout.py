@@ -159,6 +159,73 @@ class Fixtures(unittest.TestCase):
         self.assertIn("To = custom", text)
         self.assertLess(text.index("To = custom"), text.index("[ravengun-hasp/memory/dump]"))
 
+    def test_privebehoud_ingesprongen_haakjesregel_is_een_voortzetting(self):
+        # In configparser is een ingesprongen regel onder een sleutelregel een voortzetting van de waarde, ook als hij met '[' begint.
+        # Alleen een regel die dat niet is, is een kop. De privesectie moet daarom ONBEWERKT en tot de echte volgende kop meekomen.
+        import configparser
+        d = maak_game(self.root, "Goed")
+        write(os.path.join(self.root, "Goed/dropin/ravengun-hasp/memory/dump"), "private")
+        origineel = ("[proef.dll]\nTo = .\n\n"
+                     "[ravengun-hasp/memory/dump]\n"
+                     "To = .\n"
+                     "k = a\n"
+                     "  [0x10] = 1\n"
+                     "\n"
+                     "  # commentaar midden in de waarde\n"
+                     "  slot\n"
+                     "[Volgende]\n"
+                     "X = 1\n")
+        write(os.path.join(d, "dropin/dropin.ini"), origineel)
+        user = os.path.join(self.tmp, "user")
+        write(os.path.join(user, "Goed/dropin/dropin.ini"), "[proef.dll]\nTo = custom\n")
+        pl._ship.preserve_user(self.root, user)
+        with open(os.path.join(user, "Goed/dropin/dropin.ini")) as f:
+            text = f.read()
+        self.assertIn("k = a\n  [0x10] = 1\n", text)
+        self.assertIn("  slot\n", text)
+        self.assertNotIn("[Volgende]", text)
+        # De overgenomen sectie leest configparser hetzelfde als het origineel.
+        oud, nieuw = (configparser.RawConfigParser(strict=False) for _ in range(2))
+        for cp in (oud, nieuw):
+            cp.optionxform = str
+        oud.read_string(origineel)
+        nieuw.read_string(text)
+        sec = "ravengun-hasp/memory/dump"
+        self.assertEqual(dict(nieuw.items(sec)), dict(oud.items(sec)))
+        self.assertEqual(nieuw.get(sec, "k"), "a\n[0x10] = 1\n\nslot")
+        # Een gewone, niet ingesprongen kop erna is wel een kop (en hoort er niet bij).
+        self.assertIn("Volgende", oud.sections())
+        self.assertNotIn("Volgende", nieuw.sections())
+
+    def test_levering_regex_gelijk_aan_cmake_installatielijst(self):
+        # ship-patches.py (LEVERING), de install(DIRECTORY patches ...)-regels in CMakeLists.txt en de controles in de shelltests zijn
+        # drie schrijfwijzen van dezelfde lijst; een bestand dat in de een mist (zoals <Game>/dongle.json) komt anders niet mee.
+        import re
+        with open(os.path.join(ROOT, "CMakeLists.txt"), encoding="utf-8") as f:
+            cmake = f.read()
+        m = re.search(r'REGEX "\^\$\{_rg_patches_rx\}/\[\^/\]\+/\(([^)]*)\)\$"', cmake)
+        self.assertIsNotNone(m, "de bestandenlijst in CMakeLists.txt is niet gevonden")
+        cmake_files = {x.replace("\\\\.", ".") for x in m.group(1).split("|")}
+        cmake_trees = set(re.findall(r'REGEX "\^\$\{_rg_patches_rx\}/\[\^/\]\+/(\w+)/"', cmake))
+        pat = pl._ship.LEVERING.pattern
+        a = re.search(r"\^\[\^/\]\+/\(\?:([^)]*)\)\$", pat)
+        b = re.search(r"\^\[\^/\]\+/\(\?:([^)]*)\)/", pat)
+        self.assertTrue(a and b)
+        ship_files = {x.replace("\\.", ".") for x in a.group(1).split("|")}
+        ship_trees = set(b.group(1).split("|"))
+        self.assertEqual(ship_files, cmake_files)
+        self.assertEqual(ship_trees, cmake_trees)
+        self.assertIn("dongle.json", ship_files)
+        # En in de praktijk: een <Game>/dongle.json gaat mee, een <Game>/dongle.txt niet.
+        d = maak_game(self.root, "Dongle")
+        write(os.path.join(d, "dongle.json"), "{}")
+        write(os.path.join(d, "dongle.txt"), "geen levering")
+        uit = os.path.join(self.tmp, "uit")
+        pl._ship.ship(self.root, uit)
+        self.assertTrue(os.path.exists(os.path.join(uit, "Dongle", "dongle.json")))
+        self.assertFalse(os.path.exists(os.path.join(uit, "Dongle", "dongle.txt")))
+        self.assertIn("dongle.json", pl.ship_set(d))
+
     # ---- levering compleet ------------------------------------------------------------------------------------------
 
     def test_een_dropin_zonder_het_bestand_faalt(self):

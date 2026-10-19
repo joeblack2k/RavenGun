@@ -148,6 +148,15 @@ int main() {
               c[3].first == "/p" && c[4].first == "/h/projects/ravengun");
     }
 
+    // De XDG-datamap: absolute XDG_DATA_HOME wint, anders HOME/.local/share, en zonder beide GEEN pad (nooit "/.local/share").
+    CHECK(xdg_data_base("/x/data", "/h") == "/x/data");
+    CHECK(xdg_data_base(nullptr, "/h") == "/h/.local/share");
+    CHECK(xdg_data_base("", "/h") == "/h/.local/share");
+    CHECK(xdg_data_base("relatief", "/h") == "/h/.local/share");
+    CHECK(xdg_data_base(nullptr, "").empty());
+    CHECK(xdg_data_base("", "").empty());
+    CHECK(xdg_data_base("relatief", "").empty());
+
     std::error_code ec;
     fs::remove_all(root, ec);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);

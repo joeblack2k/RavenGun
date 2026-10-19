@@ -23,6 +23,7 @@ grep -n 'install\.sh' "$REPO/tools/dev/make-release.sh" "$REPO/README.md" | grep
 S="$T/stage/ravengun-0.0.0-x86_64-steamos"; mkdir -p "$S/bin" "$S/lib" "$S/share/ravengun"
 for b in ravengun ravengund ravengunctl; do printf '#!/bin/sh\n' > "$S/bin/$b"; chmod 755 "$S/bin/$b"; done
 echo lib > "$S/lib/libx.so"; echo MIT > "$S/share/ravengun/LICENSE"
+echo merk > "$S/share/ravengun/.patches-installatie"     # van cmake --install; hoort niet in het archief
 
 python3 -I - "$REPO/packaging/components.json" "$T/comp" <<'EOF' || exit 1
 import json, os, sys
@@ -114,6 +115,7 @@ for id in teknoparrot-runtime demulshooter wine; do
 done
 [[ ! -e $S/share/ravengun/components/hasp/Halo\ Fireteam ]] || fail "dongle-gegevens in het archief"
 
+[[ ! -e "$S/share/ravengun/.patches-installatie" ]] || fail "het merkbestand .patches-installatie van de installatie zit in het archief"
 # --- patches: alleen de levering ---------------------------------------------------------------------------------------------------
 D="$S/patches"
 [[ -d $D && ! -L $D ]] || fail "patches/ moet een echte map naast bin/ zijn"
@@ -164,6 +166,10 @@ git -C "$FIX" archive --format=tar HEAD patches | tar -x -C "$T/uit-commit" --st
 [[ ! -e "$T/uit-commit/GameA/dropin/los.dll" ]] || fail "een los bestand uit de werkmap zit in het archief van HEAD"
 grep -q 'git archive --format=tar HEAD patches' "$REPO/tools/dev/make-release.sh" ||
   fail "make-release.sh haalt de profielen niet uit git archive HEAD (losse bestanden lekken dan in de release)"
+# Hetzelfde voor de portabele map: scripts/make-portable.sh haalt de profielen ook uit git archive HEAD (RG_PORTABLE_PATCHES is alleen een
+# override voor tests; tests/make_portable_test.sh toetst het gedrag met een echte git-repo).
+grep -q -e 'archive --format=tar HEAD patches' "$REPO/scripts/make-portable.sh" ||
+  fail "make-portable.sh haalt de profielen niet uit git archive HEAD (losse bestanden lekken dan in de map)"
 python3 -I "$REPO/tools/dev/ship-patches.py" "$FIX/patches" "$T/uit-werkmap" > /dev/null || fail "patch-export faalde"
 [[ -f "$T/uit-werkmap/GameA/dropin/los.dll" ]] || fail "ship() laat een leveringsbestand liggen"
 

@@ -33,7 +33,7 @@ REQUIRED = ("game.ini",)
 # (docs/native-profiel.md): levering. options.json zijn de opties en de memory card die de app toont (docs/game-opties.md): levering. unity.json is het profiel van een Unity-game (docs/per-game-patches.md, "Unity-games"): levering.
 # lindbergh.ini zijn de instellingen van de Lindbergh-laag die de daemon bij elke start aanvult en aan lindbergh.so geeft
 # (docs/lindbergh.md): levering.
-SHIP_FILES = ("game.ini", "patches.ini", "native.json", "unity.json", "options.json", "hasp-haken.ini", "rt-invoer.ini", "rio-invoer.ini", "irtrack.ini",
+SHIP_FILES = ("game.ini", "patches.ini", "native.json", "unity.json", "options.json", "dongle.json", "hasp-haken.ini", "rt-invoer.ini", "rio-invoer.ini", "irtrack.ini",
               "lindbergh.ini", "heap.tsv")   # heap.tsv: de heap-indeling die de HASP-hook van Walking Dead leest
 # seed/ is zaaigoed voor de schrijflaag van de Wine-routes (src/ravengun/games/seed.hpp): levering.
 # private/ is de antwoordcache van de HASP-emulatie (native.json zaait die in de schrijflaag), dus levering.

@@ -56,6 +56,11 @@ DataDir find_data_dir(const Env& env) {
     return {};
 }
 
+std::string xdg_data_base(const char* xdg_data_home, const std::string& home) {
+    if (xdg_data_home && xdg_data_home[0] == '/') return xdg_data_home;
+    return home.empty() ? std::string() : home + "/.local/share";
+}
+
 Env env_from_process() {
     Env e;
     if (const char* v = std::getenv("RAVENGUN_DATA_DIR")) e.data_dir = v;

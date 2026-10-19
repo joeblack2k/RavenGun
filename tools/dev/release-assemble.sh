@@ -34,6 +34,8 @@ done
 # Geen oude echte datamap of achtergebleven privébestanden naast de nieuwe levering.
 [[ "$(realpath -m "$PATCHES")" != "$(realpath -m "$S/patches")" ]] || { echo "patches-bron en release-doel zijn gelijk" >&2; exit 1; }
 rm -rf "$D/patches" "$S/patches"
+# Het merkbestand van cmake --install (cmake/PatchesLayout.cmake) hoort bij een installatie, niet in een archief.
+rm -f "$D/.patches-installatie"
 python3 -I "$HERE/ship-patches.py" "$PATCHES" "$S/patches"
 ln -s ../../patches "$D/patches"
 

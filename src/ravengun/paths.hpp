@@ -40,6 +40,10 @@ DataDir find_data_dir(const Env& env);
 // Env uit het lopende proces (omgevingsvariabelen en /proc/self/exe).
 Env env_from_process();
 
+// De XDG-datamap van deze gebruiker (zonder /ravengun): $XDG_DATA_HOME als dat een absoluut pad is, anders <home>/.local/share. Leeg
+// als beide ontbreken: dan is er geen datamap en bouwt niets er "/.local/share/..." van.
+std::string xdg_data_base(const char* xdg_data_home, const std::string& home);
+
 // De map boven de programmamap (bin/..): <prefix>; leeg als exe leeg is.
 std::string prefix_of_exe(const std::string& exe);
 

@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
     const char* xd0 = std::getenv("XDG_DATA_HOME");
     // Zonder HOME en zonder XDG_DATA_HOME is er geen datamap: dan ook geen standaard-runtime in
     // plaats van "/.local/share/ravengun/..." (een pad dat niet van deze gebruiker is).
-    const std::string data_base = (xd0 && *xd0 == '/') ? std::string(xd0) : (home.empty() ? std::string() : home + "/.local/share");
+    const std::string data_base = ravengun::paths::xdg_data_base(xd0, home);
     std::string tp_dir = data_base.empty() ? std::string() : data_base + "/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
     bool tp_dir_given = false;   // --tp-dir; anders gaat de keuze van de app voor (tp_dir in library.json)
     std::string data_dir_opt;
@@ -468,10 +468,9 @@ int main(int argc, char** argv) {
     // Games met een eigen profiel in game.ini (zonder UserProfiles-XML): de gamemappen van de app (library.json) en de lokale views.
     if (use_config && !home.empty()) {
         const char* xc = std::getenv("XDG_CONFIG_HOME");
-        const char* xd = std::getenv("XDG_DATA_HOME");
         games_cfg.home = home;
         games_cfg.library_file = (xc && *xc == '/' ? std::string(xc) : home + "/.config") + "/ravengun/library.json";
-        games_cfg.views_dir = (xd && *xd == '/' ? std::string(xd) : home + "/.local/share") + "/ravengun/runtime/views";
+        if (!data_base.empty()) games_cfg.views_dir = data_base + "/ravengun/runtime/views";   // data_base: zie boven (HOME of XDG_DATA_HOME)
         // De runtime die de gebruiker in de app koos (Settings > Paths); zonder keuze de standaardmap.
         if (!tp_dir_given)
             if (const std::string t = ravengun::games::library_tp_dir(games_cfg.library_file, home); !t.empty()) {
@@ -483,11 +482,16 @@ int main(int argc, char** argv) {
     {
         auto envs = [](const char* k) { const char* v = std::getenv(k); return std::string(v && *v ? v : ""); };
         ravengun::launch::NativePaths& np = games_cfg.native;
-        const std::string xdh = envs("XDG_DATA_HOME");
-        const std::string data_dir = (!xdh.empty() && xdh[0] == '/' ? xdh : home + "/.local/share") + "/ravengun";
-        np.data = data_dir;
-        games_cfg.write_layer_dir = data_dir + "/writelayer";   // de schrijflaag van de Wine-routes (write_layer in games.cpp)
-        np.lib32 = data_dir + "/runtime/lib32";
+        // Dezelfde data_base als hierboven. Zonder HOME en zonder XDG_DATA_HOME is er geen datamap: dan blijft de native setup op de
+        // gegevensmap uit (np.data, de schrijflaag, lib32) in plaats van "/.local/share/ravengun" (een pad dat niet van deze gebruiker is).
+        const std::string data_dir = data_base.empty() ? std::string() : data_base + "/ravengun";
+        if (!data_dir.empty()) {
+            np.data = data_dir;
+            games_cfg.write_layer_dir = data_dir + "/writelayer";   // de schrijflaag van de Wine-routes (write_layer in games.cpp)
+            np.lib32 = data_dir + "/runtime/lib32";
+        } else {
+            logf("waarschuwing", "games: geen HOME en geen XDG_DATA_HOME: de native setup en de schrijflagen staan uit");
+        }
         // @nas: de spelmappen van de app (library.json), bij elke start opnieuw gelezen (GameService); RAVENGUN_NAS_TP zet er een vast.
         np.nas = envs("RAVENGUN_NAS_TP");
         np.tpui = !envs("RAVENGUN_TPUI").empty() ? envs("RAVENGUN_TPUI") : tp_dir;
@@ -598,10 +602,11 @@ int main(int argc, char** argv) {
         up.data = data_dir;
         // De plugin (scripts/build-unity-plugin.sh): $RAVENGUN_UNITY_PLUGIN_OUT, de gebruikersdata, dan naast de eigen bibliotheken
         // (<prefix>/lib/unity-plugin bij een installatie, build/unity-plugin in de repo).
-        up.plugin_dirs = {envs("RAVENGUN_UNITY_PLUGIN_OUT"), data_dir + "/unity-plugin", lib.empty() ? std::string() : lib + "/unity-plugin"};
+        up.plugin_dirs = {envs("RAVENGUN_UNITY_PLUGIN_OUT"), data_dir.empty() ? std::string() : data_dir + "/unity-plugin", lib.empty() ? std::string() : lib + "/unity-plugin"};
         if (!data_root.empty()) up.plugin_src = data_root + "/plugins/unity/src";
         // GE-Proton 11-7 als ons onderdeel (packaging/components.json, ge-proton), niet meer uit de map van TeknoParrotUi.
-        up.proton = !envs("RAVENGUN_UNITY_PROTON").empty() ? envs("RAVENGUN_UNITY_PROTON") : ravengun::launch::default_unity_proton(data_dir, home);
+        up.proton = !envs("RAVENGUN_UNITY_PROTON").empty() ? envs("RAVENGUN_UNITY_PROTON")
+                    : data_dir.empty() ? std::string() : ravengun::launch::default_unity_proton(data_dir, home);
         logf("info", "games: Unity-games uit patches/<Game>/unity.json (gebruikerslaag %s, meegeleverd %s), instellingen %s, Proton %s", up.user_patches.c_str(),
              up.patches.c_str(), up.route_json.c_str(), up.proton.c_str());
         // De directe route (A10, [Launch] Mode = direct): de daemon start zo'n game zelf met rg-direct als hoofdproces van de unit,

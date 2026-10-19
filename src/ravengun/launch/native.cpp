@@ -1,17 +1,23 @@
 #include "ravengun/launch/native.hpp"
 
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/file.h>
 #include <unistd.h>
 
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 
 #include "ravengun/json_parse.hpp"
 #include "ravengun/strutil.hpp"
@@ -65,7 +71,9 @@ std::uint64_t tree_fingerprint(const std::string& root) {
     for (; !ec && it != end; it.increment(ec)) {
         std::error_code e2;
         const fs::file_status st = it->symlink_status(e2);
-        std::string r = fs::relative(it->path(), root, e2).string();
+        // lexically_relative: fs::relative gaat via weakly_canonical en volgt dus de koppelingen (een koppeling kreeg het pad van haar
+        // doel, en twee verschillende bomen konden dezelfde afdruk krijgen).
+        std::string r = it->path().lexically_relative(root).string();
         if (fs::is_symlink(st)) r += "|l|" + fs::read_symlink(it->path(), e2).string();
         else if (fs::is_directory(st)) r += "|d";
         else r += "|f|" + std::to_string(fs::file_size(it->path(), e2)) + "|" + std::to_string(fs::last_write_time(it->path(), e2).time_since_epoch().count());
@@ -79,6 +87,132 @@ std::uint64_t tree_fingerprint(const std::string& root) {
     }
     return h;
 }
+
+// Een veld uit /proc/*/mountinfo: spaties, tabs, regeleinden en "\" staan er als \ooo (octaal) in.
+std::string mountinfo_veld(const std::string& v) {
+    std::string r;
+    for (size_t i = 0; i < v.size(); ++i) {
+        if (v[i] == '\\' && i + 3 < v.size() && std::isdigit(static_cast<unsigned char>(v[i + 1])) &&
+            std::isdigit(static_cast<unsigned char>(v[i + 2])) && std::isdigit(static_cast<unsigned char>(v[i + 3]))) {
+            r += static_cast<char>((v[i + 1] - '0') * 64 + (v[i + 2] - '0') * 8 + (v[i + 3] - '0'));
+            i += 3;
+        } else {
+            r += v[i];
+        }
+    }
+    return r;
+}
+
+struct MountRegel {
+    std::string dev, root, punt, regel;
+};
+
+std::vector<MountRegel> lees_mountinfo(const std::string& pad) {
+    std::vector<MountRegel> r;
+    std::ifstream f(pad);
+    std::string regel;
+    while (std::getline(f, regel)) {
+        std::istringstream in(regel);
+        std::string id, ouder, dev, root, punt;
+        if (!(in >> id >> ouder >> dev >> root >> punt)) continue;
+        r.push_back({dev, mountinfo_veld(root), mountinfo_veld(punt), regel});
+    }
+    return r;
+}
+
+bool pad_onder(const std::string& pad, const std::string& wortel) {
+    if (wortel == "/") return !pad.empty() && pad[0] == '/';
+    return pad == wortel || (pad.size() > wortel.size() && pad.compare(0, wortel.size(), wortel) == 0 && pad[wortel.size()] == '/');
+}
+
+// Heeft een proces (dat we mogen lezen) een mount van of in <pad>? Een bwrap-sandbox bindt de samengevoegde map onder een ander
+// pad; in zijn mountinfo staat dan het pad BINNEN het bestandssysteem (veld 4, bijvoorbeeld /deck/... als /home een eigen partitie
+// is). Dat zetten we om via onze eigen mountinfo (zelfde apparaat). Na een rename toont de kernel daar de nieuwe naam (.oud.*).
+// Daarnaast telt het absolute pad ergens in de regel (koppelpunt, overlay-opties met upperdir=/lowerdir=).
+bool in_gebruik_door_mount(const std::string& pad_in) {
+    std::error_code ec;
+    const std::string pad = fs::weakly_canonical(pad_in, ec).string();
+    if (ec || pad.empty()) return true;   // niet vast te stellen: voorzichtig, dan laten staan
+    std::string dev, fsrel;   // het apparaat en het pad binnen dat bestandssysteem, via het langste eigen koppelpunt
+    size_t beste = 0;
+    for (const MountRegel& m : lees_mountinfo("/proc/self/mountinfo")) {
+        if (!pad_onder(pad, m.punt) || m.punt.size() < beste) continue;   // gelijk: de latere (bovenste) mount wint
+        beste = m.punt.size();
+        dev = m.dev;
+        const std::string rest = m.punt == "/" ? pad : pad.substr(m.punt.size());
+        fsrel = m.root == "/" ? (rest.empty() ? "/" : rest) : m.root + rest;
+    }
+    const auto in_regel = [&](const std::string& regel) {
+        for (size_t at = regel.find(pad); at != std::string::npos; at = regel.find(pad, at + 1)) {
+            const size_t e = at + pad.size();
+            if (e == regel.size() || regel[e] == '/' || regel[e] == ' ' || regel[e] == ',' || regel[e] == ':') return true;
+        }
+        return false;
+    };
+    for (fs::directory_iterator it("/proc", ec), end; !ec && it != end; it.increment(ec)) {
+        const std::string n = it->path().filename().string();
+        if (n.empty() || !std::all_of(n.begin(), n.end(), [](unsigned char c) { return std::isdigit(c); })) continue;
+        for (const MountRegel& m : lees_mountinfo(it->path().string() + "/mountinfo")) {
+            if (!fsrel.empty() && m.dev == dev && pad_onder(m.root, fsrel)) return true;
+            if (in_regel(m.regel)) return true;
+        }
+    }
+    return false;
+}
+
+// Wat een eerdere samenvoeging naast dst liet liggen. <dst>.nieuw.<pid> is een halve bouw van een proces dat gestorven is (een
+// lopend proces mag hem houden); <dst>.oud.<tijd>.<pid> is de vorige map, opzij gezet omdat een draaiende game hem nog gemount kan
+// hebben (leeghalen onder zijn voeten maakt de game stuk). Die laatste ruimen we pas na een week op, en ook dan niet zolang een proces
+// dat we kunnen lezen hem (of iets erin) nog gemount heeft (of dat niet vast te stellen is). <dst>.stempel.tmp.<pid> van een
+// gestorven proces gaat ook weg; <dst>.lock blijft.
+void sweep_merge_leftovers(const std::string& dst) {
+    std::error_code ec;
+    const fs::path d(dst);
+    const std::string base = d.filename().string(), nieuw = base + ".nieuw.", oud = base + ".oud.", stempel_tmp = base + ".stempel.tmp.";
+    const long now = static_cast<long>(std::time(nullptr));
+    std::vector<fs::path> weg, oude;
+    for (fs::directory_iterator it(d.parent_path(), ec), end; !ec && it != end; it.increment(ec)) {
+        const std::string n = it->path().filename().string();
+        if (n.starts_with(nieuw) || n.starts_with(stempel_tmp)) {   // ook een halve stempel (tmp) van een gestorven proces
+            const size_t na = n.starts_with(nieuw) ? nieuw.size() : stempel_tmp.size();
+            const long pid = std::strtol(n.c_str() + na, nullptr, 10);
+            if (pid > 0 && pid != static_cast<long>(::getpid()) && ::kill(static_cast<pid_t>(pid), 0) != 0 && errno == ESRCH) weg.push_back(it->path());
+        } else if (n.starts_with(oud)) {
+            const long tijd = std::strtol(n.c_str() + oud.size(), nullptr, 10);
+            if (tijd > 0 && now - tijd > 7L * 24 * 3600) oude.push_back(it->path());
+        }
+    }
+    for (const fs::path& o : oude)
+        if (!in_gebruik_door_mount(o.string())) weg.push_back(o);
+    for (const fs::path& w : weg) fs::remove_all(w, ec);
+}
+
+// Een exclusief slot (flock) op <dst>.lock rond controle, bouw en wissel van een samenvoeging: twee gamestarts die tegelijk
+// opnieuw samenvoegen zaten elkaar anders in de weg (tussen de twee renames bestaat dst niet; de verliezer viel terug op alleen
+// de meegeleverde map). Wacht hoogstens ~30 s; lukt het dan nog niet (of kan het slotbestand niet gemaakt worden), dan gaat het
+// zonder slot verder en vangt de controle na een mislukte rename het op.
+class MergeSlot {
+public:
+    explicit MergeSlot(const std::string& pad) {
+        fd_ = ::open(pad.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644);
+        if (fd_ < 0) return;
+        for (int i = 0; i < 300; ++i) {
+            if (::flock(fd_, LOCK_EX | LOCK_NB) == 0) { vast_ = true; return; }
+            if (errno != EWOULDBLOCK && errno != EINTR) return;
+            ::usleep(100 * 1000);
+        }
+    }
+    ~MergeSlot() {
+        if (fd_ >= 0) ::close(fd_);   // sluiten geeft het slot vrij
+    }
+    MergeSlot(const MergeSlot&) = delete;
+    MergeSlot& operator=(const MergeSlot&) = delete;
+    bool vast() const { return vast_; }
+
+private:
+    int fd_ = -1;
+    bool vast_ = false;
+};
 
 std::string hex64(std::uint64_t v) {
     char b[17];
@@ -116,20 +250,38 @@ std::string merge_patches(const std::string& src, const NativePaths& p, std::vec
     if (fs::equivalent(user, shipped, ec) && !ec) return src;   // hetzelfde (bijvoorbeeld een koppeling)
     const std::string dst = p.data + "/merge-patches/" + rel, stempel = dst + ".stempel";
     const std::string vingerafdruk = "1 " + hex64(tree_fingerprint(shipped)) + " " + hex64(tree_fingerprint(user));
-    {
+    const auto klopt = [&]() {
         std::ifstream f(stempel);
         std::string oud;
-        if (f && std::getline(f, oud) && oud == vingerafdruk && is_dir(dst)) {
-            if (merged) *merged = true;
-            return dst;
-        }
+        return f && std::getline(f, oud) && oud == vingerafdruk && is_dir(dst);
+    };
+    if (klopt()) {   // de gewone start: niets te doen, geen slot nodig
+        if (merged) *merged = true;
+        return dst;
     }
+    // Controle, bouw en wissel onder het slot; daarna eerst opnieuw kijken: een andere start kan net klaar zijn.
+    fs::create_directories(fs::path(dst).parent_path(), ec);
+    ec.clear();
+    MergeSlot slot(dst + ".lock");
+    if (!slot.vast()) meld("patches-laag samenvoegen (" + rel + "): geen slot op " + dst + ".lock; verder zonder");
+    if (klopt()) {
+        if (merged) *merged = true;
+        return dst;
+    }
+    // Mislukt een rename, dan kan een andere start (zonder slot) net dezelfde samenvoeging op zijn plek gezet hebben: klopt de
+    // stempel dan, gebruik die map in plaats van terug te vallen.
+    const auto toch_klaar = [&]() {
+        if (!klopt()) return false;
+        if (merged) *merged = true;
+        return true;
+    };
     const auto terugval = [&](const std::string& waarom) {
         meld("patches-laag samenvoegen mislukt (" + rel + "): " + waarom + "; de meegeleverde map wordt gebruikt, bestanden uit de gebruikerslaag (" + user +
              ") ontbreken daardoor");
         return shipped;
     };
     const std::string nieuw = dst + ".nieuw." + std::to_string(::getpid());
+    sweep_merge_leftovers(dst);
     fs::remove_all(nieuw, ec);
     ec.clear();
     fs::create_directories(nieuw, ec);
@@ -139,12 +291,38 @@ std::string merge_patches(const std::string& src, const NativePaths& p, std::vec
     if (!ec) fs::copy(user, nieuw, opties, ec);
     if (ec) { const std::string m = ec.message(); fs::remove_all(nieuw, ec); return terugval(m); }
     // Op zijn plek: eerst de stempel weg (een onderbreking laat nooit een stempel bij een halve map achter), dan wisselen.
+    // De oude map gaat opzij (rename), niet weg: een draaiende game kan hem nog gemount hebben en remove_all zou hem onder zijn voeten
+    // leeghalen. De kopie van de gamestart blijft zo bruikbaar; sweep_merge_leftovers ruimt hem later op.
     fs::remove(stempel, ec);
-    fs::remove_all(dst, ec);
+    std::string opzij;
+    if (fs::exists(fs::symlink_status(dst, ec))) {
+        const std::string basis = dst + ".oud." + std::to_string(static_cast<long>(std::time(nullptr))) + "." + std::to_string(::getpid());
+        opzij = basis;
+        for (int n = 1; fs::exists(fs::symlink_status(opzij, ec)) && n < 1000; ++n) opzij = basis + "." + std::to_string(n);   // twee keer in dezelfde seconde
+        ec.clear();
+        fs::rename(dst, opzij, ec);
+        if (ec) {
+            const std::string m = ec.message();
+            fs::remove_all(nieuw, ec);
+            if (toch_klaar()) return dst;
+            return terugval(m);
+        }
+    }
     ec.clear();
     fs::rename(nieuw, dst, ec);
-    if (ec) { const std::string m = ec.message(); fs::remove_all(nieuw, ec); return terugval(m); }
-    std::ofstream(stempel, std::ios::trunc) << vingerafdruk << "\n";
+    if (ec) {
+        const std::string m = ec.message();
+        fs::remove_all(nieuw, ec);
+        if (toch_klaar()) return dst;   // ENOTEMPTY/EEXIST: een andere start zette dezelfde samenvoeging net neer
+        if (!opzij.empty() && !fs::exists(fs::symlink_status(dst, ec))) fs::rename(opzij, dst, ec);   // de vorige map terug, liever een verouderde dan geen
+        return terugval(m);
+    }
+    {   // de stempel atomair: een lezer ziet nooit een halve regel
+        const std::string tmp = stempel + ".tmp." + std::to_string(::getpid());
+        { std::ofstream(tmp, std::ios::trunc) << vingerafdruk << "\n"; }
+        fs::rename(tmp, stempel, ec);
+        if (ec) fs::remove(tmp, ec);
+    }
     meld("patches-laag samengevoegd (meegeleverd + gebruikerslaag): " + rel);
     if (merged) *merged = true;
     return dst;
@@ -833,9 +1011,12 @@ bool apply_layer(const NativePlan& pl, std::vector<std::string>& log, std::strin
             fs::recursive_directory_iterator it(s.from, fs::directory_options::skip_permission_denied, ec), end;
             for (; !ec && it != end; it.increment(ec)) {
                 std::error_code e2;
-                const fs::path doel = fs::path(s.to) / fs::relative(it->path(), s.from, e2);
-                if (fs::exists(fs::symlink_status(doel, e2))) continue;   // bestaat al: blijft
+                // lexically_relative: fs::relative volgt koppelingen (weakly_canonical); een koppeling met een ../-doel gaf dan een pad
+                // buiten de schrijflaag en copy_symlink schreef daar.
+                const fs::path doel = fs::path(s.to) / it->path().lexically_relative(s.from);
                 const fs::file_status st = it->symlink_status(e2);
+                if (!fs::is_directory(st)) it.disable_recursion_pending();   // alleen echte mappen in; een koppeling (ook naar een map) is een los item
+                if (fs::exists(fs::symlink_status(doel, e2))) continue;   // bestaat al: blijft
                 if (fs::is_directory(st)) fs::create_directories(doel, e2);
                 else if (fs::is_symlink(st)) fs::copy_symlink(it->path(), doel, e2);
                 else fs::copy_file(it->path(), doel, fs::copy_options::skip_existing, e2);
