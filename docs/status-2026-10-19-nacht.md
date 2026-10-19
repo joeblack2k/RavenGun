@@ -78,3 +78,26 @@ muisgeweer op speler 1).
   zien dat het spel direct na het aanmaken **slot 9** (vtable+0x24) aanroept en daarna netjes afsluit
   (met de echte server blijft het draaien). Een doorgeefobject dat logt en doorgeeft vraagt de
   ariteiten van de 32 methodes uit `AMCUS/iauthdll.dll` -- dat is de volgende stap.
+
+## Laatste ronde (05:45-06:05): wil de I/O-controle invoer? Nee, en wie wacht er?
+
+* **Proefstanden op het antwoord.** `rg_rhio` kan met `RG_RHIO_TOETS` de besturingsbyte en de
+  richtas zelf zetten (munt 1 = bit 2, start speler 1 = bit 6, trekker = bit 7; assen op offset
+  12/13). Vier standen zijn gemeten, elk een run met een foto: `cyclus` (munt 1 s, start 1 s,
+  trekker 1 s, niets, rond), `nul` (0x00), `vol` (0xFF) en `buiten` (richtas 0x20/0xE0). Alle vier
+  de antwoorden hebben de juiste kaderregel (bijvoorbeeld `94 40 80 80 00 00 d4`), en **alle vier de
+  foto's tonen hetzelfde `BOOTING . / I/O ... CHECKING`**. De controle wil dus geen invoer en geen
+  toestandsverandering in dit antwoord.
+* **De aanroeper van de bordhulp.** De hulpfunctie begint op 0x490140 (niet 0x4902a0) en wordt vanaf
+  0x48f976 aangeroepen; die aanroeper is een peillus met `Sleep(100)`/`Sleep(2000)` en een teller
+  tegen 100 -- dat leek de verklaring voor "het duurt lang", maar **een run van vijf minuten blijft op
+  I/O CHECKING staan en de tellers van die lus staan op 0** in het levende proces. Die lus loopt dus
+  niet.
+* **Meetdraad.** `rg-rhio` laadt nu ook de meetdraad van `rg-compat` (`RG_COMPAT_SAMPLE`). Gemeten:
+  alle draden **wachten** (`ntdll+0xd410`) of **tekenen** (`ntdll+0xe0c0`, met winevulkan); geen
+  enkele draad peilt. Het spel heeft de tekst dus al getekend en wacht daarna op een gebeurtenis die
+  niet komt. Volgende stap: de wachtende hoofddraad volgen (op welk handvat wacht hij) en uitzoeken
+  wie dat handvat hoort te seinen -- vermoedelijk de I/O-draad.
+
+De standen en de fotos staan in `docs/research/wartran/README.md`; de proefstand staat niet in het
+standaardprofiel (alleen de code, met de uitleg erbij).
