@@ -63,6 +63,20 @@ niet beter; de instelling is daarna teruggezet op `false`.
 
 
 
+
+### De STR-bord-nabootsing bleek het ontbrekende stuk (20:01)
+
+De drop-in `rg-mfcam.dll` heeft al een nagebootst **STR-bord** (`str_board.h`, `RG_STR_COMPORT=COM1`),
+maar die stond niet in de `Env` van `dropin.ini`. Toen ik hem aanzette en de DLL opnieuw bouwde, bleek
+in de logboekregel: "STR-bord: 6997 statusmeldingen, 0 opdrachtbytes, 0 antwoorden" -- het bord is dus
+actief. **Het foutscherm verdween**: de opname ging van 10.669 bytes (de rode banner) naar 9.790 bytes
+(een effen zwart laadscherm). Daarna kwam de fout terug: de volgende controle is de **JVS/I-O**, en die
+krijgt nog steeds **0 pakketten** (de brug blijft op 0 packets, 0 schakelaarpolls staan). Het spel opent
+COM3 dus nog niet, ook al meldt de drop-in "JVS-omleiding aan: COM3 -> \\.\pipe\TeknoParrot_JVS".
+
+Met de TP-kern loopt dezelfde brug wel vol (134/2.309/2.264 packets), dus het verschil zit in het pad
+achter de COM3-open, niet in de brug zelf.
+
 ### VERGELIJKING (geen route): de TeknoParrot-kern, 19:47-19:52
 
 Jeroen heeft de vergelijking met TeknoParrot expliciet toegestaan (het blijft bij een VERGELIJKING; de
