@@ -14,6 +14,7 @@
 #include "ravengun/strutil.hpp"
 
 namespace ravengun::launch {
+// De schrijflaag: zie direct_apply.cpp (definitie staat daar in direct_detail).
 
 namespace fs = std::filesystem;
 namespace gsn = ravengun::gamesettings;
@@ -50,7 +51,11 @@ std::string strip_bom(std::string s);
 std::string expand_home(const std::string& p, const std::string& home);
 std::string shrink_home(const std::string& p, const std::string& home);
 std::string getenv_or(const EnvMap& env, const std::string& k, const std::string& def = {});
-bool on_nas(const std::string& path, const DirectPaths& p);   // launch-direct.py on_nas()
+bool on_nas(const std::string& path, const DirectPaths& p);
+// De schrijflaag (zie direct_apply.cpp): mappen waar de game in schrijft worden echte mappen in de
+// view, met een kopie van de NAS-inhoud; komt het pad daarna nog op de NAS uit, dan weigert de start.
+bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
+                         std::string& err);   // launch-direct.py on_nas()
 
 std::string xml_tag(const std::string& xml, const std::string& tag, bool* found = nullptr);   // de tekst van het eerste <tag>
 std::string kv_get(const std::vector<std::pair<std::string, std::string>>& kv, const std::string& k, const std::string& def = {});

@@ -1023,3 +1023,17 @@ geschreven. Een game zonder eigen profiel gedraagt zich als voorheen.
 - **`hasp-haken.ini`** staat in `patches/Halo/` en `patches/Terminator/` op het hoogste niveau, maar de hook (`tools/rt-hasphook`) leest hem uit de
   map van zijn eigen bibliotheek (of via `RAVENGUN_HASP_ELF_ADRESLIJST`), dus uit `dropin/`. `tests/test_patches_layout.py` meldt hem als
   onbekende naam. Verplaatsen naar `dropin/` (met een sectie in `dropin.ini`) of als onderzoek aanmerken is een keuze van de eigenaar.
+
+## `[Launch] ViewWritable`: mappen waar de game zelf in schrijft
+
+Besluit van de eigenaar (2026-10-19): mappen waar een game zelf in schrijft horen in de
+**schrijflaag** van de view, nooit als koppeling naar de NAS. Met deze sleutel (komma-gescheiden,
+relatief aan de **wortel van de view** = de werkmap van de game) wordt zo'n map bij het bouwen van de
+view een **echte map met een kopie** van de NAS-inhoud; schrijven komt zo nooit op de NAS uit. Staat
+er al een echte map, dan blijft die staan -- dat is de stand van de game. Komt het pad na het
+plaatsen nog op de NAS uit (`readlink -f`), dan **weigert de engine de start**; `..` en absolute
+paden worden al bij het lezen van het profiel geweigerd.
+
+Ingesteld voor Mario Kart (`AMCUS`, schrijft `WritableConfig.ini`) en Robin Hood (`log`, schrijft
+`PR0/PR1.CFG` en `.CRC`). Proef: `ravengun_direct_launch_tests` (echte map, kopie, NAS ongemoeid,
+tweede keer niets doen, weigeren op de NAS, weigeren van `../x` en `/abs`).

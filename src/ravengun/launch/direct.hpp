@@ -101,6 +101,10 @@ struct DirectPlan {
     std::vector<DirectDrive> drives;                       // [Launch] Drives
     std::string exe_override;                              // [Launch] Exe: het Windows-pad dat de lader voor het spel krijgt
     std::vector<std::string> view_copies;                  // [Launch] ViewCopies: links in de view die een lokale kopie worden
+    // [Launch] ViewWritable: mappen waar de game zelf in schrijft (AMCUS/, log/, records/). Die
+    // worden in de view een ECHTE map met een kopie van de inhoud van de NAS; schrijven komt zo
+    // nooit op de NAS uit (besluit eigenaar 2026-10-19).
+    std::vector<std::string> view_writable;
     std::vector<std::string> view_ttc_fonts;               // [Launch] ViewTtcAsTtf: links naar een .ttc die face 0 als losse font worden (ttc.hpp)
     // [Launch] Mod = <naam> ([Mod <naam>] in game.ini, scripts/fetch-mods.py): per regel van de lijst van de mod het doel (pad in de
     // gamemap), het bestand van de mod en de offset (-1 = vervangen). apply_direct() bouwt elk doel met een offset een keer in

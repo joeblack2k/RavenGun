@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "ravengun/launch/direct.hpp"
+#include "ravengun/launch/direct_internal.hpp"
 #include "ravengun/launch/jvs_pipe.hpp"
 #include "ravengun/launch/pe_stack.hpp"
 #include "ravengun/launch/ttc.hpp"
@@ -1694,6 +1695,51 @@ int main() {
         fs::remove(fs::path(p.dirs.user) / "Spel/game.ini");
     }
 #endif
+
+    // --- de schrijflaag ([Launch] ViewWritable): mappen waar de game in schrijft worden echte
+    // mappen in de view met een kopie van de NAS-inhoud; nooit een koppeling naar de NAS.
+    {
+        const fs::path nasmap = home / "mnt/nas/Spel/AMCUS";
+        write(nasmap / "AMConfig.ini", "ALL.NET\n");
+        const fs::path viewmap = view / "AMCUS";   // de wortel van de view (de werkmap)
+        fs::remove_all(viewmap);
+        fs::create_symlink(nasmap.string(), viewmap.string());
+        const fs::path ugi2 = fs::path(p.dirs.user) / "Spel/game.ini";
+        write(ugi2, "[Launch]\nViewWritable = AMCUS\n");
+        DirectPlan wp;
+        std::string w;
+        CHECK(plan_direct("Spel", p, o, wp, w) == Verdict::Ok &&
+              wp.view_writable == std::vector<std::string>{viewmap.string()});
+        {
+            DirectPlan back;
+            std::string err;
+            CHECK(plan_from_json(plan_to_json(wp), back, err) && back.view_writable == wp.view_writable);
+        }
+        std::vector<std::string> wlog;
+        std::string werr;
+        CHECK(apply_direct(wp, p, wlog, werr));
+        CHECK(!fs::is_symlink(viewmap) && fs::is_directory(viewmap));      // echte map
+        CHECK(slurp(viewmap / "AMConfig.ini") == "ALL.NET\n");             // inhoud meegekopieerd
+        write(viewmap / "AMConfig.ini", "OFFLINE\n");
+        CHECK(slurp(nasmap / "AMConfig.ini") == "ALL.NET\n");              // NAS ongemoeid
+        wlog.clear();
+        CHECK(apply_direct(wp, p, wlog, werr) && slurp(viewmap / "AMConfig.ini") == "OFFLINE\n");
+        CHECK(std::any_of(wlog.begin(), wlog.end(),
+                          [](const std::string& l) { return contains(l, "al een echte map"); }));
+        // Een schrijfmap die op de NAS zelf uitkomt: weigeren (harde controle).
+        DirectPlan np;
+        np.view_writable = {nasmap.string()};
+        std::vector<std::string> nlog;
+        std::string nerr;
+        CHECK(!ravengun::launch::direct_detail::place_view_writable(np, p, nlog, nerr));
+        CHECK(contains(nerr, "NAS"));
+        CHECK(slurp(nasmap / "AMConfig.ini") == "ALL.NET\n");
+        for (const char* fout : {"../x", "/abs"}) {
+            write(ugi2, std::string("[Launch]\nViewWritable = ") + fout + "\n");
+            CHECK(plan_direct("Spel", p, o, wp, w) == Verdict::Refused && contains(w, "ViewWritable"));
+        }
+        write(ugi2, "[Launch]\nViewCopies = GameRecords1.dat\n");
+    }
 
     fs::remove_all(root);
     std::printf("direct-launch: %d controles, %d fout\n", g_checks, g_failures);

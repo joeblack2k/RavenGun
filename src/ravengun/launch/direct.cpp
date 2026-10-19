@@ -572,6 +572,28 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             return setting_refused("[Launch] ViewCopies vraagt een view van de game (scripts/tp-add-game.py <Game> <exe> --view): de kopieën "
                                    "komen alleen in de view, nooit op de NAS; " + game + " ligt daar niet");
     }
+    // 6c2b. [Launch] ViewWritable: mappen waar de game zelf in schrijft. Ze worden in de view een
+    // echte map met een kopie van de NAS-inhoud; de game schrijft dus nooit naar de NAS. Verschil
+    // met ViewCopies: dat gaat over losse bestanden, dit over hele mappen.
+    if (const std::string vw = trim(lini("ViewWritable")); !vw.empty()) {
+        for (std::string r : nonempty_split(vw, ',')) {
+            r = trim(r);
+            std::replace(r.begin(), r.end(), '\\', '/');
+            const std::string n = normpath(r);
+            if (r.empty() || r[0] == '/' || n == "." || n == ".." || n.starts_with("../"))
+                return setting_refused("[Launch] ViewWritable = " + vw + " ('" + r +
+                                       "': een pad binnen de gamemap, relatief en zonder ..)");
+            // Ten opzichte van de WORTEL van de view (de werkmap van de game), niet van de map van
+            // de exe: Robin Hood start uit de view zelf en schrijft in log/ naast data/.
+            std::string wortel = dirname(game);
+            for (int diepte = 0; diepte < 8 && dirname(wortel) != normpath(p.views()) && !dirname(wortel).empty(); ++diepte)
+                wortel = dirname(wortel);
+            pl.view_writable.push_back(normpath(pjoin(wortel, n)));
+        }
+        if (!binnen(abspath(game), abspath(p.views())) || on_nas(dirname(game), p))
+            return setting_refused("[Launch] ViewWritable vraagt een view van de game; die mappen "
+                                   "komen alleen in de view, nooit op de NAS");
+    }
     // 6c3. [Launch] ViewTtcAsTtf: een TrueType-collectie (.ttc) wordt in de view face 0 als losse font (ttc.hpp): Wine's
     // GdipPrivateAddMemoryFont neemt geen collectie aan. Paden ten opzichte van de wortel van de view, zoals ViewRealDirs; de map
     // eromheen moet in de view een echte map zijn (ViewRealDirs), want op de NAS wordt niets geschreven. Silent Scope: Bone Eater

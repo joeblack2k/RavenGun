@@ -411,6 +411,7 @@ bool apply_direct(const DirectPlan& pl, const DirectPaths& p, std::vector<std::s
     }
     if (!place_view_links(pl, p, log, err)) return false;
     if (!place_view_copies(pl, p, log, err)) return false;
+    if (!place_view_writable(pl, p, log, err)) return false;
     if (!place_view_ttc_fonts(pl, p, log, err)) return false;
     if (!place_view_mod(pl, p, log, err)) return false;
     if (!place_native_dlls(pl, p, log, err)) return false;
@@ -458,6 +459,7 @@ std::string plan_to_json(const DirectPlan& pl) {
     for (const auto& [a, b] : pl.view_links) w.begin_array().value(a).value(b).end_array();
     w.end_array();
     strs("view_copies", pl.view_copies);
+    strs("view_writable", pl.view_writable);
     strs("view_ttc_fonts", pl.view_ttc_fonts);
     w.key("exe_override").value(pl.exe_override);
     w.key("drives").begin_array();
@@ -537,6 +539,9 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     if (const auto* f = v.find("view_links"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.view_links.emplace_back(e.arr[0].str, e.arr[1].str);
+    if (const auto* f = v.find("view_writable"); f && f->is_array())
+        for (const auto& e : f->arr)
+            if (e.is_string()) pl.view_writable.push_back(e.str);
     if (const auto* f = v.find("native_dlls"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.native_dlls.emplace_back(e.arr[0].str, e.arr[1].str);
@@ -627,5 +632,65 @@ std::vector<std::string> plan_tp_refs(const DirectPlan& pl, const std::string& t
               out.end());
     return out;
 }
+
+
+// [Launch] ViewWritable (besluit eigenaar 2026-10-19): een map waar de game zelf in schrijft wordt
+// in de view een ECHTE map met een kopie van de NAS-inhoud; schrijven komt zo nooit op de NAS uit.
+// Staat er al een echte map, dan blijft die staan -- dat is de stand van de game. Daarna een harde
+// controle: komt het pad nog op de NAS uit, dan weigert de start.
+namespace {
+
+bool kopieer_map(const std::string& bron, const std::string& doel, std::string& err, int diepte = 0) {
+    if (diepte > 8) { err = "te diep: " + bron; return false; }
+    std::error_code ec;
+    std::filesystem::create_directories(doel, ec);
+    if (ec) { err = "kan " + doel + " niet maken: " + ec.message(); return false; }
+    for (const auto& e : std::filesystem::directory_iterator(bron, ec)) {
+        if (ec) break;
+        const std::string van = e.path().string();
+        const std::string naar = pjoin(doel, e.path().filename().string());
+        if (e.is_directory(ec) && !e.is_symlink(ec)) {
+            if (!kopieer_map(van, naar, err, diepte + 1)) return false;
+        } else if (e.is_regular_file(ec)) {
+            std::string data, werr;
+            if (!read_file(van, data)) { err = "kan " + van + " niet lezen"; return false; }
+            if (!write_atomic(naar, data, werr)) { err = werr; return false; }
+        }
+    }
+    return true;
+}
+
+}  // namespace
+
+namespace direct_detail {
+
+bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log,
+                         std::string& err) {
+    for (const std::string& pad : pl.view_writable) {
+        auto fout = [&](const std::string& m) {
+            log.push_back("schrijfmap: FOUT: " + m + " -- de game wordt niet gestart");
+            err = "schrijfmap: " + m;
+            return false;
+        };
+        if (!lexists(pad)) { log.push_back("schrijfmap: " + pad + " bestaat niet; niets te doen"); continue; }
+        if (!islink(pad)) {
+            log.push_back("schrijfmap: " + pad + " is al een echte map (stand van de game)");
+        } else {
+            const std::string bron = realpath_(pad);
+            if (on_nas(bron, p)) {
+                ::unlink(pad.c_str());
+                if (!kopieer_map(bron, pad, err)) return fout(err);
+                log.push_back("schrijfmap: " + pad + " is nu een echte map met een kopie van " + bron);
+            } else {
+                log.push_back("schrijfmap: " + pad + " wijst niet naar de NAS; blijft zoals hij is");
+            }
+        }
+        if (on_nas(realpath_(pad), p))
+            return fout(pad + " komt uit op de NAS; een game mag daar nooit in schrijven");
+    }
+    return true;
+}
+
+}  // namespace direct_detail
 
 }  // namespace ravengun::launch
