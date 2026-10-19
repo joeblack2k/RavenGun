@@ -141,6 +141,21 @@ static DWORD WINAPI achtergrond(LPVOID arg)
      * NIET opnieuw lezen: dat zou de lijst opnieuw opbouwen en elke al toegepaste patch weer als
      * "wachtend" zetten. Alleen wat nog op een module wacht komt hier aan bod. */
     if (patchmem_verbose()) patchmem_toon_modules();
+
+    /* Een extra haak-DLL in hetzelfde proces laden (RAVENGUN_PATCHMEM_HOOK). Nodig voor bord- en
+     * apparaat-emulatie die niet in de importtabel van het spel kan: het spel zoekt die functies
+     * met LoadLibraryA + GetProcAddress op, en Wine's eigen setupapi mag niet vervangen worden
+     * (services.exe van Wine heeft hem nodig). Hier, in de draad, mag LoadLibrary wel; in DllMain
+     * niet (loader-lock). */
+    {
+        const char *haak = getenv("RAVENGUN_PATCHMEM_HOOK");
+        if (haak && *haak) {
+            HMODULE m = LoadLibraryA(haak);
+            fprintf(stderr, "patchmem: haak-DLL %s %s\n", haak,
+                    m ? "geladen" : "NIET geladen (staat hij naast de exe?)");
+        }
+    }
+
     if (patchmem_pending() == 0) {
         if (patchmem_verbose())
             fprintf(stderr, "patchmem: niets meer te doen na de synchrone ronde\n");
@@ -190,8 +205,8 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID gereserveerd)
         g_alleen_hoofdmodule = 0;
         if (verslag < 0) return TRUE;   /* geen RAVENGUN_PATCHMEM_FILE: niets doen */
 
-        /* Wacht er na deze ronde niets meer, dan is een thread overbodig. */
-        if (patchmem_pending() == 0) {
+        /* Wacht er na deze ronde niets meer EN is er geen haak-DLL, dan is een thread overbodig. */
+        if (patchmem_pending() == 0 && !getenv("RAVENGUN_PATCHMEM_HOOK")) {
             if (patchmem_verbose())
                 fprintf(stderr, "patchmem: alles in de synchrone ronde gedaan; geen achtergrondthread\n");
             return TRUE;

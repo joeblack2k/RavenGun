@@ -416,3 +416,69 @@ bord. **Volgende stap:** de apparaatinterface-GUID uit de exe halen en met een d
 rg-wajvio/rg-mfcam) een bord aanbieden dat op de `DeviceIoControl`-verzoeken antwoordt — of de
 opsomming zó beantwoorden dat het spel denkt dat het bord er is. Met de gesloten kern was dit spel
 speelbaar, dus die kern deed hier iets.
+
+### I/O-bord: eerste proef (2026-10-19 03:00) en twee vondsten
+
+Voor het I/O-bord is `tools/rg-rhio/rg_rhio.cpp` geschreven: een 32-bits `setupapi.dll` die de
+SetupDi-functies exporteert die de exe met `LoadLibraryA` + `GetProcAddress` opzoekt, plus haken op
+`kernel32!GetProcAddress`, `CreateFileA` en `DeviceIoControl`, met een logboek (`rg-rhio.log`). Dat
+is dezelfde vorm als `tools/rg-winusb` (TC5) en `tools/rg-usio`.
+
+**Geparkeerd, met de reden.** Twee dingen zijn gemeten en nog niet opgelost:
+1. Een drop-in met `DllOverride = native` zet `setupapi=n` voor het HELE proces, en dan start het
+   spel niet meer (de lader/game sluit direct, exitcode 0, geen rg-rhio.log). De override is er
+   daarom weer uit; Wine zoekt bij `LoadLibraryA("SETUPAPI.DLL")` eerst in de map van de exe, dus
+   de DLL wordt ook zonder override gevonden.
+2. Zonder override start het spel wel, maar rg-rhio.log bleef leeg: de game laadt de DLL in dat
+   geval niet (of de opzoeking gaat ergens anders heen). Dat is het eerste dat uitgezocht moet
+   worden; daarna kan het bord zelf (de IOCTL-antwoorden) aan bod komen.
+
+**Productvondst onderweg:** een drop-in die je aan een profiel toevoegt, komt pas in de view als de
+daemon opnieuw is gestart (`systemctl --user restart ravengund`). Zonder herstart startte het spel
+wel, maar stond het nieuwe bestand niet in de view en kwam de override er niet. Dat hoort niet: de
+daemon leest de profielen per start.
+
+### I/O-bord: het bord is een SERIELE kaart, en de opdrachten staan in het logboek (2026-10-19 03:10)
+
+De vorige proef (een eigen `setupapi.dll`) is verlaten: Wine's eigen `services.exe` heeft de
+ingebouwde setupapi nodig, dus `setupapi=n` laat het spel niet meer starten (gemeten met een klein
+proefprogramma: `LoadLibraryA("setupapi.DLL")` geeft zonder override Wine's builtin terug, en mét
+override start services.exe niet meer). De SetupDi-opsomming is ook niet de weg die het spel in deze
+toestand gebruikt.
+
+**Wat wel werkt:** de geheugen-motor laadt nu een extra haak-DLL in het spelproces
+(`RAVENGUN_PATCHMEM_HOOK=rg-rhio.dll`, zie `memory/src/entry_win.c`). Dat mag daar wel
+(`LoadLibrary` in de draad, niet in DllMain) en zo zitten onze haken in het spel zonder dat er iets
+van Wine vervangen wordt. `tools/rg-rhio/rg_rhio.cpp` zet daarmee `kernel32!GetProcAddress`,
+`CreateFileA`, `DeviceIoControl`, `ReadFile`, `WriteFile`, `PurgeComm`, `ClearCommError`,
+`Get/SetCommState`, `Get/GetCommTimeouts` en `EscapeCommFunction` om en schrijft alles in
+`rg-rhio.log` naast de exe.
+
+**De vondst:** de exe probeert COM1, COM2, COM3 (fout 5) en **COM4 lukte** -- het bord hangt aan een
+seriele poort. Daarna stuurt het spel onafgebroken 7-byte kaders en wacht op een antwoord:
+
+```
+00 d7 8f 94 22 00 1c
+00 1d 90 94 22 00 63
+00 63 90 94 22 00 a9
+...
+```
+
+* byte 0 = 0x00 (opdracht), byte 3 = 0x94, bytes 4-5 = 0x22 0x00 (vast);
+* bytes 1-2 zijn een teller die per ronde met 0x46 (70) oploopt;
+* byte 6 is de **som van de eerste zes bytes, mod 256** (0xd7+0x8f+0x94+0x22 = 0x21c -> 0x1c) --
+  dat is de controlesom, en die is dus na te rekenen;
+* het spel blijft dit herhalen: het wacht op een antwoordkader van het bord en komt daarom niet
+  verder dan `I/O ... CHECKING`.
+
+**Volgende stap (precies):** het antwoordkader van het bord namaken. Het meest waarschijnlijke
+formaat is hetzelfde kader met de schakelaarstand erin (munt/START/geweer), dus: de teller
+terugsturen met de IO-bytes uit het bordbeeld van de daemon (`tp-shm`, indeling WartranTroopers) en
+dezelfde controlesom. Dat antwoord hoort in `rg_ReadFile` in `tools/rg-rhio/rg_rhio.cpp`; de eerste
+proef kan zijn: het ontvangen kader één op één terugsturen (bord aanwezig, geen schakelaars) en
+kijken of het spel verder komt.
+
+**Productvondst (nog een keer, nu hard):** een gewijzigde drop-in-**DLL** komt pas in de view als de
+daemon opnieuw start. De engine meldde "is al actueel" terwijl het bestand in de view ouder was; pas
+na `systemctl --user restart ravengund` werd de nieuwe DLL gebruikt. Tekstbestanden (patchmem.txt)
+werden wel meteen bijgewerkt.
