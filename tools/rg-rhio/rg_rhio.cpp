@@ -11,7 +11,10 @@
 //   staan (gemeten 2026-10-19, 13+ minuten, geen time-out).
 //
 // HOE
-//   Deze DLL heet setupapi.dll en komt naast de exe, met WINEDLLOVERRIDES=setupapi=n. Hij
+// De weg via een eigen setupapi.dll met WINEDLLOVERRIDES=setupapi=n is verlaten: Wine's
+// services.exe heeft de ingebouwde setupapi nodig en het spel startte niet meer (gemeten
+// 2026-10-19). Deze DLL wordt daarom door de geheugen-motor in het spelproces geladen
+// (RAVENGUN_PATCHMEM_HOOK) en zet zijn haken in de importtabel van de exe.
 //   exporteert de SetupDi-functies die de exe opvraagt EN zet in de importtabel van de exe
 //   kernel32!GetProcAddress, kernel32!CreateFileA en kernel32!DeviceIoControl om, zodat elke
 //   opzoeking en elke bordvraag in rg-rhio.log komt te staan -- ook als de exe de module ergens
@@ -174,6 +177,9 @@ DWORD g_laatste_lengte = 0;
 DWORD g_wachtend_antwoord = 0;
 /* Hoeveel bytes van het antwoord al aan het spel gegeven zijn (het leest eerst 1 byte, dan 6). */
 DWORD g_antwoord_gelezen = 0;
+/* Meerdere draden van het spel komen bij deze poort; alles hieronder is met dit slot beschermd. */
+CRITICAL_SECTION g_bord_cs;
+bool g_bord_cs_klaar = false;
 /* Het laatste opdrachtkader, apart bewaard voor het logboek (het antwoordkader wordt overschreven). */
 unsigned char g_opdracht_kader[64];
 
@@ -375,20 +381,29 @@ BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD inl, LPVOI
 bool CodeGoed(unsigned char c);
 void BouwAntwoord();
 
+const char* AntwoordStand();
+
 BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLAPPED ov) {
     if (h == g_com_handle) {
         /* Eerste proef: het laatste opdrachtkader terugsturen (bord aanwezig, geen schakelaars).
          * RG_RHIO_ANTWOORD=0 zet dat uit; RG_RHIO_ANTWOORD=niks laat het antwoord leeg. */
-        const char* stand = std::getenv("RG_RHIO_ANTWOORD");
+        const char* stand = AntwoordStand();
         if (stand && std::strcmp(stand, "niks") == 0) {
             Log("ReadFile(bord, %lu bytes gevraagd) -> geen antwoord (RG_RHIO_ANTWOORD=niks)",
                 static_cast<unsigned long>(n));
             if (gelezen) *gelezen = 0;
+            /* N3: ook het wachtende antwoord opruimen, anders blijft ClearCommError cbInQue > 0
+             * melden en draait het spel zijn leeslus warm. */
+            if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
+            g_wachtend_antwoord = 0;
+            g_antwoord_gelezen = 0;
+            if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
             SetLastError(ERROR_TIMEOUT);
             return TRUE;
         }
         /* Het antwoord in stukken: het spel leest eerst 1 byte (de code) en dan 6 (de rest). De
          * leeswijzer houdt bij waar we zijn; anders kreeg het spel de eerste zes bytes twee keer. */
+        if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
         const DWORD vanaf = g_antwoord_gelezen;
         DWORD beschikbaar = g_laatste_lengte > vanaf ? g_laatste_lengte - vanaf : 0;
         DWORD m = beschikbaar;
@@ -400,6 +415,7 @@ BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLA
             g_wachtend_antwoord = 0;   /* het hele antwoord is opgehaald */
         }
         if (gelezen) *gelezen = m;
+        if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
         LogVan(__builtin_return_address(0), "ReadFile(bord, %lu bytes gevraagd, vanaf %lu) -> %lu bytes",
                static_cast<unsigned long>(n), static_cast<unsigned long>(vanaf),
                static_cast<unsigned long>(m));
@@ -412,9 +428,11 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD geschreven, LPO
     if (h == g_com_handle) {
         char hex[3 * 64 + 1];
         DWORD m = n < 64 ? n : 64;
+        if (n > 0 && !buf) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }
         for (DWORD i = 0; i < m; ++i) std::snprintf(hex + i * 3, 4, "%02x ", reinterpret_cast<const BYTE*>(buf)[i]);
         hex[m * 3] = '\0';
         Log("WriteFile(bord, %lu bytes): %s", static_cast<unsigned long>(n), hex);
+        if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
         g_laatste_lengte = n < sizeof g_laatste_kader ? n : (DWORD)(sizeof g_laatste_kader);
         if (buf) std::memcpy(g_laatste_kader, buf, g_laatste_lengte);
         std::memcpy(g_opdracht_kader, g_laatste_kader, g_laatste_lengte);
@@ -431,6 +449,7 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD geschreven, LPO
             antwoord_hex[g_laatste_lengte * 3] = '\0';
             Log("frame-paar: opdracht %s -> antwoord %s", opdracht_hex, antwoord_hex);
         }
+        if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
         if (geschreven) *geschreven = n;
         return TRUE;
     }
@@ -456,10 +475,20 @@ bool CodeGoed(unsigned char c) {
 /* Het antwoord op een opdrachtkader opbouwen: het kader terug, maar met een eerste byte die het spel
  * goedkeurt (anders gaat het naar het foutpad) en de som van de eerste zes bytes in byte 6. Met
  * RG_RHIO_EERSTEBYTE is de eerste byte te kiezen (hex); RG_RHIO_ANTWOORD=nul blijft als proefstand. */
+/* RG_RHIO_ANTWOORD, een keer gelezen (deze functie loopt per bordopdracht):
+ *   (niet gezet) of 0 = echo met een geldige code (het gewone bedrijf)
+ *   nul              = alle bytes 0 (proef: de beveiligingscontrole valt om)
+ *   niks             = geen antwoord; ClearCommError meldt dan ook niets klaarstaands
+ * RG_RHIO_EERSTEBYTE=<hex> forceert alleen de eerste byte van het antwoord. */
+const char* AntwoordStand() {
+    static const char* stand = std::getenv("RG_RHIO_ANTWOORD");
+    return stand;
+}
+
 void BouwAntwoord() {
     if (g_laatste_lengte < 7) return;
     unsigned char* k = g_laatste_kader;
-    const char* mode = std::getenv("RG_RHIO_ANTWOORD");
+    const char* mode = AntwoordStand();
     if (mode && std::strcmp(mode, "nul") == 0) {
         std::memset(k, 0, g_laatste_lengte);
         return;
@@ -477,12 +506,18 @@ void BouwAntwoord() {
 
 BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD fouten, LPCOMSTAT stat) {
     if (h == g_com_handle) {
+        DWORD rest;
+        if (g_bord_cs_klaar) EnterCriticalSection(&g_bord_cs);
+        rest = g_laatste_lengte > g_antwoord_gelezen ? g_laatste_lengte - g_antwoord_gelezen : 0;
+        if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
         if (fouten) *fouten = 0;
         if (stat) {
             std::memset(stat, 0, sizeof(COMSTAT));
-            stat->cbInQue = g_wachtend_antwoord;   /* er staat een antwoord klaar na een WriteFile */
+            /* N1: de RESTERENDE bytes. Het spel leest eerst 1 byte; daarna moet hier 6 staan, anders
+             * leest het de rest nooit (en dat was precies het oude misverstand). */
+            stat->cbInQue = rest;
         }
-        Log("ClearCommError(bord) -> cbInQue=%lu", static_cast<unsigned long>(g_wachtend_antwoord));
+        Log("ClearCommError(bord) -> cbInQue=%lu", static_cast<unsigned long>(rest));
         return TRUE;
     }
     return g_echte_clear ? g_echte_clear(h, fouten, stat) : FALSE;
@@ -595,7 +630,9 @@ void onthoud_originelen() {
 
 /* Synchroon installeren (DllMain): het spel mag geen aanroep doen voordat de haken er staan. Dit is
  * alleen geheugen schrijven, geen LoadLibrary, dus het mag daar. */
-void installeer_haken() {
+/* Geeft terug of elke haak gevonden is; dan is een tweede ronde zinloos. */
+bool installeer_haken() {
+    bool alles = true;
     HMODULE exe = GetModuleHandleA(nullptr);
     onthoud_originelen();
     void* oud = PatchIat(exe, "KERNEL32.dll", "GetProcAddress", reinterpret_cast<void*>(&rg_GetProcAddress));
@@ -620,10 +657,11 @@ void installeer_haken() {
     };
     for (auto& c : comm) {
         void* oud = PatchIat(exe, "KERNEL32.dll", c.naam, c.nep);
+        if (!oud) alles = false;
         Log("importtabel: KERNEL32!%s %s", c.naam, oud ? "omgezet" : "NIET gevonden");
         (void)oud;
     }
-    return;
+    return alles;
 }
 
 }  // namespace
@@ -641,9 +679,14 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
         DisableThreadLibraryCalls(instantie);
         LogOpen();
         Log("--- nieuw proces: de I/O-bordkant van RavenGun geladen ---");
-        installeer_haken();   /* synchroon: geen spel-draad mag ons voor zijn */
-        HANDLE draad = CreateThread(nullptr, 0, Herprobeer, nullptr, 0, nullptr);
-        if (draad) CloseHandle(draad);
+        /* N6: alleen een draad als er iets niet gevonden is; anders herhaalt hij hetzelfde werk en
+         * schrijft hij dezelfde regels nog eens. */
+        if (!installeer_haken()) {
+            HANDLE draad = CreateThread(nullptr, 0, Herprobeer, nullptr, 0, nullptr);
+            if (draad) CloseHandle(draad);
+        }
+        InitializeCriticalSection(&g_bord_cs);
+        g_bord_cs_klaar = true;
     }
     return TRUE;
 }
