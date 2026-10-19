@@ -26,6 +26,7 @@ __pycache__/
 # dropin.ini noemt. Zonder deze uitzondering mist een kloon elk bestand waar dropin.ini naar wijst.
 !patches/*/dropin/**
 
+
 # Meegeleverde profielen en eigen drop-ins horen bij deze repository.
 # De repo is privé: donglegegevens, HASP-antwoorden en andere privé-profielbestanden
 # gaan mee, zodat een verse kloon de games zonder extra stappen kan starten.
@@ -34,3 +35,10 @@ __pycache__/
 # Eigen gebouwde FMOD-host; niet de proprietary FMOD-bibliotheken.
 !/patches/Halo/data/fmod/rg-fmod-host.exe
 build-saver/
+
+# Maar nooit de markerbestanden van het gereedschap (.aan). Die horen bij een meting in de
+# view van een speler en niet bij de bron: een marker in een drop-in-map zou de volgende
+# start stil veranderen (review 12, punt 4). Deze regel staat bewust HELEMAAL ACHTERAAN: in
+# .gitignore wint de laatste regel die past, en de uitzonderingen hierboven (patches/** en
+# patches/*/dropin/**) zouden een marker anders weer meetrekken.
+*.aan

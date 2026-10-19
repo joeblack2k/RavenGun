@@ -69,14 +69,20 @@ char g_pad[256] = {0};
 volatile LONG g_log_regels = 0;
 constexpr LONG kLogMax = 20000;
 
-void SchrijfRegel(const char* tekst) {
+/* De stackregels (LeesWachthandvatten) hebben hun eigen teller en hun eigen maximum. Anders kan een
+ * stortvloed ReadFile-regels het maximum opmaken en vallen juist de regels weg waar het om gaat
+ * (review 12, punt 2). */
+volatile LONG g_log_stack_regels = 0;
+constexpr LONG kLogStackMax = 4000;
+
+void SchrijfRegelMet(const char* tekst, volatile LONG* teller, LONG max) {
     if (!g_log || g_stil) return;
-    if (g_log_regels > kLogMax) return;   // vooraf kijken: de teller loopt zo nooit door in een lus
-    const LONG nr = InterlockedIncrement(&g_log_regels);
-    if (nr > kLogMax + 1) return;
-    if (nr == kLogMax + 1) {
+    if (*teller > max) return;   // vooraf kijken: de teller loopt zo nooit door in een lus
+    const LONG nr = InterlockedIncrement(teller);
+    if (nr > max + 1) return;
+    if (nr == max + 1) {
         std::fprintf(g_log, "[log] maximum van %ld regels bereikt; verdere regels worden niet "
-                            "meer geschreven (zet RG_RHIO_STIL=1 of verwijder rg-rhio.log)\n", kLogMax);
+                            "meer geschreven (zet RG_RHIO_STIL=1 of verwijder rg-rhio.log)\n", max);
         std::fflush(g_log);
         return;
     }
@@ -84,6 +90,8 @@ void SchrijfRegel(const char* tekst) {
     std::fputc('\n', g_log);
     std::fflush(g_log);
 }
+
+void SchrijfRegel(const char* tekst) { SchrijfRegelMet(tekst, &g_log_regels, kLogMax); }
 
 void LogVan(const void* beller, const char* fmt, ...) {
     if (!g_log || g_stil) return;
@@ -169,7 +177,8 @@ void LogOpen() {
 }
 
 // --- de importtabel van het hoofdprogramma ------------------------------------------------------
-void* PatchIat(HMODULE mod, const char* dll, const char* func, void* repl) {
+/* Het adres van het importtabel-slot zelf, of nullptr. Zo kunnen we eerst lezen en dan pas schrijven. */
+void** ZoekIatSlot(HMODULE mod, const char* dll, const char* func) {
     auto* base = reinterpret_cast<BYTE*>(mod);
     auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
     if (dos->e_magic != IMAGE_DOS_SIGNATURE) return nullptr;
@@ -185,15 +194,27 @@ void* PatchIat(HMODULE mod, const char* dll, const char* func, void* repl) {
             if (namen[i].u1.Ordinal & IMAGE_ORDINAL_FLAG) continue;
             auto* ibn = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + namen[i].u1.AddressOfData);
             if (std::strcmp(reinterpret_cast<const char*>(ibn->Name), func) != 0) continue;
-            void* oud = reinterpret_cast<void*>(iat[i].u1.Function);
-            DWORD prot = 0;
-            if (!VirtualProtect(&iat[i].u1.Function, sizeof(void*), PAGE_READWRITE, &prot)) return nullptr;
-            iat[i].u1.Function = reinterpret_cast<decltype(iat[i].u1.Function)>(repl);
-            VirtualProtect(&iat[i].u1.Function, sizeof(void*), prot, &prot);
-            return oud;
+            return reinterpret_cast<void**>(&iat[i].u1.Function);
         }
     }
     return nullptr;
+}
+
+/* De huidige waarde van een slot, zonder iets te veranderen. */
+void* LeesIat(HMODULE mod, const char* dll, const char* func) {
+    void** slot = ZoekIatSlot(mod, dll, func);
+    return slot ? *slot : nullptr;
+}
+
+void* PatchIat(HMODULE mod, const char* dll, const char* func, void* repl) {
+    void** slot = ZoekIatSlot(mod, dll, func);
+    if (!slot) return nullptr;
+    void* oud = *slot;
+    DWORD prot = 0;
+    if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &prot)) return nullptr;
+    *slot = repl;
+    VirtualProtect(slot, sizeof(void*), prot, &prot);
+    return oud;
 }
 
 // --- de SetupDi-functies die de exe opzoekt -----------------------------------------------------
@@ -978,6 +999,21 @@ std::string BellerTekst(const void* beller) {
     return buf;
 }
 
+/* De originelen van de sloten, uit kernel32 zelf en niet uit de importtabel. Twee redenen (review 12,
+ * punt 3): de importtabel kan op dat moment al ons eigen haak-adres bevatten (tweede ronde van
+ * installeer_haken -> de haak roept zichzelf aan, eindeloze herhaling), en tussen het omzetten van het
+ * slot en het onthouden van het origineel zit anders een ogenblik waarin de haak WAIT_FAILED of NULL
+ * teruggeeft. */
+void onthoud_sloten() {
+    HMODULE k = GetModuleHandleA("KERNEL32.dll");
+    if (!k) return;
+    if (!g_echte_waitobj)
+        g_echte_waitobj = reinterpret_cast<WaitForSingleObjectFn>(GetProcAddress(k, "WaitForSingleObject"));
+    if (!g_echte_release) g_echte_release = reinterpret_cast<ReleaseMutexFn>(GetProcAddress(k, "ReleaseMutex"));
+    if (!g_echte_createmutex)
+        g_echte_createmutex = reinterpret_cast<CreateMutexAFn>(GetProcAddress(k, "CreateMutexA"));
+}
+
 HANDLE WINAPI rg_CreateMutexA(LPSECURITY_ATTRIBUTES sa, BOOL eigenaar, LPCSTR naam) {
     HANDLE h = g_echte_createmutex ? g_echte_createmutex(sa, eigenaar, naam) : nullptr;
     if (MutexAan())
@@ -989,9 +1025,14 @@ HANDLE WINAPI rg_CreateMutexA(LPSECURITY_ATTRIBUTES sa, BOOL eigenaar, LPCSTR na
 DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
     const void* beller = __builtin_return_address(0);
     const DWORD tid_voor = GetCurrentThreadId();
+    /* Voor het blokkeren loggen: een wachter die nooit terugkomt schreef anders niets weg, en juist
+     * die willen we zien (review 12, punt 3). */
+    if (MutexAan())
+        Log("mutex: draad %lu GAAT wachten op %p (%lu ms)  beller=%s", static_cast<unsigned long>(tid_voor),
+            h, static_cast<unsigned long>(ms), BellerTekst(beller).c_str());
     DWORD r = g_echte_waitobj ? g_echte_waitobj(h, ms) : WAIT_FAILED;
     if (MutexAan())
-        Log("mutex: draad %lu wacht op %p (%lu ms) -> %lu  beller=%s", static_cast<unsigned long>(tid_voor),
+        Log("mutex: draad %lu wachtte op %p (%lu ms) -> %lu  beller=%s", static_cast<unsigned long>(tid_voor),
             h, static_cast<unsigned long>(ms), static_cast<unsigned long>(r), BellerTekst(beller).c_str());
     return r;
 }
@@ -1043,18 +1084,34 @@ bool installeer_haken() {
      * DLL). Ze op elke start installeren bleek Robin Hood meteen te laten stoppen (review 11): het
      * zijn haken op WaitForSingleObject/CreateMutexA, die de CRT al heel vroeg aanroept. */
     if (MutexAan()) {
+        onthoud_sloten();   // eerst de originelen, dan pas omzetten
         for (auto& sl : sloten) {
-            void* oud_slot = PatchIat(exe, "KERNEL32.dll", sl.naam, sl.nep);
-            if (oud_slot && sl.echt) *sl.echt = oud_slot;   // de echte functie onthouden
-            Log("importtabel: KERNEL32!%s %s", sl.naam, oud_slot ? "omgezet" : "NIET gevonden");
+            void* nu = LeesIat(exe, "KERNEL32.dll", sl.naam);
+            if (!nu) {
+                Log("importtabel: KERNEL32!%s NIET gevonden", sl.naam);
+                continue;
+            }
+            if (nu == sl.nep) {   // al van ons (tweede ronde): niets doen
+                Log("importtabel: KERNEL32!%s was al omgezet", sl.naam);
+                continue;
+            }
+            PatchIat(exe, "KERNEL32.dll", sl.naam, sl.nep);
+            Log("importtabel: KERNEL32!%s omgezet", sl.naam);
         }
     }
     for (auto& c : comm) {
-        void* oud = PatchIat(exe, "KERNEL32.dll", c.naam, c.nep);
-        if (!oud && c.nodig) alles = false;
-        Log("importtabel: KERNEL32!%s %s%s", c.naam, oud ? "omgezet" : "NIET gevonden",
-            (!oud && !c.nodig) ? " (optioneel)" : "");
-        (void)oud;
+        void* nu = LeesIat(exe, "KERNEL32.dll", c.naam);
+        if (!nu) {
+            if (c.nodig) alles = false;
+            Log("importtabel: KERNEL32!%s NIET gevonden%s", c.naam, c.nodig ? "" : " (optioneel)");
+            continue;
+        }
+        if (nu == c.nep) {   // al van ons (tweede ronde): niets doen
+            Log("importtabel: KERNEL32!%s was al omgezet", c.naam);
+            continue;
+        }
+        PatchIat(exe, "KERNEL32.dll", c.naam, c.nep);
+        Log("importtabel: KERNEL32!%s omgezet", c.naam);
     }
     return alles;
 }
@@ -1086,7 +1143,10 @@ void LaadMeetdraad() {
     const bool via_omgeving = GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0;
 
     /* Markerbestand: <map van deze DLL>\rg-compat.aan. De inhoud is het aantal milliseconden
-     * (leeg of onleesbaar = 200). Zo kan de meetdraad aan zonder de omgeving aan te raken. */
+     * (leeg of onleesbaar = 200). Zo kan de meetdraad aan zonder de omgeving aan te raken.
+     * BELANGRIJK (review 12, punt 4): een expliciet gezette omgevingsvariabele wint. Eerder zette het
+     * markerbestand de variabele overschrijvend, waardoor een marker in de view een bewust gekozen
+     * waarde stil veranderde. */
     bool via_marker = false;
     if (!map.empty()) {
         const std::string marker = map + "\\rg-compat.aan";
@@ -1095,13 +1155,19 @@ void LaadMeetdraad() {
             char inhoud[32] = {0};
             const size_t n = std::fread(inhoud, 1, sizeof inhoud - 1, m);
             std::fclose(m);
-            long ms = n ? std::strtol(inhoud, nullptr, 10) : 0;
-            if (ms <= 0) ms = 200;
-            char tekst[32];
-            std::snprintf(tekst, sizeof tekst, "%ld", ms);
-            SetEnvironmentVariableA("RG_COMPAT_SAMPLE", tekst);
             via_marker = true;
-            Log("meetdraad: markerbestand %s gevonden; RG_COMPAT_SAMPLE=%s", marker.c_str(), tekst);
+            if (via_omgeving) {
+                Log("meetdraad: markerbestand %s gevonden, maar RG_COMPAT_SAMPLE staat al expliciet op "
+                    "%s; de omgeving wint",
+                    marker.c_str(), v);
+            } else {
+                long ms = n ? std::strtol(inhoud, nullptr, 10) : 0;
+                if (ms <= 0) ms = 200;
+                char tekst[32];
+                std::snprintf(tekst, sizeof tekst, "%ld", ms);
+                SetEnvironmentVariableA("RG_COMPAT_SAMPLE", tekst);
+                Log("meetdraad: markerbestand %s gevonden; RG_COMPAT_SAMPLE=%s", marker.c_str(), tekst);
+            }
         }
     }
     if (!via_omgeving && !via_marker) return;
@@ -1117,6 +1183,35 @@ void LaadMeetdraad() {
     GetEnvironmentVariableA("RG_COMPAT_SAMPLE", ms, sizeof ms);
     HMODULE m = LoadLibraryA("rg-compat.dll");
     Log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", ms);
+}
+
+/* Welke markers staan er in de map van deze DLL? Een keer loggen, zodat een meting later te
+ * verklaren is (review 12, punt 4). Een marker mag nooit in de git-kluis belanden; daar hoort de
+ * .gitignore-regel bij. */
+void MeldMarkers() {
+    const std::string map = EigenMap();
+    if (map.empty()) {
+        Log("markers: de map van deze DLL is niet te bepalen");
+        return;
+    }
+    struct { const char* naam; const char* wat; } lijst[] = {
+        {"rg-rhio-stack.aan", "stackregels (RG_RHIO_STACK)"},
+        {"rg-rhio-mutex.aan", "mutex-haken (RG_RHIO_MUTEX)"},
+        {"rg-compat.aan", "meetdraad (RG_COMPAT_SAMPLE)"},
+        {"rg-rhio-bord.aan", "nagebootst bord (RG_RHIO_BORD)"},
+    };
+    for (const auto& l : lijst) {
+        const bool aan = Bestaat(map + "\\" + l.naam);
+        char omg[8] = {0};
+        const bool via_omg = GetEnvironmentVariableA(
+                                 std::strcmp(l.naam, "rg-compat.aan") == 0      ? "RG_COMPAT_SAMPLE"
+                                 : std::strcmp(l.naam, "rg-rhio-mutex.aan") == 0 ? "RG_RHIO_MUTEX"
+                                 : std::strcmp(l.naam, "rg-rhio-stack.aan") == 0 ? "RG_RHIO_STACK"
+                                                                                 : "RG_RHIO_BORD",
+                                 omg, sizeof omg) != 0;
+        Log("marker %s: %s%s%s (%s)", l.naam, aan ? "aanwezig" : "afwezig",
+            via_omg ? ", omgeving expliciet" : "", aan && via_omg ? " -- de omgeving wint" : "", l.wat);
+    }
 }
 
 /* --- (D) Wie wacht waarop, zonder een import-haak -------------------------------------------
@@ -1151,12 +1246,81 @@ std::string WaarTekst(ULONG_PTR a) {
     return buf;
 }
 
+/* Een meting van een stilstaande draad. Alleen getallen: geen std::string, geen logboek, geen
+ * toewijzing. Dat is punt 1 van review 12: als we tijdens de stilstand loggen of geheugen vragen en de
+ * stilgezette draad houdt net de sluis van het logboek (FILE), de heap of de loader, dan staat alles
+ * stil. */
+struct DraadMeting {
+    DWORD draad;
+    ULONG_PTR pc;
+    ULONG_PTR esp;
+    ULONG_PTR args[4];
+    bool heeft_ctx;
+};
+
+/* Waar begon deze draad? NtQueryInformationThread(ThreadQuerySetWin32StartAddress = 9). Zo slaan we
+ * de meetdraad van rg-compat over: die zet zelf draden stil en mag niet zelf stilgezet worden. */
+ULONG_PTR DraadStart(HANDLE th) {
+    using NtQueryInformationThreadFn = LONG(NTAPI*)(HANDLE, ULONG, PVOID, ULONG, PULONG);
+    static NtQueryInformationThreadFn q = reinterpret_cast<NtQueryInformationThreadFn>(
+        GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationThread"));
+    if (!q) return 0;
+    ULONG_PTR start = 0;
+    ULONG terug = 0;
+    if (q(th, 9, &start, sizeof start, &terug) != 0) return 0;
+    return start;
+}
+
+/* Ligt dit adres in deze module? (Voor het overslaan van onze eigen draden.) */
+bool InModule(HMODULE m, ULONG_PTR a) {
+    if (!m || !a) return false;
+    const ULONG_PTR basis = reinterpret_cast<ULONG_PTR>(m);
+    const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(basis);
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return false;
+    const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(basis + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE) return false;
+    return a >= basis && a < basis + nt->OptionalHeader.SizeOfImage;
+}
+
+bool OnzeDraad(ULONG_PTR start) {
+    if (!start) return false;
+    return InModule(GetModuleHandleA("rg-compat.dll"), start) ||
+           InModule(GetModuleHandleA("rg-rhio.dll"), start);
+}
+
+/* De stapelwoorden van een stilstaande draad. ReadProcessMemory op het eigen proces: een ongeldig
+ * adres geeft een fout in plaats van een uitzondering in deze draad. Geen log, geen toewijzing. */
+void LeesStackWoorden(ULONG_PTR esp, ULONG_PTR* uit, int n) {
+    for (int k = 0; k < n; ++k) uit[k] = 0;
+    MEMORY_BASIC_INFORMATION mi;
+    if (!VirtualQuery(reinterpret_cast<LPCVOID>(esp), &mi, sizeof mi)) return;
+    if (mi.State != MEM_COMMIT || (mi.Protect & PAGE_GUARD) || (mi.Protect & PAGE_NOACCESS)) return;
+    const ULONG_PTR eind = reinterpret_cast<ULONG_PTR>(mi.BaseAddress) + mi.RegionSize;
+    HANDLE zelf = GetCurrentProcess();
+    for (int k = 0; k < n; ++k) {
+        const ULONG_PTR adres = esp + static_cast<ULONG_PTR>(k) * sizeof(ULONG_PTR);
+        if (adres + sizeof(ULONG_PTR) > eind) continue;
+        SIZE_T gelezen = 0;
+        if (!ReadProcessMemory(zelf, reinterpret_cast<LPCVOID>(adres), &uit[k], sizeof(ULONG_PTR),
+                               &gelezen) ||
+            gelezen != sizeof(ULONG_PTR))
+            uit[k] = 0;
+    }
+}
+
 void LeesWachthandvatten() {
     if (!StackAan()) return;
-    static DWORD laatst = 0;
+    /* Een keer per seconde, maar wel atomair: twee draden die hier tegelijk langskomen mogen niet
+     * allebei een ronde doen (review 12, punt 1). */
+    static volatile LONG g_stack_tik = 0;
     const DWORD nu = GetTickCount();
-    if (nu - laatst < 1000) return;   // een keer per seconde is genoeg
-    laatst = nu;
+    const LONG vorige = g_stack_tik;
+    if (nu - static_cast<DWORD>(vorige) < 1000) return;
+    if (InterlockedCompareExchange(&g_stack_tik, static_cast<LONG>(nu), vorige) != vorige) return;
+
+    constexpr int kMaxDraden = 256;
+    DraadMeting metingen[kMaxDraden];
+    int aantal = 0;
 
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
     if (snap == INVALID_HANDLE_VALUE) return;
@@ -1165,39 +1329,50 @@ void LeesWachthandvatten() {
     const DWORD ik = GetCurrentThreadId();
     if (Thread32First(snap, &te)) {
         do {
+            if (aantal >= kMaxDraden) break;
             if (te.dwSize < FIELD_OFFSET(THREADENTRY32, th32OwnerProcessID) + sizeof(DWORD)) continue;
             if (te.th32OwnerProcessID != GetCurrentProcessId()) continue;
             if (te.th32ThreadID == ik) continue;
             HANDLE th = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION,
                                    FALSE, te.th32ThreadID);
             if (!th) continue;
+            /* Eerst kijken of het onze eigen draad is (buiten de stilstand om, want GetModuleHandleA
+             * pakt de loader-sluis). */
+            if (OnzeDraad(DraadStart(th))) {
+                CloseHandle(th);
+                continue;
+            }
+            DraadMeting m = {te.th32ThreadID, 0, 0, {0, 0, 0, 0}, false};
             if (SuspendThread(th) != static_cast<DWORD>(-1)) {
                 CONTEXT ctx = {0};
                 ctx.ContextFlags = CONTEXT_CONTROL;
                 if (GetThreadContext(th, &ctx)) {
-                    ULONG_PTR a[4] = {0, 0, 0, 0};
-                    MEMORY_BASIC_INFORMATION mi;
-                    if (VirtualQuery(reinterpret_cast<LPCVOID>(ctx.Esp), &mi, sizeof mi) &&
-                        mi.State == MEM_COMMIT) {
-                        const ULONG_PTR eind =
-                            reinterpret_cast<ULONG_PTR>(mi.BaseAddress) + mi.RegionSize;
-                        for (int k = 0; k < 4; ++k) {
-                            const ULONG_PTR p = ctx.Esp + static_cast<ULONG_PTR>(k) * sizeof(ULONG_PTR);
-                            if (p + sizeof(ULONG_PTR) <= eind) a[k] = *reinterpret_cast<const ULONG_PTR*>(p);
-                        }
-                    }
-                    Log("stack: draad %lu pc=%s esp=%p args=%p %p %p %p", static_cast<unsigned long>(te.th32ThreadID),
-                        WaarTekst(ctx.Eip).c_str(), reinterpret_cast<void*>(ctx.Esp),
-                        reinterpret_cast<void*>(a[0]), reinterpret_cast<void*>(a[1]),
-                        reinterpret_cast<void*>(a[2]), reinterpret_cast<void*>(a[3]));
+                    m.pc = ctx.Eip;
+                    m.esp = ctx.Esp;
+                    m.heeft_ctx = true;
+                    LeesStackWoorden(ctx.Esp, m.args, 4);
                 }
                 ResumeThread(th);
             }
             CloseHandle(th);
+            if (m.heeft_ctx) metingen[aantal++] = m;
         } while (Thread32Next(snap, &te));
     }
     CloseHandle(snap);
+
+    /* Pas nu, met alle draden weer aan het werk, tekst maken en wegschrijven. */
+    for (int i = 0; i < aantal; ++i) {
+        const DraadMeting& m = metingen[i];
+        char regel[512];
+        std::snprintf(regel, sizeof regel, "stack: draad %lu pc=%s esp=%p args=%p %p %p %p",
+                      static_cast<unsigned long>(m.draad), WaarTekst(m.pc).c_str(),
+                      reinterpret_cast<void*>(m.esp), reinterpret_cast<void*>(m.args[0]),
+                      reinterpret_cast<void*>(m.args[1]), reinterpret_cast<void*>(m.args[2]),
+                      reinterpret_cast<void*>(m.args[3]));
+        SchrijfRegelMet(regel, &g_log_stack_regels, kLogStackMax);
+    }
 }
+
 
 BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
     if (reden == DLL_PROCESS_ATTACH) {
@@ -1208,6 +1383,7 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
         LogOpen();
         Log("--- nieuw proces: de I/O-bordkant van RavenGun geladen ---");
         LeesOmgeving();   // na het slot en het logboek; voor installeer_haken, dus voor elke bordaanroep
+        MeldMarkers();    // een keer opschrijven welke markers in de view aanstaan (review 12, punt 4)
         /* N6: alleen een draad als er iets niet gevonden is; anders herhaalt hij hetzelfde werk en
          * schrijft hij dezelfde regels nog eens. */
         if (!installeer_haken()) {

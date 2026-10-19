@@ -389,3 +389,48 @@ de `--log-full`-weg van rg-direct of door de motor een `WINEDEBUG`-sleutel te ge
 `WINEDEBUG`-sleutel geven zodat `+d3d9,+dxgi` echt doorkomt, en (b) kijken of het spel zijn venster wel
 presenteert maar niets tekent (het spel gebruikt `RG_JVS_COMPORT=COM3`; net als bij Robin Hood kan het
 op bordgegevens wachten voordat het zijn eerste frame tekent).
+
+## Review 12: vier punten in het (D)-gereedschap van rg-rhio (12:00-12:15)
+
+De vier punten zijn doorgevoerd in `tools/rg-rhio/rg_rhio.cpp`; de DLL bouwt schoon met de
+mingw-image (304.128 bytes tegen 299.008 voor de ongewijzigde versie).
+
+**(1) `LeesWachthandvatten` logde en maakte geheugen aan terwijl een speldraad stil stond.** Dat is
+een echte doodloop-kandidaat: `Log` pakt de sluis van het `FILE*`, `std::string` de heap en
+`GetModuleHandleExA` de loader-sluis. Als de stilgezette draad net een van die drie vasthield, stond
+alles stil. Nu gebeurt tijdens de stilstand **alleen** `GetThreadContext` en het lezen van de vier
+stapelwoorden in een **lokale array** (`ReadProcessMemory` op het eigen proces, met een grenscheck via
+`VirtualQuery`, zodat een ongeldig adres een foutcode geeft in plaats van een uitzondering). Elke
+draad wordt daarna meteen weer losgelaten en pas **na** de lus worden de regels gemaakt en
+weggeschreven. Verder: de tempo-poort is nu atomair (`InterlockedCompareExchange`) en onze eigen
+draden worden overgeslagen -- de start van een draad wordt opgevraagd met
+`NtQueryInformationThread(ThreadQuerySetWin32StartAddress)` en vergeleken met de omvang van
+`rg-compat.dll` en `rg-rhio.dll` (buiten de stilstand om, want `GetModuleHandleA` pakt de
+loader-sluis). Een controle na het bouwen laat zien dat er tussen `SuspendThread` en `ResumeThread`
+geen enkele verboden aanroep meer staat.
+
+**(2) De stackregels konden door het logmaximum wegvallen.** De teller is nu per soort: gewone regels
+20.000, stackregels een eigen 4.000. Een stortvloed `ReadFile`-regels kan de regels waar het om gaat
+dus niet meer wegduwen. (In de A/B-meting hieronder is het effect meteen te zien: dezelfde start geeft
+met de nieuwe DLL 2.919 regels waar de oude 21.143 schreef.)
+
+**(3) De mutex-haken hadden drie races.** (a) `PatchIat` zette het importtabel-slot om en pas
+daarna werd `g_echte_*` gevuld: in dat venster gaf de haak `WAIT_FAILED` of `NULL`. (b) De tweede
+ronde van `installeer_haken` (via `Herprobeer`) las het slot dat inmiddels **ons eigen haak-adres**
+bevatte en zette dat in `g_echte_*`, waarna de haak zichzelf aanriep -- eindeloze herhaling. (c) Er
+werd pas na de wachtdienst gelogd, dus juist een wachter die nooit terugkomt schreef niets weg. Nu
+haalt `onthoud_sloten()` de originelen **uit kernel32 zelf** (`GetProcAddress`, met dezelfde
+`if (!g_echte_*)`-wacht als `onthoud_originelen` voor de comm-haken), is er een `LeesIat` die eerst
+leest en een wachter die een slot dat al van ons is overslaat, en logt `rg_WaitForSingleObject`
+**voor** het blokkeren ("GAAT wachten") en daarna nog eens met de uitkomst. Dit is een concrete
+alternatieve verklaring voor "de mutex-haken laten het spel stoppen", dus die haken worden hierna
+opnieuw gemeten met minstens vijf starts.
+
+**(4) Markers.** Een expliciet gezette omgevingsvariabele wint nu van een markerbestand; eerder zette
+`LaadMeetdraad` de variabele overschrijvend, waardoor een marker in de view een bewust gekozen waarde
+stil veranderde. `MeldMarkers()` schrijft bij het laden een keer op welke markers aanwezig zijn, of de
+omgeving ze expliciet zet en wie er dan wint. En er kan geen marker meer in de kluis belanden:
+`.gitignore` sluit `*.aan` uit **helemaal achteraan** (na `patches/**` en `patches/*/dropin/**`, want
+in .gitignore wint de laatste regel die past), met de nieuwe proef `tests/markers_test.sh`
+(ctest-doel `ravengun_markers`) die beide kanten controleert: geen enkel `.aan` in git, markers in een
+drop-in-map genegeerd, en de DLL's en `dropin.ini` nog steeds mee.

@@ -531,6 +531,11 @@ if(RAVENGUN_BUILD_TESTS)
   add_test(NAME ravengun_install_prefix
     COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/install_prefix_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
   set_tests_properties(ravengun_install_prefix PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+  # De markerbestanden van het gereedschap (.aan) mogen nooit in git belanden, ook niet in een
+  # drop-in-map (daar is een uitzondering voor de DLL's). Zie tests/markers_test.sh, review 12 punt 4.
+  add_test(NAME ravengun_markers
+    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/markers_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}")
+  set_tests_properties(ravengun_markers PROPERTIES TIMEOUT 60)
   add_executable(ravengun_hid_board_tests tests/test_hid_board.cpp)
   target_link_libraries(ravengun_hid_board_tests PRIVATE ravengun)
   target_compile_definitions(ravengun_hid_board_tests PRIVATE "RAVENGUN_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
