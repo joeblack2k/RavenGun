@@ -186,11 +186,19 @@ route) en of `pl.view_writable` daar gevuld is. **Stopgap**: `views/RobinHood/lo
   leeslus niet warm.
 * **C3**: de oude `InitializeCriticalSection(&g_bord_cs)` onderaan `DllMain` is weg; het slot wordt nu
   één keer gezet, vóór de haken.
-* **C4**: `GetOverlappedResult` leest de teller onder het slot; `char bord[8]` is geïnitialiseerd;
-  `RG_RHIO_EERSTEBYTE` en `RG_RHIO_BORD` worden één keer gelezen; de kop van het bestand noemt alle
-  negen omgevingsvariabelen; `std::call_once` is vervangen door een `InterlockedCompareExchange`-vlag
-  (geen winpthreads meer) en `build-rhio.sh` stript nu: de DLL ging van 2,3 MB naar **197 kB**; het
-  logboek is begrensd op 20.000 regels met één afsluitende regel.
+* **C4**: `GetOverlappedResult` leest de teller onder het slot en meldt het aantal bytes van de
+  laatste `ReadFile`/`WriteFile` (niet de lengte van het hele kader); `RG_RHIO_EERSTEBYTE` en
+  `RG_RHIO_BORD` worden niet meer per frame gelezen maar één keer bij het laden (`LeesOmgeving()`, in
+  een globale `char g_bord[64]` met lengtecontrole; de oude `char bord[8]` is weg; dat een `= {0}` het
+  spel liet stoppen is niet aangetoond, dus meet het starten met 5+ starts per variant); de kop van
+  het bestand noemt alle omgevingsvariabelen en markerbestanden met hun echte betekenis;
+  `std::call_once` is vervangen door een `InterlockedCompareExchange`-vlag (geen winpthreads meer);
+  `build-rhio.sh` had `-s` weer verloren en stript opnieuw (pass 2): de DLL gaat van 2,37 MB naar
+  **299 kB** (het eerder genoemde 197 kB klopte niet voor de DLL in de repo); het logboek is begrensd
+  op 20.000 regels (`Log` en `LogVan` samen) met één afsluitende regel, begint bij elke start schoon
+  (het vorige blijft als `rg-rhio.vorige.log`) en `ClearCommError` logt alleen een wijziging.
+* **C1 (aanvulling, pass 2)**: `g_antwoord_op` wordt nu in `rg_WriteFile` zelf teruggezet, ook bij een
+  frame korter dan 7 bytes (`BouwAntwoord` keert dan eerder terug).
 * **C5**: de conclusie over "slot 9" is in `docs/research/namco/README.md` en
   `docs/status-2026-10-19-nacht.md` ingetrokken (de proef gebruikte stdcall met een vaste ariteit).
 

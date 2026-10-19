@@ -78,9 +78,10 @@ muisgeweer op speler 1).
   e22e16ead82786c4b3d359943a4135b9, `amdcfg-authType=ALL.NET`) en houdt een reservekopie; dit bestand
   wordt niet meer aangeraakt. Resultaat van de proef zelf: de IAuth-aanroep
   geeft nog steeds `hr 0` en het beeld blijft zwart, dus OFFLINE maakt voor deze hobbel geen verschil.
-  De methodeaanroepen van de echte AMAuthd zijn van buiten niet te zien; onze eigen proef liet wel
-; (ingetrokken, review 10: de proef gebruikte stdcall met een vaste ariteit, dus deze conclusie is niet betrouwbaar)
-  (met de echte server blijft het draaien). Een doorgeefobject dat logt en doorgeeft vraagt de
+  De methodeaanroepen van de echte AMAuthd zijn van buiten niet te zien; onze eigen proef leek wel
+  te laten zien dat het spel direct na het aanmaken slot 9 (vtable+0x24) aanroept en daarna afsluit,
+  maar die conclusie is **ingetrokken** (review 10): de proef gebruikte stdcall met een vaste ariteit
+  die niet klopte, dus ze is niet betrouwbaar (met de echte server blijft het draaien). Een doorgeefobject dat logt en doorgeeft vraagt de
   ariteiten van de 32 methodes uit `AMCUS/iauthdll.dll` -- dat is de volgende stap.
 
 ## Laatste ronde (05:45-06:05): wil de I/O-controle invoer? Nee, en wie wacht er?
@@ -133,8 +134,10 @@ weggooien).
   altijd voor Robin Hood omdat drie *optionele* imports ontbreken -- alleen de imports eisen die de
   exe echt heeft; (d) `OpenBordbeeld` heeft geen herhaalpoging en lekt een handvat; (e) de
   proefstand `RG_AMAUTH_PROBE` gebruikt stdcall met een vaste ariteit, dus de conclusie "het spel
-; (ingetrokken, review 10: de proef gebruikte stdcall met een vaste ariteit, dus deze conclusie is niet betrouwbaar)
-  maken.
+  roept slot 9 aan" is ingetrokken omdat de stdcall-ariteit van de proef niet klopte; (f) `strip -s` op
+  de DLL kan de haken lastiger debugbaar maken (besloten: de DLL wordt wel gestript, want de ~2,1 MB
+  aan DWARF komt uit de statische libstdc++/libgcc en niet uit onze code; het logboek is de
+  debugbron, niet de symbolen).
 * **TC5**: de noot bij `[Input]` staat dubbel.
 * **Robin Hood**: de wachtende hoofddraad volgen (op welk handvat wacht hij, en wie hoort dat te
   seinen) -- zie `docs/research/wartran/README.md`.

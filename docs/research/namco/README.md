@@ -703,8 +703,9 @@ koppeling naar de NAS; zie de nachtstand voor Jeroen.
 **Gemeten resultaat:** de aanroep op 0x4010c0 slaagt nu (hr 0), het spel loopt door, maar het beeld
 is nog steeds zwart. De authenticatie is dus een *noodzakelijke* stap die nu werkt, maar niet de
 laatste: de volgende vraag is wat het spel daarna met `auth_state` doet (het leest velden van de
-; (ingetrokken, review 10: de proef gebruikte stdcall met een vaste ariteit, dus deze conclusie is niet betrouwbaar)
-toen sloot het spel juist af). Met de echte AMAuthd blijft het draaien, dus de volgende meting is:
+IAuth-uitvoer; de eerdere conclusie dat het spel de methode op slot 9 aanroept en daarna afsluit is
+**ingetrokken** (review 10): de proef gebruikte stdcall met een vaste ariteit die niet klopte, dus die
+conclusie is niet betrouwbaar). Met de echte AMAuthd blijft het draaien, dus de volgende meting is:
 welke van de 29 methodes roept het spel aan, en wat antwoordt de echte server daarop?
 (`AMCUS/AMConfig.ini` kent `amdcfg-authType` = `ALL.NET` | `OFFLINE` | `NBLINE`; op ALL.NET werkt de
 registratie, een OFFLINE-kopie is nog niet geprobeerd.)
@@ -718,8 +719,10 @@ voor deze hobbel dus geen verschil.
 
 **Methodeaanroepen loggen** vraagt een *doorgeefobject*: de game praat nu met de echte AMAuthd over
 COM, en die aanroepen zijn van buiten niet te zien. Onze eigen proef (lege object, elke methode S_OK)
-; (ingetrokken, review 10: de proef gebruikte stdcall met een vaste ariteit, dus deze conclusie is niet betrouwbaar)
-daarna sloot het spel netjes af. Met de echte server blijft het draaien (zwart beeld). Een echte
+leek te laten zien welke methode het spel aanroept (slot 9, vtable+0x24) en dat het spel daarna netjes
+afsloot, maar die conclusie is **ingetrokken** (review 10): de proef gebruikte stdcall met een vaste
+ariteit die niet klopte, dus het afsluiten kan aan de proef zelf liggen en bewijst niets over het spel.
+Met de echte server blijft het draaien (zwart beeld). Een echte
 proxy moet de aanroepen doorgeven aan het originele object, en daarvoor zijn de *ariteiten* van de 32
 methodes nodig; die staan in het proxy/stub-bestand `AMCUS/iauthdll.dll`. Dat is de volgende stap:
 `iauthdll.dll` uitlezen (de stub-functies hebben elk hun eigen stapelgrootte), een proxy per methode
