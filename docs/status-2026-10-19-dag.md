@@ -58,6 +58,28 @@ regels), maar de game sterft met `X Error of failed request: BadWindow ... X_Unm
 "gamescope: Primary child shut down!", waarna de lader stopt. Gamescope aan maakt het dus **erger**,
 niet beter; de instelling is daarna teruggezet op `false`.
 
+
+### Proeven met de omgevingsverschillen (19:04-19:21), alle drie geneutraliseerd
+
+Telkens een start via de daemon, ~65 s wachten en een opname met `rg-tv-env.sh --no-hold --
+spectacle`. De opname van een zwart scherm is steeds **10.669 bytes** (byte-identiek aan de lege
+opname); een desktop-opname is ~1,46 MB.
+
+| proef | wat | opname | logboek | uitslag |
+|---|---|---|---|---|
+| gamescope aan | `Gamescope = true` | 1.463.488 (bureaublad) | `direct-MarioKartDX-20261019-190049.log` | game sterft op `X Error ... BadWindow (X_UnmapWindow)`, gamescope "Primary child shut down" |
+| `RG_SHAREK_FAKE=0` | in `dropin.ini` | 10.669 (zwart) | `direct-MarioKartDX-20261019-190755.log` | geen crash, geen beeld; de 15-s-toegangsfout uit de oude notitie treedt met de huidige lader niet op |
+| `RG_DRIVE_FIXUP` weg | in `dropin.ini` | 10.669 (zwart) | `direct-MarioKartDX-20261019-190930.log` | geen verschil |
+| `RG_JVS_COMPORT` weg | in `dropin.ini` | 10.669 (zwart) | (zelfde sessie) | geen verschil; de brug blijft **0 packets, 0 schakelaarpolls** |
+
+In alle gevallen eindigt het spel-logboek op dezelfde regel: de D3D9-aanmaak
+(`Windowed: true`, `Swap effect: 1`, `DXGI: MakeWindowAssociation: Ignoring flags`) en daarna niets.
+
+**Wat dit uitsluit**: gamescope, ShareK-fake, de drive-fixup en de COM3-route zijn niet de oorzaak.
+**Wat overblijft als hoofdverdachte**: het spel komt niet voorbij zijn eerste D3D-presentatie, terwijl
+het venster (`mkart3`, 1920x1080, `IsViewable`, `WM_STATE: Normal`) er wel is. Opvallend: het profiel
+vraagt 1360x768 (`resolutionwidth/height`) en het venster is 1920x1080; dat is de volgende proef.
+
 ### (3) Het bord tijdens de start
 
 `ravengunctl iobridge status` tijdens een lopende start: "IO-brug: route jvs voor MarioKartDX,
