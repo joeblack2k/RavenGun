@@ -32,8 +32,21 @@
    "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
    "cwd": "@TMP@/home/games/RobinHood/data",
    "cwd_is_tp": false,
-   "dropin_files": [],
-   "dropin_lines": [],
+   "dropin_files": [
+    [
+     "@PATCHES@/RobinHood/dropin/ravengun-patchmem32.dll",
+     "@TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/patchmem.txt",
+     "@TMP@/home/games/RobinHood/data/patchmem.txt"
+    ]
+   ],
+   "dropin_lines": [
+    "ravengun-patchmem32.dll -> @TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
+    "patchmem.txt -> @TMP@/home/games/RobinHood/data/patchmem.txt",
+    "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
    "dropin_materialise": [],
    "env": {
     "DISPLAY": ":97",
@@ -42,12 +55,16 @@
     "PATH": "/usr/bin:/bin",
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_VERBOSE": "1",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
     "RG_LOADER_CORE": "ravengun",
     "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
     "TP_GAMESCOPE": "1",
     "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEDLLOVERRIDES": "d3d9=n,b",
@@ -74,6 +91,10 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_VERBOSE": "1",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WINEDEBUG": "-all"
    },
    "patch_lines": [],
@@ -152,8 +173,21 @@
    "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
    "cwd": "@TMP@/home/games/RobinHood/data",
    "cwd_is_tp": false,
-   "dropin_files": [],
-   "dropin_lines": [],
+   "dropin_files": [
+    [
+     "@PATCHES@/RobinHood/dropin/ravengun-patchmem32.dll",
+     "@TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/patchmem.txt",
+     "@TMP@/home/games/RobinHood/data/patchmem.txt"
+    ]
+   ],
+   "dropin_lines": [
+    "ravengun-patchmem32.dll -> @TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
+    "patchmem.txt -> @TMP@/home/games/RobinHood/data/patchmem.txt",
+    "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
    "dropin_materialise": [],
    "env": {
     "DISPLAY": ":97",
@@ -162,12 +196,16 @@
     "PATH": "/usr/bin:/bin",
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_VERBOSE": "1",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
     "RG_LOADER_CORE": "ravengun",
     "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
     "TP_GAMESCOPE": "1",
     "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEDLLOVERRIDES": "d3d9=n,b",
@@ -194,6 +232,10 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_VERBOSE": "1",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WINEDEBUG": "-all"
    },
    "patch_lines": [],
