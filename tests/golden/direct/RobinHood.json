@@ -40,11 +40,16 @@
     [
      "@PATCHES@/RobinHood/dropin/patchmem.txt",
      "@TMP@/home/games/RobinHood/data/patchmem.txt"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/rg-rhio.dll",
+     "@TMP@/home/games/RobinHood/data/rg-rhio.dll"
     ]
    ],
    "dropin_lines": [
     "ravengun-patchmem32.dll -> @TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
     "patchmem.txt -> @TMP@/home/games/RobinHood/data/patchmem.txt",
+    "rg-rhio.dll -> @TMP@/home/games/RobinHood/data/rg-rhio.dll",
     "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
    ],
    "dropin_materialise": [],
@@ -56,6 +61,7 @@
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
     "RAVENGUN_PATCHMEM_VERBOSE": "1",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
@@ -92,6 +98,7 @@
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
     "RAVENGUN_PATCHMEM_VERBOSE": "1",
     "RG_DROPIN_PRELOAD": "@TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll",
@@ -181,11 +188,16 @@
     [
      "@PATCHES@/RobinHood/dropin/patchmem.txt",
      "@TMP@/home/games/RobinHood/data/patchmem.txt"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/rg-rhio.dll",
+     "@TMP@/home/games/RobinHood/data/rg-rhio.dll"
     ]
    ],
    "dropin_lines": [
     "ravengun-patchmem32.dll -> @TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
     "patchmem.txt -> @TMP@/home/games/RobinHood/data/patchmem.txt",
+    "rg-rhio.dll -> @TMP@/home/games/RobinHood/data/rg-rhio.dll",
     "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
    ],
    "dropin_materialise": [],
@@ -197,6 +209,7 @@
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
     "RAVENGUN_PATCHMEM_VERBOSE": "1",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
@@ -233,6 +246,7 @@
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
     "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
     "RAVENGUN_PATCHMEM_VERBOSE": "1",
     "RG_DROPIN_PRELOAD": "@TMP@/home/games/RobinHood/data/ravengun-patchmem32.dll",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\games\\RobinHood\\data\\ravengun-patchmem32.dll",

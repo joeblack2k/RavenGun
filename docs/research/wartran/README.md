@@ -504,3 +504,34 @@ naam, welke indeling en of onze daemon die voor RobinHood daadwerkelijk vult (nu
 niet, want de I/O-controle blijft staan).
 
 Het volledige logboek van deze run: `bench-captures/RobinHood/20261019-bordprotocol.log`.
+
+## Coopers 9: eerste start op onze eigen kern (2026-10-19 03:05-03:25)
+
+Tot nu toe was dit profiel `untested` en het kon ook niet starten: zonder `[Loader]`-regel kiest het
+profiel de gesloten TeknoParrot-runtime en die is er niet (`rg-direct --plan` zegt dan letterlijk
+"kern ontbreekt: .../TeknoParrotUi-2.0.0.130-linux-x64/Tekno..."). Er staat nu
+`[Loader] Build = ravengun` + `Core = ravengun` in het profiel, dus het spel start in elk geval op.
+
+**Wat er gemeten is:**
+
+* **Met onze eigen kern** (`Core = ravengun`): de lader en de kern laden ("Loader: .../OpenParrotLoader.exe",
+  "Core: .../OpenParrotWin32/OpenParrot.dll", "Loading core..."), en dan valt het spel om:
+  `Unhandled exception: page fault on read access to 0x4fd8aed0 in wow64 32-bit code (0x4fd8aed0)`.
+  Het adres zit in **geen enkele module** ("no code accessible"). De stapel is bijna leeg: het
+  enige terugkeeradres is `0x4010ed`, dus de aanroep kwam uit de vroege start van de exe zelf:
+  `0x4010d0: sub $0x228,%esp; push $0x20; ...; call 0x45c0b0` -> en binnen die aanroep ging het mis.
+  `EDI = 0x7a9f0bd3` wijst in OpenParrot.dll, dus de kern is er wel bij betrokken.
+* **Zonder kern** (`Core = none`, "Wine start de exe zelf"): het spel start en sluit na ongeveer
+  drie seconden met exitcode 0, zonder boodschap en zonder venster (foto: alleen het bureaublad).
+  Dat is dus geen oplossing maar wel een aanwijzing: het spel valt niet om aan Wine alleen.
+
+**Over de beveiliging:** de exe is 41 MB (image 0x400000-0x2b2a000) en bevat Aladdin HASP-teksten
+(`classic_check_local_port: invalid HASP ID`, `<hasp4/>`, `nethasptype`, `<haspid>%u</haspid>`), maar
+**niet** de teksten van Robin Hood ("SECURITY CHECK BAD", "GWRH"). Het is dus een andere (nieuwere)
+laag dan bij Robin Hood, en dezelfde acht patches zijn hier niet van toepassing.
+
+**Volgende stap (precies):** uitzoeken welke functie op `0x4010e8` hoort te staan en waarom die
+garbage is -- bijvoorbeeld met `WINEDEBUG=+seh` en een breekpunt op `0x4010e8`/`0x45c0b0`, of door
+`0x45c0b0` helemaal te ontleden (het begin is nog niet bekeken). Let ook op de tekst op VA 0x512424
+die het foutpad van diezelfde functie gebruikt: `load.exe /f /d /q /l z` -- mogelijk hoort het spel
+via een eigen lader gestart te worden in plaats van `game.exe` direct.
