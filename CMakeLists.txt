@@ -685,11 +685,16 @@ if(RAVENGUN_BUILD_TESTS)
     # De tijdelijke map komt in de builddir, nooit in /tmp. Skip (77) zonder python3 of rsync.
     add_test(NAME ravengun_make_portable
       COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/make_portable_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
-    set_tests_properties(ravengun_make_portable PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 400)
+    set_tests_properties(ravengun_make_portable PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
     # Integratietest: daemon zonder hardware (--no-hid), socket, lockfile en CLI.
     add_test(NAME ravengund_ipc
       COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/tests/ipc_smoke.sh" "$<TARGET_FILE:ravengund>" "$<TARGET_FILE:ravengunctl>")
   endif()
+endif()
+# make_portable_test.sh draait sinds review-ronde 4 zo'n twintig runs van het script (ongeveer 40 s op de Deck, meer onder
+# ctest -j); elke run heeft zelf een limiet van 120 s. Hier los gezet zodat het add_test-blok hierboven ongemoeid blijft.
+if(TEST ravengun_make_portable)
+  set_tests_properties(ravengun_make_portable PROPERTIES TIMEOUT 400)
 endif()
 
 # Installeren (docs/build.md, "Installatie-indeling"): `cmake --install build --prefix ~/.local/opt/ravengun` (of via
