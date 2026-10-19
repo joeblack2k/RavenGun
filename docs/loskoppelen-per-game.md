@@ -792,3 +792,29 @@ De capture was niet het probleem. Gemeten met `ravengunctl game start <Game>` en
    reden: "een eigen kern bestaat alleen voor EmulatorType OpenParrot of TeknoParrot (dit is
    ElfLdr2)". Dit spel hoort via de native route (`patches/CrossfirePaintball/native.json`, "kandidaat,
    nog niet gestart"): i386, ongepakt, gewone ld.so. Dat is een eigen klus, geen regel.
+
+## Volgende in de rij (2026-10-19, nacht)
+
+**TC5 (Time Crisis 5)** staat als volgende op de lijst (na RobinHood, Coopers9 en Mario Kart).
+Wat er al gemeten is: het meegeleverde profiel zegt `[Loader] Build = teknoparrot`, omdat TC5
+`bngrw.dll` en `iDmacDrv64.dll` naast de lader nodig heeft en die zitten alleen in de verborgen
+runtime-map. Onze eigen gepinde lader met onze eigen kern start het spel wel:
+
+```
+[Loader]
+Build = ravengun
+Core = ravengun
+```
+
+Daarmee startte de daemon het spel (02:23; logboek
+`direct-TC5-20261019-022310.log`: "kern (ravengun): .../openparrot/current/OpenParrotx64/
+OpenParrot64.dll sha256 3d84057d...", "Core: Z:\\...\\OpenParrot64.dll (1.0.0.0)", "Loading
+core..."). Beeld en invoer zijn nog **niet** gemeten, en in die proef zaten de twee Namco-DLL's nog
+niet in de view, dus of ze echt nodig zijn is nog open. De proef stond in de gebruikerslaag en is
+daarna weggehaald; het meegeleverde profiel is onveranderd. De eigenlijke stap voor TC5 is 30
+minuten en komt na Mario Kart.
+
+**RobinHood, tijdbox-correctie:** de tijdbox was niet 90 maar ongeveer 20 minuten (01:56-02:16); de
+commit c163a00 zegt 90 minuten. De inhoud van die commit klopt verder, maar de geschiedenis wordt
+niet herschreven -- dit is de correctie. Daarna is de tijdbox opnieuw opengezet (02:35-03:35) en
+staan de volgende stappen in `docs/research/wartran/README.md`.
