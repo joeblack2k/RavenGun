@@ -14,8 +14,9 @@
 # runs draaien" per constructie waar was). Alleen een start waarbij de daemon AANTOONBAAR al bezet was
 # (voor de start meldde hij een lopende game, of de start werd daarom geweigerd) heet
 # ongeldig-daemon-bezet. Een start die de daemon zelf niet rond kreeg (ravengunctl gaf een fout, of de
-# status zegt "Starten is mislukt.") heet ongeldig-start-mislukt; de uitvoer van de start komt dan in
-# de uitvoer van dit script. Beide ongeldige soorten tellen niet mee voor DOEL en worden opnieuw gedaan,
+# status zegt "Starten is mislukt.") heet alleen ongeldig-start-mislukt als rg-rhio.dll nooit laadde
+# (geen rg-rhio.log); met een logboek is het gestopt, want dan viel de game met deze DLL om. De
+# uitvoer van een mislukte start komt in de uitvoer van dit script. Beide ongeldige soorten tellen niet mee voor DOEL en worden opnieuw gedaan,
 # met een bovengrens van zes op rij; maak-tabel.py telt ze per variant (een variant die steeds niet
 # start, valt daar dus op).
 # De .aan-markers zijn voor deze proef alle drie weggehaald en blijven weg (identiek voor elke variant).
@@ -117,15 +118,19 @@ while :; do
     LR=$(wc -l < "$LOG" 2>/dev/null || echo 0)
     BORD=$(rg -c 'ReadFile\(bord' "$LOG" 2>/dev/null || echo 0)
     if [ "$BEZET" = ja ]; then REDEN=ongeldig-daemon-bezet
-    elif [ "$STARTRC" != 0 ] || case "$ST" in *"Starten is mislukt"*) true;; *) false;; esac; then
-        REDEN=ongeldig-start-mislukt
     elif [ "$DRAAIT" = ja ]; then REDEN=draait
+    elif [ "$STARTRC" != 0 ] || case "$ST" in *"Starten is mislukt"*) true;; *) false;; esac; then
+        # De daemon meldt een mislukte start. Schreef rg-rhio.dll voor deze start een logboek (het is
+        # voor de start gewist), dan was de DLL geladen en is "de game viel meteen om" juist de uitkomst
+        # die de proef zoekt: gestopt, tegen deze variant. Alleen als de DLL nooit laadde, zegt de start
+        # niets over de DLL (herreview 2).
+        if [ -s "$LOG" ]; then REDEN=gestopt; else REDEN=ongeldig-start-mislukt; fi
     else REDEN=gestopt
     fi
     # variant ronde sha foto ok draait logregels bordlezers reden
     echo "$keuze $ronde $SHA $SZ $OK $DRAAIT $LR $BORD $REDEN" >> "$RES"
     echo "$(date '+%H:%M:%S') $keuze ronde $ronde: foto=$SZ ok=$OK draait=$DRAAIT logregels=$LR bordlezers=$BORD reden=$REDEN"
-    [ "$REDEN" = ongeldig-start-mislukt ] && echo "  start (rc=$STARTRC): $STARTUIT; status: $ST"
+    [ "$STARTRC" != 0 ] && echo "  start (rc=$STARTRC): $STARTUIT; status: $ST"
     case "$REDEN" in ongeldig-*)
         # Opnieuw proberen met een bovengrens tegen een lus: zes ONGELDIGE starts OP RIJ. De teller gaat
         # bij elke geldige start terug naar nul (eerder liep hij over de hele reeks door).
