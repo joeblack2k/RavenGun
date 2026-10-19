@@ -566,7 +566,7 @@ spel instelt.
 | `ack` (eerste byte 0) | `BOOTING . / I/O ... CHECKING` |
 
 De dongle-antwoorden komen dus (deels) **via het bord**: met lege antwoorden valt het spel terug op
-de beveiligingsfout, ook met onze acht geheugenpatches. Dat verklaart ook waarom de tweede meting op
+de beveiligingsfout, ook met onze negen geheugenpatches. Dat verklaart ook waarom de tweede meting op
 een dood spoor leek: het bord is geen hartslag maar de weg naar de dongle.
 
 **De "COM1..COM3 gaf fout 5"-regels** in het logboek komen uit een ouder deel van hetzelfde

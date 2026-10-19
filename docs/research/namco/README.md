@@ -664,3 +664,40 @@ profiel.
 vermoedelijk pas als een andere stap slaagt -- dezelfde vraag als bij de callback: wie schrijft dat
 veld, en welke methode van onze nep-client hoort dat te doen? Zoek de schrijver met dezelfde
 byte-zoekmethode (`89 8? <disp32>` op `+0x0` in de buurt van het ShareK-init op `0x47e800`).
+
+## ALL.Net: de IAuth-klasse van AMAuthd werkt nu (2026-10-19 05:20)
+
+**De hobbel was registratie, niet de klasse.** Het spel vraagt bij het opstarten
+
+```
+CoCreateInstance(CLSID {4603BB03-058D-43D9-B96F-639BE908C1ED}, NULL, CLSCTX_LOCAL_SERVER,
+                 IID {045A5150-D2B3-4590-A38B-C1158678E1AC})        <- 0x4010c0
+```
+
+en kreeg altijd `CLASS_E_CLASSNOTREG` (0x80040154). De klasse zit in `AMCUS/AMAuthd.exe` en wordt pas
+vindbaar als **`AMCUS/iauthdll.dll` geregistreerd is** (dat bestand is het proxy/stub-bestand met de
+IID; het heeft `DllRegisterServer`). Met
+
+```
+regsvr32 iauthdll.dll        (in de prefix van het spel, vanuit de map AMCUS)
+```
+
+staan de sleutels in de prefix (`HKLM\Software\Classes\CLSID\{4603BB03-...}` met `LocalServer32` naar
+`AMAuthd.exe`) en daarna geeft dezelfde aanroep **`hr 0x00000000`** -- het spel krijgt dus een echte
+IAuth van AMAuthd, in plaats van niets.
+
+Wat er verder voor nodig was, in deze volgorde (de kast doet hetzelfde in `init_w10.ps1`):
+
+1. `PreprocessAmAuth.exe -wait` -- schrijft `WritableConfig.ini` (zonder dat bestand klaagt AMAuthd
+   "ERROR: file not found: WritableConfig.ini" en doet hij niets);
+2. `AMCUS/AMAuthd.exe` starten (blijft draaien);
+3. `regsvr32 AMCUS/iauthdll.dll` -- de klasse registreren.
+
+**Gemeten resultaat:** de aanroep op 0x4010c0 slaagt nu (hr 0), het spel loopt door, maar het beeld
+is nog steeds zwart. De authenticatie is dus een *noodzakelijke* stap die nu werkt, maar niet de
+laatste: de volgende vraag is wat het spel daarna met `auth_state` doet (het leest velden van de
+IAuth-uitvoer; de methode op slot 9 werd in onze lege proef aangeroepen en met S_OK beantwoord, en
+toen sloot het spel juist af). Met de echte AMAuthd blijft het draaien, dus de volgende meting is:
+welke van de 29 methodes roept het spel aan, en wat antwoordt de echte server daarop?
+(`AMCUS/AMConfig.ini` kent `amdcfg-authType` = `ALL.NET` | `OFFLINE` | `NBLINE`; op ALL.NET werkt de
+registratie, een OFFLINE-kopie is nog niet geprobeerd.)
