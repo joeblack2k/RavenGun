@@ -1,0 +1,29 @@
+# Onze eigen geheugen-motor (memory/src, docs/memory-engine.md): bytepatches in het LOPENDE proces.
+# Formaat: module|offset(RVA)|verwacht|nieuw
+#
+# game.exe+0x91496 (VA 0x491496): de beveiligingscontrole rekent een CRC uit over het antwoord van
+# de HASP-dongle en vergelijkt die met wat de dongle teruggaf:
+#   0x491487  not  %esi
+#   0x49148c  cmp  0x10(%esp),%esi
+#   0x491496  jne  0x4914b1        <- antwoord klopt niet: foutpad (0x1a6be80 = 3)
+#   0x491498  ...                  <- goedpad: gebiedscode naar 0x68411c
+# Zonder dongle is er geen antwoord, dus altijd het foutpad. Twee NOP's laten de vergelijking
+# vervallen; de rest van het goedpad loopt gewoon door.
+game.exe|0x91496|7519|9090
+#
+# game.exe+0x1526 (VA 0x491526): de uitslag zelf. 0x491521 zet de vlag 0x1a6be80 op 2
+# ("onbekende HASP-uitslag": de aanroep 0x57a9e0 gaf iets buiten 0..0x1f, of de sprongtabel koos de
+# fouttak). Alleen de lezer op 0x40129b kijkt naar die vlag, dus met een 0 hier ziet het spel alles
+# als in orde. (Eerder stond hier een sprong op 0x4012a2; dat haalde de foutmelding weg maar het spel
+# stopte daarna zelf -- zie docs/research/wartran/README.md.)
+#
+# Oude aantekening bij 0x4012a2: de plek waar het spel de foutmelding TEGENHOUDT. Vlak ervoor leest
+# hij de vlag 0x1a6be80 (0 = goed) en springt bij 0 naar 0x4012b3:
+#   0x40129b  mov  0x1a6be80,%eax      <- de uitslag van de beveiligingscontrole
+#   0x4012a0  cmp  %ebx,%eax
+#   0x4012a2  je   0x4012b3            <- 0: geen melding; anders: call 0x490dc0 (ERROR-scherm)
+#   0x4012a4  push %eax ... call 0x490dc0
+# Van 0x1a6be80 is dit de ENIGE lezer buiten de controle zelf (0x4914xx). Met een gewone sprong in
+# plaats van een voorwaardelijke gaat het spel altijd door, wat de uitslag ook is. De uitslag blijft
+# wel staan, dus het spelgedrag verder verandert niet.
+game.exe|0x1526|02000000|00000000

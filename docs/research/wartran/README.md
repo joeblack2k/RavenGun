@@ -320,3 +320,62 @@ op de tabel-VA's in `.text`, dan terug omhoog naar de tak die de HASP-uitkomst t
 terugkeerwaarde van die tak op "goed" dwingen. Hulpmiddel: `/tmp/pe-stringref.py` (PE-secties,
 string-VA en de verwijzingen ernaar; read-only). Dat is een sessie op zich, geen kwestie van een
 regel, en zonder dongle-dump blijft het de enige route.
+
+## Vervolgmeting 2026-10-19: de beveiligingscontrole in de exe, en onze eigen geheugen-motor
+
+Het vorige stuk eindigde met "zoek de gebruikers van de berichtentabel en dwing de tak naar goed".
+Dat is nu gebeurd, en de motor die dat moet doen is er ook: `memory/src` (`ravengun-patchmem32.dll`,
+docs/memory-engine.md) als drop-in van deze game. Wat er precies in de exe staat:
+
+**1. De controle zelf.** `game.exe` (image base 0x400000, 32-bits) heeft de Aladdin-HASP-bibliotheek
+statisch in de exe; de apparatuur wordt via `\\.\FEnteDev` en `\\.\HARDLOCK.VXD` geopend
+(0x58fe6b e.v., `CreateFileA` + `DeviceIoControl` met 0x9c40244c). De controlefunctie begint op
+**0x4913c0**; hij rekent een CRC uit over het antwoord van de dongle en vergelijkt:
+
+```
+0x491487  not  %esi
+0x49148c  cmp  0x10(%esp),%esi
+0x491496  jne  0x4914b1        <- komt niet uit: foutpad (vlag 0x1a6be80 = 3)
+0x491498  movsbl 0x21(%esp),%edx ; sub $0x41,%edx ; mov %edx,0x68411c   <- goedpad
+```
+
+**2. De uitslag.** De vlag staat op **0x1a6be80**: 0 = goed, 2 = onbekende HASP-uitslag
+(0x491521), 3 = CRC klopt niet (0x4914b1), 4 = verkeerd gebied (0x49150d/0x49154e). De
+gebiedsstring staat op **0xde7098** en moet met "GW" beginnen (0x491547 vergelijkt met 0x47, 0x49155a
+met 0x57); die buffer wordt gevuld door de aanroep 0x57b350, en de status daarvoor komt uit 0x57a9e0
+(het spel kijkt of die in 0..0x1f valt). De **enige lezer** van de vlag buiten de controle is
+**0x40129b**:
+
+```
+0x40129b  mov  0x1a6be80,%eax
+0x4012a0  cmp  %ebx,%eax
+0x4012a2  je   0x4012b3        <- 0: geen melding
+0x4012a4  push %eax ; push $1 ; push $0xc ; call 0x490dc0   <- anders: ERROR-scherm
+```
+
+**3. Het scherm.** "ERROR / SECURITY CHECK BAD" is geen MessageBox maar door het spel zelf getekend;
+de teksten komen uit een tabel in .data (0x68cfe0: "SECURITY CHECK BAD", 0x68cfec: + "WRONG AREA
+CODE") en de tekenaar is 0x490cf0, die de code 0x1a6be74 opzoekt in de tabellen 0x684268/0x6847f8.
+Die code wordt in de wikkel op 0x401098 uit 0x68411c (de gebiedscode) gezet, met negatief -> 0.
+
+**4. Wat de geheugen-motor deed.** `patches/RobinHood/dropin/` bevat `ravengun-patchmem32.dll` +
+`patchmem.txt`; dat bestand komt in de view naast de exe (de cwd van het spel is de view) en
+`RAVENGUN_PATCHMEM_FILE=patchmem.txt` is genoeg omdat de motor een relatief pad tegen de cwd opent.
+**Gemeten bewijs dat dit werkt** (eerste keer dat deze motor op een echte game is gebruikt): met het
+spel aan is in `/proc/<pid>/mem` op `game.exe+0x91496` (VA 0x491496) `90 90` te lezen waar het
+bestand `75 19` heeft, en de md5 van het bestand op de NAS is voor en na gelijk
+(`6d5b7bcf5211271559ab63403d5d11f2`). Ons eigen gereedschap, geen schrijfactie op de NAS.
+
+**5. Wat het (nog) niet oplost.** Met alleen de CRC-tak gedempt blijft het scherm staan; de vlag is
+dan 2 (de statusaanroep 0x57a9e0 valt buiten 0..0x1f, of de sprongtabel kiest de fouttak). De
+uitslag zelf op 0 zetten (de `movl $0x2` op 0x491526) helpt ook niet: het scherm komt terug, dus er
+is nog een tweede weg naar de melding. De tak bij 0x4012a2 overslaan haalt de melding weg, maar dan
+stopt het spel zelf (gemeten: na ~20 s weg, geen beeld). De volgende stappen zijn dus:
+(a) nagaan wie 0xde7008 (de "toon"-vlag van 0x490cf0) zet en welke andere plekken 0x490dc0 met code
+0xc aanroepen; (b) de statusaanroep 0x57a9e0 volgen tot wat hij leest (dan is de uitslag misschien
+echt te maken in plaats van te dempen); (c) de gebiedsstring: de twee vergelijkingen op 0x491558 en
+0x491561 zijn de laatste stap van het goedpad, en met "GW" in 0xde7098 loopt de controle vanzelf
+goed af.
+
+Het profiel staat op `Status = parked` met deze meting erbij; het bestand op de NAS is niet
+aangeraakt en de dongle-antwoorden hebben we nog steeds niet.
