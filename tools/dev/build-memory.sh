@@ -105,6 +105,9 @@ $CC -O2 -Wall -Wextra -o "$OUTDIR/probe_linux" "$TEST/probe_linux.c" -ldl
 # Dezelfde proef nog een keer als NIET-PIE programma. Dan is de modulebasis 0, en dat is de lastige
 # randvoorwaarde voor het opzoeken van de module (zie patchmem.h bij patchmem_module_base).
 $CC -O2 -Wall -Wextra -no-pie -o "$OUTDIR/probe_linux_nopie" "$TEST/probe_linux.c" -ldl
+# De motor ERIN gelinkt, voor de proef van het onthouden pad van de patchlijst (lijstpad_test.c).
+$CC -O2 -Wall -Wextra -I"$SRC" -o "$OUTDIR/lijstpad_test" "$TEST/lijstpad_test.c" \
+  "$SRC/patchmem.c" "$SRC/entry_linux.c" -lpthread -ldl
 $CC -shared -fPIC -O2 -Wall -Wextra -o "$OUTDIR/libravengun-proeflaat.so" "$TEST/late_module.c"
 # Een nagebootste GEPAKTE module: het bestand bevat andere bytes dan het geheugen (packed_module.c).
 $CC -shared -fPIC -O2 -Wall -Wextra -o "$OUTDIR/libravengun-gepakt.so" "$TEST/packed_module.c"

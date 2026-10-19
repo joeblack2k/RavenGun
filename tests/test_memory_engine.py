@@ -32,6 +32,7 @@ BUILD = os.path.join(ROOT, "tools", "dev", "build-memory.sh")
 MOTOR = os.path.join(OUT, "ravengun-patchmem.so")
 PROEF = os.path.join(OUT, "probe_linux")
 PROEF_NOPIE = os.path.join(OUT, "probe_linux_nopie")
+LIJSTPAD = os.path.join(OUT, "lijstpad_test")
 LAAT_SO = os.path.join(OUT, "libravengun-proeflaat.so")
 GEPAKT_SO = os.path.join(OUT, "libravengun-gepakt.so")
 
@@ -291,6 +292,88 @@ class TestLinuxMotor(unittest.TestCase):
         self.assertIn("stond er al", fout)
         self.assertNotIn("GEWEIGERD", fout)
         self.assertNotIn("MISLUKT", fout)
+
+    def test_al_goed_gaat_voor_verwacht(self):
+        """R6-1: staat `nieuw` er al, dan telt `verwacht` niet meer. Dat is de tweede ronde van de
+        Windows-kant: de eerste ronde heeft al geschreven, dus het geheugen bevat nu `nieuw` en
+        `verwacht` (de ORIGINELE bytes) klopt niet meer. Met de controle in de verkeerde volgorde
+        wordt dat een GEWEIGERD (verkeerde spelversie). De proef hierboven heeft een leeg `verwacht`
+        en vangt dat dus niet; deze wel."""
+        # Het doel staat in het geheugen op DOEL_ORIGINEEL; `nieuw` is gelijk daaraan en `verwacht`
+        # is iets anders (niet-leeg, klopt niet).
+        schrijf_lijst(self.lijst, [
+            "%s|%s|99999999|%s" % (self.nul["module"], self.nul["doel_offset"], DOEL_ORIGINEEL)])
+        uit, fout, _ = met_motor(PROEF, self.lijst)
+        self.assertEqual(uit.get("doel"), DOEL_ORIGINEEL)
+        self.assertIn("stond er al", fout)
+        self.assertNotIn("GEWEIGERD", fout)
+        self.assertNotIn("verkeerde spelversie", fout)
+        self.assertNotIn("MISLUKT", fout)
+        self.assertIn("1 stond er al", fout)
+        self.assertIn("0 geweigerd", fout)
+
+
+class TestLijstpad(unittest.TestCase):
+    """R6-2: het pad van de patchlijst wordt per aangevraagd pad een keer absoluut gemaakt.
+
+    lijstpad_test (memory/test/lijstpad_test.c) heeft de motor erin gelinkt en roept
+    patchmem_apply_file() een paar keer achter elkaar aan, met chdir ertussen. Geen enkele module
+    bestaat, dus er wordt niets geschreven; we kijken alleen welk bestand gelezen is."""
+
+    @classmethod
+    def setUpClass(cls):
+        eis_proef(cls, LIJSTPAD)
+        cls.basis = os.path.join(OUT, "test-lijstpad")
+        cls.map_a = os.path.join(cls.basis, "a")
+        cls.map_b = os.path.join(cls.basis, "b")
+        os.makedirs(cls.map_a, exist_ok=True)
+        os.makedirs(cls.map_b, exist_ok=True)
+        schrijf_lijst(os.path.join(cls.map_a, "rel.txt"), [
+            "modA.dll|0x10|aa|bb",
+            "dit is geen patchregel"])                   # een vormfout, om de melding te zien
+        schrijf_lijst(os.path.join(cls.map_b, "rel.txt"), ["modB.dll|0x10|aa|bb"])
+        schrijf_lijst(os.path.join(cls.map_b, "ander.txt"), ["modC.dll|0x10|aa|bb"])
+        p = draai([LIJSTPAD, cls.map_a, cls.map_b], env={"RAVENGUN_PATCHMEM_FILE": None,
+                                                        "LD_PRELOAD": None})
+        cls.rc = p.returncode
+        cls.uit = lees(p.stdout)
+        cls.fout = p.stderr
+
+    def test_het_proefprogramma_liep_goed(self):
+        self.assertEqual(self.rc, 0, self.fout)
+
+    def test_betrekkelijk_pad_eerste_keer(self):
+        self.assertEqual(self.uit.get("een_module"), "modA.dll", self.fout)
+        self.assertEqual(self.uit.get("een_aantal"), "2")        # de patch en de vormfout-regel
+
+    def test_na_chdir_blijft_hetzelfde_pad_hetzelfde_bestand(self):
+        """De tweede ronde na een werkmapwissel leest mapA/rel.txt, niet het rel.txt van mapB."""
+        self.assertEqual(self.uit.get("opnieuw_module"), "modA.dll", self.fout)
+        self.assertEqual(self.uit.get("opnieuw_aantal"), "2")
+
+    def test_een_ander_pad_wordt_gerespecteerd(self):
+        """Het eerste pad wint niet voor altijd: een ander expliciet pad wordt gelezen."""
+        self.assertEqual(self.uit.get("ander_module"), "modC.dll", self.fout)
+        self.assertEqual(self.uit.get("ander_aantal"), "1")
+
+    def test_mislukte_poging_laat_de_lijst_en_het_pad_staan(self):
+        self.assertEqual(self.uit.get("weg_rc"), "-1")
+        self.assertEqual(self.uit.get("weg_module"), "modC.dll")      # lijst niet gewist
+        self.assertIn("bestaat-niet.txt niet openen", self.fout)
+        # ... en het onthouden pad (mapB/ander.txt) is niet overschreven: ook na een chdir naar
+        # mapA leest "ander.txt" nog steeds dat bestand.
+        self.assertEqual(self.uit.get("laatst_module"), "modC.dll", self.fout)
+
+    def test_de_meldingen_noemen_het_echte_pad(self):
+        """Het overzicht en de vormfout noemen het absolute pad dat gelezen is, niet het pad zoals
+        de aanroeper het typte."""
+        echt_a = os.path.realpath(os.path.join(self.map_a, "rel.txt"))
+        echt_c = os.path.realpath(os.path.join(self.map_b, "ander.txt"))
+        self.assertIn("patchmem: regel 2 van %s:" % echt_a, self.fout)
+        self.assertIn("patchmem: %s: 1 patch(es) gelezen" % echt_a, self.fout)
+        self.assertIn("patchmem: %s: 1 patch(es) gelezen" % echt_c, self.fout)
+        self.assertNotIn("patchmem: rel.txt:", self.fout)
+        self.assertNotIn("patchmem: ander.txt:", self.fout)
 
 
 class TestNietPie(unittest.TestCase):
