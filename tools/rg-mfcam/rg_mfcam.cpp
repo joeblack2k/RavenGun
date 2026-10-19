@@ -838,6 +838,8 @@ void setup_dongle_trace() {
            reinterpret_cast<void**>(&rg_dongle::g_crt_exit));
     koppel("KERNEL32.dll", "TerminateProcess", reinterpret_cast<void*>(&rg_dongle::hook_terminate_process),
            reinterpret_cast<void**>(&rg_dongle::g_terminate_process));
+    koppel("ole32.dll", "CoCreateInstance", reinterpret_cast<void*>(&rg_dongle::hook_co_create),
+           reinterpret_cast<void**>(&rg_dongle::g_co_create));
     koppel("setupapi.dll", "CM_Locate_DevNodeW", reinterpret_cast<void*>(&rg_dongle::hook_cm_locate),
            reinterpret_cast<void**>(&rg_dongle::g_cm_locate));
     koppel("setupapi.dll", "CM_Get_DevNode_Registry_PropertyW", reinterpret_cast<void*>(&rg_dongle::hook_cm_prop),

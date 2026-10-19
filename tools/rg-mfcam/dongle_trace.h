@@ -407,4 +407,20 @@ inline CONFIGRET WINAPI hook_cm_sibling(DEVINST dev, PDEVINST out) {
     return r;
 }
 
+// --- COM: the auth object (AMCUS/iauthdll.dll, interface IAuth) is created in-process ----------------
+using co_create_fn = HRESULT(WINAPI*)(REFCLSID, LPUNKNOWN, DWORD, REFIID, LPVOID*);
+inline co_create_fn g_co_create = nullptr;
+inline void WINAPI log_guid(const char* what, const GUID* g) {
+    if (!g_log) return;
+    g_log("dongle: %s {%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}", what,
+          static_cast<unsigned long>(g->Data1), g->Data2, g->Data3, g->Data4[0], g->Data4[1], g->Data4[2],
+          g->Data4[3], g->Data4[4], g->Data4[5], g->Data4[6], g->Data4[7]);
+}
+inline HRESULT WINAPI hook_co_create(REFCLSID clsid, LPUNKNOWN outer, DWORD ctx, REFIID iid, LPVOID* out) {
+    log_guid("CoCreateInstance clsid", &clsid);
+    log_guid("dongle: ... iid", &iid);
+    if (!g_co_create) return E_FAIL;
+    return g_co_create(clsid, outer, ctx, iid, out);
+}
+
 }  // namespace rg_dongle
