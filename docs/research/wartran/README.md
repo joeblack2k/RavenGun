@@ -841,3 +841,21 @@ Volgende stappen, in deze orde:
    `ReadFile` die 0 teruggeeft terwijl het spel om 7 bytes vraagt is een kandidaat, en een
    `ClearCommError` die blijft liegen over `cbInQue` is er ook een);
 3. dezelfde analyse op Coopers 9 (zelfde familie) om te zien of daar hetzelfde slot speelt.
+
+### De meetdraad op Robin Hood aanzetten (voor de volgende ronde)
+
+`rg-rhio` laadt de meetdraad van rg-compat (zie boven). Zet daarvoor in
+`patches/RobinHood/dropin/dropin.ini` achter `RAVENGUN_PATCHMEM_HOOK=rg-rhio.dll`:
+`;RG_COMPAT_SAMPLE=200`, en zorg dat `rg-compat.dll` in de view staat (naast `rg-rhio.dll`).
+Twee valkuilen die vannacht tijd kostten:
+
+1. **De daemon moet een controller hebben.** Zonder `ravengunctl mouse-gun --player 1 --mouse ...`
+   blijft hij bij het starten wachten ("Zet de PS Move van speler 1 aan") en wordt er **geen game
+   gestart**: geen drop-in in het proces, geen `rg-rhio.log`, geen omgezette schrijfmap. Een
+   herstart van `ravengund` zet die instelling niet terug -- dus na elke herstart opnieuw zetten.
+2. **`pgrep -f game.exe` matcht je eigen shell** (de opdrachtregel bevat de zoekterm). Gebruik
+   `pgrep -f 'Z:\\'` of kijk naar de wine-processen, anders lijkt het of de game draait.
+
+Daarna: sample lezen in `<prefix>/drive_c/users/<user>/AppData/Local/Temp/rg-compat-<pid>.txt`, de
+pc's omzetten naar functies, en zoeken naar de draad die in **0x580fa0-0x5810a0** (de lock-helper)
+zit of in een van onze haken blijft hangen.

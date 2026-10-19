@@ -75,7 +75,10 @@ PRbk*.dat) zijn niet verplaatst, gewijzigd of verwijderd.
   de AMAuth-proefariteit en de dubbele TC5-noot).
 * **(D)** Robin Hood 90 min: de wachtende hoofddraad volgen (op welk handvat wacht hij, waar wordt dat
   gemaakt, welk pad hoort het te seinen).
-* **(D)** Robin Hood 90 min: de wachtende hoofddraad -- **eerste uur gedaan**, zie hieronder.
+* **(D)** Robin Hood 90 min: de wachtende hoofddraad -- **deels gedaan**: de mutex is gevonden en
+  gedocumenteerd (`docs/research/wartran/README.md`), en de valkuilen bij het meten staan er ook
+  (controller voor de daemon, `pgrep` die je eigen shell matcht). De meetdraad zelf moet nog
+  lopen: `RG_COMPAT_SAMPLE=200` in de drop-in en dan de draad in 0x580fa0-0x5810a0 zoeken.
 * **(E)** Coopers 9 60 min: eerst het RobinHood-kaderprotocol, dan de vroege fout op 0x4fd8aed0.
 * **(F)** Mario Kart 90 min: `iauthdll` + `PreprocessAmAuth` idempotent automatiseren in de
   prefix-opzet (in de schrijflaag), dan het zwarte beeld (welke IAuth-methodes roept het spel aan).
