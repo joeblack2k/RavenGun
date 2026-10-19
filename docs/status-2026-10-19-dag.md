@@ -241,3 +241,26 @@ hiermee begonnen maar nog lang niet af; er is geen minuut attract geweest.
 gecontroleerd, (D) meetdraad loopt en de meting staat er (I/O CHECKING nog niet voorbij, volgende stap
 in de wartran-README), (E) is opnieuw gemeten en **geparkeerd** met een precieze notitie (de volgende stap vraagt de bron van
 de kern of een debugger; zie de wartran-README), (F) en (G) nog niets.
+
+## (F) Mario Kart: per-prefix IAuth -- recept gevonden en de volgende blokkade benoemd (10:42-10:55)
+
+Wat nu **gemeten en werkend** is (alles in de schrijflaag; de NAS is met `find -newermt` gecontroleerd
+en onaangeroerd):
+
+1. `PreprocessAmAuth.exe -wait`, gedraaid **vanuit de view-wortel**, zegt
+   `Checking.ErrorCode : 0 / outPath : WritableConfig.ini / Ok!` en schrijft het bestand in
+   `views/MarioKartDX/TeknoParrot/E/` (een echte map in de view).
+2. Dat bestand moet naar **`views/MarioKartDX/AMCUS/`** (de map van AMAuthd, ook een echte map in de
+   schrijflaag): daar zoekt AMAuthd het. Zonder dat bestand zegt hij
+   `ERROR: file not found: WritableConfig.ini` en doet niets; met het bestand **blijft hij draaien**
+   (direct onder wine gemeten, vier processen, geen fout).
+3. De klasse staat in de prefix: `HKLM\Software\Classes\CLSID\{4603BB03-...}` met `LocalServer32`
+   (nagekeken in `system.reg`); registreren kan met `wine regsvr32.exe AMCUS/iauthdll.dll`.
+
+Wat **nog blokkeert**: met onze kern erin stopt `AMAuthd.exe` meteen en meldt het laderlogboek
+`Failed to Load DLL! (Error 4)`; de loper breekt de start dan af ("start 1/2 stopte voordat start 2/2
+begon", exitcode 7) en het spel komt nooit in beeld. De tweede exe is een gewone server die **niet met
+onze kern** geladen hoort te worden; de motor heeft geen sleutel om per exe een andere kern (of geen
+kern) te kiezen. Dat is de volgende stap -- en die vraagt een motorwijziging, dus die hoort bij de
+leiding of in een volgende ronde. Automatiseren van stap 1 en 2 hoort daar meteen bij: de motor kent
+geen "een keer per prefix"-haak.
