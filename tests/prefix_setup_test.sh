@@ -15,11 +15,14 @@
 #   5. de stempel: de tweede keer overslaan, en een ontbrekend doel opnieuw kopieren;
 #   6. wat een geslaagde stap laat doorlopen, gaat dood voor de volgende stap;
 #   7. een werkmap achter een koppeling weigert, ook als een eerdere stap hem pas zo maakt;
-#   8. prefix: met .. of een leidende schuine streep (met de hand bewerkt plan) weigert;
+#   8. prefix: met .. of een leidende schuine streep (met de hand bewerkt plan) weigert, en zonder (absolute) prefix ook (8b);
 #   9. een schrijfmap die nog een koppeling naar de NAS is weigert (een kale start; de daemon zet hem eerst om);
 #  10. een lege koppelpuntentabel (RAVENGUN_MOUNTS) weigert;
 #  11. SIGTERM stopt een lopende stap;
-#  12. op de NAS is niets veranderd.
+#  12. op de NAS is niets veranderd;
+#  9a-9j. de stempel (review 15, punt 4; ronde 2, punt 1): elke zaak moet OM DE STEMPEL weigeren of aannemen;
+#  13. een prefix voor alles: wat wine (WINEPREFIX) of de wrapper (RG_WINEPREFIX) leest klopt met de prefix van het plan;
+#  14. wineserver -w (begrensd) voor de stempel.
 #
 # Alles in een tijdelijke map met een eigen plan, een nep-wine en een nagebootste NAS (cifs in een eigen
 # koppelpuntentabel): de proef hangt niet af van de opstelling van deze machine en slaat nergens over.
@@ -80,6 +83,9 @@ SH
     cat > "$1/wineserver" <<SH
 #!/bin/bash
 echo "wineserver \$* WINEPREFIX=\${WINEPREFIX:-}" >> "$2"
+# -w blijft hangen zolang $W/ws-hangt bestaat (de grens van de loper, proef 14).
+[ "\${1:-}" = -w ] && [ -e "$W/ws-hangt" ] && { echo \$\$ > "$W/ws-w.pid"; exec sleep 30; }
+exit 0
 SH
     chmod +x "$1/wine" "$1/wineserver"
 }
@@ -478,7 +484,7 @@ prefix_geweigerd() {   # $1 = de zaak, $2 = de sleutel die niet klopt
     [ "$rc" != 0 ] || mislukt "$1: aangenomen (status 0): $uit"
     case "$uit" in *"$2="*"is niet de prefix van de stappen"*) ;; *) mislukt "$1: niet om $2 geweigerd: $uit";; esac
     [ ! -e "$W/prefixen.log" ] || mislukt "$1: de stap liep toch ($(cat "$W/prefixen.log"))"
-    rm -f "$W/prefixen.log"
+    rm -rf "$W/prefixen.log" "$P13/.ravengun-prefixsetup"
 }
 prefix_gelopen() {   # $1 = de zaak, $2 = de regel die de nep-wine moet hebben geschreven
     [ "$rc" = 0 ] || mislukt "$1: geweigerd (status $rc): $uit"
@@ -519,6 +525,41 @@ uit=$(stappen RG_PREFIXSTAP_TIMEOUT=2); rc=$?
 [ "$rc" != 0 ] || mislukt "13g: een hangende stap gaf status 0"
 grep -q -- "-k WINEPREFIX=$P13\$" "$W/wineserver.log" 2>/dev/null || mislukt "13g: wineserver -k niet met WINEPREFIX=$P13: $(cat "$W/wineserver.log" 2>/dev/null)"
 [ "$fout" = 0 ] && zeg "13 een prefix voor alles: verschil met WINEPREFIX/RG_WINEPREFIX geweigerd, wrapper aangenomen, stap en wineserver -k in de prefix van het plan (goed)"
+
+# --- 14. wineserver -w voor de stempel (review 15, ronde 2, punt 5) -----------------------------------
+# Na de run-stappen wacht de loper (begrensd) tot de wineserver van de prefix weg is, met de prefix van de stappen, en pas
+# daarna controleert en schrijft hij de stempel.
+rm -f "$W/wineserver.log"
+maak_plan "$toon" leegprefix "$P13" RG_WINEPREFIX
+uit=$(stappen); rc=$?
+[ "$rc" = 0 ] || mislukt "14: status $rc: $uit"
+grep -qx -- "wineserver -w WINEPREFIX=$P13" "$W/wineserver.log" 2>/dev/null || mislukt "14: geen wineserver -w met WINEPREFIX=$P13: $(cat "$W/wineserver.log" 2>/dev/null)"
+w_regel=$(printf '%s\n' "$uit" | grep -n -- " -w (WINEPREFIX=$P13)" | cut -d: -f1 | head -1)
+s_regel=$(printf '%s\n' "$uit" | grep -n "prefixstappen: stempel $P13" | cut -d: -f1 | head -1)
+[ -n "$w_regel" ] && [ -n "$s_regel" ] && [ "$w_regel" -lt "$s_regel" ] || mislukt "14: wineserver -w kwam niet voor de stempel: $uit"
+rm -rf "$W/prefixen.log" "$P13/.ravengun-prefixsetup"
+# 14b. een kopieerstap alleen: geen wine gelopen, dus geen wineserver -w.
+rm -f "$W/wineserver.log"
+maak_plan "$(kopie w14.ini)" "" "$P13"
+uit=$(stappen); rc=$?
+[ "$rc" = 0 ] || mislukt "14b: status $rc: $uit"
+[ ! -e "$W/wineserver.log" ] || mislukt "14b: wineserver -w zonder run-stap: $(cat "$W/wineserver.log")"
+rm -rf "$P13/.ravengun-prefixsetup"
+# 14c. wineserver -w blijft hangen: na de grens (hier 1 s) gaat het door, het staat in het logboek, de stempel komt er.
+touch "$W/ws-hangt"
+maak_plan "$toon" "" "$P13"
+begin=$(date +%s)
+uit=$(stappen RG_PREFIXSTAP_WACHT=1); rc=$?
+duur=$(( $(date +%s) - begin ))
+rm -f "$W/ws-hangt"
+[ "$rc" = 0 ] || mislukt "14c: status $rc: $uit"
+[ "$duur" -lt 10 ] || mislukt "14c: de grens werkte niet (${duur} s)"
+case "$uit" in *"wineserver -w is na 1 s niet klaar (de grens)"*) ;; *) mislukt "14c: de grens staat niet in het logboek: $uit";; esac
+[ -e "$P13/.ravengun-prefixsetup/proef.done" ] || mislukt "14c: de stempel is na de grens niet geschreven"
+[ -s "$W/ws-w.pid" ] || mislukt "14c: de nep-wineserver -w is niet blijven hangen"
+leeft "$(cat "$W/ws-w.pid" 2>/dev/null)" && mislukt "14c: wineserver -w leeft nog na de grens"
+rm -rf "$W/prefixen.log" "$P13/.ravengun-prefixsetup"
+[ "$fout" = 0 ] && zeg "14 wineserver -w voor de stempel met de prefix van de stappen, begrensd en gemeld (goed)"
 
 if [ "$fout" != 0 ]; then zeg "mislukt"; exit 1; fi
 zeg "alles goed"
