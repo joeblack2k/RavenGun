@@ -28,8 +28,10 @@
 //   De overige gelezen uitkomsten (slot 9, 11, 27, 31, 41, 43, 55) worden door de aanroeper eerst op 0 gezet (mov [ebp-x],ebx) en door een
 //   leeg antwoord ongemoeid gelaten; 0 betekent daar "niets te doen".
 //
-// WAT HET EIGEN OBJECT DOET: een ShareK dat draait maar niets te verspreiden heeft. StartIpcClient slaagt (-1), de status is steeds 2
-// (wacht op het netwerk: het spel doet dan niets), geen herstart gevraagd, en elke andere methode geeft S_OK zonder iets te schrijven.
+// WAT HET EIGEN OBJECT DOET: een ShareK dat draait maar niets te verspreiden heeft. StartIpcClient slaagt (-1), de status is
+// standaard 1 (配信機能OFF: het spel ruimt de distributie een keer op en doet daarna gewoon werk) en met RG_SHAREK_STATUS te kiezen
+// (2 = wacht op het netwerk, dan doet de tick niets; 0 = gewoon werk), geen herstart gevraagd, en elke andere methode geeft S_OK
+// zonder iets te schrijven.
 #pragma once
 
 #include <cstdint>

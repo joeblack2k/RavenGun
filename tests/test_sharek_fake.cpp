@@ -56,11 +56,22 @@ int main() {
     CHECK(n20 == 6);
     for (int i : five) CHECK(find_slot(i) && find_slot(i)->arg_bytes == 20);
 
-    // De drie antwoorden die iets doen: StartIpcClient slaagt (WORD <> 0), geen herstartvraag, status 2 (wacht op het netwerk).
+    // De drie antwoorden die iets doen: StartIpcClient slaagt (WORD <> 0), geen herstartvraag, en de
+    // ShareK-status. Die status is sinds 2026-10-19 te kiezen met RG_SHAREK_STATUS; zonder die
+    // variabele is het 1 ("配信機能OFF": het spel ruimt de distributie een keer op en doet daarna
+    // gewoon werk), want een losse kast heeft niets te verspreiden maar moet wel doorlopen. Met
+    // RG_SHAREK_STATUS=2 krijg je de oude waarde terug (wacht op het netwerk).
     int16_t v = 123;
     CHECK(find_slot(7)->kind == Kind::Start && out_word(Kind::Start, v) && v != 0);
     CHECK(find_slot(33)->kind == Kind::Restart && out_word(Kind::Restart, v) && v == 0);
-    CHECK(find_slot(35)->kind == Kind::Status && out_word(Kind::Status, v) && v == 2);
+    unsetenv("RG_SHAREK_STATUS");
+    CHECK(find_slot(35)->kind == Kind::Status && out_word(Kind::Status, v) && v == 1);
+    setenv("RG_SHAREK_STATUS", "2", 1);
+    CHECK(out_word(Kind::Status, v) && v == 2);
+    setenv("RG_SHAREK_STATUS", "0", 1);
+    CHECK(out_word(Kind::Status, v) && v == 0);
+    unsetenv("RG_SHAREK_STATUS");
+    CHECK(out_word(Kind::Status, v) && v == 1);
     v = 77;
     CHECK(!out_word(Kind::Nop, v) && v == 77);   // een leeg antwoord laat de uitvoer van de aanroeper (die al op 0 staat) ongemoeid
     int actions = 0;
