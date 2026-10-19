@@ -594,3 +594,24 @@ DllMain, dus geen haken). Waarom is niet uitgezocht (tijdbox); de bron is terugg
 zonder die drie haken en die werkt weer (gemeten: 109 bordopdrachten in 22 seconden, ClearCommError
 omgezet). De vraag welk gedeeld geheugen het bordbeeld levert staat dus nog open, maar met de derde
 meting is duidelijk dat het bord zelf de weg naar de dongle is.
+
+### Coopers 9: tweede ronde -- de load.exe-weg is dood, de kern-kant blijft open (2026-10-19 05:55)
+
+Twee dingen uit de opdracht nagekeken:
+
+* **De `load.exe`-weg.** De tekst op VA 0x512424 is `load.exe /f /d /q /l z` en hoort bij het foutpad
+  van dezelfde functie die omvalt (`0x4010f9`). Maar de exe importeert **geen** `CreateProcessA`,
+  `CreateProcessW`, `WinExec` of `ShellExecuteA` (nul treffers in de importtabel), en er staat ook
+  geen `load.exe` in de gamemap. Het spel start dus zelf geen lader: die tekst is geen route.
+* **Onze kern met haken uit.** Dat kan niet met wat er in de repo staat: de bron van de kern wordt in
+  een container uit de open OpenParrot-bron gebouwd (`third_party/openparrot/` bevat alleen de
+  patches en de bouwscripts), en er is geen schakelaar om de haken van de kern stuk voor stuk uit te
+  zetten. Die suggestie vraagt dus eerst de bron van de kern in huis, of een debugger-run.
+
+Wat er wel ligt: met `Core = ravengun` laadt alles en valt het spel om in zijn eigen vroege start
+(`0x4010d0` -> `call 0x45c0b0` -> page fault op `0x4fd8aed0`, een adres in geen enkele module, met
+`EDI` in `OpenParrot.dll`); met `Core = none` start het spel onder Wine en sluit het na ongeveer drie
+seconden met exitcode 0, zonder boodschap en zonder venster. Het verschil zit dus in wat de kern in
+het proces doet, niet in Wine. Volgende stap: de bron van de kern in huis halen en de haken een voor
+een uitzetten, of een debugger op het spel zetten (dan is de aanroep die naar 0x4fd8aed0 springt
+direct te zien).
