@@ -536,6 +536,12 @@ if(RAVENGUN_BUILD_TESTS)
   add_test(NAME ravengun_markers
     COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/markers_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}")
   set_tests_properties(ravengun_markers PROPERTIES TIMEOUT 60)
+  # Het meetgereedschap van Robin Hood (rh-dump-adressen.sh, tools/dev/ab-rhio): proceskeuze uit een
+  # nagemaakte /proc, elke start in de A/B-uitslag, drop-ins terug bij elk einde, weigeren bij een
+  # lopende game. Met een nep-HOME en nep-systemctl; raakt de echte daemon niet (review 14, ronde 2).
+  add_test(NAME ravengun_rh_tools
+    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/rh_tools_test.sh" "${CMAKE_CURRENT_SOURCE_DIR}")
+  set_tests_properties(ravengun_rh_tools PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
   # De LOPER van [Launch] PrefixSetup: koppeling en NAS als doel geweigerd, een mislukte stap stopt
   # de start zonder stempel, een hangende stap wordt afgebroken, en de stempel slaat over of herhaalt.
   # Met een eigen plan en view in een tijdelijke map (review 13, ronde 2): slaat nergens over.
