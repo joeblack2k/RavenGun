@@ -1126,6 +1126,8 @@ void guid_text(const GUID& g, char* out, size_t n) {
 void* g_sharek_vtbl[rg_sharek::kVtableSize];
 SharekObject g_sharek = {nullptr, 1};
 volatile LONG g_sharek_seen[rg_sharek::kVtableSize];
+volatile LONG g_qi_bekend = 0;
+volatile LONG g_qi_onbekend = 0;
 
 // Het eerste gebruik van elk slot in het logboek: zo staat er na een tv-run welke methodes het spel werkelijk aanriep.
 void sk_note_van(int slot, void* beller) {
@@ -1139,14 +1141,20 @@ HRESULT STDMETHODCALLTYPE sk_query_interface(SharekObject* self, REFIID riid, vo
     char tekst[48];
     guid_text(riid, tekst, sizeof tekst);
     const bool bekend = rg_sharek::knows_iid(as_guid(riid));
-    char any[8];
-    const bool alles = GetEnvironmentVariableA("RG_SHAREK_ANY_IID", any, sizeof any) != 0 && any[0] == '1';
+    static const bool alles = [] {
+        char any[8];
+        return GetEnvironmentVariableA("RG_SHAREK_ANY_IID", any, sizeof any) != 0 && any[0] == '1';
+    }();
     if (!bekend && !alles) {
-        rg_log("ShareK-object: QueryInterface(%s) -> E_NOINTERFACE (onbekend)", tekst);
+        /* Onbekende IID's zijn zeldzaam; die loggen we altijd. Bekende IID's maar een paar keer,
+         * anders schrijft elke aanroep een regel (het spel vraagt dit vaak). */
+        if (InterlockedIncrement(&g_qi_onbekend) <= 8)
+            rg_log("ShareK-object: QueryInterface(%s) -> E_NOINTERFACE (onbekend)", tekst);
         *ppv = nullptr;
         return E_NOINTERFACE;
     }
-    rg_log("ShareK-object: QueryInterface(%s) -> hetzelfde object%s", tekst, bekend ? "" : " (onbekend, RG_SHAREK_ANY_IID)");
+    if (InterlockedIncrement(&g_qi_bekend) <= 8)
+        rg_log("ShareK-object: QueryInterface(%s) -> hetzelfde object%s", tekst, bekend ? "" : " (onbekend, RG_SHAREK_ANY_IID)");
     *ppv = self;
     InterlockedIncrement(&self->ref);
     return S_OK;
@@ -1225,12 +1233,73 @@ void sk_build() {
     g_sharek.vtbl = reinterpret_cast<const void* const*>(g_sharek_vtbl);
 }
 
+// --- AMAuthd IAuth: een leeg object als proef ------------------------------------------------
+// De game vraagt CoCreateInstance({4603BB03-058D-43D9-B96F-639BE908C1ED}, IID {045A5150-...}) en
+// krijgt CLASS_E_CLASSNOTREG (0x80040154): de Namco ALL.Net-authenticatie (AMAuthd) is er niet. Als
+// proef geven we een leeg object terug waarvan elke methode S_OK zegt; de aanroeper zet zijn eigen
+// uitvoerparameters al op nul. Geen echte authenticatie, alleen genoeg om te meten.
+volatile LONG g_am_seen[48];
+struct AmAuthObject { const void* const* vtbl; volatile LONG ref; };
+AmAuthObject g_am_auth;
+void* g_am_auth_vtbl[48];
+
+bool am_auth_clsid(const void* g) {
+    /* 4603BB03-058D-43D9-B96F-639BE908C1ED (AMAuthd IAuth), als bytes zodat elk GUID-type past. */
+    static const unsigned char kClsid[16] = {0x03, 0xbb, 0x03, 0x46, 0x8d, 0x05, 0xd9, 0x43,
+                                             0xb9, 0x6f, 0x63, 0x9b, 0xe9, 0x08, 0xc1, 0xed};
+    return g && std::memcmp(g, kClsid, 16) == 0;
+}
+HRESULT STDMETHODCALLTYPE am_query(void* zelf, const void* riid, void** ppv) {
+    if (!ppv) return E_POINTER;
+    (void)riid;
+    *ppv = zelf;
+    InterlockedIncrement(&g_am_auth.ref);
+    rg_log("AMAuth: QueryInterface -> hetzelfde object");
+    return S_OK;
+}
+ULONG STDMETHODCALLTYPE am_addref(void*) { return static_cast<ULONG>(InterlockedIncrement(&g_am_auth.ref)); }
+ULONG STDMETHODCALLTYPE am_release(void*) {
+    const LONG r = InterlockedDecrement(&g_am_auth.ref);
+    if (r < 1) { InterlockedExchange(&g_am_auth.ref, 1); return 0; }
+    return static_cast<ULONG>(r);
+}
+template <int N>
+HRESULT STDMETHODCALLTYPE am_nop(void*) {
+    if (InterlockedExchange(&g_am_seen[N], 1) == 0)
+        rg_log("AMAuth-object: slot %d aangeroepen (beller %p)", N, __builtin_return_address(0));
+    return S_OK;
+}
+template <int N>
+struct AmFill { static void run(void** vt) { AmFill<N - 1>::run(vt); vt[N] = reinterpret_cast<void*>(&am_nop<N>); } };
+template <> struct AmFill<2> { static void run(void**) {} };
+
+void setup_am_auth() {
+    static bool gedaan = false;
+    if (gedaan) return;
+    gedaan = true;
+    g_am_auth_vtbl[0] = reinterpret_cast<void*>(&am_query);
+    g_am_auth_vtbl[1] = reinterpret_cast<void*>(&am_addref);
+    g_am_auth_vtbl[2] = reinterpret_cast<void*>(&am_release);
+    AmFill<47>::run(g_am_auth_vtbl);
+    g_am_auth.vtbl = g_am_auth_vtbl;
+    g_am_auth.ref = 1;
+}
+
 using CoCreateInstanceFn = HRESULT(WINAPI*)(REFCLSID, LPUNKNOWN, DWORD, REFIID, LPVOID*);
 CoCreateInstanceFn g_co_create_instance = nullptr;
 volatile LONG g_co_seen = 0;
 
 HRESULT WINAPI rg_CoCreateInstance(REFCLSID clsid, LPUNKNOWN outer, DWORD ctx, REFIID riid, LPVOID* ppv) {
     char c[48], i[48];
+    char am_proef[8];
+    const bool am_aan = GetEnvironmentVariableA("RG_AMAUTH_PROBE", am_proef, sizeof am_proef) != 0 && am_proef[0] == '1';
+    if (am_aan && am_auth_clsid(&clsid)) {
+        guid_text(riid, i, sizeof i);
+        setup_am_auth();
+        HRESULT hr = am_query(&g_am_auth, &riid, ppv);
+        rg_log("AMAuth: CoCreateInstance(%s) -> eigen leeg object, hr 0x%08lx", i, static_cast<unsigned long>(hr));
+        return hr;
+    }
     if (rg_sharek::wants_clsid(as_guid(clsid))) {
         guid_text(clsid, c, sizeof c);
         guid_text(riid, i, sizeof i);

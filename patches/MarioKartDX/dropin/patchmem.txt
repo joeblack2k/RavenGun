@@ -18,3 +18,9 @@
 # De module moet bij de NAAM kloppen: dit spel heet MK_AGP3_FINAL.exe (niet game.exe, zoals
 # Robin Hood). RVA = adres min de image base 0x400000: 0x48149a is dus RVA 0x8149a.
 MK_AGP3_FINAL.exe|0x8149a|0f84c7000000|909090909090
+
+# LET OP (2026-10-19): de motor wordt hier NIET door de lader geladen maar door rg-mfcam.dll, en dat
+# gebeurt in een eigen draad (LoadLibrary mag niet in DllMain, loader-lock). Tussen het starten van
+# het spel en het toepassen van deze patch zit dus een korte race; voor deze patch (een poortwachter
+# in de opstartcode) is dat gemeten ruim genoeg, maar een patch die *voor* de eerste code van het
+# spel moet staan kan hier te laat komen. De lader zelf (TP_PRELOAD_DLL) laadt de motor wel synchroon.
