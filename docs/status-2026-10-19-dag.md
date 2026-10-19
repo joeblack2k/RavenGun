@@ -224,3 +224,16 @@ op elke start fataal: die worden door de CRT al heel vroeg aangeroepen. Ze zijn 
 **Les voor het keuren**: de drop-in in `~/.local/opt/ravengun/patches/...` is de bron die de engine
 materialiseert; een herbouw van alleen `patches/...` in de repo verandert de start niet. Alle
 keurproeven hierboven kopieren naar **beide**.
+
+## (E) Coopers 9 -- eerste minuten (10:32-10:35)
+
+De start gaat via onze eigen route (kern `openparrot/current/OpenParrotWin32/OpenParrot.dll`, de lader
+stopt met 0, `rg-direct` volgt de game), maar **de game sluit zich meteen**: geen scherm, geen
+spelstand. Dat is hetzelfde beeld als bij Robin Hood toen het misging, dus de volgende stap is
+dezelfde: kijken wat de game zelf vindt (dongo-controle, config, `[Config]`-bestanden in de view) en
+het drop-in-logboek van die start lezen (`direct-Coopers9-20261019-103208.log`). De box van (E) is
+hiermee begonnen maar nog lang niet af; er is geen minuut attract geweest.
+
+**Stand van de lijst op 10:35**: (A) klaar en bewezen, (B) ctest 94/94, (C) klaar en op het echte pad
+gecontroleerd, (D) meetdraad loopt en de meting staat er (I/O CHECKING nog niet voorbij, volgende stap
+in de wartran-README), (E) net begonnen, (F) en (G) nog niets.
