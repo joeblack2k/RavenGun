@@ -162,8 +162,6 @@
     {
      "argv": [
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\AMCUS\\AMAuthd.exe"
      ],
      "comms": [
@@ -383,8 +381,6 @@
     {
      "argv": [
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\AMCUS\\AMAuthd.exe"
      ],
      "comms": [

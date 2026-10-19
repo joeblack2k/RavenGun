@@ -497,6 +497,22 @@ std::string plan_to_json(const DirectPlan& pl) {
     w.end_array();
     strs("view_copies", pl.view_copies);
     strs("view_writable", pl.view_writable);
+    w.key("second_bare").value(pl.second_bare);
+    w.key("prefix_setup").begin_array();
+    for (const auto& st : pl.prefix_setup) {
+        w.begin_object();
+        w.key("copy").value(st.copy);
+        w.key("cwd").value(st.cwd);
+        w.key("argv").begin_array();
+        for (const auto& a : st.argv) w.value(a);
+        w.end_array();
+        w.key("from").value(st.from);
+        w.key("to").value(st.to);
+        w.key("mark").value(st.mark);
+        w.key("tekst").value(st.tekst);
+        w.end_object();
+    }
+    w.end_array();
     strs("view_ttc_fonts", pl.view_ttc_fonts);
     w.key("exe_override").value(pl.exe_override);
     w.key("drives").begin_array();
@@ -576,6 +592,22 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
     if (const auto* f = v.find("view_links"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_array() && e.arr.size() == 2 && e.arr[0].is_string() && e.arr[1].is_string()) pl.view_links.emplace_back(e.arr[0].str, e.arr[1].str);
+    if (const auto* f = v.find("second_bare"); f && f->is_bool()) pl.second_bare = f->b;
+    if (const auto* f = v.find("prefix_setup"); f && f->is_array())
+        for (const auto& e : f->arr) {
+            if (!e.is_object()) continue;
+            DirectSetupStep st;
+            if (const auto* x = e.find("copy"); x && x->is_bool()) st.copy = x->b;
+            if (const auto* x = e.find("cwd"); x && x->is_string()) st.cwd = x->str;
+            if (const auto* x = e.find("argv"); x && x->is_array())
+                for (const auto& a : x->arr)
+                    if (a.is_string()) st.argv.push_back(a.str);
+            if (const auto* x = e.find("from"); x && x->is_string()) st.from = x->str;
+            if (const auto* x = e.find("to"); x && x->is_string()) st.to = x->str;
+            if (const auto* x = e.find("mark"); x && x->is_string()) st.mark = x->str;
+            if (const auto* x = e.find("tekst"); x && x->is_string()) st.tekst = x->str;
+            pl.prefix_setup.push_back(st);
+        }
     if (const auto* f = v.find("view_writable"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_string()) pl.view_writable.push_back(e.str);

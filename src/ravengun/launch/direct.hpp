@@ -58,6 +58,23 @@ struct DirectStart {
     double wait_before = 0.0;                              // seconden wachten voor deze start (de eerste: 0)
 };
 
+// [Launch] PrefixSetup: stappen die eenmalig per prefix gebeuren (stempelbestand per stap in de
+// prefix). Elke stap is
+//   run <map> <bestand> [argumenten...]   -- via de wine van de lader, zonder WINEARCH
+//   copy <van> <naar>                     -- een gewoon bestand kopieren
+// met mappen en bestanden ten opzichte van de view-wortel; meerdere stappen met | gescheiden
+// (geen ; want dat begint in game.ini een opmerking).
+// Voor Mario Kart DX: de IAuth-klasse registreren en PreprocessAmAuth laten lopen, zodat
+// WritableConfig.ini naast AMAuthd in de schrijflaag komt (besluit eigenaar 2026-10-19).
+struct DirectSetupStep {
+    bool copy = false;
+    std::string cwd;                     // map waarin de stap draait (run)
+    std::vector<std::string> argv;       // run: wine + het bestand + de argumenten
+    std::string from, to;                // copy: van, naar
+    std::string mark;                    // stempelbestand in de prefix
+    std::string tekst;                   // de stap zoals in het profiel (voor het logboek)
+};
+
 // [Launch] Drives: een schijfletter in de prefix voor de duur van de run (rg-direct zet hem en haalt hem weg als hij er niet al stond).
 struct DirectDrive {
     std::string letter, target, link;   // "W", de lokale map, <prefix>/dosdevices/w:
@@ -105,6 +122,11 @@ struct DirectPlan {
     // worden in de view een ECHTE map met een kopie van de inhoud van de NAS; schrijven komt zo
     // nooit op de NAS uit (besluit eigenaar 2026-10-19).
     std::vector<std::string> view_writable;
+    std::vector<DirectSetupStep> prefix_setup;             // [Launch] PrefixSetup
+    // [Launch] SecondBare = true: de tweede exe zonder onze lader en kern starten. De
+    // ALL.Net-server van Mario Kart DX (AMAuthd) is een gewone server; met onze kern stopt
+    // hij meteen met "Failed to Load DLL! (Error 4)" (gemeten 2026-10-19).
+    bool second_bare = false;
     std::vector<std::string> view_ttc_fonts;               // [Launch] ViewTtcAsTtf: links naar een .ttc die face 0 als losse font worden (ttc.hpp)
     // [Launch] Mod = <naam> ([Mod <naam>] in game.ini, scripts/fetch-mods.py): per regel van de lijst van de mod het doel (pad in de
     // gamemap), het bestand van de mod en de offset (-1 = vervangen). apply_direct() bouwt elk doel met een offset een keer in

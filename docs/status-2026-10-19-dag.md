@@ -287,3 +287,37 @@ Drie controles op het echte pad, elk met een foto:
 De NAS is bij InfinityBladeFX **voor en na identiek**: `ls --full-time` van `SwordGame/Logs`,
 `SwordGame/Config` en `SwordGame/SaveData` geeft dezelfde md5 (8d86580996ab27f2, 78d59f3007f8d07f,
 5e72cde272b6466a) en `find <NAS> -newermt '-8 minutes'` vindt **niets**. Niets weigert.
+
+## (F) automatisering: [Launch] PrefixSetup en [Launch] SecondBare (11:00-11:35)
+
+Jeroen wil de IAuth-stappen **automatisch**, dus het zijn nu motorfuncties:
+
+* **`[Launch] PrefixSetup`** -- stappen die eenmalig per prefix gebeuren, met per stap een
+  stempelbestand in `<prefix>/.ravengun-prefixsetup/<hash>.done` (idempotent; verandert de regel, dan
+  verandert de hash en loopt de stap opnieuw). Vorm, met `|` tussen de stappen (geen `;`, dat begint
+  in game.ini een opmerking):
+  `run <map> <bestand> [args]` (via de wine van de lader, zonder WINEARCH) en
+  `copy <van> <naar>`; paden ten opzichte van de view-wortel, `prefix:<pad>` wijst in de prefix zelf.
+  Een kale naam zonder schuine streep is een programma uit de prefix (regsvr32.exe). `..` en absolute
+  paden worden geweigerd. Een stap die blijft hangen wordt na 180 s afgebroken en laat de start
+  mislukken (regsvr32 zonder /s wacht op een venster).
+* **`[Launch] SecondBare = true`** -- de tweede exe start met **alleen wine**, zonder onze lader en
+  kern. Nodig voor AMAuthd: met onze kern stopt hij meteen met "Failed to Load DLL! (Error 4)".
+
+Het profiel van Mario Kart DX gebruikt het nu:
+`PrefixSetup = run . PreprocessAmAuth.exe -wait | copy prefix:drive_c/windows/WritableConfig.ini WritableConfig.ini | copy prefix:drive_c/windows/WritableConfig.ini AMCUS/WritableConfig.ini | run AMCUS regsvr32.exe /s iauthdll.dll`
+en `SecondBare = true`.
+
+**Gemeten op het echte pad** (view schoon, stempels weg, daarna een gewone start): de vier stappen
+lopen, er staan vier stempels, `WritableConfig.ini` (226 bytes) staat **in de view** (wortel en
+`AMCUS/`, allebei echte mappen in de schrijflaag) en **AMAuthd blijft draaien** -- hij wordt pas door
+de loper gestopt als het spel stopt. Zonder `SecondBare` stopte hij meteen. De NAS is niet aangeraakt.
+
+Wat er daarna gebeurt: het spel start wel (lader + kern, `start 2/2`), maar sluit na een paar seconden
+met een **X11-fout** in gamescope ("Serial number of failed request: 156 / Current serial number in
+output stream: 156", daarna "Primary child shut down"). Dat is de zwarte-scherm-stap van (F) en de
+volgende om uit te zoeken.
+
+Proeven: `ravengun_direct_launch_tests` heeft er twee blokken bij (SecondBare: de tweede start heeft
+alleen wine, het spel houdt lader en kern, plus de JSON-rondgang; PrefixSetup: de drie stappen, de
+stempels, `prefix:` en vier weigeringen) -- **568 controles, 0 fout** -- en **ctest 94/94**.

@@ -2136,6 +2136,106 @@ int main() {
         fs::remove_all(pv);
     }
 
+    // De runtime-bestanden kunnen door een eerdere proef zijn opgeruimd; voor deze twee blokken weer
+    // neerzetten (dezelfde paden als de opzet van deze proef).
+    for (const char* rel : {"OpenParrotx64/OpenParrotLoader64.exe", "TeknoParrot/TeknoParrot64.dll", "pipehelper.exe",
+                            "OpenParrotWin32/OpenParrotLoader.exe", "TeknoParrot/TeknoParrot.dll"})
+        write(fs::path(p.tp) / rel, "MZ");
+    write(fs::path(p.data) / "openparrot/current/OpenParrotx64/OpenParrotLoader64.exe", "MZ");
+    write(fs::path(p.data) / "openparrot/current/OpenParrotx64/OpenParrot64.dll", "MZ");
+
+    // --- (F) [Launch] SecondBare: de tweede exe zonder onze lader en kern --------------------------
+    // AMAuthd (Mario Kart DX) is een gewone server: met onze kern stopt hij meteen met "Failed to Load
+    // DLL! (Error 4)" (gemeten 2026-10-19). Met SecondBare krijgt hij alleen wine.
+    write(fs::path(p.dirs.shipped) / "Bare/game.ini",
+          "[Game]\nProfile = Bare\nType = TeknoParrot\nEmulationProfile = ALLSHOTDSD\nExecutable = spel.exe\n"
+          "Executable2 = server.exe\nIs64Bit = true\nHasTwoExecutables = true\nLaunchSecondExecutableFirst = true\n"
+          "[Launch]\nMode = direct\nSecondBare = true\n\n"
+          "[Identify]\nPath = spel.exe\nPath2 = server.exe\n");
+    {
+        const fs::path bview = fs::path(p.views()) / "Bare";
+        write(bview / "spel.exe", "MZ");
+        write(bview / "server.exe", "MZ");
+        DirectPlan bp;
+        std::string bwhy;
+        CHECK(plan_direct("Bare", p, o, bp, bwhy) == Verdict::Ok);
+        if (bp.starts.size() != 2) std::fprintf(stderr, "bare: %s\n", bwhy.c_str());
+        CHECK(bp.starts.size() == 2 && bp.second_bare);
+        if (bp.starts.size() == 2) {
+            const DirectStart& s2 = bp.starts[0];   // de tweede exe start eerst
+            CHECK(s2.role == "second" && s2.name == "server.exe");
+            CHECK((s2.argv == std::vector<std::string>{wine.string(), wine_path((bview / "server.exe").string())}));
+            if (bp.starts[1].argv.size() != 4 || bp.starts[0].argv.size() != 2) {
+                for (size_t i = 0; i < bp.starts.size(); ++i) {
+                    std::fprintf(stderr, "bare start %zu (%s, %zu):", i, bp.starts[i].role.c_str(),
+                                 bp.starts[i].argv.size());
+                    for (const auto& a : bp.starts[i].argv) std::fprintf(stderr, " [%s]", a.c_str());
+                    std::fprintf(stderr, "\n");
+                }
+            }
+            CHECK(bp.starts[1].role == "main" && bp.starts[1].argv.size() == 4);   // het spel houdt lader en kern
+        }
+        DirectPlan back;
+        std::string berr;
+        CHECK(plan_from_json(plan_to_json(bp), back, berr) && back.second_bare && back.starts.size() == 2);
+    }
+
+    // --- (F) [Launch] PrefixSetup: stappen die eenmalig per prefix gebeuren ------------------------
+    write(fs::path(p.dirs.shipped) / "Stap/game.ini",
+          "[Game]\nProfile = Stap\nType = TeknoParrot\nEmulationProfile = ALLSHOTDSD\nExecutable = spel.exe\n"
+          "[Launch]\nMode = direct\n"
+          "PrefixSetup = run . klaar.exe -wait | copy prefix:drive_c/windows/conf.ini AMCUS/conf.ini | "
+          "run AMCUS regsvr32.exe /s ding.dll\n\n"
+          "[Identify]\nPath = spel.exe\n");
+    {
+        const fs::path sview = fs::path(p.views()) / "Stap";
+        write(sview / "spel.exe", "MZ");
+        write(sview / "klaar.exe", "MZ");
+        std::error_code mec;
+        fs::create_directories(sview / "AMCUS", mec);
+        DirectPlan sp;
+        std::string swhy;
+        CHECK(plan_direct("Stap", p, o, sp, swhy) == Verdict::Ok);
+        if (sp.prefix_setup.size() != 3) std::fprintf(stderr, "stap: %s\n", swhy.c_str());
+        CHECK(sp.prefix_setup.size() == 3);
+        if (sp.prefix_setup.size() == 3) {
+            const DirectSetupStep& a = sp.prefix_setup[0];
+            CHECK(!a.copy && (a.cwd == sview.string() || a.cwd == (sview / ".").string()));
+            CHECK(a.argv.size() == 3 && a.argv[1] == wine_path((sview / "klaar.exe").string()) && a.argv[2] == "-wait");
+            CHECK(!a.mark.empty() && a.mark.find(".ravengun-prefixsetup") != std::string::npos);
+            const DirectSetupStep& b = sp.prefix_setup[1];
+            /* De prefix komt uit de omgeving (RG_WINEPREFIX/TP_WINEPREFIX), dus op de staart
+             * controleren: de bron moet in de prefix staan, niet in de spelmap. */
+            CHECK(b.copy && b.from.ends_with("drive_c/windows/conf.ini") &&
+                  b.to == (sview / "AMCUS/conf.ini").string());
+            const DirectSetupStep& c = sp.prefix_setup[2];
+            CHECK(!c.copy && c.cwd == (sview / "AMCUS").string() && c.argv.size() == 4 &&
+                  c.argv[1] == "regsvr32.exe" && c.argv[3] == "ding.dll");
+            CHECK(a.mark != b.mark && b.mark != c.mark);   // een stempel per stap
+        }
+        DirectPlan back;
+        std::string serr;
+        CHECK(plan_from_json(plan_to_json(sp), back, serr) && back.prefix_setup.size() == 3 &&
+              back.prefix_setup[1].copy && back.prefix_setup[1].from == sp.prefix_setup[1].from &&
+              back.prefix_setup[0].argv == sp.prefix_setup[0].argv && back.prefix_setup[0].mark == sp.prefix_setup[0].mark);
+        // Weigeren: een pad met .., een verkeerd aantal woorden, een onbekende soort en een bestand dat
+        // niet bestaat. De gebruikerlaag overschrijft de sleutel (zoals in de proeven hierboven).
+        const fs::path su = fs::path(p.dirs.user) / "Stap/game.ini";
+        write(su, "[Launch]\nPrefixSetup = run ../x klaar.exe\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        write(su, "[Launch]\nPrefixSetup = copy een\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        write(su, "[Launch]\nPrefixSetup = doe iets\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        // Een pad met een schuine streep dat niet bestaat is een fout; een kale naam (regsvr32.exe)
+        // mag wel, want dat is een programma uit de prefix.
+        write(su, "[Launch]\nPrefixSetup = run . nergens/bestaat-niet.exe\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) != Verdict::Ok);
+        write(su, "[Launch]\nPrefixSetup = run . klaar.exe | run AMCUS regsvr32.exe /s ding.dll\n");
+        CHECK(plan_direct("Stap", p, o, sp, swhy) == Verdict::Ok && sp.prefix_setup.size() == 2 &&
+              sp.prefix_setup[1].argv[1] == "regsvr32.exe");
+    }
+
     fs::remove_all(root);
     std::printf("direct-launch: %d controles, %d fout\n", g_checks, g_failures);
     return g_failures ? 1 : 0;
