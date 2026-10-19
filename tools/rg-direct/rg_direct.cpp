@@ -941,15 +941,16 @@ int run_plan(const std::string& plan_file) {
      * zou anders een schrijfmap kunnen starten die (nog) een koppeling naar de NAS is. */
     namespace D = ravengun::launch::direct_detail;
     const L::DirectPaths wp = L::default_direct_paths(L::environ_map());
-    for (const std::string& pad : plan.view_writable) {
-        if (D::islink(pad) || (D::lexists(pad) && D::on_nas(D::realpath_(pad), wp))) {
-            log("schrijfmap: --run weigert: " + pad + " is (nog) een koppeling naar de NAS; "
-                "start via de daemon of laat de view omzetten");
-            return 2;
-        }
-        const std::string ouder = D::dirname(pad);
-        if (D::lexists(ouder) && D::on_nas(D::realpath_(ouder), wp)) {
-            log("schrijfmap: --run weigert: " + ouder + " komt uit op de NAS");
+    /* Pass 2 (bevinding 5): precies dezelfde controle als de laatste stap van de daemon (schrijfmap_problemen): de ouder, het pad,
+     * een zuster in andere hoofdletters en elk kind, ook diep. Een echte map met kinderen die naar de NAS wijzen kwam hier eerder door. */
+    {
+        const D::MountTableScope koppelpunten(wp);
+        for (const std::string& pad : plan.view_writable) {
+            const std::vector<std::string> fout = D::schrijfmap_problemen(pad, wp);
+            if (fout.empty()) continue;
+            log("schrijfmap: --run weigert " + pad + ": een game mag nooit op de NAS schrijven; start via de daemon (die zet de "
+                "schrijfmap om) of los dit op:");
+            for (const std::string& f : fout) log("schrijfmap:   " + f);
             return 2;
         }
     }
