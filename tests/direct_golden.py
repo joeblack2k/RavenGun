@@ -212,6 +212,10 @@ def fixture(tmp, patches, profiles, gs):
                 os.symlink(os.path.join(nas, name, "AMCUS", "AMConfig.ini"),
                            os.path.join(views, name, "AMCUS", "AMConfig.ini"))
                 write(os.path.join(views, name, "AMCUS", "AMAuthd.exe"), "MZ")
+                # [Launch] PrefixSetup van dit profiel begint met PreprocessAmAuth.exe in de view; die
+                # moet er dus staan, anders weigert de motor de stap (review 13, punt 5) en meet het
+                # gouden bestand alleen nog de weigering.
+                write(os.path.join(views, name, "PreprocessAmAuth.exe"), "MZ")
                 # Tot een echt plan (pass 2): de tweede exe (AMAuthd) en de schrijfmap AMCUS doen dan mee. De mod zoals
                 # scripts/fetch-mods.py hem neerzet (stempel = TreeSha256, een lijst met een regel) en DXVK alleen voor deze game
                 # ([Env] RAVENGUN_DXVK in de gebruikerslaag; een gedeelde nep-DXVK zou de plannen van andere games veranderen).
