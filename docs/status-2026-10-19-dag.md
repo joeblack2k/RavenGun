@@ -674,3 +674,43 @@ helemaal zwart. Dat is niet het BOOTING/I-O CHECKING-scherm van ongeveer 23 kB m
 toestand van (F): de stappen doen dus wat ze moeten doen (de IAuth-klasse is geregistreerd en
 AMAuthd blijft staan), maar het spel tekent zelf nog niets. Dat is de renderkant van (F), niet deze
 stappen.
+
+## De twee levende controles van review 15, punt 1 (14:35 en 14:38)
+
+De geinstalleerde lader was nog mijn bouw van 13:32: daar zat 83f0314 in maar niet de reparatie voor de
+verse prefix uit c45eef4, en de nieuwe rg-rhio.dll was nog niet geinstalleerd. Na het installeren van de
+huidige bouw (rg-direct 2.803.600 bytes, rg-rhio.dll 306.176 bytes, sha1 a553e98e) zijn de twee
+controles gedaan.
+
+**(a) Een start van Mario Kart DX via de daemon** (`direct-MarioKartDX-20261019-143533.log`):
+
+```
+[14:35:33] prefixstappen: stempel .../prefixes/MarioKartDX/.ravengun-prefixsetup/3b92f495bbfda327.done staat er; alleen ontbrekende kopieen lopen opnieuw
+[14:35:33] prefixstap: al gedaan (run . PreprocessAmAuth.exe -wait)
+[14:35:33] prefixstap: al gedaan (copy prefix:drive_c/windows/WritableConfig.ini WritableConfig.ini)
+[14:35:33] prefixstap: al gedaan (copy prefix:drive_c/windows/WritableConfig.ini AMCUS/WritableConfig.ini)
+[14:35:33] prefixstap: al gedaan (run AMCUS regsvr32.exe /s iauthdll.dll)
+```
+
+De vier stappen worden overgeslagen en het aantal regels met **"weigert"** in deze log is **0**. De game
+liep ("De game draait.").
+
+**(b) Een start van Robin Hood via de daemon** (`direct-RobinHood-20261019-143738.log`, en
+`views/RobinHood/data/rg-rhio.log` van 14:38):
+
+```
+rg-rhio geladen (32-bits): pad=\.\USBPDCOM, ioctl-gelukt=1
+--- nieuw proces: de I/O-bordkant van RavenGun geladen ---
+omgeving: RG_RHIO_EERSTEBYTE=afwezig, RG_RHIO_BORD=afwezig (bordtoestand uit gedeeld geheugen: ja)
+marker rg-rhio-stack.aan: afwezig (stackregels (RG_RHIO_STACK))
+marker rg-rhio-mutex.aan: afwezig (mutex-haken (RG_RHIO_MUTEX))
+marker rg-compat.aan: afwezig (meetdraad (RG_COMPAT_SAMPLE))
+```
+
+De nieuwe kop van het logboek staat er, alle drie de markers zijn afwezig, en het aantal regels met
+**"mutex: telling"** is **0** -- precies zoals het hoort: die telling komt alleen als de mutexmeting
+aanstaat. De game liep ("De game draait.").
+
+Let op: de eerste poging om Robin Hood te starten (14:36) maakte geen nieuw logboek aan en de game
+liep niet; het logboek dat ik toen las was dat van de mutex-hermeting van 13:22, met daarin nog
+"marker rg-rhio-mutex.aan: aanwezig". De tweede poging (14:38) is de geldige meting hierboven.
