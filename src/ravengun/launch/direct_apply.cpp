@@ -968,11 +968,20 @@ std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const D
      * ".." en niet op de NAS (review 14, punt 3). Een lege stempel betekent "geen stempel" en mag. */
     if (!plan.prefix_setup_mark.empty()) {
         const std::string m = plan.prefix_setup_mark;
-        const std::string map = pjoin(plan.prefix, ".ravengun-prefixsetup");
+        /* Welke prefix? Het plan hoort hem te noemen (de motor doet dat), maar een met de hand gemaakt
+         * plan mag hem ook in de omgeving zetten -- dat is dezelfde bron die de motor gebruikt. Zonder
+         * prefix is er niets te controleren en weigeren we. */
+        std::string pfx = plan.prefix;
+        if (pfx.empty())
+            for (const char* k : {"RG_WINEPREFIX", "TP_WINEPREFIX", "WINEPREFIX"}) {
+                const auto it = plan.env.find(k);
+                if (it != plan.env.end() && !it->second.empty()) { pfx = it->second; break; }
+            }
+        const std::string map = pjoin(pfx, ".ravengun-prefixsetup");
         bool punt_punt = false;
         for (const std::string& deel : nonempty_split(m, '/'))
             if (deel == "..") punt_punt = true;
-        if (plan.prefix.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") ||
+        if (pfx.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") ||
             punt_punt || on_nas(dirname(m), p))
             return {"de stempel van de prefixstappen (" + m + ") moet in " + map +
                     " liggen, op .done eindigen, geen .. bevatten en niet op de NAS liggen"};

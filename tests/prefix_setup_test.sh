@@ -121,7 +121,10 @@ for s in json.loads(stappen):
         uit.append({"copy": True, "cwd": "", "argv": [], "from": s["van"], "from_prefix": False, "from_rel": "",
                     "to": v + "/" + s["copy"], "tekst": "copy " + s["van"] + " " + s["copy"]})
 p = {"profile": "MK", "game": v + "/spel.exe", "cwd": v, "wine": wine, "prefix": prefix, "pipehelper": "pipehelper.exe",
-     "argv": [wine, "spel.exe"], "env": env, "view_writable": [v + "/AMCUS"], "prefix_setup_mark": stempel,
+     "argv": [wine, "spel.exe"], "env": env, "view_writable": [v + "/AMCUS"],
+     # De stempel hoort in DEZELFDE prefix te liggen als waarin de stappen lopen (review 14, punt 3);
+     # de wrapper-zaak draait in prefix2 en niet in PFX.
+     "prefix_setup_mark": (prefix + "/.ravengun-prefixsetup/proef.done" if soort == "wrapper" else stempel),
      "prefix_setup": uit}
 json.dump(p, open(plan, "w"))
 PY
