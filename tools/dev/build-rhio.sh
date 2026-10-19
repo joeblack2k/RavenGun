@@ -35,7 +35,7 @@ fi
 podman run --rm -v "$SRC:/w:Z" -w /w "$IMAGE" bash -lc '
     set -e
     mkdir -p out
-    i686-w64-mingw32-g++ -shared -O2 -Wall -static -s -o out/rg-rhio.dll rg_rhio.cpp -Wl,--kill-at
+    i686-w64-mingw32-g++ -shared -O2 -Wall -static -o out/rg-rhio.dll rg_rhio.cpp -Wl,--kill-at
     ls -l out/rg-rhio.dll
 '
 

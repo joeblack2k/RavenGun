@@ -188,3 +188,32 @@ route) en of `pl.view_writable` daar gevuld is. **Stopgap**: `views/RobinHood/lo
 het plan bevat `RG_RHIO_LOG` wel (nagekeken in `rg-direct --plan`) en de DLL staat in de view, maar er
 komt geen logboek. Dat hoort bij hetzelfde raadsel als de schrijflaag hierboven (de daemon-route), en
 het is de eerste vraag voor de volgende ronde.
+
+## Review 11: mijn C-ronde liet Robin Hood meteen stoppen (gevonden en verholpen)
+
+Tijdens (D) bleek de game na de C-ronde niet meer te starten (de lader stopte met 0, de game sloot
+zich meteen, geen scherm, geen spelstand). Bisect met een keurscript (`/tmp/rh-keur.sh`: bron bouwen,
+naar de drop-in EN de view kopieren, starten, foto) gaf:
+
+* pre-C bron: **draait** (foto 23 kB = I/O CHECKING);
+* C1+C2+C3: draait; +C4a: draait; +C4b of C4c: **stopt**; C1+C2+C3+C4a+C4e+C4f: draait.
+
+Twee wijzigingen waren fataal, allebei rond de 8-byte buffer `bord` in `BouwAntwoord`:
+
+1. **C4b** `char bord[8] = {0};` in plaats van `char bord[8];`
+2. **C4c** dezelfde buffer via een `static const bool met_bord = []{ char v[8] = {0}; ... }();`
+
+Elke vorm die die buffer anders neerzet laat de game stoppen. Dat wijst op een **latente fout elders
+in het bestand** (de framelayout van `BouwAntwoord` verandert en een bestaande overschrijding wordt
+fataal); de eerlijke conclusie is dat C4b en C4c hier niet veilig te doen zijn zonder die fout eerst
+te vinden. Ze zijn daarom **teruggedraaid** naar de oude vorm, met een waarschuwende opmerking erbij.
+De rest van de C-ronde (C1, C2, C3, C4a, C4e, C4f) is gebleven en werkt: het logboek stopt nu bij
+20.000 regels (722 kB in plaats van 20 MB) en het protocol loopt door.
+
+Daarnaast bleek het installeren van de **mutex-haken** (WaitForSingleObject/ReleaseMutex/CreateMutexA)
+op elke start fataal: die worden door de CRT al heel vroeg aangeroepen. Ze zijn nu **opt-in** met
+`rg-rhio-mutex.aan` naast de DLL of `RG_RHIO_MUTEX=1`.
+
+**Les voor het keuren**: de drop-in in `~/.local/opt/ravengun/patches/...` is de bron die de engine
+materialiseert; een herbouw van alleen `patches/...` in de repo verandert de start niet. Alle
+keurproeven hierboven kopieren naar **beide**.

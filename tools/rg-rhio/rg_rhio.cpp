@@ -616,21 +616,19 @@ void BouwAntwoord() {
         std::memset(k, 0, g_laatste_lengte);
         return;
     }
-    static const std::string keuze = [] {
-        const char* v = std::getenv("RG_RHIO_EERSTEBYTE");
-        return std::string(v ? v : "");
-    }();
-    if (!keuze.empty()) {
-        k[0] = static_cast<unsigned char>(std::strtoul(keuze.c_str(), nullptr, 16));
+    /* LET OP (review 11): deze twee regels bewust NIET gecached of geinitialiseerd. Elke vorm die de
+     * buffer `bord` anders neerzet (char bord[8] = {0}; of een static lambda) laat Robin Hood meteen
+     * stoppen; de oorzaak is een latente fout elders in dit bestand (zie de dagstand). */
+    const char* keuze = std::getenv("RG_RHIO_EERSTEBYTE");
+    if (keuze && *keuze) {
+        k[0] = static_cast<unsigned char>(std::strtoul(keuze, nullptr, 16));
     } else if (!CodeGoed(k[0])) {
         k[0] = 0x94;   /* deze opdrachtcode is geen geldig antwoord: "bord aanwezig" */
     }
     /* De toestand uit ons eigen gedeelde geheugen (de daemon schrijft die), tenzij de proefstand
      * "niks" of "nul" aan staat. Met RG_RHIO_BORD=0 blijft het een echo. */
-    static const bool met_bord = [] {
-        char v[8] = {0};
-        return GetEnvironmentVariableA("RG_RHIO_BORD", v, sizeof v) == 0 || v[0] != '0';
-    }();
+    char bord[8];
+    const bool met_bord = GetEnvironmentVariableA("RG_RHIO_BORD", bord, sizeof bord) == 0 || bord[0] != '0';
     if (met_bord) {
         OpenBordbeeld();
         VulToestand(k);
@@ -773,6 +771,92 @@ void onthoud_originelen() {
 /* Synchroon installeren (DllMain): het spel mag geen aanroep doen voordat de haken er staan. Dit is
  * alleen geheugen schrijven, geen LoadLibrary, dus het mag daar. */
 /* Geeft terug of elke haak gevonden is; dan is een tweede ronde zinloos. */
+/* De map van deze DLL (voor markerbestanden en het logboek van de meting). */
+std::string EigenMap() {
+    char eigen[MAX_PATH] = {0};
+    HMODULE zelf = nullptr;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           reinterpret_cast<LPCSTR>(&EigenMap), &zelf))
+        GetModuleFileNameA(zelf, eigen, sizeof eigen);
+    if (!eigen[0]) return std::string();
+    std::string map(eigen);
+    const size_t schuin = map.find_last_of("\\/");
+    return schuin == std::string::npos ? std::string() : map.substr(0, schuin);
+}
+
+bool Bestaat(const std::string& pad) {
+    FILE* f = std::fopen(pad.c_str(), "rb");
+    if (!f) return false;
+    std::fclose(f);
+    return true;
+}
+
+/* --- (D) Wie houdt het slot? ---------------------------------------------------------------
+ * De hoofddraad van Robin Hood wacht met WaitForSingleObject(mutex, INFINITE) in de lock-helper op
+ * 0x580fa0-0x580fde, met de unlock op 0x580ff6. Deze drie haken laten zien welk handvat dat is, welke
+ * draad het kreeg en welke draad het nooit teruggeeft. Alleen aan met RG_RHIO_MUTEX=1. */
+bool MutexAan() {
+    static const bool aan = [] {
+        char v[8] = {0};
+        if (GetEnvironmentVariableA("RG_RHIO_MUTEX", v, sizeof v) != 0) return v[0] != '0';
+        const std::string map = EigenMap();
+        return !map.empty() && Bestaat(map + "\\rg-rhio-mutex.aan");
+    }();
+    return aan;
+}
+
+using WaitForSingleObjectFn = DWORD(WINAPI*)(HANDLE, DWORD);
+using ReleaseMutexFn = BOOL(WINAPI*)(HANDLE);
+using CreateMutexAFn = HANDLE(WINAPI*)(LPSECURITY_ATTRIBUTES, BOOL, LPCSTR);
+WaitForSingleObjectFn g_echte_waitobj = nullptr;
+ReleaseMutexFn g_echte_release = nullptr;
+CreateMutexAFn g_echte_createmutex = nullptr;
+
+/* De beller als game.exe+RVA, zodat een adres in het logboek meteen een functie is. */
+std::string BellerTekst(const void* beller) {
+    char buf[64];
+    HMODULE exe = GetModuleHandleA(nullptr);
+    if (exe && beller >= static_cast<const void*>(exe)) {
+        const ULONG_PTR basis = reinterpret_cast<ULONG_PTR>(exe);
+        const ULONG_PTR b = reinterpret_cast<ULONG_PTR>(beller);
+        if (b - basis < 0x2000000) {
+            std::snprintf(buf, sizeof buf, "game.exe+0x%lx", static_cast<unsigned long>(b - basis));
+            return buf;
+        }
+    }
+    std::snprintf(buf, sizeof buf, "%p", beller);
+    return buf;
+}
+
+HANDLE WINAPI rg_CreateMutexA(LPSECURITY_ATTRIBUTES sa, BOOL eigenaar, LPCSTR naam) {
+    HANDLE h = g_echte_createmutex ? g_echte_createmutex(sa, eigenaar, naam) : nullptr;
+    if (MutexAan())
+        Log("mutex: CreateMutexA(naam=%s, eigenaar=%d) -> %p  beller=%s",
+            naam ? naam : "(geen)", (int)eigenaar, h, BellerTekst(__builtin_return_address(0)).c_str());
+    return h;
+}
+
+DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
+    const void* beller = __builtin_return_address(0);
+    const DWORD tid_voor = GetCurrentThreadId();
+    DWORD r = g_echte_waitobj ? g_echte_waitobj(h, ms) : WAIT_FAILED;
+    if (MutexAan())
+        Log("mutex: draad %lu wacht op %p (%lu ms) -> %lu  beller=%s", static_cast<unsigned long>(tid_voor),
+            h, static_cast<unsigned long>(ms), static_cast<unsigned long>(r), BellerTekst(beller).c_str());
+    return r;
+}
+
+BOOL WINAPI rg_ReleaseMutex(HANDLE h) {
+    const void* beller = __builtin_return_address(0);
+    const DWORD tid = GetCurrentThreadId();
+    BOOL r = g_echte_release ? g_echte_release(h) : FALSE;
+    if (MutexAan())
+        Log("mutex: draad %lu geeft %p terug -> %d  beller=%s", static_cast<unsigned long>(tid), h,
+            (int)r, BellerTekst(beller).c_str());
+    return r;
+}
+
 bool installeer_haken() {
     bool alles = true;
     HMODULE exe = GetModuleHandleA(nullptr);
@@ -799,6 +883,23 @@ bool installeer_haken() {
         {"WaitCommEvent", reinterpret_cast<void*>(&rg_WaitCommEvent), reinterpret_cast<void**>(&g_echte_wait), false},
         {"GetOverlappedResult", reinterpret_cast<void*>(&rg_GetOverlappedResult), reinterpret_cast<void**>(&g_echte_ovl), false},
     };
+    /* De mutex-haken zijn optioneel: niet elke exe importeert ze. */
+    struct { const char* naam; void* nep; void** echt; } sloten[] = {
+        {"WaitForSingleObject", reinterpret_cast<void*>(&rg_WaitForSingleObject),
+         reinterpret_cast<void**>(&g_echte_waitobj)},
+        {"ReleaseMutex", reinterpret_cast<void*>(&rg_ReleaseMutex), reinterpret_cast<void**>(&g_echte_release)},
+        {"CreateMutexA", reinterpret_cast<void*>(&rg_CreateMutexA), reinterpret_cast<void**>(&g_echte_createmutex)},
+    };
+    /* De mutex-haken alleen als erom gevraagd is (RG_RHIO_MUTEX=1 of rg-rhio-mutex.aan naast deze
+     * DLL). Ze op elke start installeren bleek Robin Hood meteen te laten stoppen (review 11): het
+     * zijn haken op WaitForSingleObject/CreateMutexA, die de CRT al heel vroeg aanroept. */
+    if (MutexAan()) {
+        for (auto& sl : sloten) {
+            void* oud_slot = PatchIat(exe, "KERNEL32.dll", sl.naam, sl.nep);
+            if (oud_slot && sl.echt) *sl.echt = oud_slot;   // de echte functie onthouden
+            Log("importtabel: KERNEL32!%s %s", sl.naam, oud_slot ? "omgezet" : "NIET gevonden");
+        }
+    }
     for (auto& c : comm) {
         void* oud = PatchIat(exe, "KERNEL32.dll", c.naam, c.nep);
         if (!oud && c.nodig) alles = false;
@@ -827,10 +928,46 @@ DWORD WINAPI Herprobeer(LPVOID) {
 void LaadMeetdraad() {
     static volatile LONG gedaan = 0;
     if (InterlockedCompareExchange(&gedaan, 1, 0) != 0) return;   // geen call_once (winpthreads)
-    char v[8] = {0};
-    if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) == 0) return;
+
+    /* Waar staat deze DLL? Daar zoeken we het markerbestand en schrijven we het logboek van de
+     * meting, zodat het altijd terug te vinden is (het %TEMP%-pad van de prefix wisselt). */
+    const std::string map = EigenMap();
+
+    char v[32] = {0};
+    const bool via_omgeving = GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0;
+
+    /* Markerbestand: <map van deze DLL>\rg-compat.aan. De inhoud is het aantal milliseconden
+     * (leeg of onleesbaar = 200). Zo kan de meetdraad aan zonder de omgeving aan te raken. */
+    bool via_marker = false;
+    if (!map.empty()) {
+        const std::string marker = map + "\\rg-compat.aan";
+        FILE* m = std::fopen(marker.c_str(), "rb");
+        if (m) {
+            char inhoud[32] = {0};
+            const size_t n = std::fread(inhoud, 1, sizeof inhoud - 1, m);
+            std::fclose(m);
+            long ms = n ? std::strtol(inhoud, nullptr, 10) : 0;
+            if (ms <= 0) ms = 200;
+            char tekst[32];
+            std::snprintf(tekst, sizeof tekst, "%ld", ms);
+            SetEnvironmentVariableA("RG_COMPAT_SAMPLE", tekst);
+            via_marker = true;
+            Log("meetdraad: markerbestand %s gevonden; RG_COMPAT_SAMPLE=%s", marker.c_str(), tekst);
+        }
+    }
+    if (!via_omgeving && !via_marker) return;
+
+    /* Het logboek van de meting naast deze DLL zetten (vaste naam; er draait er maar een). */
+    if (!map.empty() && GetEnvironmentVariableA("RG_COMPAT_SAMPLE_LOG", v, sizeof v) == 0) {
+        const std::string logpad = map + "\\rg-compat-sample.txt";
+        SetEnvironmentVariableA("RG_COMPAT_SAMPLE_LOG", logpad.c_str());
+        Log("meetdraad: logboek wordt %s", logpad.c_str());
+    }
+
+    char ms[32] = {0};
+    GetEnvironmentVariableA("RG_COMPAT_SAMPLE", ms, sizeof ms);
     HMODULE m = LoadLibraryA("rg-compat.dll");
-    Log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", v);
+    Log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", ms);
 }
 
 BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
