@@ -43,6 +43,7 @@
 #include <string>
 
 void LaadMeetdraad();   // de meetdraad van rg-compat, lazy geladen (buiten de anonieme naamruimte)
+void LeesWachthandvatten();   // (D) de wachthandvatten van alle draden, lazy (buiten de anonieme naamruimte)
 
 namespace {
 
@@ -337,8 +338,11 @@ FARPROC WINAPI rg_GetProcAddress(HMODULE mod, LPCSTR naam) {
 
 HANDLE WINAPI rg_CreateFileA(LPCSTR pad, DWORD toegang, DWORD deel, LPSECURITY_ATTRIBUTES sa, DWORD aanmaak,
                              DWORD vlaggen, HANDLE sjabloon) {
-    LaadMeetdraad();   // lazy: niet in DllMain (daar kan LoadLibrary de loader-lock pakken)
     LogOpen();
+    /* Pas NA LogOpen: deze twee loggen zelf, en de eenmalige vlag werd anders verbruikt voordat er
+     * een logboek was (daardoor waren de "meetdraad"- en "stack"-regels eerder onzichtbaar). */
+    LaadMeetdraad();   // lazy: niet in DllMain (daar kan LoadLibrary de loader-lock pakken)
+    LeesWachthandvatten();
     if (pad && std::strcmp(pad, g_pad) == 0) {
         Log("CreateFileA(%s) -> nagebootst handvat %p", pad, g_nep_handle);
         SetLastError(ERROR_SUCCESS);
