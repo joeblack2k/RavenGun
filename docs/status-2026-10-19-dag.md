@@ -1096,3 +1096,40 @@ staat daarna op schijf en de game draait.
 
 **Tweede start** (`direct-MarioKartDX-20261019-161115.log`): **"al gedaan" 4x**, 0 regels met "weigert",
 de game draait.
+
+## Mario Kart DX: auth step handoff (English, 2026-10-19)
+
+State on our own route (no TeknoParrot core, no TP files): the USB-dongle
+check is answered (class {3abf6f2d-71c4-462a-8a92-1e6861e6af27}, commands
+0x00220424 and 0x00220408, two-step size/payload), the device-tree walk after
+the dongle read is answered (CM_Locate_DevNodeW, CM_Get_DevNode_Registry_
+PropertyW property 0x0A driver key / 0x01 description, CM_Get_Child/Parent/
+Sibling), and the drive-board worker is patched (patchmem: 0x607C50
+558bec -> b000c3, reports "not available"). With that the boot check runs and
+prints "I/O check OK JV I/O connected".
+
+Remaining blocker: the Mucha/auth step. AMAuthd.exe logs
+MUCHA_REQ_APP_CONNECTION_FAILED and the check waits.
+
+Facts for whoever continues:
+- iauthdll.dll is only the COM proxy/stub (PSFactoryBuffer,
+  CLSID {045A5150-D2B3-4590-A38B-C1158678E1AC}); it is not the auth object.
+- The real object is out-of-process: CLSID {4603BB03-058D-43D9-B96F-639BE908C1ED}
+  ("AMAuthd IAuth"), LocalServer32 = AMCUS\AMAuthd.exe, interface IAuth
+  IID {045A5150-D2B3-4590-A38B-C1158678E1AC}, 32 methods (3 IUnknown + 29).
+- The game creates it at call site 0x8B2723 (CoCreateInstance, IAT slot
+  0x943870) inside the helper at 0x8B2710, then calls vtable slot 5
+  (offset 0x14) with three arguments (push esi; push -1; push 0; push this)
+  and calls Release (slot 2, offset 0x08).
+- GUID copies live in .data at 0xA17634 (CLSID) and 0xA17644 (IID).
+- Cheap route tried and rejected: patchmem 0x4B2710 518d0424 -> 31c0c390
+  (return S_OK without the object) crashes the game at 0x8CE7DC, because the
+  caller uses the returned interface.
+- Next step: a fake IAuth in rg-mfcam modelled on tools/rg-mfcam/sharek_fake.h
+  (Guid, Slot{index, arg_bytes, kind}, vtable), 32 slots, every call logged
+  with its slot number, hooked in the existing CoCreateInstance interception
+  for CLSID {4603BB03-...}. Arg counts must be taken from the game's call
+  sites (slot 5 = 12 argument bytes is confirmed). Then fill in the
+  out-parameters the boot check reads until it passes to attract.
+- The owner rule stands: no Mucha tree, chunk.img, dongle data or keys in the
+  repo. Runtime-writable data goes through the view mechanism only.
