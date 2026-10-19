@@ -477,6 +477,8 @@ std::string plan_to_json(const DirectPlan& pl) {
         for (const auto& a : st.argv) w.value(a);
         w.end_array();
         w.key("from").value(st.from);
+        w.key("from_prefix").value(st.from_prefix);
+        w.key("from_rel").value(st.from_rel);
         w.key("to").value(st.to);
         w.key("tekst").value(st.tekst);
         w.end_object();
@@ -573,6 +575,8 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
                 for (const auto& a : x->arr)
                     if (a.is_string()) st.argv.push_back(a.str);
             if (const auto* x = e.find("from"); x && x->is_string()) st.from = x->str;
+            if (const auto* x = e.find("from_prefix"); x && x->is_bool()) st.from_prefix = x->b;
+            if (const auto* x = e.find("from_rel"); x && x->is_string()) st.from_rel = x->str;
             if (const auto* x = e.find("to"); x && x->is_string()) st.to = x->str;
             if (const auto* x = e.find("tekst"); x && x->is_string()) st.tekst = x->str;
             pl.prefix_setup.push_back(st);

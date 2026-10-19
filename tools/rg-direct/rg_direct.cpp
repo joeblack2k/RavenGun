@@ -996,11 +996,18 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                 } else if (!in_schrijfmap(doelmap) && D::islink(doelmap)) {
                     fout = doelmap + " staat niet in een schrijfmap (ViewWritable) en is een koppeling";
                 }
+                /* De bron in de prefix opnieuw in elkaar zetten met de prefix van DIT plan: het plan
+                 * kan met een andere prefix gemaakt zijn dan waarmee het nu draait (review 13, punt 4). */
+                const std::string bron = stap.from_prefix && !stap.from_rel.empty()
+                                             ? D::pjoin(plan.prefix, stap.from_rel)
+                                             : stap.from;
+                if (stap.from_prefix && bron != stap.from)
+                    log("prefixstap: bron in de prefix: " + bron + " (het plan noemde " + stap.from + ")");
                 std::string inhoud, rerr, werr;
-                if (fout.empty() && !D::read_file_strict(stap.from, inhoud, rerr)) fout = rerr;
+                if (fout.empty() && !D::read_file_strict(bron, inhoud, rerr)) fout = rerr;
                 if (fout.empty() && !D::write_atomic(stap.to, inhoud, werr)) fout = werr;
                 goed = fout.empty();
-                log(std::string("prefixstap: kopieren ") + (goed ? "klaar" : "GEWEIGERD") + ": " + stap.from +
+                log(std::string("prefixstap: kopieren ") + (goed ? "klaar" : "GEWEIGERD") + ": " + bron +
                     " -> " + stap.to + (goed ? "" : " (" + fout + ")"));
             } else {
                 log("prefixstap: " + join_quoted(stap.argv) + " (cwd " + stap.cwd + ")");

@@ -71,6 +71,10 @@ struct DirectSetupStep {
     std::string cwd;                     // map waarin de stap draait (run)
     std::vector<std::string> argv;       // run: wine + het bestand + de argumenten
     std::string from, to;                // copy: van, naar
+    // Bron in de PREFIX (prefix:<pad>). De loper zet hem opnieuw in elkaar met de prefix van het plan:
+    // zo is de bron de prefix van deze start en niet die van het moment van plannen (review 13, punt 4).
+    bool from_prefix = false;
+    std::string from_rel;
     std::string tekst;                   // de stap zoals in het profiel (voor het logboek)
 };
 

@@ -818,6 +818,8 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
                         return setting_refused("[Launch] PrefixSetup: " + van +
                                                " (na prefix: een pad zonder .. en zonder leidende schuine streep)");
                     st.from = pjoin(prefix, rest);
+                    st.from_prefix = true;
+                    st.from_rel = rest;
                 } else {
                     st.from = pjoin(wortel, van);
                 }

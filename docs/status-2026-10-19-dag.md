@@ -488,3 +488,39 @@ géén stempel), een hangende stap (na de tijd afgebroken), de stempel (tweede k
 doel opnieuw kopiëren) en "er staat niets op de nagebootste NAS". In `ravengun_direct_launch_tests`
 staan er proeven bij voor `prefix:` met `/` en `..`, de whitelist, een koppeling in de weg en de
 stempelsleutel (zelfde lijst = zelfde stempel, andere lijst = andere): **577 controles, 0 fout**.
+
+### P4: waar PreprocessAmAuth echt schrijft (gemeten op een verse prefix)
+
+De bron van de kopieerstap (`prefix:drive_c/windows/WritableConfig.ini`) had mtime 04:55 en was door de
+proefrondes van 11:03-11:14 niet aangeraakt, dus het vermoeden was dat de kopie een vers bestand door
+een oud overschreef -- of dat de bron op een verse prefix helemaal niet bestaat. Gemeten met een
+**kopie** van de prefix (niet de echte), waarin de oude `WritableConfig.ini` eerst weggehaald is, en
+precies de vier stappen van het profiel tegen die verse prefix:
+
+* `PreprocessAmAuth.exe -wait` meldt `Checking.ErrorCode : 0 / outPath : WritableConfig.ini / Ok!` en
+  schrijft het bestand naar **`<prefix>/drive_c/windows/WritableConfig.ini`** -- niet naar de spelmap en
+  niet naar `TeknoParrot/E/`. Op de verse prefix bestond het daar nog niet: het wordt dus echt
+  aangemaakt (en als het er wel staat, laat het programma het staan -- vandaar de oude mtime).
+* Daarna komen de twee kopieën in de view (`AMCUS/WritableConfig.ini` en `WritableConfig.ini`, allebei
+  nieuw) en registreert `regsvr32.exe /s iauthdll.dll` de klasse. Buiten de prefix is niets
+  verschenen.
+
+**Reparatie**: de bron van een `prefix:`-stap werd bij het PLANNEN in elkaar gezet. Daardoor kon de
+loper een bestand uit een andere prefix lezen dan die van deze start (in de meting was dat zichtbaar:
+de kopie las uit de echte prefix terwijl de stappen in de verse liepen). Het plan onthoudt nu dat de
+bron in de prefix ligt (`from_prefix` + `from_rel`) en de loper zet hem opnieuw in elkaar met
+`plan.prefix`; wijkt dat af, dan schrijft hij het verschil in het logboek. Opnieuw gemeten: de kopie
+leest nu uit de verse prefix.
+
+### P7: profielen en notities kloppend gemaakt
+
+* `patches/MarioKartDX/game.ini`: de uitleg bij de sleutel zegt nu dat de stappen een motorfunctie zijn
+  met EEN stempel voor de hele lijst, en noemt de gemeten plek (`<prefix>/drive_c/windows/`). Het
+  verouderde blok met handwerk ("Draai ze EEN keer per prefix...") is vervangen door wat de motor nu
+  doet, met de tijdmeting erbij.
+* `patches/MarioKartDX/dropin/dropin.ini`: de diagnostische `DXVK_LOG_LEVEL`/`DXVK_HUD` zijn er nu
+  echt uit (er stond nog een restje in `Env`).
+* `patches/Coopers9/game.ini`: de `[Input] Note` zei dat het spel zonder kern "na ongeveer drie
+  seconden met exitcode 0" sluit; dat is nu vervangen door de meting van 11:35 (dezelfde access
+  violation op 0x4fd8aed0 **zonder** onze kern, met `+seh`). De losse notitie onder `[ConfigOptions]`
+  is weggehaald -- dat blok wordt bij een nieuwe import opnieuw gemaakt -- en staat nu in die Note.
