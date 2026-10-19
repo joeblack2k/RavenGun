@@ -30,10 +30,11 @@ hele proefreeks is **97/97 groen**.
 Wat er in de laatste ronde nog bij kwam (review 16): **MenInBlack** is apart in MUISMODUS gemeten
 (munt en START via het virtuele toetsenbord, de missie begint, score 0024/tickets 001) -- de oude
 meting blijft staan voor de muisknoppen; **LostLandAdventure** is opnieuw gemeten met gamescope ECHT
-aan (de sleutel stond in [Launch] en hoort in [Display]): er komt een venster en de game tekent een
-zwart scherm; **SegaGameShell** heeft nu de hele shell-map als ViewWritable, zodat de logboekrotatie
-en shell/variables lokaal gebeuren in plaats van door een koppeling naar de NAS (in de schrijflaag
-stonden 157 whiteouts en 2 bestanden, de NAS zelf is ongemoeid); **TNXK0OC** heeft gs2.ini en
+aan (de sleutel stond in [Launch] en hoort in [Display]): het beeld bleef zwart en of er een venster
+was is NIET vast te stellen (zie de correctie verderop); **SegaGameShell**: alleen shell/variables is
+lokaal; de logbestanden in shell/ zijn nog steeds bestands-koppelingen, en Wine VERWIJDERT DOOR die
+koppelingen heen (alleen de schrijflaag van bwrap beschermt de NAS; de leiding repareert dit in pass 2);
+**TNXK0OC** heeft gs2.ini en
 mxRingwide.ini nu als ViewCopies in het profiel, met een Sega-JVS-profiel in plaats van een
 Taito-profiel; de stempelronde van de leiding is samengevoegd en live nagelopen (eerste start: vier
 keer "klaar (status 0)", de wineserver -w-regel, de stempelregel, 0 weigert; tweede start: vier keer
@@ -291,8 +292,10 @@ De rest van de C-ronde (C1, C2, C3, C4a, C4e, C4f) is gebleven en werkt: het log
 20.000 regels (722 kB in plaats van 20 MB) en het protocol loopt door.
 
 Daarnaast bleek het installeren van de **mutex-haken** (WaitForSingleObject/ReleaseMutex/CreateMutexA)
-op elke start fataal: die worden door de CRT al heel vroeg aangeroepen. Ze zijn nu **opt-in** met
-`rg-rhio-mutex.aan` naast de DLL of `RG_RHIO_MUTEX=1`.
+veel logboekruimte te kosten: ze worden door de CRT al heel vroeg en heel vaak aangeroepen. Het
+vermoeden dat ze een start fataal maken is later **niet bevestigd** (vijf starts met de haken tegen
+vijf zonder: alle tien bleven draaien). Ze zijn **opt-in** met `rg-rhio-mutex.aan` naast de DLL of
+`RG_RHIO_MUTEX=1`.
 
 **Les voor het keuren**: de drop-in in `~/.local/opt/ravengun/patches/...` is de bron die de engine
 materialiseert; een herbouw van alleen `patches/...` in de repo verandert de start niet. Alle
@@ -712,10 +715,12 @@ overgeslagen.
 
 De game liep in beide gevallen (`ravengunctl game status`: "De game draait.").
 
-**De foto** (`docs/screenshots/mariokart-prefixstappen-2026-10-19.png`, 1920x1080, 10.669 bytes) is
-helemaal zwart. Dat is niet het BOOTING/I-O CHECKING-scherm van ongeveer 23 kB maar de bekende zwarte
-toestand van (F): de stappen doen dus wat ze moeten doen (de IAuth-klasse is geregistreerd en
-AMAuthd blijft staan), maar het spel tekent zelf nog niets. Dat is de renderkant van (F), niet deze
+**De foto** (`docs/screenshots/mariokart-prefixstappen-lege-opname-2026-10-19.png`, 1920x1080, 10.669
+bytes) is een LEGE OPNAME: hij is byte-identiek aan de LostLandAdventure-opname van dezelfde dag
+(sha256 707d1f84...), dus hij zegt niets over wat de game tekende. De zwarte toestand van (F) is hier
+dus niet mee aangetoond; wat de stappen doen blijkt uit het logboek (de IAuth-klasse is geregistreerd en
+AMAuthd blijft staan). Of het spel zelf al iets tekent is met deze opname NIET vast te stellen -- daar is
+een echte opname of een vensterlijst voor nodig. Dat is de renderkant van (F), niet deze
 stappen.
 
 ## De twee levende controles van review 15, punt 1 (14:35 en 14:38)
