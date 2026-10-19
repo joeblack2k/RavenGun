@@ -340,3 +340,35 @@ DXVK staat al aan in dit profiel (met de notitie dat wined3d 144.000 keer `GL_IN
 en de view heeft de DXVK-DLL's; het maakt voor het zwarte scherm geen verschil. De volgende stap is
 dus aan de renderkant: `DXVK_HUD`/`DXVK_LOG_LEVEL=debug`, `WINEDEBUG=+d3d`, of kijken wat de
 camera-drop-in (`rg-mfcam.dll`, die het spel ook laadt) met de presentatie doet.
+
+### Waar het zwarte scherm vandaan komt: de ShareK-fake, slot 7
+
+Het logboek van onze eigen camera-drop-in (`views/MarioKartDX/rg-mfcam.log`, 227 regels) laat zien hoe
+ver het spel komt. De laatste regels, in volgorde:
+
+```
+camerabestand nu: 640x480 met beeld
+geheugen-motor: ravengun-patchmem32.dll geladen (lijst patchmem.txt)
+CoCreateInstance({4603BB03-058D-43D9-B96F-639BE908C1ED}, ctx 0x4, {045A5150-...}) -> hr 0x00000000
+d3dx10: D3DX10CreateEffectFromFileA liet pHResult ongemoeid; nu 0x00000000 (1, 2, 3 keer)
+CoCreateInstance({4C9B6DDE-6809-46E6-A278-9B6A97588670}, ctx 0x1, {8BCF1F58-...}) -> hr 0x00000000
+ShareK-object: QueryInterface({C2116F7F-CF46-3C68-B187-9D0FE9F70ED0}) -> hetzelfde object
+ShareK: CoCreateInstance({CCC44B2A-709A-33A8-A1B0-5DBE25B19C2C}, ctx 0x17, {C2116F7F-...}) -> ...
+ShareK-object: slot 7 aangeroepen (beller 00000000)
+```
+
+Twee dingen zijn hier de winst van deze ronde:
+
+1. **De IAuth van AMAuthd geeft `hr 0x00000000`** -- de automatisering (`PrefixSetup` met
+   PreprocessAmAuth, de kopie naar `AMCUS/` en `regsvr32 /s`) doet dus precies wat de handmatige
+   stappen deden. Zonder die stappen gaf dezelfde aanroep niets.
+2. Het spel loopt daarna door tot in de **ShareK**-laag (`RG_SHAREK_FAKE=1` in de drop-in) en blijft
+   daar staan: **`slot 7` wordt aangeroepen en daarna gebeurt er niets meer**. Dat is waar het zwarte
+   scherm vandaan komt -- niet van D3D (het apparaat wordt gemaakt, DXVK staat aan met de juiste
+   overrides en `DXVK_HUD=1` in de omgeving, maar er wordt niets getoond omdat het spel op dat
+   ShareK-antwoord wacht).
+
+**Volgende stap voor (F)**: de ShareK-fake in `src/ravengun/sharek/` (met zijn eigen proef
+`ravengun_sharek_fake_tests`) slot 7 laten antwoorden zoals de echte ShareK-server doet. Daarvoor is
+de interface van dat slot nodig (de docs van de ShareK-kant en de bestaande fake geven de andere
+slots al een antwoord).
