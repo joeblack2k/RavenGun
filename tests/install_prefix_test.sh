@@ -76,6 +76,33 @@ mkdir -p "$T/anderlink/share/ravengun"; ln -s "$T/vreemd/patches" "$T/anderlink/
 check weiger "$T/anderlink"    ""      ""  "$H" "share/ravengun/patches wijst elders heen" "../../patches"
 mkdir -p "$T/toplink"; ln -s "$T/vreemd/patches" "$T/toplink/patches"
 check weiger "$T/toplink"      ""      ""  "$H" "<prefix>/patches is een koppeling" "koppeling"
+# G5: de omzetting naar <prefix>/patches (cmake/PatchesLayout.cmake). Het merkbestand komt VOOR de rename: een onderbroken eerste
+# omzetting (rename gedaan, koppeling nog niet) wordt daarna door de controle en door de volgende installatie geaccepteerd.
+LAYOUT="$REPO/cmake/PatchesLayout.cmake"
+layout() {  # layout <root> [stop]
+    cmake -DRG_PREFIX="$1" -DRG_ROOT="$1" -DRG_DATADIR=share/ravengun -DRG_TEST_STOP="${2:-}" -P "$LAYOUT" > "$T/layout.txt" 2>&1
+}
+vers() { mkdir -p "$1/share/ravengun/patches/Game"; echo "$2" > "$1/share/ravengun/patches/Game/game.ini"; }  # net geïnstalleerd
+vers "$T/om" v1
+layout "$T/om" na-rename || fail "G5: omzetting (tot na de rename) faalde: $(cat "$T/layout.txt")"
+[[ -f "$T/om/patches/Game/game.ini" && ! -e "$T/om/share/ravengun/patches" && -f "$T/om/share/ravengun/.patches-installatie" ]] ||
+    fail "G5: na een onderbroken omzetting ontbreekt het merkbestand (of de rename): $(ls -A "$T/om" "$T/om/share/ravengun" 2>&1)"
+check staat  "$T/om"           ""      ""  "$H" "G5: onderbroken eerste omzetting (rename gedaan, koppeling niet)"
+vers "$T/om" v2
+layout "$T/om" || fail "G5: de installatie na een onderbroken omzetting faalde: $(cat "$T/layout.txt")"
+[[ "$(cat "$T/om/patches/Game/game.ini")" == v2 && "$(readlink "$T/om/share/ravengun/patches")" == ../../patches ]] ||
+    fail "G5: na de herhaalde installatie klopt de indeling niet"
+# Een lege <prefix>/patches zonder merk mag weg (GLOB telt "." en ".." niet), een met alleen een verborgen bestand niet.
+vers "$T/leeg2" v1; mkdir -p "$T/leeg2/patches"
+layout "$T/leeg2" || fail "G5: een lege <prefix>/patches werd geweigerd (telt GLOB . en ..?): $(cat "$T/layout.txt")"
+[[ -f "$T/leeg2/patches/Game/game.ini" ]] || fail "G5: lege <prefix>/patches niet vervangen"
+vers "$T/verborgen" v1; mkdir -p "$T/verborgen/patches"; echo x > "$T/verborgen/patches/.eigen"
+layout "$T/verborgen" && fail "G5: een <prefix>/patches met alleen een verborgen bestand werd zonder merk vervangen"
+[[ -f "$T/verborgen/patches/.eigen" ]] || fail "G5: het verborgen bestand is weg"
+# Systeemprefix: geen <prefix>/patches.
+vers "$T/sys/usr" v1
+cmake -DRG_PREFIX=/usr -DRG_ROOT="$T/sys/usr" -DRG_DATADIR=share/ravengun -P "$LAYOUT" >/dev/null 2>&1 || fail "G5: systeemprefix faalde"
+[[ ! -e "$T/sys/usr/patches" && -d "$T/sys/usr/share/ravengun/patches" ]] || fail "G5: systeemprefix kreeg een <prefix>/patches"
 check staat "$H/.local/opt/ravengun" "" ""  "$H" "eigen prefix"
 check staat "/usr"             ""      ""  "$H" "systeemprefix"
 check staat "$H/.local"        "$T/dest" "" "$H" "DESTDIR verplaatst de installatie"
