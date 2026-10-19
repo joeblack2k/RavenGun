@@ -929,7 +929,8 @@ std::vector<std::string> prefixstap_map_problemen(const std::string& map, const 
     return uit;
 }
 
-std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const std::string& wortel, const DirectPaths& p) {
+std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const std::string& wortel, const std::string& prefix,
+                                              const DirectPaths& p) {
     auto schoon = [](const std::string& x) {   // dezelfde regel als de motor (direct.cpp, 6f3)
         return !x.empty() && x.front() != '/' && x.find("..") == std::string::npos;
     };
@@ -940,6 +941,11 @@ std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const s
          * zijn, anders kwam een met de hand bewerkt plan (prefix:/etc/x, prefix:../..) hier alsnog door. */
         if (st.from_prefix && !schoon(st.from_rel))
             uit.push_back("de bron prefix:" + st.from_rel + " (na prefix: een pad zonder .. en zonder leidende schuine streep)");
+        /* Review 15, ronde 2, punt 3: zonder prefix (of met een relatieve) las pjoin(prefix, from_rel) drive_c/... ten opzichte
+         * van de werkmap van rg-direct. De loper zet de bron in elkaar met DEZE prefix (prefix_van_plan). */
+        if (st.from_prefix && (prefix.empty() || prefix.front() != '/'))
+            uit.push_back("de bron prefix:" + st.from_rel + " heeft geen prefix: het plan noemt geen absolute prefix (plan.prefix, "
+                          "RG_WINEPREFIX, TP_WINEPREFIX of WINEPREFIX" + (prefix.empty() ? "" : "; " + prefix + " is relatief") + ")");
         if (!st.from_prefix && (!binnen(abspath(st.from), w) || st.from.find("..") != std::string::npos))
             uit.push_back("de bron " + st.from + " ligt niet in de view " + w);
         if (st.to.empty() || basename(st.to).empty() || st.to.find("..") != std::string::npos || !binnen(abspath(st.to), w) ||
@@ -969,6 +975,55 @@ std::string prefix_van_plan(const DirectPlan& plan) {
     return {};
 }
 
+/* Welke wine draait de run-stappen: de wrapper wine-prefix (leest RG_WINEPREFIX en zet zelf WINEPREFIX) en/of een gewone wine
+ * (leest WINEPREFIX). De motor zet plan.wine in elke run-stap, maar een met de hand gemaakt plan kan per stap iets anders
+ * noemen; plan.wine telt ook mee, want rg-direct kiest daarop de wineserver (wineserver_van). */
+static void stappen_wine(const DirectPlan& plan, bool& kaal, bool& wrapper) {
+    kaal = wrapper = false;
+    bool run = false;
+    for (const DirectSetupStep& st : plan.prefix_setup) {
+        if (st.copy || st.argv.empty()) continue;
+        run = true;
+        (basename(st.argv.front()) == "wine-prefix" ? wrapper : kaal) = true;
+    }
+    if (run) (basename(plan.wine) == "wine-prefix" ? wrapper : kaal) = true;
+}
+
+std::vector<std::string> prefix_omgeving_problemen(const DirectPlan& plan) {
+    /* Review 15, ronde 2, punt 4: prefix_van_plan() kiest plan.prefix, dan RG_WINEPREFIX, TP_WINEPREFIX, WINEPREFIX; de stappen
+     * liepen met plan.env, en daarin leest een gewone wine alleen WINEPREFIX. Met plan.prefix leeg, RG_WINEPREFIX=/lokaal en
+     * WINEPREFIX=<NAS> keken stempel, bron en NAS-controle naar /lokaal en draaide wine op de NAS. Nu: een prefix, en wat
+     * wine of de wrapper zelf leest moet daarmee kloppen (leeg mag: de loper zet hem, prefixstap_omgeving). */
+    bool kaal = false, wrapper = false;
+    stappen_wine(plan, kaal, wrapper);
+    if (!kaal && !wrapper) return {};
+    const std::string pfx = prefix_van_plan(plan);
+    if (pfx.empty() || pfx.front() != '/')
+        return {"de run-stappen hebben een absolute prefix nodig en het plan noemt er geen (plan.prefix, RG_WINEPREFIX, "
+                "TP_WINEPREFIX of WINEPREFIX)" + (pfx.empty() ? std::string() : "; " + pfx + " is relatief")};
+    std::vector<std::string> uit;
+    auto zelfde = [&](const char* k, const std::string& wie) {
+        const auto it = plan.env.find(k);
+        if (it != plan.env.end() && !it->second.empty() && abspath(it->second) != abspath(pfx))
+            uit.push_back(std::string(k) + "=" + it->second + " is niet de prefix van de stappen (" + pfx + "): " + wie +
+                          " zou daar draaien, terwijl de stempel, de prefix:-bron en de NAS-controle over " + pfx + " gaan");
+    };
+    if (kaal) zelfde("WINEPREFIX", "wine");
+    if (wrapper) zelfde("RG_WINEPREFIX", "de wrapper wine-prefix");
+    return uit;
+}
+
+EnvMap prefixstap_omgeving(const DirectPlan& plan, const EnvMap& env) {
+    EnvMap uit = env;
+    const std::string pfx = prefix_van_plan(plan);
+    if (pfx.empty()) return uit;   // dan weigert prefix_omgeving_problemen() al (zodra er een run-stap is)
+    bool kaal = false, wrapper = false;
+    stappen_wine(plan, kaal, wrapper);
+    uit["WINEPREFIX"] = pfx;
+    if (wrapper || basename(plan.wine) == "wine-prefix") uit["RG_WINEPREFIX"] = pfx;
+    return uit;
+}
+
 std::vector<std::string> stempel_problemen(const DirectPlan& plan, const DirectPaths& p) {
     if (plan.prefix_setup_mark.empty()) return {};
     const std::string m = plan.prefix_setup_mark;
@@ -977,15 +1032,14 @@ std::vector<std::string> stempel_problemen(const DirectPlan& plan, const DirectP
     bool punt_punt = false;
     for (const std::string& deel : nonempty_split(m, '/'))
         if (deel == "..") punt_punt = true;
-    /* on_nas() klapt dicht voor een pad dat niet bestaat (volg_pad mislukt), en de stempelmap bestaat
-     * bij een VERSE prefix nog niet. Dan keek de controle naar de map zelf en werd elke eerste start
-     * geweigerd -- dat vond de proef met het lege plan.prefix. Bestaat de stempelmap nog niet, dan
-     * kijken we naar de prefix zelf: de map komt daar immers in, en staat de prefix op de NAS, dan
-     * weigeren we alsnog. Bestaat hij wel, dan moet hij zelf lokaal zijn (een koppeling naar de NAS
-     * valt hier ook op, want dan wijst abspath() ergens anders heen). */
-    const bool bestaat = lexists(dirname(m)) || lexists(m);
-    if (pfx.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") || punt_punt ||
-        (bestaat ? on_nas(dirname(m), p) : on_nas(pfx, p)))
+    /* De map waar de stempel in komt mag niet op de NAS liggen. on_nas() volgt het pad zoals de kernel (volg_pad): een
+     * koppeling op de weg wordt gevolgd, ook een losse, en vanaf het eerste deel dat (nog) niet bestaat gaat de rest
+     * letterlijk verder. EEN controle op dirname(m) dekt dus alles: een bestaande stempelmap, een stempelmap die een
+     * koppeling naar de NAS is, een VERSE prefix waarin .ravengun-prefixsetup nog niet bestaat (lokaal: aannemen) en een
+     * prefix die zelf een koppeling naar de NAS is terwijl de stempelmap er nog niet in staat (weigeren). Review 15, ronde 2,
+     * punt 2: hier stond eerst een splitsing "bestaat de map, dan dirname(m), anders de prefix" met de uitleg dat on_nas()
+     * dichtklapt voor een pad dat niet bestaat; dat klopte niet (volg_pad verdraagt ENOENT) en de splitsing deed niets. */
+    if (pfx.empty() || abspath(dirname(m)) != abspath(map) || !m.ends_with(".done") || punt_punt || on_nas(dirname(m), p))
         return {"de stempel van de prefixstappen (" + m + ") moet in " + map +
                 " liggen, op .done eindigen, geen .. bevatten en niet op de NAS liggen"};
     return {};
@@ -1000,9 +1054,10 @@ std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const D
         return {"de prefixstappen vragen een view; " + plan.game + " ligt niet in " + p.views()};
     /* De stempel van de prefixstappen: zie stempel_problemen() hierboven. */
     if (const std::vector<std::string> fout = stempel_problemen(plan, p); !fout.empty()) return fout;
-    std::vector<std::string> uit;
+    const std::string pfx = prefix_van_plan(plan);
+    std::vector<std::string> uit = prefix_omgeving_problemen(plan);
     for (const DirectSetupStep& st : plan.prefix_setup)
-        for (const std::string& x : prefixstap_problemen(st, wortel, p)) uit.push_back(st.tekst + ": " + x);
+        for (const std::string& x : prefixstap_problemen(st, wortel, pfx, p)) uit.push_back(st.tekst + ": " + x);
     return uit;
 }
 

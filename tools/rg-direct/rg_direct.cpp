@@ -1066,6 +1066,31 @@ void stap_afbreken(const L::DirectPlan& plan, const L::EnvMap& env, pid_t pid, S
     ku.einde();   // ook de pijp dicht (die lekte eerder)
 }
 
+// Voor de stempel (review 15, ronde 2, punt 5): wineserver -w wacht tot de wineserver van de prefix weg is, en daarmee alles wat
+// de stappen in die prefix nog hebben lopen buiten hun procesgroep (services.exe, winedevice en co. hangen aan de wineserver, die
+// zich zelf losmaakt). Begrensd (RG_PREFIXSTAP_WACHT, standaard 10 s): is hij dan niet klaar, dan zeggen we dat en gaat de
+// stempel toch door, want de stempelcontrole loopt daarna nog een keer.
+void wacht_op_wineserver(const L::DirectPlan& plan, const L::EnvMap& env, int grens_s) {
+    L::EnvMap kenv;
+    const std::string ws = wineserver_van(plan, env, kenv);
+    if (::access(ws.c_str(), X_OK) != 0) {
+        log("prefixstappen: wineserver -w overgeslagen: " + ws + " bestaat niet of is niet uitvoerbaar");
+        return;
+    }
+    log("prefixstappen: " + ws + " -w (WINEPREFIX=" + env_get(kenv, "WINEPREFIX") + "), hoogstens " + std::to_string(grens_s) + " s");
+    Child k = spawn({ws, "-w"}, "/", kenv, true, true);
+    if (k.pid <= 0) return;
+    StapUitvoer ku{k.out, "prefixstappen: wineserver: ", ""};
+    int ks = 0;
+    if (!wacht_begrensd(k.pid, ks, grens_s * 1000)) {
+        log("prefixstappen: wineserver -w is na " + std::to_string(grens_s) + " s niet klaar (de grens); er loopt nog iets in de "
+            "prefix. Het wachten stopt en de stempel volgt na de controle");
+        ::kill(k.pid, SIGKILL);
+        wacht_begrensd(k.pid, ks, 1000);
+    }
+    ku.einde();
+}
+
 // Na een GESLAAGDE stap: wat er nog van de stap draait (wine start meer dan een proces) mag niet doorlopen terwijl de volgende
 // stap controleert en schrijft. Eerst laten uitlopen (Wine stopt services.exe en co. zelf als het laatste programma weg is), dan
 // SIGTERM, dan SIGKILL. false = de groep is niet leeg te krijgen (een proces hangt in de D-toestand): dan start er niets.
@@ -1130,8 +1155,12 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
      * motor (prefixstap_problemen): tussen het plan en nu, en tussen twee stappen, kan er van alles veranderd zijn (review 13,
      * punt 1; ronde 2, punt 3: de werkmap van een run-stap werd hier eerder niet meer bekeken). */
     const std::string wortel = D::view_wortel(D::dirname(plan.game), wp);
+    /* De prefix EEN keer bepalen, voor de controle van elke stap en de prefix:-bron (review 15, ronde 2, punt 3): een lege of
+     * relatieve prefix weigert prefixstap_problemen() bij een prefix:-bron, hier vlak voor het lezen net als bij de controle
+     * vooraf. */
+    const std::string pfx = D::prefix_van_plan(plan);
     auto geweigerd = [&](const L::DirectSetupStep& stap) {
-        const std::vector<std::string> f = D::prefixstap_problemen(stap, wortel, wp);
+        const std::vector<std::string> f = D::prefixstap_problemen(stap, wortel, pfx, wp);
         for (const std::string& x : f) log("prefixstap: GEWEIGERD (" + stap.tekst + "): " + x);
         return !f.empty();
     };
@@ -1141,6 +1170,15 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
     // Draait met de wine van de lader, zonder WINEARCH (de prefix van Mario Kart DX is 64-bits en met
     // WINEARCH=win32 weigert wine).
     if (!plan.prefix_setup.empty()) {
+        /* EEN prefix voor alles (review 15, ronde 2, punt 4): pfx hierboven is die van de stempel, de prefix:-bron en de
+         * NAS-controle. Wat wine (WINEPREFIX) of de wrapper (RG_WINEPREFIX) in de omgeving vindt moet daarmee kloppen, en de
+         * stappen en wineserver -k/-w krijgen hem opgelegd: stapenv, niet env. */
+        if (const std::vector<std::string> pf = D::prefix_omgeving_problemen(plan); !pf.empty()) {
+            for (const std::string& x : pf) log("prefixstap: GEWEIGERD: " + x);
+            log("prefixstap MISLUKT: de prefix van de stappen is niet eenduidig; de game wordt niet gestart");
+            return 1;
+        }
+        const L::EnvMap stapenv = D::prefixstap_omgeving(plan, env);
         const bool stempel_gezet =
             !plan.prefix_setup_mark.empty() && ::access(plan.prefix_setup_mark.c_str(), F_OK) == 0;
         if (stempel_gezet)
@@ -1148,6 +1186,7 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                 " staat er; alleen ontbrekende kopieen lopen opnieuw");
         const int timeout_s = seconden_uit_omgeving("RG_PREFIXSTAP_TIMEOUT", 180);   // standaard 180 s
         const int naloop_s = seconden_uit_omgeving("RG_PREFIXSTAP_NALOOP", 10);
+        bool wine_gelopen = false;   // is er een run-stap gestart (dan wacht de stempel op wineserver -w)
         for (const auto& stap : plan.prefix_setup) {
             if (stempel_gezet && !(stap.copy && ::access(stap.to.c_str(), F_OK) != 0)) {
                 log("prefixstap: al gedaan (" + stap.tekst + ")");
@@ -1162,8 +1201,7 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                 /* De bron in de prefix opnieuw in elkaar zetten met de prefix van DIT plan: het plan
                  * kan met een andere prefix gemaakt zijn dan waarmee het nu draait (review 13, punt 4).
                  * from_rel is in prefixstap_problemen() gecontroleerd (geen .., niet absoluut). */
-                const std::string bron =
-                    stap.from_prefix ? D::pjoin(D::prefix_van_plan(plan), stap.from_rel) : stap.from;
+                const std::string bron = stap.from_prefix ? D::pjoin(pfx, stap.from_rel) : stap.from;
                 if (stap.from_prefix && bron != stap.from)
                     log("prefixstap: bron in de prefix: " + bron + " (het plan noemde " + stap.from + ")");
                 std::string fout, inhoud, rerr, werr;
@@ -1184,8 +1222,9 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                 }
                 log("prefixstap: " + join_quoted(stap.argv) + " (cwd " + stap.cwd + ")");
                 /* Eigen procesgroep: een time-out moet de hele boom meenemen. */
-                Child c = spawn(stap.argv, stap.cwd, env, true, false, true);
+                Child c = spawn(stap.argv, stap.cwd, stapenv, true, false, true);
                 if (c.pid <= 0) return 1;
+                wine_gelopen = true;
                 StapUitvoer uit{c.out, "prefixstap: ", ""};
                 const auto einde = std::chrono::steady_clock::now() + std::chrono::seconds(timeout_s);
                 int st = 0;
@@ -1211,7 +1250,7 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                         (gestopt ? "stop gevraagd" : afgebroken ? "afgebroken na " + std::to_string(timeout_s) + " s" :
                                                                   "de wachtdienst op de stap gaf een fout") +
                         "; de procesgroep gaat dood");
-                    stap_afbreken(plan, env, c.pid, uit);
+                    stap_afbreken(plan, stapenv, c.pid, uit);
                     goed = false;
                     if (gestopt) return 1;
                 }
@@ -1224,6 +1263,9 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
         /* De stempel voor de hele lijst, pas nu alles gelukt is. Mislukt het schrijven, dan zeggen we
          * dat: anders zou de volgende start alles opnieuw doen zonder dat iemand weet waarom. */
         if (!plan.prefix_setup_mark.empty() && !stempel_gezet) {
+            /* Eerst moet alles van de stappen in de prefix weg zijn (review 15, ronde 2, punt 5), met dezelfde prefix als de
+             * stappen (stapenv). */
+            if (wine_gelopen) wacht_op_wineserver(plan, stapenv, seconden_uit_omgeving("RG_PREFIXSTAP_WACHT", 10));
             /* Nog een keer controleren, NU, vlak voor het schrijven (review 15, punt 4): tussen de
              * controle bij de start en dit moment kan er van alles veranderd zijn -- de map zelf kan
              * een koppeling naar de NAS geworden zijn, en create_directories en write_atomic volgen

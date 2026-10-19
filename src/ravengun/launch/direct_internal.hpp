@@ -94,13 +94,22 @@ std::vector<std::string> schrijfmap_problemen(const std::string& pad, const Dire
 // hoofdlettergevoelig), en de map zelf niet op de NAS. Anders dan schrijfmap_problemen() kijkt hij NIET naar de kinderen: de
 // view-wortel staat vol koppelingen naar de NAS en is toch de werkmap van een stap. Motor, --run-controle en loper gebruiken hem.
 std::vector<std::string> prefixstap_map_problemen(const std::string& map, const std::string& wortel, const DirectPaths& p);
-// Een stap uit het plan zoals de loper hem uitvoert: de prefix:-bron (from_rel schoon), het kopieerdoel (in de view, zelf geen
-// koppeling, de map volgens prefixstap_map_problemen) of de werkmap van een run-stap. Leeg = veilig.
-std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const std::string& wortel, const DirectPaths& p);
+// Een stap uit het plan zoals de loper hem uitvoert: de prefix:-bron (from_rel schoon, en er IS een absolute prefix: die van
+// prefix_van_plan()), het kopieerdoel (in de view, zelf geen koppeling, de map volgens prefixstap_map_problemen) of de werkmap
+// van een run-stap. Leeg = veilig.
+std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const std::string& wortel, const std::string& prefix,
+                                              const DirectPaths& p);
 // De controle van rg-direct --run en --alleen-stappen voor alle prefixstappen van een plan (de view-wortel uit plan.game, de
 // koppelpuntentabel, elke stap). Leeg = veilig; de schrijfmappen (ViewWritable) controleert schrijfmap_problemen() apart.
 // De prefix die bij dit plan hoort (plan.prefix, anders de omgevingsvariabelen uit plan.env).
 std::string prefix_van_plan(const DirectPlan& plan);
+// EEN prefix voor de prefixstappen (review 15, ronde 2, punt 4): de stempel, de prefix:-bron en de NAS-controle gebruiken
+// prefix_van_plan(), dus de wine van de run-stappen moet in DIE prefix draaien. Een gewone wine leest WINEPREFIX, de wrapper
+// wine-prefix leest RG_WINEPREFIX (scripts/wine-prefix.sh); staat daar iets anders in, dan weigert dit. Leeg = in orde (ook
+// zonder run-stappen).
+std::vector<std::string> prefix_omgeving_problemen(const DirectPlan& plan);
+// De omgeving voor de run-stappen en wineserver: env met WINEPREFIX (en bij de wrapper ook RG_WINEPREFIX) op prefix_van_plan().
+EnvMap prefixstap_omgeving(const DirectPlan& plan, const EnvMap& env);
 // Alleen de stempel van de prefixstappen (review 14, punt 3; review 15, punt 4).
 std::vector<std::string> stempel_problemen(const DirectPlan& plan, const DirectPaths& p);
 std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const DirectPaths& p);
