@@ -572,7 +572,8 @@ case "$uit" in *"wineserver -w eindigde met status 7"*) ;; *) mislukt "14d: de f
 [ -e "$P13/.ravengun-prefixsetup/proef.done" ] || mislukt "14d: de stempel is na de foutstatus niet geschreven"
 rm -rf "$W/prefixen.log" "$P13/.ravengun-prefixsetup"
 # 14e. een stopsignaal tijdens het wachten op wineserver -w: de loper breekt het wachten af in plaats van de
-#      volle grens uit te zitten (review 16, punt 3a).
+#      volle grens uit te zitten, schrijft de stempel NIET en stopt met status 1 (review 16 punt 3a en
+#      review 17 K3: anders slaat een volgende start alles over en start run_plan alsnog de game).
 touch "$W/ws-hangt"
 rm -f "$W/ws-w.pid"   # niet die van proef 14c: anders seinen we de loper af voordat hij zijn signalen zet
 maak_plan "$toon" "" "$P13"
@@ -586,13 +587,14 @@ wait "$rgpid"; rc=$?
 duur=$(( $(date +%s) - begin ))
 rm -f "$W/ws-hangt"
 uit=$(cat "$W/uit.stop")
-[ "$rc" = 0 ] || mislukt "14e: status $rc: $uit"
+[ "$rc" = 1 ] || mislukt "14e: status $rc in plaats van 1: $uit"
 [ "$duur" -lt 8 ] || mislukt "14e: het stopsignaal werkte niet (${duur} s, de grens is 10)"
 case "$uit" in *"wineserver -w afgebroken door een stopsignaal"*) ;; *) mislukt "14e: het stopsignaal staat niet in het logboek: $uit";; esac
-[ -e "$P13/.ravengun-prefixsetup/proef.done" ] || mislukt "14e: de stempel is na het stopsignaal niet geschreven"
+case "$uit" in *"de stempel wordt NIET geschreven"*) ;; *) mislukt "14e: het overslaan van de stempel staat niet in het logboek: $uit";; esac
+[ ! -e "$P13/.ravengun-prefixsetup/proef.done" ] || mislukt "14e: de stempel is toch geschreven na het stopsignaal"
 leeft "$(cat "$W/ws-w.pid" 2>/dev/null)" && mislukt "14e: wineserver -w leeft nog na het stopsignaal"
 rm -rf "$W/prefixen.log" "$P13/.ravengun-prefixsetup"
-[ "$fout" = 0 ] && zeg "14 wineserver -w voor de stempel met de prefix van de stappen, begrensd, met de foutstatus en met een stopsignaal (goed)"
+[ "$fout" = 0 ] && zeg "14 wineserver -w voor de stempel met de prefix van de stappen, begrensd, met de foutstatus en met een stopsignaal dat de stempel tegenhoudt (goed)"
 
 if [ "$fout" != 0 ]; then zeg "mislukt"; exit 1; fi
 zeg "alles goed"

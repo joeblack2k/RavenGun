@@ -1291,6 +1291,14 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
             /* Eerst moet alles van de stappen in de prefix weg zijn (review 15, ronde 2, punt 5), met dezelfde prefix als de
              * stappen (stapenv). */
             if (wine_gelopen) wacht_op_wineserver(plan, stapenv, seconden_uit_omgeving("RG_PREFIXSTAP_WACHT", 10));
+            /* Review 17 (K3): kwam er tijdens dat wachten een stopsignaal, dan schrijven we de stempel NIET en
+             * stoppen we hier. Anders zou een volgende start alles overslaan terwijl deze stap misschien niet
+             * eens afgerond is, en run_plan zou daarna alsnog de game starten. */
+            if (g_stop.load()) {
+                log("prefixstappen: stopsignaal tijdens het wachten op wineserver -- de stempel wordt NIET geschreven; "
+                    "de stappen lopen een volgende keer opnieuw");
+                return 1;
+            }
             /* Nog een keer controleren, NU, vlak voor het schrijven (review 15, punt 4): tussen de
              * controle bij de start en dit moment kan er van alles veranderd zijn -- de map zelf kan
              * een koppeling naar de NAS geworden zijn, en create_directories en write_atomic volgen

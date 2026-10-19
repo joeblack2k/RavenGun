@@ -791,3 +791,17 @@ gewoon ("De game draait."). De stempel staat daarna weer op schijf.
 
 "al gedaan" voor alle vier, geen `wineserver -w` (die komt alleen NA een run-stap, en er liep er nu
 geen), 0 regels met "weigert", en de game draait.
+
+## De levende controle van review 17 (16:09 en 16:11)
+
+Alleen de MK-stempel weggehaald, daarna twee starts met de nieuw geinstalleerde lader (die van 6b77dca was
+nog nooit live gestart).
+
+**Eerste start** (`direct-MarioKartDX-20261019-160933.log`): vier stappen (`prefixstap: run|copy` komt 4x
+voor), waarvan de twee run-stappen met "klaar (status 0)" en de twee kopieerstappen met "kopieren klaar";
+regel 53 is `wineserver -w (WINEPREFIX=.../prefixes/MarioKartDX)`, regel 54 is
+`prefixstappen: stempel .../3b92f495bbfda327.done`, het aantal regels met "weigert" is **0**, de stempel
+staat daarna op schijf en de game draait.
+
+**Tweede start** (`direct-MarioKartDX-20261019-161115.log`): **"al gedaan" 4x**, 0 regels met "weigert",
+de game draait.
