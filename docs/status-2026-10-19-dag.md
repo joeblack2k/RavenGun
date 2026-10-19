@@ -344,10 +344,14 @@ Met de automatisering op zijn plaats is het spel **echt gaan lopen**:
   `Format: D3D9Format::A8R8G8B8`, `Windowed: true`, `Swap effect: 1`, `DXGI: MakeWindowAssociation:
   Ignoring flags` -- daarna niets meer. Het spel leeft dus, maar er wordt niets getoond.
 
-DXVK staat al aan in dit profiel (met de notitie dat wined3d 144.000 keer `GL_INVALID_OPERATION` gaf)
-en de view heeft de DXVK-DLL's; het maakt voor het zwarte scherm geen verschil. De volgende stap is
-dus aan de renderkant: `DXVK_HUD`/`DXVK_LOG_LEVEL=debug`, `WINEDEBUG=+d3d`, of kijken wat de
-camera-drop-in (`rg-mfcam.dll`, die het spel ook laadt) met de presentatie doet.
+**VERONDERSTELLING (nog niet gemeten)**: DXVK maakt voor het zwarte scherm geen verschil. Wat we
+weten is dat DXVK aanstaat (`[Launch] Dxvk = true`, `WINEDLLOVERRIDES` d3d8/d3d9/d3d10core/d3d11/dxgi
+= n, de DXVK-DLL's in de view) en dat het scherm met die instelling zwart blijft. Er is **geen enkele
+start zonder DXVK** opgeschreven, dus de uitspraak "het maakt geen verschil" is niet gedekt. WAT DAT
+ZOU BEVESTIGEN: minstens vijf starts met `Dxvk = false` in hetzelfde profiel, en dan vergelijken met
+de vijf starts met DXVK aan (zelfde foto-uitkomst, zelfde logboek-einde). De volgende stap aan de
+renderkant blijft: `DXVK_HUD`/`DXVK_LOG_LEVEL=debug`, `WINEDEBUG=+d3d`, of kijken wat de camera-drop-in
+(`rg-mfcam.dll`, die het spel ook laadt) met de presentatie doet.
 
 ### Waar het zwarte scherm vandaan komt: de ShareK-fake, slot 7
 
@@ -376,8 +380,11 @@ Twee dingen zijn hier de winst van deze ronde:
    als `StartIpcClient([out] VARIANT_BOOL*)` en de fake zet hem op -1 ("Startup ShareK-Client"), en
    het logboekregeltje `slot 7 aangeroepen (beller 00000000)` is alleen de laatste regel die *onze*
    DLL schrijft. **Correctie op mijn eerste conclusie**: het spel wacht daar niet op een antwoord; het
-   gaat daarna zijn eigen weg en roept onze DLL niet meer aan. Het zwarte scherm zit dus **na** de
-   ShareK-afhandeling.
+   gaat daarna zijn eigen weg en roept onze DLL niet meer aan. **VERONDERSTELLING**: het zwarte scherm
+   zit daarmee **na** de ShareK-afhandeling. Dat is een gevolgtrekking uit één logboek (het stopt met
+   regels schrijven), niet uit een meting van het scherm; de fake zou ook iets kunnen doen dat onze
+   DLL niet logt. WAT DAT ZOU BEVESTIGEN: een start met `RG_SHAREK_FAKE=0` (of de fake die het
+   ShareK-object weigert) en kijken of het scherm dan wél iets toont, vijf starts.
 
 Stand van de renderkant: het spel maakt zijn D3D9-apparaat (logboek: `Windowed: true`, `Swap effect:
 1`), DXVK staat aan met de juiste `WINEDLLOVERRIDES` (d3d8/d3d9/d3d10core/d3d11/dxgi = n), `DXVK_HUD=1`
@@ -387,8 +394,9 @@ de `--log-full`-weg van rg-direct of door de motor een `WINEDEBUG`-sleutel te ge
 
 **Volgende stap voor (F)**: de presentatie-kant. Twee goedkope kandidaten: (a) de motor een
 `WINEDEBUG`-sleutel geven zodat `+d3d9,+dxgi` echt doorkomt, en (b) kijken of het spel zijn venster wel
-presenteert maar niets tekent (het spel gebruikt `RG_JVS_COMPORT=COM3`; net als bij Robin Hood kan het
-op bordgegevens wachten voordat het zijn eerste frame tekent).
+presenteert maar niets tekent (het spel gebruikt `RG_JVS_COMPORT=COM3`; **VERONDERSTELLING**: net als
+bij Robin Hood kan het op bordgegevens wachten voordat het zijn eerste frame tekent -- dat is een
+vermoeden naar analogie en nog niet gemeten voor Mario Kart DX).
 
 ## Review 12: vier punten in het (D)-gereedschap van rg-rhio (12:00-12:15)
 

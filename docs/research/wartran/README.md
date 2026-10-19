@@ -976,8 +976,9 @@ zien (geen geldige frames).
 **Dit is de correctie op de notitie van 05:55**: daar stond dat het verschil tussen wel en geen kern
 bepaalt of het spel omvalt. Deze meting laat zien dat de crash er **ook zonder onze kern** is -- het is
 het eigen vroege startpad van het spel. Dat past bij wat er in dit document over Coopers 9 staat: het
-heeft **HASP HL statisch gelinkt**, en zo'n beveiligingslaag springt door een tabel die pas met een
-echte dongle klopt. De volgende stap is dus niet de kern maar dat pad: met `winedbg` (of
+heeft **HASP HL statisch gelinkt** (dat is uit de teksten in de exe te lezen), en **de
+veronderstelling** is dat zo'n beveiligingslaag door een tabel springt die pas met een echte dongle
+klopt. Dat laatste is niet bewezen: het is afgeleid uit de registers van één `+relay`-start. De volgende stap is dus niet de kern maar dat pad: met `winedbg` (of
 `WINEDEBUG=+relay` op een *klein* stuk) de laatste sprong voor `0x4fd8aed0` vinden en kijken welke
 tabel daar gelezen wordt -- precies de "dongle"-route die de leiding al als open item heeft.
 
@@ -1011,8 +1012,14 @@ code leest een functiewijzer uit de tabel bij `0x55e3c8` en **die wijzer is `0x4
 in geen enkele module -- en springt erheen. Zonder onze kern (deze meting) is `edi=0`, dus dezelfde
 route loopt ook daar stuk.
 
-Dat is de **beveiligingslaag**: Coopers 9 heeft HASP HL statisch gelinkt (zie de tabel bovenaan dit
-document). Zo'n laag hoort die tabel bij het opstarten te vullen; zonder dongle blijft er rommel staan.
+**VERONDERSTELLING**: dit is de beveiligingslaag. Coopers 9 heeft HASP HL statisch gelinkt (zie de
+tabel bovenaan dit document), en zo'n laag hoort die tabel bij het opstarten te vullen; zonder dongle
+zou er rommel blijven staan. Wat we **zeker** weten: de leesfout op `0x4fd8aed0` (uit een adres in geen
+enkele module), `ebp=0x7ffd1000` en `edx=0x402480` uit één `+relay`-start, en dat `0x401b30` de
+functie `0x4010d0` aanroept en daarna `call *%edi` / `call *%ebx` bevat. WAT DAT ZOU BEVESTIGEN: de
+instructies bij `0x4010d0` en `0x401b30` helemaal uit elkaar halen en laten zien welke tabel-index
+gelezen wordt, en dat dezelfde start met een gevulde tabel (echte dongle of een patch) niet omvalt --
+vijf starts per variant.
 De weg vooruit is dus niet de kern en niet Wine, maar dat pad: ofwel de tabel laten vullen zoals de
 echte beveiliging doet (daar is een dongle voor nodig, en de eigenaar heeft gezegd dat die er niet
 komt), ofwel de exe op dat punt **patchen** zodat hij de controle overslaat -- dezelfde aanpak als bij
@@ -1038,7 +1045,11 @@ geziene plekken (`aantal pc | aanroeper 1 | aanroeper 2`):
 De hoofddraad wacht in **de eigen code van het spel** (`game.exe+0x9e7bc8`, terug naar
 `game.exe+0x8ff9b`), en alle andere draden wachten in gewone ntdll-wachtdiensten. De vergrendeling
 van `0x580fa0` is dus niet wat Robin Hood tegenhoudt; het spel staat in zijn eigen wachtpad op
-bordgegevens, precies zoals de leiding vermoedde ("in een lus wachten op bordgegevens").
+bordgegevens, precies zoals de leiding vermoedde ("in een lus wachten op bordgegevens"). Dat is één
+meting van 675 rondes; **`game.exe+0x9e7bc8` en `0x8ff9b` zijn nog niet opgezocht** (de exe van Robin
+Hood staat niet rechtstreeks in de view). WAT DAT ZOU BEVESTIGEN: die twee adressen in de ontleder
+opzoeken en de wachtdienst met zijn handvat benoemen, en daarna vijf starts met en vijf zonder
+bordantwoord vergelijken.
 
 **Volgende stap**: `game.exe+0x9e7bc8` en `0x8ff9b` in de ontleder opzoeken (de exe van Robin Hood
 staat niet rechtstreeks in de view: `data/game.exe` is een hulpje van 71 bytes, het echte spel komt
