@@ -53,7 +53,9 @@ std::string strip_bom(std::string s);
 std::string expand_home(const std::string& p, const std::string& home);
 std::string shrink_home(const std::string& p, const std::string& home);
 std::string getenv_or(const EnvMap& env, const std::string& k, const std::string& def = {});
-bool on_nas(const std::string& path, const DirectPaths& p);   // launch-direct.py on_nas()
+bool on_nas(const std::string& path, const DirectPaths& p);   // launch-direct.py on_nas(); niet te volgen = NAS
+// Het pad zoals de kernel het volgt, ook door een koppeling waarvan het doel ontbreekt; false = onderweg niet te bekijken (EIO, ESTALE).
+bool volg_pad(const std::string& path, std::string& out);
 // Strenger dan read_file(): elke leesfout telt, en het totaal moet gelijk zijn aan de grootte van fstat() (een afgebroken lezing van
 // de NAS wordt nooit een halve kopie). strict_read_fn is ::read; alleen proeven vervangen hem.
 bool read_file_strict(const std::string& path, std::string& out, std::string& err);

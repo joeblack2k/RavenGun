@@ -233,9 +233,58 @@ MountTableScope::~MountTableScope() {
     t_mounts_file = prev_file_;
 }
 
-// launch-direct.py on_nas(): ~/mnt of een netwerkbestandssysteem (langste koppelpunt in /proc/self/mounts).
+// Pre-merge F3: volgt een pad zoals de kernel, ook door een koppeling waarvan het doel ontbreekt (weakly_canonical stopt daar en
+// geeft de koppeling zelf terug, dus een kapotte link naar ~/mnt leek lokaal). false = een onderdeel was niet te bekijken (EIO of
+// ESTALE van een haperende CIFS-koppeling, geen rechten, een lus); de aanroeper beslist dan veilig.
+bool volg_pad(const std::string& path, std::string& out) {
+    std::vector<std::string> rest;   // back() is het volgende onderdeel
+    {
+        const std::vector<std::string> d = split(abspath(path), '/');
+        for (auto it = d.rbegin(); it != d.rend(); ++it)
+            if (!it->empty()) rest.push_back(*it);
+    }
+    std::string cur = "/";
+    int sprongen = 0;
+    bool weg = false;   // vanaf hier bestaat niets meer: de rest gaat letterlijk
+    while (!rest.empty()) {
+        const std::string c = rest.back();
+        rest.pop_back();
+        if (c == ".") continue;
+        if (c == "..") {
+            cur = dirname(cur);
+            if (cur.empty()) cur = "/";
+            continue;
+        }
+        const std::string kand = pjoin(cur, c);
+        if (weg) { cur = kand; continue; }
+        struct stat st{};
+        if (::lstat(kand.c_str(), &st) != 0) {
+            if (errno != ENOENT && errno != ENOTDIR) return false;
+            weg = true;
+            cur = kand;
+            continue;
+        }
+        if (!S_ISLNK(st.st_mode)) { cur = kand; continue; }
+        if (++sprongen > 40) return false;
+        char buf[4096];
+        const ssize_t n = ::readlink(kand.c_str(), buf, sizeof buf - 1);
+        if (n < 0) return false;
+        const std::string doel(buf, static_cast<size_t>(n));
+        if (!doel.empty() && doel[0] == '/') cur = "/";
+        const std::vector<std::string> d = split(doel, '/');
+        for (auto it = d.rbegin(); it != d.rend(); ++it)
+            if (!it->empty()) rest.push_back(*it);
+    }
+    out = cur;
+    return true;
+}
+
+// launch-direct.py on_nas(): ~/mnt of een netwerkbestandssysteem (langste koppelpunt in /proc/self/mounts). Een pad dat niet te
+// volgen is (EIO/ESTALE onderweg) telt als NAS: dan wordt er niet geschreven (pre-merge F3; eerder viel realpath_ terug op het
+// pad zelf en leek het lokaal).
 bool on_nas(const std::string& path, const DirectPaths& p) {
-    const std::string real = realpath_(path);
+    std::string real;
+    if (!volg_pad(path, real)) return true;
     if (real.starts_with(pjoin(p.home, "mnt") + "/")) return true;
     std::vector<MountRow> eigen;
     const std::vector<MountRow>* rows = t_mounts;

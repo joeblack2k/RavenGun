@@ -735,9 +735,12 @@ bool kopieer_map_veilig(const std::string& bron, const std::string& doel, uintma
 
 /* Wandelt een map door en maakt kinderen die naar een NAS-bestand wijzen lokaal; een koppeling naar een NAS-map weigert (review 10,
  * A5; zonder dit schrijft een game via zo'n kind alsnog op de NAS). Geen unlink vooraf: write_atomic zet de kopie met rename() op
- * de plek van de koppeling (rename vervangt de koppeling zelf, nooit het doel), dus een mislukte kopie laat de koppeling staan. */
-bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, std::string& err, int diepte = 0) {
+ * de plek van de koppeling (rename vervangt de koppeling zelf, nooit het doel), dus een mislukte kopie laat de koppeling staan.
+ * Een echte submap die zelf op de NAS ligt (een koppelpunt, of direct onder ~/mnt) weigert VOOR er iets in geschreven wordt
+ * (pre-merge F1). De kopieën tellen mee in dezelfde grens als de migratie (totaal, F4). */
+bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, uintmax_t& totaal, std::string& err, int diepte = 0) {
     if (diepte > 16) { err = "te diep om na te kijken: " + pad; return false; }
+    if (on_nas(pad, p)) { err = pad + " ligt op de NAS (" + realpath_(pad) + "); daar wordt nooit iets geschreven"; return false; }
     std::error_code ec;
     std::filesystem::directory_iterator it(pad, ec);
     if (ec) { err = "kan " + pad + " niet lezen: " + ec.message(); return false; }
@@ -746,19 +749,18 @@ bool maak_kinderen_lokaal(const std::string& pad, const DirectPaths& p, std::str
         if (ec) { err = "fout bij het lezen van " + pad + ": " + ec.message(); return false; }
         const std::string kind = it->path().string();
         if (islink(kind)) {
-            const std::string doel = realpath_(kind);
-            if (!on_nas(doel, p)) continue;
+            if (!on_nas(kind, p)) continue;   // on_nas volgt ook een koppeling waarvan het doel ontbreekt of niet te bekijken is (F3)
+            std::string doel;
+            if (!volg_pad(kind, doel)) doel = kind;
             if (!isfile(doel)) {
                 err = kind + " is een koppeling naar " + (isdir(doel) ? "een map" : "iets") + " op de NAS (" + doel + "); die wordt niet "
                       "lokaal gemaakt (een schrijfmap is geen kopie van de spelinhoud) -- zet de bestanden die de game in deze map "
                       "schrijft in [Launch] ViewCopies in plaats van de map in ViewWritable";
                 return false;
             }
-            std::string data, werr;
-            if (!read_file_strict(doel, data, err)) return false;
-            if (!write_atomic(kind, data, werr)) { err = werr; return false; }
+            if (!kopieer_bestand_veilig(doel, kind, totaal, err)) return false;
         } else if (isdir(kind)) {
-            if (!maak_kinderen_lokaal(kind, p, err, diepte + 1)) return false;
+            if (!maak_kinderen_lokaal(kind, p, totaal, err, diepte + 1)) return false;
         }
     }
     return true;
@@ -845,6 +847,7 @@ bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector
         /* Wine zoekt per onderdeel ook een naam die alleen in hoofdletters verschilt (swordgame/logs voor SwordGame/Logs): de
          * schrijfmap is het pad dat de game werkelijk raakt. */
         const std::string pad = resolve_case(opgegeven);
+        uintmax_t totaal = 0;   // een grens voor de hele schrijfmap: de migratie en de kinderen samen
         if (pad != opgegeven)
             log.push_back("schrijfmap: " + opgegeven + " heet op schijf " + pad + " (Wine is niet hoofdlettergevoelig); die wordt behandeld");
         /* A2: de ouder mag nooit op de NAS uitkomen, ook niet als hij (nog) niet bestaat. */
@@ -856,8 +859,9 @@ bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector
             if (ec) return fout("kan " + pad + " niet maken: " + ec.message());
             log.push_back("schrijfmap: " + pad + " bestond niet; nu een lege echte map");
         } else if (islink(pad)) {
-            const std::string bron = realpath_(pad);
-            if (on_nas(bron, p)) {
+            std::string bron;
+            if (!volg_pad(pad, bron)) bron = realpath_(pad);
+            if (on_nas(pad, p)) {
                 if (!isdir(bron))
                     return fout(pad + " is een koppeling naar iets op de NAS dat geen map is (" + bron + "); zet een bestand in [Launch] ViewCopies");
                 /* A1: eerst volledig kopiëren naar een tijdelijke map ernaast, en pas als dat gelukt
@@ -866,7 +870,6 @@ bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector
                 const std::string tmp = pad + ".ravengun-tmp";
                 std::error_code ec;
                 std::filesystem::remove_all(tmp, ec);   // een koppeling wordt alleen zelf weggehaald, nooit wat erachter staat
-                uintmax_t totaal = 0;
                 if (!kopieer_map_veilig(bron, tmp, totaal, err)) {
                     const std::string waarom = err;
                     std::filesystem::remove_all(tmp, ec);
@@ -893,8 +896,11 @@ bool place_view_writable(const DirectPlan& pl, const DirectPaths& p, std::vector
         } else {
             return fout(pad + " is geen map; zet een los bestand in [Launch] ViewCopies");
         }
+        /* Pre-merge F1: de schrijfmap zelf mag niet op de NAS uitkomen (een koppelpunt, of een pad direct onder ~/mnt terwijl de
+         * ouder lokaal lijkt), voordat er iets in geschreven wordt. */
+        if (on_nas(pad, p)) return fout(pad + " komt uit op de NAS (" + realpath_(pad) + "); een game mag daar nooit in schrijven");
         /* A5: kinderen die naar een NAS-bestand wijzen lokaal maken, anders schrijft de game daar alsnog. */
-        if (!maak_kinderen_lokaal(pad, p, err)) return fout(err);
+        if (!maak_kinderen_lokaal(pad, p, totaal, err)) return fout(err);
         /* De laatste controle, dezelfde als rg-direct --run: niets in of naast de schrijfmap komt nog op de NAS uit. */
         const std::vector<std::string> nog = schrijfmap_problemen(opgegeven, p);
         if (!nog.empty()) {

@@ -1865,8 +1865,11 @@ int main() {
         const fs::path nuser = fs::path(p.dirs.user) / "Nas/game.ini";
         write(ngame / "SwordGame/Logs/Launch.log", "nas-log\n");
         write(ngame / "SwordGame/Config/a.ini", "a\n");
+        write(ngame / "SwordGame/SaveData/DoNotDelete.txt", "");
+        write(ngame / "SwordGame/Movies/m.bik", "m");
         write(ngame / "Save/stand.dat", "nas-stand\n");
-        write(nuser, "[Launch]\nViewRealDirs = SwordGame/Logs\nViewWritable = swordgame/logs, Save, Leeg\n");
+        // Zoals InfinityBladeFX sinds pre-merge F5: drie schrijfmappen onder SwordGame/, ViewRealDirs = SwordGame.
+        write(nuser, "[Launch]\nViewRealDirs = SwordGame\nViewWritable = swordgame/logs, SwordGame/Config, SwordGame/SaveData, Save, Leeg\n");
         fs::remove_all(nview);
         DirectOptions mo = o;
         mo.make_view = true;
@@ -1881,7 +1884,10 @@ int main() {
             return ok;
         };
         CHECK(start());
-        CHECK(fs::is_directory(nview / "SwordGame") && !fs::is_symlink(nview / "SwordGame") && fs::is_symlink(nview / "SwordGame/Config"));
+        CHECK(fs::is_directory(nview / "SwordGame") && !fs::is_symlink(nview / "SwordGame") && fs::is_symlink(nview / "SwordGame/Movies"));
+        CHECK(!fs::is_symlink(nview / "SwordGame/Config") && !fs::is_symlink(nview / "SwordGame/Config/a.ini") &&
+              slurp(nview / "SwordGame/Config/a.ini") == "a\n");
+        CHECK(!fs::is_symlink(nview / "SwordGame/SaveData") && fs::is_regular_file(nview / "SwordGame/SaveData/DoNotDelete.txt"));
         CHECK(!fs::is_symlink(nview / "SwordGame/Logs") && !fs::is_symlink(nview / "SwordGame/Logs/Launch.log") &&
               slurp(nview / "SwordGame/Logs/Launch.log") == "nas-log\n");
         CHECK(!fs::is_symlink(nview / "Save") && slurp(nview / "Save/stand.dat") == "nas-stand\n");
@@ -2061,6 +2067,54 @@ int main() {
             CHECK(slurp(pn / "run/Launch.log") == "nas\n");
         }
 #endif
+
+        // (m) Pre-merge F1: een schrijfmap of een echte submap erin die zelf op de NAS ligt (een CIFS-koppelpunt terwijl de ouder
+        // lokaal is) weigert VOOR er iets in geschreven wordt; de koppeling erin blijft een koppeling.
+        {
+            DirectPaths pm = p;
+            pm.mounts = (root / "mounts-f1").string();
+            write(pn / "f1/a.cfg", "nas\n");
+            fs::create_directories(pv / "f1w/sub");
+            fs::create_symlink(pn / "f1/a.cfg", pv / "f1w/sub/a.cfg");
+            fs::create_directories(pv / "f1x");
+            fs::create_symlink(pn / "f1/a.cfg", pv / "f1x/a.cfg");
+            write(pm.mounts, "//nas/sub " + (pv / "f1w/sub").string() + " cifs rw 0 0\n//nas/x " + (pv / "f1x").string() + " cifs rw 0 0\n");
+            for (const fs::path& w : {pv / "f1w", pv / "f1x"}) {
+                DirectPlan x;
+                x.view_writable = {w.string()};
+                std::vector<std::string> l;
+                std::string err;
+                CHECK(!D::place_view_writable(x, pm, l, err) && contains(err, "NAS"));
+            }
+            CHECK(fs::is_symlink(pv / "f1w/sub/a.cfg") && !fs::exists(pv / "f1w/sub/a.cfg.ravengun-tmp"));
+            CHECK(fs::is_symlink(pv / "f1x/a.cfg") && !fs::exists(pv / "f1x/a.cfg.ravengun-tmp"));
+            CHECK(slurp(pn / "f1/a.cfg") == "nas\n");
+        }
+
+        // (n) Pre-merge F3: een kapotte koppeling (het doel bestaat niet) naar de NAS leek lokaal (weakly_canonical geeft dan de
+        // koppeling zelf terug). Een game die erdoor schrijft maakt het bestand op de NAS: weigeren, ook in de controle van --run.
+        {
+            fs::create_directories(pv / "kapot");
+            fs::create_symlink(pn / "bestaat-niet.log", pv / "kapot/x.log");
+            std::string doel;
+            CHECK(D::volg_pad((pv / "kapot/x.log").string(), doel) && doel == (pn / "bestaat-niet.log").string());
+            CHECK(D::on_nas((pv / "kapot/x.log").string(), p) && !D::on_nas((pv / "kapot").string(), p));
+            CHECK(!D::schrijfmap_problemen((pv / "kapot").string(), p).empty());
+            CHECK(!plaats(pv / "kapot", e) && contains(e, "x.log"));
+            CHECK(fs::is_symlink(pv / "kapot/x.log") && !fs::exists(pn / "bestaat-niet.log"));
+            // Relatief en via .. : het doel wordt vanaf de plek van de koppeling gevolgd.
+            fs::create_symlink((pn / "ook-niet").lexically_relative(pv / "kapot"), pv / "kapot/rel.log");
+            CHECK(D::volg_pad((pv / "kapot/rel.log").string(), doel) && doel == (pn / "ook-niet").string());
+        }
+
+        // (o) Pre-merge F4: de koppelingen naar NAS-bestanden in een echte schrijfmap tellen mee in de grens van 256 MiB.
+        {
+            write(pn / "f4/groot.bin", "a");
+            fs::resize_file(pn / "f4/groot.bin", 300ull << 20);
+            fs::create_directories(pv / "f4");
+            fs::create_symlink(pn / "f4/groot.bin", pv / "f4/groot.bin");
+            CHECK(!plaats(pv / "f4", e) && contains(e, "MiB") && fs::is_symlink(pv / "f4/groot.bin"));
+        }
 
         // (k) A7: twee regels met hetzelfde koppelpunt (autofs boven cifs, zoals op de Deck): de laatste wint. Binnen een
         // MountTableScope wordt de tabel een keer gelezen.
