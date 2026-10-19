@@ -12,7 +12,10 @@
 # nagemaakte systemd-run (alle drie hebben daarvoor een omgevingsvariabele). Zo is te zien dat
 # het venster stopt bij een spel en weer start als het spel weg is.
 set -u
-BIN=${RAVENGUN_APP:-}
+# De binary: het eerste argument (CMake geeft $<TARGET_FILE:ravengun_app> mee, dus de GEBOUWDE app),
+# anders RAVENGUN_APP, anders de geinstalleerde app. Zonder binary: skip (77).
+BIN=${1:-}
+[ -z "$BIN" ] && BIN=${RAVENGUN_APP:-}
 for k in "$BIN" "$HOME/.local/opt/ravengun/bin/ravengun" /usr/local/bin/ravengun; do
     [ -n "$k" ] && [ -x "$k" ] && BIN=$k && break
 done
@@ -22,7 +25,8 @@ if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
 fi
 
 T=$(mktemp -d) || exit 1
-trap 'kill "$LUS" 2>/dev/null; rm -rf "$T"' EXIT
+LUS=""
+trap '[ -n "$LUS" ] && kill "$LUS" 2>/dev/null; rm -rf "$T"' EXIT
 mkdir -p "$T/proc" "$T/hold" "$T/state"
 CTL_LOG="$T/ctl.log"; RUN_LOG="$T/run.log"; VIEW_ON="$T/view-on"
 : > "$CTL_LOG"; : > "$RUN_LOG"; : > "$VIEW_ON"
@@ -44,11 +48,22 @@ start_lus() {
         RAVENGUN_SYSTEMD_RUN="$T/systemd-run" RAVENGUN_APP="$BIN" \
         "$BIN" --saver-loop >/dev/null 2>&1 &
     LUS=$!
-    sleep 3
 }
 stop_lus() {
-    kill "$LUS" 2>/dev/null
-    wait "$LUS" 2>/dev/null
+    [ -n "$LUS" ] && kill "$LUS" 2>/dev/null
+    [ -n "$LUS" ] && wait "$LUS" 2>/dev/null
+    LUS=""
+}
+# Wachten tot het logboek het verwachte teken bevat (de lus schrijft elke seconde); hooguit tien
+# seconden. Geen vaste slaap: op een langzame machine is die te kort en op een snelle te lang.
+wacht_op() {
+    patroon=$1; bestand=$2; i=0
+    while [ "$i" -lt 10 ]; do
+        grep -q -- "$patroon" "$bestand" 2>/dev/null && return 0
+        sleep 1
+        i=$((i + 1))
+    done
+    return 1
 }
 fail() { echo "FAIL: $*"; exit 1; }
 
@@ -57,6 +72,7 @@ maak_spel
 : > "$VIEW_ON"
 : > "$CTL_LOG"
 start_lus
+wacht_op "stop ravengun-oled-view.service" "$CTL_LOG" || true
 grep -q "stop ravengun-oled-view.service" "$CTL_LOG" ||
     fail "de lus zette het saver-venster niet uit terwijl er een spel zichtbaar was (log: $(tr '\n' '|' < "$CTL_LOG"))"
 grep -q '^zichtbaar' "$T/state/ravengun/saver-game.txt" 2>/dev/null ||
@@ -68,6 +84,7 @@ rm -rf "$T/proc/1001"
 : > "$VIEW_ON"
 : > "$CTL_LOG"; : > "$RUN_LOG"
 start_lus
+wacht_op "is-active" "$CTL_LOG" || true
 grep -q ' stop ' "$CTL_LOG" && fail "de lus zette het venster uit terwijl er geen spel was (log: $(tr '\n' '|' < "$CTL_LOG"))"
 [ -s "$RUN_LOG" ] && fail "de lus startte het venster opnieuw terwijl het al aan stond"
 stop_lus
@@ -76,6 +93,7 @@ stop_lus
 rm -rf "$T/proc/1001"; rm -f "$VIEW_ON"
 : > "$CTL_LOG"; : > "$RUN_LOG"
 start_lus
+wacht_op -- "--unit=ravengun-oled-view" "$RUN_LOG" || true
 grep -q -- "--unit=ravengun-oled-view" "$RUN_LOG" ||
     fail "de lus zette het saver-venster niet terug toen het spel weg was (log: $(tr '\n' '|' < "$RUN_LOG"))"
 grep -q '^geen' "$T/state/ravengun/saver-game.txt" 2>/dev/null ||
