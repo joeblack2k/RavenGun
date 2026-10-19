@@ -24,7 +24,11 @@
 # repo, en die map staat in .gitignore). De oude DLL staat in $RG_AB_UIT/old-rg-rhio.dll (eerst zelf
 # kopieren). RG_AB_MUIS kiest het muis-geweer (standaard de Steam Controller van de eigenaar).
 # De geinstalleerde drop-in en die in de view worden bij het begin opzij gezet en bij elk einde
-# teruggezet; draait er een game, dan weigert het script (geen DLL-wissel, geen herstart).
+# teruggezet; draait er een game, dan weigert het script (geen DLL-wissel, geen herstart). Slot en
+# reservekopie staan vast in ${XDG_STATE_HOME:-~/.local/state}/ravengun/ab-rhio (zie gemeen.sh).
+# Is de geinstalleerde DLL gelijk aan een van de varianten (vaak OLD), dan weigert het script, omdat een
+# achtergebleven proef-DLL daar niet van te onderscheiden is; RG_AB_HUIDIG_IS_ORIGINEEL=1 zegt dat de
+# geinstalleerde echt het origineel is.
 # Tabel: tools/dev/ab-rhio/maak-tabel.py $RG_AB_UIT/resultaten.txt
 set -u
 CTL="$HOME/.local/opt/ravengun/bin/ravengunctl"
@@ -58,6 +62,7 @@ done
 # Een tweede instantie naast de eerste laat twee games tegelijk draaien en vervuilt de meting (dat
 # gebeurde ook echt: een run kreeg het logboekprofiel van een andere variant). Het slot (flock) in
 # ab_begin voorkomt dat; daarna de reservekopie van de drop-ins en de val die ze terugzet.
+AB_PROEF_SHAS=("$(sha_van "$OLD")" "$(sha_van "$NEW")" "$(sha_van "$NOSTRIP")")
 ab_begin "$OUT"
 touch "$RES"
 START=$(date +%s)
@@ -87,7 +92,8 @@ while :; do
     SHA=$(sha1sum "$SRC" | cut -c1-8)
     # Eerst kijken of er een game draait: dan geen DLL wisselen en de daemon niet herstarten.
     weiger_als_niet_vrij || exit 3
-    cp -f "$SRC" "$ENG"; cp -f "$SRC" "$VIEW"
+    # Via een nieuw bestand en mv, niet cp -f in hetzelfde inode (zie zet_terug).
+    zet_terug "$SRC" "$ENG" && zet_terug "$SRC" "$VIEW" || { echo "kon $SRC niet neerzetten; gestopt" >&2; exit 3; }
     rm -f "$LOG"
     herstart_daemon || exit 3
     sleep 7

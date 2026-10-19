@@ -9,6 +9,8 @@
 # De uitvoer komt in $RG_AB_UIT (standaard tools/rg-rhio/out/ab-rhio in deze repo, in .gitignore).
 # Zoals ab2.sh (gemeen.sh): de geinstalleerde drop-in en die in de view worden opzij gezet en bij elk
 # einde teruggezet (ook de marker gaat dan weg), en draait er een game, dan weigert het script.
+# Is <dll> dezelfde als de geinstalleerde, dan weigert het script ook (een achtergebleven proef-DLL is
+# niet van het origineel te onderscheiden); RG_AB_HUIDIG_IS_ORIGINEEL=1 zegt dat het de echte is.
 set -u
 CTL="$HOME/.local/opt/ravengun/bin/ravengunctl"
 ENG="$HOME/.local/opt/ravengun/patches/RobinHood/dropin/rg-rhio.dll"
@@ -23,10 +25,12 @@ LOG="$VIEWMAP/rg-rhio.log"
 RES="$OUT/mutex-resultaten.txt"
 [ -f "$DLL" ] || { echo "mutex-hermeten: $DLL bestaat niet" >&2; exit 2; }
 
+AB_PROEF_SHAS=("$(sha_van "$DLL")")
 ab_begin "$OUT"
 AB_MARKER="$VIEWMAP/rg-rhio-mutex.aan"   # weg bij elk einde, ook na Ctrl-C (ab_einde)
 weiger_als_niet_vrij || exit 3
-cp -f "$DLL" "$ENG"; cp -f "$DLL" "$VIEW"
+# Via een nieuw bestand en mv, niet cp -f in hetzelfde inode (zie zet_terug).
+zet_terug "$DLL" "$ENG" && zet_terug "$DLL" "$VIEW" || { echo "kon $DLL niet neerzetten; gestopt" >&2; exit 3; }
 SHA=$(sha1sum "$DLL" | cut -c1-8)
 # Niet wissen: dit script wordt in stukken gedraaid (een lange reeks wordt door een externe limiet
 # afgebroken), dus de uitslagen blijven staan en het aantal rondes is per stuk te kiezen.
