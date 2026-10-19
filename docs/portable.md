@@ -46,6 +46,12 @@ scripts/make-portable.sh --reset-user   # rebuild User/ from scratch
 dist/RavenGun/ravengun.sh app     # start from the folder
 ```
 
+The target folder must be new, empty, or an existing portable folder (it has `ravengun.sh` or the marker
+`.ravengun-portable`). The script refuses a target that is the home folder, the runtime, the install, the
+configuration, the TeknoParrot Proton build or the repository, or a parent of one of them (a run replaces
+`bin/`, `lib/`, `share/` and `User*` in the target), and a target inside one of them except under
+`<repo>/dist`. All of this is compared on real paths.
+
 `make-portable.sh` copies `bin/`, `lib/` and `share/ravengun/` from the install
 (replacing them, not merging), copies the shipped part of `patches/` from the committed repository (`git archive HEAD patches` and then
 `tools/dev/ship-patches.py`, like `make-release.sh`: no dossier, no untracked or uncommitted files), copies the settings from `~/.config/ravengun`
@@ -53,19 +59,30 @@ into `User/config/ravengun` - without `web-token` and the `backups/*.bak` - and
 copies the whole runtime and game state (`wine`, `proton`, `prefixes`,
 `openparrot`, `runtime`, `native`, `writelayer`, `patches`, ...) from
 `~/.local/share/ravengun` into `User/share/ravengun/`. That big copy runs with
-`rsync -aX` into `User.new` next to `User/`, after a check for `rsync` and free space; only after the links have been
-rewritten and checked is `User.new` renamed to `User/`. A failed or interrupted run (an
+`rsync -aX` into `User.new` next to `User/` (hidden entries included), after a check for `rsync` and free space; only after
+the links have been rewritten and checked is `User.new` renamed to `User/`. A failed or interrupted run (an
 rsync error other than "files vanished", Ctrl-C, no space) therefore never leaves a half-built `User/`
-and never touches an existing one; the script exits non-zero. A re-run with an existing
+and never touches an existing one; the script exits non-zero. `bin/`, `lib/` and `share/` are likewise built as
+`<name>.new` and then swapped in, so an interrupted run never leaves the folder without `share/`. A re-run with an existing
 `User/` only refreshes the application and the profiles, and never
-touches the user's state (only `--reset-user` rebuilds it, keeping the old `User/` until the end, so it
-needs room for two copies). Unreadable overlay work directories (mode 000, made by games that run from the folder)
-are made readable before anything is copied (only `u+r`/`u+rx` on the source runtime, never a write bit: Wine reads a missing write
-bit as read-only) and are removed with write permission only from trees the script owns. The overlay state of the write layers
+touches the user's state. Only `--reset-user` rebuilds it, and it refuses to start, and refuses the final swap, while any
+process it can inspect still uses `User/` (a mount of or inside it, also as a bind under another path in a bwrap sandbox; its
+working directory; an open or mapped file: `scripts/portable_tools.py busy`). After the swap the old tree stays as
+`User.old` until the next successful run, so a game that still runs from it keeps its overlay upper, prefix and saves; it
+needs room for two copies (three while an older `User.old` is still there; the script says how to remove it). If the
+second rename of the swap fails, the old `User/` is put back. Unreadable overlay work directories (mode 000, made by games
+that run from the folder) are made readable before anything is copied (only `u+r`/`u+rx` on the source runtime, never a
+write bit: Wine reads a missing write bit as read-only); their original modes are recorded and restored right after the
+copy (and on any exit), so the source runtime is left exactly as it was. In trees the script owns they are removed with
+write permission. The overlay state of the write layers
 (`writelayer/`, `native/*/upper`: whiteouts are character devices 0:0, plus `user.overlay.*` xattrs; bwrap mounts them as kernel
 overlayfs in a user namespace) is carried over too: an unprivileged rsync skips the devices, so
-`scripts/portable_tools.py whiteouts` recreates them with `mknod` (allowed for 0:0 without privileges) and the script stops if the
-counts or xattrs differ. A kept `User/` is neither scanned nor modified. Only `bench-captures`
+`scripts/portable_tools.py whiteouts` recreates them with `mknod` (allowed for 0:0 without privileges) and checks them per
+path. It only looks where overlays live (`writelayer/`, a top-level entry that carries `user.overlay.*` xattrs, and `upper`
+directories up to three levels deep), not the ~100k inodes of `proton/` and `prefixes/`. A game that runs during the copy
+changes the source after rsync: what exists only in the source (a new directory, a whiteout that vanished between scan and
+stat) is reported and not compared; a difference on a path present in both stops the script, unless rsync ended with code
+24 (files vanished), then it is a warning. A kept `User/` is neither scanned nor modified. Only `bench-captures`
 (the proof screenshots) and `halo-overlay` (a root-owned overlay work dir) are
 skipped. The game installations themselves are never touched.
 
@@ -77,12 +94,16 @@ directory, a link to the root of the runtime/install/config itself too. A direct
 for a target on the allow list (`RG_PORTABLE_EMPTY_OK`, default the Steam `appcache`, which Steam refills); any other
 directory is really copied (up to `RG_PORTABLE_MAX_EXTRACT`, 2 GiB) or the script stops. This is one pass
 (`scripts/portable_tools.py links`) that rewrites and checks at once, lexically, so the thousands of NAS links are never
-stat-ed. It exits non-zero if a link still points into
-`~/.local` or if a relative link points out of the folder; absolute links to the game
+stat-ed; measuring a directory before extracting it never follows a link and stops as soon as the limit is passed, and a
+file or directory is only extracted when it fits the limit and the free space. `~/.steam` and `~/.steampath` count as
+`~/.local` (on the Deck they are links to `~/.local/share/Steam`). It exits non-zero if a link still points into
+`~/.local`, if a relative link points out of the folder, or if a relative link points at something that is not in the
+folder (for example into the skipped `bench-captures`); absolute links to the game
 installations on the NAS are left as they are. The absolute paths in `library.json` (and `config.json`) are rewritten
 to the folder, and `ravengun.sh` repeats that on every start so the folder may be
 moved. The Wine wrappers in `User/share/ravengun/wrappers/` resolve the runtime
-relative to themselves, and the engine's fallbacks for the wine binary, the
+relative to themselves (they are rewritten after the links, via a temporary file and a rename, and never through a link:
+live they are links to `scripts/wine-*.sh` in the repository, which must stay untouched), and the engine's fallbacks for the wine binary, the
 prefixes, `redist` and the TeknoParrot runtime follow `$XDG_DATA_HOME` instead of
 a hardcoded `~/.local` (the launcher points `XDG_*` at the folder).
 

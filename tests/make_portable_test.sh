@@ -6,6 +6,11 @@
 # mapkoppelingen met koppelingen erin, koppelingen naar de wortel van de runtime/installatie/configuratie zelf, een toegestane cache
 # (leeg) tegenover een te grote of half te kopiëren map (stop), overlay-whiteouts en -xattrs van de schrijflagen, de bronrechten
 # (nooit u+w), een oude User/ die niet gescand of aangepast wordt, de profielen uit git HEAD en de padherschrijving (config + starter).
+# Ronde 3: wrappers die koppelingen naar repo-scripts zijn (nooit erdoorheen schrijven), de doelmapbewaking, share/ via share.new,
+# verborgen mappen in de runtime, de bronrechten precies terug (000 blijft 000), een relatieve koppeling naar wat overgeslagen is,
+# ~/.steam als weg naar ~/.local, een te groot bestand, geen grootte bij een toegestane cache, overlays alleen waar ze leven,
+# een bron die na de rsync verandert (een draaiende game), en de wissel bij --reset-user: niet als User/ in gebruik is, User.old
+# blijft tot de volgende geslaagde run, en een mislukte tweede mv zet de oude User/ terug.
 #
 # Gebruik: make_portable_test.sh <repo> [builddir]    (de tijdelijke map komt in builddir, nooit in /tmp)
 set -u
@@ -82,16 +87,59 @@ if [[ $WH_OK == 1 ]]; then
 else
     echo "let op: whiteouts (mknod 0:0) of user-xattrs niet mogelijk op deze schijf; die controles worden overgeslagen"
 fi
+# F1: wrappers. wine-prefix is een koppeling naar een script in de repo (zoals live naar ~/projects/ravengun/scripts), elders een
+# koppeling naar een script buiten alles; echt is een gewoon bestand. Geen van de scripts buiten de map mag veranderen.
+OLDLINE='RUNTIME="${RUNTIME:-$HOME/.local/share/ravengun}"'
+mkdir -p "$RUN/wrappers" "$T/elders"
+printf '#!/bin/sh\n%s\n' "$OLDLINE" > "$R/scripts/wine-prefix.sh"; cp "$R/scripts/wine-prefix.sh" "$T/wine-prefix.orig"
+printf '#!/bin/sh\n%s\n' "$OLDLINE" > "$T/elders/wrap.sh"; cp "$T/elders/wrap.sh" "$T/wrap.orig"
+ln -s "$R/scripts/wine-prefix.sh" "$RUN/wrappers/wine-prefix"
+ln -s "$T/elders/wrap.sh" "$RUN/wrappers/elders"
+printf '#!/bin/sh\n%s\n' "$OLDLINE" > "$RUN/wrappers/echt"; chmod 750 "$RUN/wrappers/echt"
+# F10: een verborgen map in de runtime gaat mee
+mkdir -p "$RUN/.verborgen-map"; echo dot > "$RUN/.verborgen-map/f"
+# F9: ~/.steam/root is (zoals op de Deck) een koppeling naar ~/.local/share/Steam; via die weg naar een bestand en de appcache
+mkdir -p "$H/.steam"; ln -s "$H/.local/share/Steam/" "$H/.steam/root"; echo cfg > "$S/Steam/steam.cfg"
+ln -s "$H/.steam/root/steam.cfg" "$RUN/via-steam"; ln -s "$H/.steam/root/appcache" "$RUN/appcache-via-steam"
+# F3: een overlay onder native/<Game>/<n>/upper (gevonden zonder de hele boom te lopen) en een char-device 0:0 buiten elke
+# overlay (diep in een prefix-achtige boom): die laatste hoort niet bij de overlay-toestand en wordt niet nagemaakt.
+mkdir -p "$RUN/native/G/0/upper/d" "$RUN/native/G/0/work" "$RUN/pfx/a/b/c"
+if [[ $WH_OK == 1 ]]; then
+    mknod "$RUN/native/G/0/upper/d/wn" c 0 0; setx "$RUN/native/G/0/upper/d" user.overlay.opaque y
+    mknod "$RUN/pfx/a/b/c/geen-overlay" c 0 0
+fi
 P="$T/patches"; mkdir -p "$P/Game"
 echo '[Input]' > "$P/Game/game.ini"; echo dossier > "$P/Game/notes.txt"; echo los > "$P/losbestand.txt"
 
 # Een nep-rsync voor de afbreek- en foutscenario's.
 printf '#!/bin/sh\nexit 23\n' > "$T/fakebin/rsync-fout"
 printf '#!/bin/sh\nkill -TERM "$PPID"; sleep 1; exit 0\n' > "$T/fakebin/rsync-term"
+# Een rsync die echt kopieert en daarna, zoals een draaiende game, in de bron van de schrijflaag een nieuwe map met een whiteout
+# en een overlay-xattr maakt (na de rsync, dus niet in de kopie).
+REAL_RSYNC="$(command -v rsync)"; REAL_MV="$(command -v mv)"
+cat > "$T/fakebin/rsync-spel" <<NEP
+#!/bin/sh
+"$REAL_RSYNC" "\$@"; rc=\$?
+for a in "\$@"; do
+    case "\$a" in
+        */writelayer) mkdir -p "\$a/G/mnt/upper/later"; mknod "\$a/G/mnt/upper/later/w" c 0 0
+                      python3 -c 'import os,sys; os.setxattr(sys.argv[1], "user.overlay.opaque", b"y")' "\$a/G/mnt/upper/later" ;;
+    esac
+done
+exit \$rc
+NEP
+# Een mv die faalt als hij User.new op de plek van User/ wil zetten (de tweede mv van de wissel).
+cat > "$T/fakebin/mv-fout" <<NEP
+#!/bin/sh
+for a in "\$@"; do last="\$a"; done
+case "\$*" in *User.new*) [ "\${last##*/}" = User ] && exit 1 ;; esac
+exec "$REAL_MV" "\$@"
+NEP
 chmod 755 "$T/fakebin/"*
-ONDER() {  # ONDER <nep-rsync> <args>: draai het script met een rsync die faalt of afbreekt
-    local fake="$1"; shift
-    mkdir -p "$T/pad-$fake"; ln -sf "$T/fakebin/$fake" "$T/pad-$fake/rsync"
+ONDER() {  # ONDER <nep-programma> <args>: draai het script met een rsync (of mv) die faalt, afbreekt of de bron verandert
+    local fake="$1" naam=rsync; shift
+    [[ "$fake" == mv-* ]] && naam=mv
+    mkdir -p "$T/pad-$fake"; ln -sf "$T/fakebin/$fake" "$T/pad-$fake/$naam"
     PATH="$T/pad-$fake:$PATH" run "$@"
 }
 run() {
@@ -128,7 +176,7 @@ first_out="$(cat "$T/uit.txt")"
 n=0
 while IFS= read -r l; do
     t="$(readlink "$l")"
-    [[ "$l" == "$U/nas" ]] && continue
+    [[ "$l" == "$U/nas" || "$l" == "$U/wrappers/elders" ]] && continue   # absoluut naar buiten: blijft staan
     n=$((n + 1))
     [[ "$t" == /* ]] && fail "absolute koppeling in de map: $l -> $t"
     r="$(readlink -f "$l")"
@@ -161,6 +209,10 @@ grep -q "toegestaan" <<< "$first_out" || fail "het leegmaken van de appcache is 
 if [[ "$(id -u)" != 0 ]]; then
     [[ "$(stat -c %a "$RUN/ro")" == 555 && "$(stat -c %a "$RUN/ro/rfile")" == 444 ]] || fail "de bronrechten zijn aangepast: $(stat -c %a "$RUN/ro") $(stat -c %a "$RUN/ro/rfile")"
     [[ ! -w "$RUN/overlay/work" && ! -w "$RUN/overlay/work/work" ]] || fail "de bron-overlaymap heeft een schrijfbit gekregen"
+    [[ "$(stat -c %a "$RUN/overlay/work")" == 0 ]] || fail "F11: de mode-000-werkmap in de bron is niet terug op 000: $(stat -c %a "$RUN/overlay/work")"
+    chmod 100 "$RUN/overlay/work"     # alleen om de binnenste te kunnen bekijken, daarna weer 000
+    [[ "$(stat -c %a "$RUN/overlay/work/work")" == 0 ]] || fail "F11: de binnenste mode-000-werkmap is niet terug op 000: $(stat -c %a "$RUN/overlay/work/work")"
+    chmod 000 "$RUN/overlay/work"
     [[ "$(stat -c %a "$U/ro")" == 555 && "$(readlink -f "$U/ro/lnk")" == "$U/runtime/real.txt" ]] || fail "de koppeling in de alleen-lezen map is niet herschreven, of de map is niet weer 555: $(stat -c %a "$U/ro")"
 fi
 # M6: whiteouts en overlay-xattrs zijn mee
@@ -178,6 +230,28 @@ fi
 cfgjson() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d[sys.argv[2]] if sys.argv[2]=="cmd" else "|".join(d["list"]))' "$@"; }
 [[ "$(cfgjson "$O/User/config/ravengun/config.json" cmd)" == "env X=1 $O/User/share/ravengun/y --a" ]] || fail "prefix voor het pad verloren of pad niet herschreven: $(cfgjson "$O/User/config/ravengun/config.json" cmd)"
 [[ "$(cfgjson "$O/User/config/ravengun/config.json" list)" == "$O/User/config/ravengun/z.json|$O/User/config/ravengun/q.json|PATH=/usr/bin:$O/User/share/ravengun/bin" ]] || fail "config-paden fout: $(cfgjson "$O/User/config/ravengun/config.json" list)"
+# F1: de wrappers zijn in de map herschreven, de scripts buiten de map (repo en elders) zijn byte voor byte gelijk
+cmp -s "$R/scripts/wine-prefix.sh" "$T/wine-prefix.orig" || fail "F1: het repo-script achter de wrapper-koppeling is herschreven"
+cmp -s "$T/elders/wrap.sh" "$T/wrap.orig" || fail "F1: het script buiten de map achter een wrapper-koppeling is herschreven"
+WR="$U/wrappers"
+[[ -f "$WR/wine-prefix" && ! -L "$WR/wine-prefix" ]] || fail "F1: wrappers/wine-prefix is geen echt bestand in de map"
+if grep -qF '$HOME/.local/share/ravengun' "$WR/wine-prefix" || ! grep -qF 'BASH_SOURCE' "$WR/wine-prefix"; then fail "F1: wrappers/wine-prefix in de map is niet herschreven: $(cat "$WR/wine-prefix")"; fi
+if grep -qF '$HOME/.local/share/ravengun' "$WR/echt" || [[ "$(stat -c %a "$WR/echt")" != 750 ]]; then fail "F1: wrappers/echt niet herschreven of rechten kwijt"; fi
+[[ "$(readlink "$WR/elders")" == "$T/elders/wrap.sh" ]] || fail "F1: de koppeling naar buiten is veranderd: $(readlink "$WR/elders")"
+grep -q "wijst uit de map" <<< "$first_out" || fail "F1: de wrapper die uit de map wijst is niet gemeld"
+# F10: verborgen mappen gaan mee
+[[ "$(cat "$U/.verborgen-map/f" 2>/dev/null)" == dot ]] || fail "F10: een verborgen map in de runtime is niet gekopieerd"
+# F9: via ~/.steam: een bestand wordt uitgepakt, de appcache (toegestaan) wordt leeg
+[[ -f "$U/via-steam" && ! -L "$U/via-steam" && "$(cat "$U/via-steam")" == cfg ]] || fail "F9: een koppeling via ~/.steam is niet uitgepakt: $(readlink "$U/via-steam")"
+[[ -d "$U/appcache-via-steam" && ! -L "$U/appcache-via-steam" && -z "$(ls -A "$U/appcache-via-steam")" ]] || fail "F9: de appcache via ~/.steam is geen lege map"
+# F8: bij een toegestane cache geen grootte (dat zou de hele appcache doorlopen)
+grep "toegestaan" <<< "$first_out" | grep -q "MB" && fail "F8: bij de toegestane cache wordt nog een grootte gemeld"
+# F3: native/<Game>/<n>/upper is mee; een char-device buiten de overlays niet
+if [[ $WH_OK == 1 ]]; then
+    [[ "$(stat -c '%F %t:%T' "$U/native/G/0/upper/d/wn" 2>/dev/null)" == "character special file 0:0" ]] || fail "F3: de whiteout onder native/G/0/upper is niet mee"
+    [[ "$(getx "$U/native/G/0/upper/d" user.overlay.opaque 2>&1)" == y ]] || fail "F3: de xattr onder native/G/0/upper is niet mee"
+    [[ ! -e "$U/pfx/a/b/c/geen-overlay" ]] || fail "F3: een char-device buiten de overlays is als whiteout nagemaakt (de hele boom gescand)"
+fi
 mv "$O" "$T/verhuisd"
 bash "$T/verhuisd/ravengun.sh" app >/dev/null 2>&1
 [[ "$(cfgjson "$T/verhuisd/User/config/ravengun/config.json" cmd)" == "env X=1 $T/verhuisd/User/share/ravengun/y --a" ]] || fail "de starter zet de paden na een verhuizing niet om: $(cfgjson "$T/verhuisd/User/config/ravengun/config.json" cmd)"
@@ -210,9 +284,45 @@ ok "rsync-fout laat de oude boom staan"
 run --reset-user "$O" || fail "reset mislukte: $(cat "$T/uit.txt")"
 [[ -e "$U/MARK" || -e "$U/gamewerk" ]] && fail "reset: de oude User/ is niet vervangen"
 [[ "$(cat "$U/runtime/real.txt" 2>/dev/null)" == echt && -d "$O/User/state" && -d "$O/User/cache" ]] || fail "reset: de nieuwe User/ is niet compleet"
-[[ -e "$O/User.new" || -e "$O/User.old" ]] && fail "reset: User.new of User.old is blijven staan"
+[[ -e "$O/User.new" ]] && fail "reset: User.new is blijven staan"
 [[ ! -e "$U/oud-dood" && ! -L "$U/oud-dood" ]] || fail "reset: de oude User/ is niet vervangen"
+# F4: de oude User/ blijft als User.old staan (een game die er nog vanuit draait houdt zijn schrijflaag), en dat wordt gemeld
+[[ "$(cat "$O/User.old/share/ravengun/MARK" 2>/dev/null)" == MARK ]] || fail "F4: de oude User/ staat niet als User.old"
+grep -q "User.old" "$T/uit.txt" || fail "F4: niet gemeld dat de oude User/ als User.old blijft"
+# ... tot de volgende geslaagde run
+run "$O" || fail "run na de reset mislukte: $(cat "$T/uit.txt")"
+[[ -e "$O/User.old" ]] && fail "F4: User.old is na de volgende geslaagde run niet opgeruimd"
 ok "--reset-user"
+
+# --- 7b. F4: geen wissel zolang een proces User/ gebruikt (werkmap, open bestand, mount); User/ blijft heel -------------------
+echo MARK2 > "$U/MARK2"
+busy_case() {  # busy_case <naam>: het proces draait al
+    local naam="$1"
+    run --reset-user "$O" && fail "F4 ($naam): de wissel ging door terwijl User/ in gebruik is"
+    grep -q "in gebruik" "$T/uit.txt" || fail "F4 ($naam): geen melding 'in gebruik': $(cat "$T/uit.txt")"
+    [[ "$(cat "$U/MARK2" 2>/dev/null)" == MARK2 && ! -e "$O/User.new" ]] || fail "F4 ($naam): User/ is aangetast of User.new bleef staan"
+}
+(cd "$O/User/share" && exec sleep 60) & BPID=$!
+busy_case werkmap; kill "$BPID" 2>/dev/null; wait "$BPID" 2>/dev/null
+(exec 9<"$U/runtime/real.txt"; cd /; exec sleep 60) & BPID=$!
+busy_case "open bestand"; kill "$BPID" 2>/dev/null; wait "$BPID" 2>/dev/null
+mkdir -p "$T/bindpunt"
+if command -v bwrap >/dev/null && bwrap --dev-bind / / --ro-bind "$U/runtime" "$T/bindpunt" true 2>/dev/null; then
+    (cd / && exec bwrap --dev-bind / / --ro-bind "$U/runtime" "$T/bindpunt" --chdir / --die-with-parent sleep 60) & BPID=$!
+    for i in $(seq 40); do grep -qs " $T/bindpunt " /proc/[0-9]*/mountinfo && break; sleep 0.05; done
+    busy_case "bind-mount in een sandbox"; kill "$BPID" 2>/dev/null; wait "$BPID" 2>/dev/null
+    for i in $(seq 40); do grep -qs " $T/bindpunt " /proc/[0-9]*/mountinfo || break; sleep 0.05; done
+else
+    echo "let op: bwrap ontbreekt of werkt niet; de mount-variant van de gebruikscontrole is overgeslagen"
+fi
+ok "geen wissel bij een User/ in gebruik"
+
+# --- 7c. F4: mislukt de tweede mv van de wissel, dan staat de oude User/ weer op zijn plek -----------------------------------
+ONDER mv-fout --reset-user "$O" && fail "F4: de wissel met een falende mv slaagde"
+[[ "$(cat "$U/MARK2" 2>/dev/null)" == MARK2 ]] || fail "F4: na een mislukte tweede mv is User/ er niet meer (of niet de oude): $(ls "$O")"
+[[ -e "$O/User.new" ]] && fail "F4: User.new is na de mislukte wissel blijven staan"
+grep -q "teruggezet" "$T/uit.txt" || fail "F4: het terugzetten is niet gemeld: $(cat "$T/uit.txt")"
+ok "mislukte wissel zet User/ terug"
 
 # --- 8. een relatieve koppeling die uit de map wijst: exitcode, geen User/ -----------------------------------------------------------
 ln -s ../../../../nas/game "$RUN/ontsnapt"
@@ -260,6 +370,55 @@ if [[ $WH_OK == 1 ]]; then
     mkdir -p "$T/wf/xs" "$T/wf/xd"; setx "$T/wf/xs" user.overlay.opaque y
     python3 -I "$TOOL" whiteouts "$T/wf/xs" "$T/wf/xd" > /dev/null 2> "$T/wf/err2" && fail "ontbrekende overlay-xattr: geen foutcode"
     grep -q "xattrs" "$T/wf/err2" || fail "ontbrekende overlay-xattr niet gemeld"
+fi
+
+# --- 14. F9: een relatieve koppeling naar wat niet meegaat (bench-captures) faalt ---------------------------------------------------
+mkdir -p "$RUN/bench-captures"; echo png > "$RUN/bench-captures/shot.png"; ln -s ../bench-captures/shot.png "$RUN/runtime/naar-bench"
+run "$T/out7" && fail "F9: een relatieve koppeling naar het overgeslagen bench-captures werd geaccepteerd"
+grep -q "naar-bench" "$T/uit.txt" || fail "F9: de koppeling naar bench-captures is niet gemeld ($(cat "$T/uit.txt"))"
+[[ -e "$T/out7/User" ]] && fail "F9: User/ staat er toch"
+rm -f "$RUN/runtime/naar-bench"
+
+# --- 15. F8: een bestandskoppeling naar een te groot bestand: stop -----------------------------------------------------------------
+head -c 200000 /dev/zero > "$S/grootbestand"; ln -s "$S/grootbestand" "$RUN/groot-f"
+(cd "$T" && RG_PORTABLE_MAX_EXTRACT=100000 run "$T/out8") && fail "F8: een te groot bestand werd uitgepakt"
+grep -q "groot-f.*te groot" "$T/uit.txt" || fail "F8: het te grote bestand is niet gemeld ($(cat "$T/uit.txt"))"
+rm -f "$RUN/groot-f"
+
+# --- 16. F7: de doelmap mag geen bron (of ouder ervan) zijn en er niet in liggen; een vreemde volle map ook niet -------------------
+for d in "$H/.local" "$INS" "$H" "$RUN/sub" "$CFG" "$R" "$INS/.."; do
+    run "$d" && fail "F7: doelmap $d werd geaccepteerd"
+    grep -q "doelmap" "$T/uit.txt" || fail "F7: doelmap $d: geen melding ($(cat "$T/uit.txt"))"
+done
+[[ -x "$INS/bin/ravengund" && -f "$INS/lib/libx.so" && "$(cat "$RUN/runtime/real.txt")" == echt && -f "$CFG/library.json" ]] || fail "F7: een bron is aangetast"
+[[ -e "$H/.local/bin" || -e "$RUN/sub" ]] && fail "F7: er is toch iets in de bron gemaakt"
+mkdir -p "$T/vol"; echo eigen > "$T/vol/eigen.txt"
+run "$T/vol" && fail "F7: een volle map zonder ravengun.sh werd geaccepteerd"
+[[ "$(cat "$T/vol/eigen.txt")" == eigen && ! -e "$T/vol/bin" ]] || fail "F7: de volle vreemde map is aangeraakt"
+run "$R/dist/RavenGun" || fail "F7: <repo>/dist/RavenGun moet mogen: $(cat "$T/uit.txt")"
+# share/ via share.new: een mislukte kopie van share/ laat de vorige share/ heel
+if [[ "$(id -u)" != 0 ]]; then
+    echo x > "$INS/share/ravengun/onleesbaar"; chmod 000 "$INS/share/ravengun/onleesbaar"
+    run "$O" && fail "F7: run met een onleesbaar bestand in share/ slaagde"
+    [[ -f "$O/share/ravengun/patches/Game/game.ini" && ! -e "$O/share.new" ]] || fail "F7: na een mislukte kopie van share/ is de map zonder (volledige) share/"
+    chmod 644 "$INS/share/ravengun/onleesbaar"; rm -f "$INS/share/ravengun/onleesbaar"
+fi
+ok "doelmapbewaking"
+
+# --- 17. F3: de bron verandert na de rsync (een draaiende game): melden, niet afbreken ---------------------------------------------
+if [[ $WH_OK == 1 ]]; then
+    ONDER rsync-spel "$T/out9" || fail "F3: een overlay die na de rsync veranderde brak de run af: $(cat "$T/uit.txt")"
+    grep -q "niet vergeleken" "$T/uit.txt" || fail "F3: de verandering na de rsync is niet gemeld"
+    rm -rf "$RUN/writelayer/G/mnt/upper/later"
+    # rechtstreeks: een xattr-verschil op een pad in beide bomen is een fout, bij rsync-code 24 een waarschuwing
+    TOOL="$R/scripts/portable_tools.py"
+    mkdir -p "$T/wg/s/d" "$T/wg/k/d"; setx "$T/wg/s/d" user.overlay.opaque y
+    python3 -I "$TOOL" whiteouts "$T/wg/s" "$T/wg/k" >/dev/null 2>&1 && fail "F3: een xattr-verschil zonder rsync-code 24 gaf geen foutcode"
+    python3 -I "$TOOL" whiteouts --rsync-rc 24 "$T/wg/s" "$T/wg/k" >/dev/null 2>"$T/wg/err" || fail "F3: een xattr-verschil bij rsync-code 24 brak af"
+    grep -q "let op" "$T/wg/err" || fail "F3: het verschil bij code 24 is niet gemeld"
+    # alleen in de bron: een whiteout in een map die de kopie niet heeft, en een xattr-drager die ontbreekt
+    mkdir -p "$T/wg/s2/nieuw" "$T/wg/s2/ook" "$T/wg/k2"; mknod "$T/wg/s2/nieuw/w" c 0 0; setx "$T/wg/s2/ook" user.overlay.opaque y
+    python3 -I "$TOOL" whiteouts "$T/wg/s2" "$T/wg/k2" >/dev/null 2>&1 || fail "F3: wat alleen in de bron staat brak de controle af"
 fi
 
 # --- 13. de profielen komen uit git HEAD, niet uit de werkmap -----------------------------------------------------------------------
