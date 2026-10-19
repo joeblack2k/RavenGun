@@ -7,7 +7,7 @@
 #     staat in .gitignore);
 #   - de geinstalleerde drop-in (ENG) en die in de view (VIEW) bij het begin opzij zetten en bij elk
 #     einde terugzetten (ook bij Ctrl-C of kill), want de proef zet er een proef-DLL overheen;
-#   - het slot en die reservekopie staan op EEN vaste plek per gebruiker (AB_STAAT), want ze horen bij
+#   - het slot, die reservekopie en het grootboek staan op EEN vaste plek per gebruiker (AB_STAAT), want ze horen bij
 #     de engine die ze beschermen en niet bij een kloon of een RG_AB_UIT: met een slot per uit-map kon
 #     een tweede kloon starten terwijl de eerste een proef-DLL in de engine had, en die proef-DLL dan
 #     als "origineel" bewaren en voorgoed terugzetten (herreview review 14, ronde 2);
@@ -20,12 +20,15 @@ AB_UIT_STANDAARD="$AB_REPO/tools/rg-rhio/out/ab-rhio"
 # Het muis-geweer: de Steam Controller van de eigenaar. Op een andere machine RG_AB_MUIS zetten.
 AB_MUIS="${RG_AB_MUIS:-usb-Valve_Software_Steam_Controller_Puck_FXB9955202923-if03-event-mouse}"
 AB_TVENV="${RG_AB_TVENV:-/home/deck/projects/ravengun/tools/dev/rg-tv-env.sh}"
-# Slot en reservekopie: vast per gebruiker, net als de engine in $HOME/.local/opt/ravengun.
-AB_STAAT="${XDG_STATE_HOME:-$HOME/.local/state}/ravengun/ab-rhio"
+# Slot, reservekopie en grootboek: vast per gebruiker, net als de engine in $HOME/.local/opt/ravengun.
+# Bewust uit $HOME en niet uit XDG_STATE_HOME: twee aanroepen met een andere XDG_STATE_HOME kregen anders
+# twee sloten voor dezelfde engine (herreview 2).
+AB_STAAT="$HOME/.local/state/ravengun/ab-rhio"
 AB_RESERVE=""
 AB_MARKER=""
 # De sha1 van de proef-DLL's van deze run (OLD/NEW/NOSTRIP, of de DLL van mutex-hermeten). Het script
-# vult dit voor ab_begin; reserve_maak herkent er een achtergebleven proef-DLL aan.
+# vult dit voor ab_begin; reserve_maak weigert een huidige DLL die een van deze is en niet als
+# vastgelegde oplevering bekend is (want dan is het origineel onbekend).
 AB_PROEF_SHAS=()
 
 # ja | nee | geen-foto, naar de grootte van de foto in bytes.
@@ -84,11 +87,11 @@ herstart_daemon() {
 }
 
 # Een bestand neerzetten via een nieuw bestand en mv (een nieuw inode): een DLL die nog in een lopend
-# proces geladen is, wordt zo niet onder dat proces overschreven. Voor het terugzetten EN voor het
-# neerzetten van een proef-DLL.
+# proces geladen is, wordt zo niet onder dat proces overschreven. Voor het terugzetten; een proef-DLL
+# gaat via plaats_proef (zelfde mv, plus het grootboek).
 zet_terug() {   # $1 = bron, $2 = doel
-    if cp -p "$1" "$2.ab-nieuw.$$" && mv -f "$2.ab-nieuw.$$" "$2"; then return 0; fi
-    rm -f "$2.ab-nieuw.$$"
+    if cp -p "$1" "${2:?}.ab-nieuw.$$" && mv -f "${2:?}.ab-nieuw.$$" "$2"; then return 0; fi
+    rm -f "${2:?}.ab-nieuw.$$"
     return 1
 }
 
@@ -101,29 +104,85 @@ is_proef_sha() {   # $1 = sha1
     return 1
 }
 
+# Bekende goede originelen: elke versie van patches/RobinHood/dropin/rg-rhio.dll die ooit in de
+# geschiedenis van deze kloon is vastgelegd (git rev-list HEAD -- <pad>). Een DLL met zo'n sha1 is een
+# echte oplevering en mag dus altijd als origineel bewaard worden. Een keer per run berekend.
+AB_GOED_SHAS=()
+AB_GOED_GELADEN=""
+goede_shas_laden() {
+    [ -n "$AB_GOED_GELADEN" ] && return 0
+    AB_GOED_GELADEN=1
+    local pad=patches/RobinHood/dropin/rg-rhio.dll c
+    while read -r c; do
+        git -C "$AB_REPO" cat-file -e "$c:$pad" 2>/dev/null || continue
+        AB_GOED_SHAS+=("$(git -C "$AB_REPO" show "$c:$pad" | sha1sum | cut -d" " -f1)")
+    done < <(git -C "$AB_REPO" rev-list HEAD -- "$pad" 2>/dev/null)
+}
+
+is_goed_sha() {   # $1 = sha1
+    local s
+    [ -n "$1" ] || return 1
+    goede_shas_laden
+    for s in "${AB_GOED_SHAS[@]}"; do [ "$s" = "$1" ] && return 0; done
+    return 1
+}
+
+# Het kenmerk van een bestand: sha1, inode en mtime (op de nanoseconde). Een bestand dat wij hebben
+# neergezet heeft precies dit kenmerk in het grootboek; een DLL die iemand daarna neerzette (ook een
+# byte-gelijke) heeft een ander inode of een andere mtime.
+kenmerk_van() {   # $1 = bestand
+    [ -f "$1" ] || return 1
+    printf '%s %s %s\n' "$(sha_van "$1")" "$(stat -c %i "$1")" "$(date -r "$1" +%s.%N)"
+}
+
+# Het grootboek (AB_STAAT/geplaatst.<engine|view>): een regel per proef-DLL die een run in ENG of VIEW
+# zette, zolang er een reservekopie is. Een DLL die erin staat is een achtergebleven proef-DLL, welke
+# set varianten de volgende run ook heeft (herreview 2: eerst keek alleen AB_PROEF_SHAS, en dan bewaarde
+# een run met een andere NEW de oude proef-DLL als origineel).
+in_grootboek() {   # $1 = naam, $2 = bestand
+    local k
+    k=$(kenmerk_van "$2") || return 1
+    [ -f "$AB_STAAT/geplaatst.$1" ] && grep -qxF "$k" "$AB_STAAT/geplaatst.$1"
+}
+
+# Een proef-DLL neerzetten: eerst naast het doel kopieren, het kenmerk van DAT bestand in het grootboek
+# schrijven, en dan pas met mv op zijn plek (mv houdt inode en mtime). Zo staat een proef-DLL nooit in
+# ENG of VIEW zonder regel in het grootboek, ook niet na kill -9.
+plaats_proef() {   # $1 = bron, $2 = doel, $3 = engine | view
+    local tmp="${2:?}.ab-nieuw.$$" k
+    if cp -p "$1" "$tmp" && k=$(kenmerk_van "$tmp") && printf '%s\n' "$k" >> "$AB_STAAT/geplaatst.$3" &&
+        mv -f "$tmp" "$2"; then
+        return 0
+    fi
+    rm -f "${tmp:?}"
+    return 1
+}
+
 # De DLL's opzij zetten in AB_STAAT/reserve: <naam>.dll met de sha1 ernaast (<naam>.dll.sha1), of
 # <naam>.geen als er geen DLL was. Beide via een tijdelijk bestand en mv, de sha1 als laatste: een
 # reservekopie zonder kloppende sha1 is half geschreven.
 #
-# Staat er nog een reservekopie (een vorige run is met kill -9 gestopt), dan geldt die ALLEEN als het
-# origineel als de huidige DLL een proef-DLL van deze run is (dan zette die run hem neer) en de
-# reservekopie heel is. Anders is hij oud (bijvoorbeeld: daarna is de engine gewoon bijgewerkt) en gaat
-# hij weg, met een waarschuwing. Is de huidige DLL een proef-DLL en is er geen geldige reservekopie, dan
-# weten we het origineel niet: weigeren (behalve met RG_AB_HUIDIG_IS_ORIGINEEL=1, als de proef-DLL ook
-# echt de geinstalleerde is, bijvoorbeeld OLD).
+# Staat er nog een reservekopie (een vorige run is met kill -9 gestopt), dan geldt die ALLEEN als hij
+# heel is en de huidige DLL precies de proef-DLL is die een run neerzette (kenmerk in het grootboek).
+# Anders is hij oud -- de engine is daarna bijgewerkt, ook als dat byte-gelijk aan een variant gebeurde --
+# en gaan reservekopie en grootboek weg, met een waarschuwing. Daarna wordt de huidige DLL bewaard als
+# origineel, behalve als dat aantoonbaar niet kan: hij staat in het grootboek (een proef-DLL), of hij is
+# een variant van deze run, en in beide gevallen ook geen vastgelegde oplevering uit git. Dan weigeren.
 reserve_maak() {
-    AB_RESERVE="$AB_STAAT/reserve"
+    AB_RESERVE="${AB_STAAT:?}/reserve"
     mkdir -p "$AB_RESERVE"
-    local naam bron res huidig bewaard geldig
+    local naam bron res huidig bewaard geldig proef
     local -a kopieer=()
     for naam in engine view; do
         if [ "$naam" = engine ]; then bron="$ENG"; else bron="$VIEW"; fi
         res="$AB_RESERVE/$naam.dll"
         huidig=""
         [ -f "$bron" ] && huidig=$(sha_van "$bron")
+        proef=nee
+        in_grootboek "$naam" "$bron" && proef=ja
         if [ -e "$res" ] || [ -e "$res.sha1" ] || [ -e "$AB_RESERVE/$naam.geen" ]; then
             geldig=nee
-            if is_proef_sha "$huidig"; then
+            if [ "$proef" = ja ]; then
                 if [ -e "$AB_RESERVE/$naam.geen" ] && [ ! -e "$res" ]; then
                     geldig=ja
                 elif [ -f "$res" ] && [ -f "$res.sha1" ]; then
@@ -132,16 +191,17 @@ reserve_maak() {
                 fi
             fi
             if [ "$geldig" = ja ]; then
-                echo "reservekopie ($naam) uit een afgebroken run gevonden en heel, en de huidige $naam-DLL is een proef-DLL; die reservekopie wordt straks teruggezet"
+                echo "reservekopie ($naam) uit een afgebroken run gevonden en heel, en de huidige $naam-DLL is de proef-DLL die die run neerzette; de reservekopie wordt straks teruggezet"
                 continue
             fi
-            echo "waarschuwing: oude reservekopie ($naam) in $AB_RESERVE weggegooid (de huidige DLL ${huidig:-(afwezig)} is geen proef-DLL van deze run, of de kopie is niet heel)" >&2
-            rm -f "$res" "$res.sha1" "$AB_RESERVE/$naam.geen"
+            echo "waarschuwing: oude reservekopie ($naam) in $AB_RESERVE weggegooid (de huidige DLL ${huidig:-(afwezig)} is niet de proef-DLL die een run neerzette, of de kopie is niet heel)" >&2
+            rm -f "${res:?}" "${res:?}.sha1" "${AB_RESERVE:?}/${naam:?}.geen"
         fi
-        if is_proef_sha "$huidig" && [ "${RG_AB_HUIDIG_IS_ORIGINEEL:-0}" != 1 ]; then
-            echo "geweigerd: de huidige $naam-DLL ($bron, sha1 $huidig) is een proef-DLL van deze run en er is geen geldige reservekopie. Zet eerst de vastgelegde DLL terug (patches/RobinHood/dropin/rg-rhio.dll uit git), of zet RG_AB_HUIDIG_IS_ORIGINEEL=1 als deze DLL echt de geinstalleerde is." >&2
+        if [ -n "$huidig" ] && ! is_goed_sha "$huidig" && { [ "$proef" = ja ] || is_proef_sha "$huidig"; }; then
+            echo "geweigerd: de huidige $naam-DLL ($bron, sha1 $huidig) is een proef-DLL ($([ "$proef" = ja ] && echo "neergezet door een eerdere run" || echo "een variant van deze run")) en geen vastgelegde oplevering, en er is geen geldige reservekopie: het origineel is onbekend. Oplossing: zet de vastgelegde DLL terug, bijvoorbeeld: git -C $AB_REPO show HEAD:patches/RobinHood/dropin/rg-rhio.dll > $bron" >&2
             exit 3
         fi
+        rm -f "${AB_STAAT:?}/geplaatst.${naam:?}"   # nieuw origineel, nieuw grootboek
         kopieer+=("$naam")
     done
     # Pas nu (beide gecontroleerd, niets geweigerd) de kopieen maken.
@@ -167,13 +227,17 @@ reserve_terug() {
         if [ "$naam" = engine ]; then bron="$ENG"; else bron="$VIEW"; fi
         if [ -f "$AB_RESERVE/$naam.dll" ]; then
             if zet_terug "$AB_RESERVE/$naam.dll" "$bron"; then
-                rm -f "$AB_RESERVE/$naam.dll" "$AB_RESERVE/$naam.dll.sha1"
+                rm -f "${AB_RESERVE:?}/${naam:?}.dll" "${AB_RESERVE:?}/${naam:?}.dll.sha1" "${AB_STAAT:?}/geplaatst.${naam:?}"
             else
                 echo "FOUT: kon $bron niet terugzetten; de reservekopie blijft in $AB_RESERVE/$naam.dll" >&2
                 mis=1
             fi
         elif [ -e "$AB_RESERVE/$naam.geen" ]; then
-            if rm -f "$bron"; then rm -f "$AB_RESERVE/$naam.geen"; else mis=1; fi
+            if rm -f "${bron:?}"; then
+                rm -f "${AB_RESERVE:?}/${naam:?}.geen" "${AB_STAAT:?}/geplaatst.${naam:?}"
+            else
+                mis=1
+            fi
         fi
     done
     rmdir "$AB_RESERVE" 2>/dev/null

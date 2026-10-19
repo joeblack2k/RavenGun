@@ -28,10 +28,9 @@
 # kopieren). RG_AB_MUIS kiest het muis-geweer (standaard de Steam Controller van de eigenaar).
 # De geinstalleerde drop-in en die in de view worden bij het begin opzij gezet en bij elk einde
 # teruggezet; draait er een game, dan weigert het script (geen DLL-wissel, geen herstart). Slot en
-# reservekopie staan vast in ${XDG_STATE_HOME:-~/.local/state}/ravengun/ab-rhio (zie gemeen.sh).
-# Is de geinstalleerde DLL gelijk aan een van de varianten (vaak OLD), dan weigert het script, omdat een
-# achtergebleven proef-DLL daar niet van te onderscheiden is; RG_AB_HUIDIG_IS_ORIGINEEL=1 zegt dat de
-# geinstalleerde echt het origineel is.
+# reservekopie staan vast in ~/.local/state/ravengun/ab-rhio (zie gemeen.sh). Is de geinstalleerde DLL
+# een variant van deze run die niet als oplevering in git staat en geen geldige reservekopie heeft, dan
+# weigert het script (het origineel is dan onbekend) en zegt het hoe je de vastgelegde DLL terugzet.
 # Tabel: tools/dev/ab-rhio/maak-tabel.py $RG_AB_UIT/resultaten.txt
 set -u
 CTL="$HOME/.local/opt/ravengun/bin/ravengunctl"
@@ -95,8 +94,8 @@ while :; do
     SHA=$(sha1sum "$SRC" | cut -c1-8)
     # Eerst kijken of er een game draait: dan geen DLL wisselen en de daemon niet herstarten.
     weiger_als_niet_vrij || exit 3
-    # Via een nieuw bestand en mv, niet cp -f in hetzelfde inode (zie zet_terug).
-    zet_terug "$SRC" "$ENG" && zet_terug "$SRC" "$VIEW" || { echo "kon $SRC niet neerzetten; gestopt" >&2; exit 3; }
+    # Via een nieuw bestand en mv, niet cp -f in hetzelfde inode (zie plaats_proef: met een regel in het grootboek).
+    plaats_proef "$SRC" "$ENG" engine && plaats_proef "$SRC" "$VIEW" view || { echo "kon $SRC niet neerzetten; gestopt" >&2; exit 3; }
     rm -f "$LOG"
     herstart_daemon || exit 3
     sleep 7
