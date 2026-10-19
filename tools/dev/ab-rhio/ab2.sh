@@ -8,13 +8,16 @@
 # starten, 90 s wachten, foto, en de uitkomst opschrijven:
 #   ok     = voorbij BOOTING naar de bordframes (foto in de band 60 kB .. 900 kB, zie gemeen.sh)
 #   draait = de game leeft nog (de bewering was dat NEW het spel meteen laat stoppen)
-#   reden  = draait | gestopt | ongeldig-daemon-bezet
+#   reden  = draait | gestopt | ongeldig-daemon-bezet | ongeldig-start-mislukt
 # ELKE start komt in resultaten.txt, ook een start waarbij de game stopte: dat is juist de uitkomst die
 # de proef zoekt (review 14, ronde 2; eerder werd zo'n start weggegooid, zodat "het spel bleef in alle
 # runs draaien" per constructie waar was). Alleen een start waarbij de daemon AANTOONBAAR al bezet was
 # (voor de start meldde hij een lopende game, of de start werd daarom geweigerd) heet
-# ongeldig-daemon-bezet: die telt niet mee voor DOEL en wordt opnieuw gedaan, met een bovengrens van
-# zes op rij.
+# ongeldig-daemon-bezet. Een start die de daemon zelf niet rond kreeg (ravengunctl gaf een fout, of de
+# status zegt "Starten is mislukt.") heet ongeldig-start-mislukt; de uitvoer van de start komt dan in
+# de uitvoer van dit script. Beide ongeldige soorten tellen niet mee voor DOEL en worden opnieuw gedaan,
+# met een bovengrens van zes op rij; maak-tabel.py telt ze per variant (een variant die steeds niet
+# start, valt daar dus op).
 # De .aan-markers zijn voor deze proef alle drie weggehaald en blijven weg (identiek voor elke variant).
 #
 # Gebruik:
@@ -103,6 +106,7 @@ while :; do
     BEZET=nee
     game_bezet && BEZET=ja
     STARTUIT=$("$CTL" game start RobinHood 2>&1)
+    STARTRC=$?
     case "$STARTUIT" in *"al een game"*) BEZET=ja;; esac
     sleep "$WACHT"
     PNG="$OUT/$keuze-$ronde.png"
@@ -114,23 +118,28 @@ while :; do
     LR=$(wc -l < "$LOG" 2>/dev/null || echo 0)
     BORD=$(rg -c 'ReadFile\(bord' "$LOG" 2>/dev/null || echo 0)
     if [ "$BEZET" = ja ]; then REDEN=ongeldig-daemon-bezet
+    elif [ "$STARTRC" != 0 ] || case "$ST" in *"Starten is mislukt"*) true;; *) false;; esac; then
+        REDEN=ongeldig-start-mislukt
     elif [ "$DRAAIT" = ja ]; then REDEN=draait
     else REDEN=gestopt
     fi
     # variant ronde sha foto ok draait logregels bordlezers reden
     echo "$keuze $ronde $SHA $SZ $OK $DRAAIT $LR $BORD $REDEN" >> "$RES"
     echo "$(date '+%H:%M:%S') $keuze ronde $ronde: foto=$SZ ok=$OK draait=$DRAAIT logregels=$LR bordlezers=$BORD reden=$REDEN"
-    if [ "$REDEN" = ongeldig-daemon-bezet ]; then
-        # De game die draait is niet van ons (de daemon weigerde onze start): niet stoppen, alleen
-        # wachten tot hij vrij is; is hij dat niet, dan weigert de volgende ronde. Opnieuw proberen met
-        # een bovengrens tegen een lus: zes ONGELDIGE starts OP RIJ. De teller gaat bij elke geldige
-        # start terug naar nul (eerder liep hij over de hele reeks door).
+    [ "$REDEN" = ongeldig-start-mislukt ] && echo "  start (rc=$STARTRC): $STARTUIT; status: $ST"
+    case "$REDEN" in ongeldig-*)
+        # Opnieuw proberen met een bovengrens tegen een lus: zes ONGELDIGE starts OP RIJ. De teller gaat
+        # bij elke geldige start terug naar nul (eerder liep hij over de hele reeks door).
         pogingen=$((pogingen + 1))
-        if [ "$pogingen" -gt 6 ]; then echo "te veel ongeldige runs op rij (daemon steeds bezet); stoppen"; break; fi
+        if [ "$pogingen" -gt 6 ]; then echo "te veel ongeldige runs op rij (laatste: $REDEN); stoppen"; break; fi
+        # Bij een bezette daemon is de game die draait niet van ons (de daemon weigerde onze start):
+        # niet stoppen, alleen wachten tot hij vrij is; is hij dat niet, dan weigert de volgende ronde.
+        # Een mislukte start is wel van ons: die netjes stoppen.
+        [ "$REDEN" = ongeldig-start-mislukt ] && "$CTL" game stop >/dev/null 2>&1
         wacht_vrij
         sleep 6
         continue
-    fi
+    esac
     pogingen=0
     "$CTL" game stop >/dev/null 2>&1
     wacht_vrij

@@ -37,19 +37,20 @@ foto_oordeel() {
 }
 
 # Het aantal GELDIGE starts van een variant in een resultatenbestand: elke regel met die variant,
-# behalve een start die ongeldig was omdat de daemon al bezet was (kolom 9). Een start waarbij de game
-# stopte telt WEL: dat is juist een uitkomst.
+# behalve een ongeldige start (kolom 9 begint met ongeldig-: de daemon was al bezet, of de start zelf
+# mislukte). Een start waarbij de game stopte telt WEL: dat is juist een uitkomst.
 tel_geldig() {   # $1 = bestand, $2 = variant
-    awk -v v="$2" '$1==v && $9!="ongeldig-daemon-bezet"' "$1" 2>/dev/null | wc -l
+    awk -v v="$2" '$1==v && $9 !~ /^ongeldig-/' "$1" 2>/dev/null | wc -l
 }
 
 # De eerste regel van "game status".
 game_status() { "$CTL" game status 2>&1 | head -1; }
 
-# Vrij = de daemon zegt zelf dat er geen game draait. Al het andere (een game, starten/stoppen, of de
-# daemon antwoordt niet) telt als niet vrij.
+# Vrij = de daemon zegt zelf dat er geen game draait, of dat de vorige start mislukte ("Starten is
+# mislukt.": dan draait er niets en de herstart van de daemon ruimt die melding op). Al het andere (een
+# game, starten/stoppen, of de daemon antwoordt niet) telt als niet vrij.
 game_vrij() {
-    case "$(game_status)" in *"geen game"*) return 0 ;; esac
+    case "$(game_status)" in *"geen game"*|*"Starten is mislukt"*) return 0 ;; esac
     return 1
 }
 
