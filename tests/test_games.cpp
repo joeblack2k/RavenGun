@@ -811,7 +811,9 @@ static void test_direct_service(const std::string& d) {
     c.direct.data = home + "/.local/share/ravengun";
     c.direct.state = home + "/.local/state/ravengun";
     c.direct.dirs = c.dirs;
-    c.direct.mounts = b + "/geen-mounts";
+    // Een koppelpuntentabel zonder NAS. Een tabel die niet bestaat telt sinds review 13, ronde 2 (punt 7) als "alles NAS".
+    c.direct.mounts = b + "/mounts";
+    write(c.direct.mounts, "proc /proc proc rw 0 0\n");
     c.direct_runner = b + "/bin/rg-direct";
     c.jvs_link = b + "/run/jvs-com";
     c.session_env = [&] { return ravengun::launch::EnvMap{{"HOME", home}, {"PATH", "/usr/bin:/bin"}, {"DISPLAY", ":0"}}; };

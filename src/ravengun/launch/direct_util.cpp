@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
@@ -292,6 +293,11 @@ bool on_nas(const std::string& path, const DirectPaths& p) {
         eigen = read_mounts(p.mounts);
         rows = &eigen;
     }
+    /* Review 13, ronde 2 (punt 7): een lege of onleesbare tabel (een RAVENGUN_MOUNTS die niet
+     * bestaat, een /proc die er niet is) zette de herkenning op het type van het bestandssysteem
+     * stil uit: dan bleef alleen de ~/mnt-regel over en leek een CIFS-koppeling elders lokaal. Nu
+     * telt alles als NAS; koppelpunten_fout() geeft de melding erbij. */
+    if (rows->empty()) return true;
     std::string best, fstype;
     for (const MountRow& r : *rows) {
         const std::string& mp = r.mountpoint;
@@ -303,6 +309,13 @@ bool on_nas(const std::string& path, const DirectPaths& p) {
         if ((real == mp || real.starts_with(mps + "/")) && mp.size() >= best.size()) { best = mp; fstype = r.type; }
     }
     return fstype == "cifs" || fstype == "smb3" || fstype == "smbfs" || fstype == "nfs" || fstype == "nfs4" || fstype == "fuse.sshfs";
+}
+
+std::string koppelpunten_fout(const DirectPaths& p) {
+    if (!read_mounts(p.mounts).empty()) return {};
+    return "de koppelpuntentabel " + p.mounts + " is niet te lezen of leeg" +
+           (p.mounts != "/proc/self/mounts" ? std::string(" (RAVENGUN_MOUNTS)") : std::string()) +
+           "; zonder die tabel is een NAS-koppeling niet te herkennen, dus telt elk pad als NAS en start er niets";
 }
 
 // --- XML (alleen de platte velden die launch-direct.py leest) ----------------------------------------------------------------------
@@ -532,8 +545,16 @@ DirectPaths default_direct_paths(const EnvMap& env) {
     p.tp = getenv_or(env, "RAVENGUN_TP_DIR");
     if (p.tp.empty()) p.tp = p.data + "/runtime/TeknoParrotUi-2.0.0.130-linux-x64";
     /* De koppelpuntentabel is alleen lezen; RAVENGUN_MOUNTS laat proeven hem vervangen (zo kan een
-     * nagebootste NAS gebruikt worden zonder echt te koppelen). */
-    if (const std::string m = getenv_or(env, "RAVENGUN_MOUNTS"); !m.empty()) p.mounts = m;
+     * nagebootste NAS gebruikt worden zonder echt te koppelen). Hij geldt voor ELKE on_nas()-vraag,
+     * dus een keer melden dat hij actief is; is het bestand leeg of onleesbaar, dan telt elk pad als
+     * NAS (review 13, ronde 2, punt 7). */
+    if (const std::string m = getenv_or(env, "RAVENGUN_MOUNTS"); !m.empty()) {
+        p.mounts = m;
+        static std::atomic<bool> gemeld{false};
+        if (!gemeld.exchange(true))
+            std::fprintf(stderr, "ravengun: RAVENGUN_MOUNTS=%s vervangt de koppelpuntentabel (/proc/self/mounts) voor de NAS-controle%s\n",
+                         m.c_str(), read_mounts(m).empty() ? "; het bestand is niet te lezen of leeg, dus telt elk pad als NAS" : "");
+    }
     p.library_file = getenv_or(env, "RAVENGUN_LIBRARY_FILE");
     if (p.library_file.empty()) p.library_file = (xc.starts_with("/") ? xc : p.home + "/.config") + "/ravengun/library.json";
     return p;

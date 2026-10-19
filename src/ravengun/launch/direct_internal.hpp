@@ -53,7 +53,9 @@ std::string strip_bom(std::string s);
 std::string expand_home(const std::string& p, const std::string& home);
 std::string shrink_home(const std::string& p, const std::string& home);
 std::string getenv_or(const EnvMap& env, const std::string& k, const std::string& def = {});
-bool on_nas(const std::string& path, const DirectPaths& p);   // launch-direct.py on_nas(); niet te volgen = NAS
+bool on_nas(const std::string& path, const DirectPaths& p);   // launch-direct.py on_nas(); niet te volgen = NAS, lege tabel = NAS
+// Leeg = de koppelpuntentabel (p.mounts) is leesbaar en heeft regels; anders de melding (dan zegt on_nas() overal ja).
+std::string koppelpunten_fout(const DirectPaths& p);
 // Het pad zoals de kernel het volgt, ook door een koppeling waarvan het doel ontbreekt; false = onderweg niet te bekijken (EIO, ESTALE).
 bool volg_pad(const std::string& path, std::string& out);
 // Strenger dan read_file(): elke leesfout telt, en het totaal moet gelijk zijn aan de grootte van fstat() (een afgebroken lezing van
