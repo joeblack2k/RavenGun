@@ -818,3 +818,9 @@ minuten en komt na Mario Kart.
 commit c163a00 zegt 90 minuten. De inhoud van die commit klopt verder, maar de geschiedenis wordt
 niet herschreven -- dit is de correctie. Daarna is de tijdbox opnieuw opengezet (02:35-03:35) en
 staan de volgende stappen in `docs/research/wartran/README.md`.
+
+**Voor pass 1 (na de tijdboxen van RobinHood en Coopers 9):** `tests/oled_saver_test.sh` draait de
+geïnstalleerde `~/.local/opt/ravengun/bin/ravengun` in plaats van de gebouwde binary, leunt op
+`sleep 3`, en de `trap` gebruikt `$LUS` onder `set -u` voordat die gezet is. CMake moet het pad van
+het gebouwde doel meegeven, de test moet op het logboek pollen in plaats van te slapen, en `LUS`
+moet gezet zijn vóór de trap.
