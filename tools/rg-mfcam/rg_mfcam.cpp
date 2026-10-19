@@ -1343,6 +1343,24 @@ HRESULT STDMETHODCALLTYPE am_nop(void*) {
         rg_log("AMAuth-object: slot %d aangeroepen (beller %p)", N, __builtin_return_address(0));
     return S_OK;
 }
+// Slot 5 (vtable +0x14) is the one the game calls right after creating the object, with three
+// arguments (0x8B2735: push esi; push -1; push 0; push this). A stdcall method with no arguments
+// would leave those twelve bytes on the stack, so it gets its own signature.
+HRESULT STDMETHODCALLTYPE am_slot5(void* zelf, int a, int b, int c) {
+    (void)zelf;
+    if (InterlockedExchange(&g_am_seen[5], 1) == 0)
+        rg_log("AMAuth-object: slot 5(%d, %d, %d) aangeroepen (beller %p)", a, b, c, __builtin_return_address(0));
+    return S_OK;
+}
+// Slot 9 (vtable +0x24) is called at 0x4018D8 with one out-parameter (caller reads it back and
+// compares it against -14..-1), so it needs its own signature too.
+HRESULT STDMETHODCALLTYPE am_slot9(void* zelf, int* out) {
+    (void)zelf;
+    if (out) *out = 0;
+    if (InterlockedExchange(&g_am_seen[9], 1) == 0)
+        rg_log("AMAuth-object: slot 9(out) aangeroepen (beller %p)", __builtin_return_address(0));
+    return S_OK;
+}
 template <int N>
 struct AmFill { static void run(void** vt) { AmFill<N - 1>::run(vt); vt[N] = reinterpret_cast<void*>(&am_nop<N>); } };
 template <> struct AmFill<2> { static void run(void**) {} };
@@ -1355,6 +1373,8 @@ void setup_am_auth() {
     g_am_auth_vtbl[1] = reinterpret_cast<void*>(&am_addref);
     g_am_auth_vtbl[2] = reinterpret_cast<void*>(&am_release);
     AmFill<47>::run(g_am_auth_vtbl);
+    g_am_auth_vtbl[5] = reinterpret_cast<void*>(&am_slot5);
+    g_am_auth_vtbl[9] = reinterpret_cast<void*>(&am_slot9);
     g_am_auth.vtbl = g_am_auth_vtbl;
     g_am_auth.ref = 1;
 }
