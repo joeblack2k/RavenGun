@@ -179,6 +179,14 @@ option(RAVENGUN_BUILD_DAEMON "Bouw ravengund" ON)
 find_package(Threads REQUIRED)
 # rg-direct (tools/rg-direct): het hoofdproces van de unit bij een directe start (A10), op de plaats van launch-direct.py --run.
 add_executable(rg-direct tools/rg-direct/rg_direct.cpp)
+# De Windows-drop-ins worden met mingw in podman gebouwd (tools/dev/build-*.sh), niet door CMake.
+# Dit doel staat daarom NIET in ALL: `cmake --build build --target rg-rhio` bouwt hem op verzoek, en
+# een gewone build heeft geen podman nodig.
+add_custom_target(rg-rhio
+  COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/build-rhio.sh"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+  COMMENT "rg-rhio.dll bouwen (tools/dev/build-rhio.sh)")
+
 target_link_libraries(rg-direct PRIVATE ravengun Threads::Threads)
 install(TARGETS rg-direct RUNTIME DESTINATION bin)
 set(PSMOVEAPI_ROOT "$ENV{HOME}/.local/share/ravengun/psmoveapi" CACHE PATH "Prefix van de PSMoveAPI-installatie")

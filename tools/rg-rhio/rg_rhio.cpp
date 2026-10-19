@@ -45,7 +45,7 @@ bool g_ioctl_ok = true;
 char g_pad[256] = {0};
 
 void Log(const char* fmt, ...) {
-    if (!g_log) return;
+    if (!g_log || g_stil) return;
     va_list ap;
     va_start(ap, fmt);
     std::vfprintf(g_log, fmt, ap);
@@ -54,8 +54,13 @@ void Log(const char* fmt, ...) {
     std::fflush(g_log);
 }
 
+volatile LONG g_log_geprobeerd = 0;
+
 void LogOpen() {
+    /* Een keer proberen, ook als het niet lukt: anders doet elke CreateFileA opnieuw getenv/fopen.
+     * De vlag is atomair, want meerdere draden van het spel komen hier langs. */
     if (g_log) return;
+    if (InterlockedCompareExchange(&g_log_geprobeerd, 1, 0) != 0) return;
     const char* omgeving = std::getenv("RG_RHIO_LOG");
     char pad[MAX_PATH];
     if (omgeving && *omgeving) {
@@ -152,6 +157,10 @@ WaitCommEventFn g_echte_wait = nullptr;
 GetOverlappedResultFn g_echte_ovl = nullptr;
 unsigned char g_laatste_kader[64];
 DWORD g_laatste_lengte = 0;
+/* Staat er een antwoord klaar in de invoerwachtrij? De klassieke seriele lus van een spel is:
+ * ClearCommError (kijk naar cbInQue) en dan ReadFile alleen als er iets klaarstaat. Zonder dit
+ * leest het spel nooit en lijkt het alsof het de poort niet leest. */
+DWORD g_wachtend_antwoord = 0;
 
 FARPROC WINAPI rg_GetProcAddress(HMODULE mod, LPCSTR naam);
 HANDLE WINAPI rg_CreateFileA(LPCSTR pad, DWORD toegang, DWORD deel, LPSECURITY_ATTRIBUTES sa, DWORD aanmaak, DWORD vlaggen, HANDLE sjabloon);
@@ -267,6 +276,11 @@ FARPROC WINAPI rg_GetProcAddress(HMODULE mod, LPCSTR naam) {
                                       reinterpret_cast<void*>(&SetupDiGetDeviceRegistryPropertyA),
                                       reinterpret_cast<void*>(&SetupDiEnumDeviceInfo),
                                       reinterpret_cast<void*>(&SetupDiDestroyDeviceInfoList)};
+    /* Een ordinale opzoeking geeft geen pointer maar een klein getal; strcmp daarop zou het spel
+     * laten omvallen. Alles onder 0x10000 is een ordinal, geen naam. */
+    if (naam && reinterpret_cast<uintptr_t>(naam) <= 0xFFFF) {
+        return g_echte_gpa ? g_echte_gpa(mod, naam) : nullptr;
+    }
     if (naam) {
         for (size_t i = 0; i < sizeof kNamen / sizeof kNamen[0]; ++i)
             if (std::strcmp(naam, kNamen[i]) == 0) {
@@ -357,8 +371,25 @@ BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLA
         }
         DWORD m = g_laatste_lengte;
         if (m > n) m = n;
-        if (buf && m) std::memcpy(buf, g_laatste_kader, m);
+        if (buf && m) {
+            std::memcpy(buf, g_laatste_kader, m);
+            /* Welk antwoord geeft het bord? Proeven (RG_RHIO_ANTWOORD): echo (standaard), nul,
+             * ack (eerste byte 0), teller (de teller in bytes 1-2 eentje hoger), vast. */
+            const char* mode = std::getenv("RG_RHIO_ANTWOORD");
+            if (mode && std::strcmp(mode, "nul") == 0) {
+                std::memset(buf, 0, m);
+            } else if (mode && std::strcmp(mode, "ack") == 0) {
+                reinterpret_cast<unsigned char*>(buf)[0] = 0x00;
+            } else if (mode && std::strcmp(mode, "teller") == 0 && m >= 3) {
+                auto* b = reinterpret_cast<unsigned char*>(buf);
+                const unsigned oud = (unsigned)b[1] | ((unsigned)b[2] << 8);
+                const unsigned nieuw = (oud + 0x46) & 0xffff;
+                b[1] = (unsigned char)(nieuw & 0xff);
+                b[2] = (unsigned char)(nieuw >> 8);
+            }
+        }
         if (gelezen) *gelezen = m;
+        g_wachtend_antwoord = 0;   /* opgehaald */
         Log("ReadFile(bord, %lu bytes gevraagd) -> %lu bytes antwoord (echo)", static_cast<unsigned long>(n),
             static_cast<unsigned long>(m));
         return TRUE;
@@ -375,6 +406,7 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD geschreven, LPO
         Log("WriteFile(bord, %lu bytes): %s", static_cast<unsigned long>(n), hex);
         g_laatste_lengte = n < sizeof g_laatste_kader ? n : (DWORD)(sizeof g_laatste_kader);
         if (buf) std::memcpy(g_laatste_kader, buf, g_laatste_lengte);
+        g_wachtend_antwoord = g_laatste_lengte;   /* het antwoord staat klaar voor de volgende lezing */
         if (geschreven) *geschreven = n;
         return TRUE;
     }
@@ -389,7 +421,11 @@ BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD vlaggen) {
 BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD fouten, LPCOMSTAT stat) {
     if (h == g_com_handle) {
         if (fouten) *fouten = 0;
-        if (stat) std::memset(stat, 0, sizeof(COMSTAT));
+        if (stat) {
+            std::memset(stat, 0, sizeof(COMSTAT));
+            stat->cbInQue = g_wachtend_antwoord;   /* er staat een antwoord klaar na een WriteFile */
+        }
+        Log("ClearCommError(bord) -> cbInQue=%lu", static_cast<unsigned long>(g_wachtend_antwoord));
         return TRUE;
     }
     return g_echte_clear ? g_echte_clear(h, fouten, stat) : FALSE;
@@ -397,6 +433,7 @@ BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD fouten, LPCOMSTAT stat) {
 
 BOOL WINAPI rg_GetCommState(HANDLE h, LPDCB dcb) {
     if (h == g_com_handle) {
+        if (!dcb) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }
         std::memset(dcb, 0, sizeof(DCB));
         dcb->DCBlength = sizeof(DCB);
         dcb->BaudRate = 38400;          /* Wartran-borden: 38400 8O1 (zelfde als het geweer bij TC5) */
@@ -421,12 +458,17 @@ BOOL WINAPI rg_SetCommState(HANDLE h, LPDCB dcb) {
 
 BOOL WINAPI rg_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) {
     if (h == g_com_handle) {
+        if (!t) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }
         std::memset(t, 0, sizeof(COMMTIMEOUTS));
         t->ReadIntervalTimeout = 10;
         t->ReadTotalTimeoutConstant = 100;
         t->ReadTotalTimeoutMultiplier = 1;
         t->WriteTotalTimeoutConstant = 100;
         t->WriteTotalTimeoutMultiplier = 1;
+        Log("GetCommTimeouts(bord) -> lees %lu/%lu, schrijf %lu/%lu", static_cast<unsigned long>(t->ReadIntervalTimeout),
+            static_cast<unsigned long>(t->ReadTotalTimeoutConstant),
+            static_cast<unsigned long>(t->WriteTotalTimeoutConstant),
+            static_cast<unsigned long>(t->WriteTotalTimeoutMultiplier));
         return TRUE;
     }
     return g_echte_gettimeouts ? g_echte_gettimeouts(h, t) : FALSE;
@@ -472,17 +514,39 @@ BOOL WINAPI rg_GetOverlappedResult(HANDLE h, LPOVERLAPPED ov, LPDWORD aantal, BO
     return g_echte_ovl ? g_echte_ovl(h, ov, aantal, wachten) : FALSE;
 }
 
-DWORD WINAPI StartDraad(LPVOID) {
+/* De originelen eerst ophalen en dan pas omzetten: anders kan een draad van het spel de haak
+ * binnengaan terwijl g_echte_* nog leeg is en dan faalt de aanroep. */
+void onthoud_originelen() {
+    HMODULE k = GetModuleHandleA("KERNEL32.dll");
+    if (!k) return;
+    if (!g_echte_gpa) g_echte_gpa = reinterpret_cast<GetProcAddrFn>(GetProcAddress(k, "GetProcAddress"));
+    if (!g_echte_createfile) g_echte_createfile = reinterpret_cast<CreateFileAFn>(GetProcAddress(k, "CreateFileA"));
+    if (!g_echte_ioctl) g_echte_ioctl = reinterpret_cast<DeviceIoControlFn>(GetProcAddress(k, "DeviceIoControl"));
+    if (!g_echte_read) g_echte_read = reinterpret_cast<ReadFileFn>(GetProcAddress(k, "ReadFile"));
+    if (!g_echte_write) g_echte_write = reinterpret_cast<WriteFileFn>(GetProcAddress(k, "WriteFile"));
+    if (!g_echte_purge) g_echte_purge = reinterpret_cast<PurgeCommFn>(GetProcAddress(k, "PurgeComm"));
+    if (!g_echte_clear) g_echte_clear = reinterpret_cast<ClearCommErrorFn>(GetProcAddress(k, "ClearCommError"));
+    if (!g_echte_getstate) g_echte_getstate = reinterpret_cast<GetCommStateFn>(GetProcAddress(k, "GetCommState"));
+    if (!g_echte_setstate) g_echte_setstate = reinterpret_cast<SetCommStateFn>(GetProcAddress(k, "SetCommState"));
+    if (!g_echte_gettimeouts) g_echte_gettimeouts = reinterpret_cast<GetCommTimeoutsFn>(GetProcAddress(k, "GetCommTimeouts"));
+    if (!g_echte_settimeouts) g_echte_settimeouts = reinterpret_cast<SetCommTimeoutsFn>(GetProcAddress(k, "SetCommTimeouts"));
+    if (!g_echte_escape) g_echte_escape = reinterpret_cast<EscapeCommFunctionFn>(GetProcAddress(k, "EscapeCommFunction"));
+    if (!g_echte_setmask) g_echte_setmask = reinterpret_cast<SetCommMaskFn>(GetProcAddress(k, "SetCommMask"));
+    if (!g_echte_wait) g_echte_wait = reinterpret_cast<WaitCommEventFn>(GetProcAddress(k, "WaitCommEvent"));
+    if (!g_echte_ovl) g_echte_ovl = reinterpret_cast<GetOverlappedResultFn>(GetProcAddress(k, "GetOverlappedResult"));
+}
+
+/* Synchroon installeren (DllMain): het spel mag geen aanroep doen voordat de haken er staan. Dit is
+ * alleen geheugen schrijven, geen LoadLibrary, dus het mag daar. */
+void installeer_haken() {
     HMODULE exe = GetModuleHandleA(nullptr);
+    onthoud_originelen();
     void* oud = PatchIat(exe, "KERNEL32.dll", "GetProcAddress", reinterpret_cast<void*>(&rg_GetProcAddress));
     Log("importtabel: KERNEL32!GetProcAddress %s", oud ? "omgezet" : "NIET gevonden");
-    if (!g_echte_gpa && oud) g_echte_gpa = reinterpret_cast<GetProcAddrFn>(oud);
     void* oud2 = PatchIat(exe, "KERNEL32.dll", "CreateFileA", reinterpret_cast<void*>(&rg_CreateFileA));
     Log("importtabel: KERNEL32!CreateFileA %s", oud2 ? "omgezet" : "NIET gevonden");
-    if (!g_echte_createfile && oud2) g_echte_createfile = reinterpret_cast<CreateFileAFn>(oud2);
     void* oud3 = PatchIat(exe, "KERNEL32.dll", "DeviceIoControl", reinterpret_cast<void*>(&rg_DeviceIoControl));
     Log("importtabel: KERNEL32!DeviceIoControl %s", oud3 ? "omgezet" : "NIET gevonden");
-    if (!g_echte_ioctl && oud3) g_echte_ioctl = reinterpret_cast<DeviceIoControlFn>(oud3);
     struct { const char* naam; void* nep; void** echt; } comm[] = {
         {"ReadFile", reinterpret_cast<void*>(&rg_ReadFile), reinterpret_cast<void**>(&g_echte_read)},
         {"WriteFile", reinterpret_cast<void*>(&rg_WriteFile), reinterpret_cast<void**>(&g_echte_write)},
@@ -500,19 +564,28 @@ DWORD WINAPI StartDraad(LPVOID) {
     for (auto& c : comm) {
         void* oud = PatchIat(exe, "KERNEL32.dll", c.naam, c.nep);
         Log("importtabel: KERNEL32!%s %s", c.naam, oud ? "omgezet" : "NIET gevonden");
-        if (!*c.echt && oud) *c.echt = oud;
+        (void)oud;
     }
-    return 0;
+    return;
 }
 
 }  // namespace
+
+DWORD WINAPI Herprobeer(LPVOID) {
+    /* Alleen als iets niet gevonden is bij het laden: na een seconde nog een keer kijken (dan is de
+     * importtabel van het spel zeker compleet). */
+    Sleep(1000);
+    installeer_haken();
+    return 0;
+}
 
 BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID) {
     if (reden == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(instantie);
         LogOpen();
-        Log("--- nieuw proces: setupapi.dll van RavenGun geladen ---");
-        HANDLE draad = CreateThread(nullptr, 0, StartDraad, nullptr, 0, nullptr);
+        Log("--- nieuw proces: de I/O-bordkant van RavenGun geladen ---");
+        installeer_haken();   /* synchroon: geen spel-draad mag ons voor zijn */
+        HANDLE draad = CreateThread(nullptr, 0, Herprobeer, nullptr, 0, nullptr);
         if (draad) CloseHandle(draad);
     }
     return TRUE;

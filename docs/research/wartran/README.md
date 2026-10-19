@@ -535,3 +535,54 @@ garbage is -- bijvoorbeeld met `WINEDEBUG=+seh` en een breekpunt op `0x4010e8`/`
 `0x45c0b0` helemaal te ontleden (het begin is nog niet bekeken). Let ook op de tekst op VA 0x512424
 die het foutpad van diezelfde functie gebruikt: `load.exe /f /d /q /l z` -- mogelijk hoort het spel
 via een eigen lader gestart te worden in plaats van `game.exe` direct.
+
+### I/O-bord, derde meting: het spel LEEST wel, en het bord voedt de beveiligingscontrole (2026-10-19 05:35)
+
+**Correctie op de tweede meting.** "Het spel leest de poort nooit" was een artefact van onze eigen
+nagemaakte poort: `ClearCommError` gaf een lege `COMSTAT` terug (cbInQue = 0) en een klassieke
+seriele lus leest alleen als er iets in de wachtrij staat. Sinds `rg_ClearCommError` cbInQue meldt
+(en `rg_ReadFile` het antwoord opruimt) is de echte volgorde te zien:
+
+```
+WriteFile(bord, 7 bytes): 23 17 b1 cb 22 00 d8
+ClearCommError(bord) -> cbInQue=7
+ReadFile(bord, 1 bytes gevraagd) -> 1 bytes antwoord
+ReadFile(bord, 6 bytes gevraagd) -> 6 bytes antwoord      <- samen een kader van 7 bytes
+ClearCommError(bord) -> cbInQue=0
+```
+
+Het spel leest dus **1 byte en dan 6** (eerst de kop, dan de rest) en vraagt in 30 seconden 462 keer.
+Ook gezien: het spel zet de poort zelf op **9600 baud, 8 bits, geen pariteit** (`SetCommState(bord,
+9600 baud, 8 bits, pariteit 0)`); de 38400 8O1 in onze `GetCommState` is een aanname en niet wat het
+spel instelt.
+
+**Het bord voedt de beveiligingscontrole.** Met een andere antwoordinhoud verandert het scherm:
+
+| antwoord (`RG_RHIO_ANTWOORD`) | scherm na ~25 s |
+| --- | --- |
+| `echo` (het kader terug, standaard) | `BOOTING . / I/O ... CHECKING` |
+| `nul` (alle bytes 0) | `ERROR / SECURITY CHECK BAD` |
+| `teller` (de teller in bytes 1-2 eentje hoger) | `ERROR / SECURITY CHECK BAD` |
+| `ack` (eerste byte 0) | `BOOTING . / I/O ... CHECKING` |
+
+De dongle-antwoorden komen dus (deels) **via het bord**: met lege antwoorden valt het spel terug op
+de beveiligingsfout, ook met onze acht geheugenpatches. Dat verklaart ook waarom de tweede meting op
+een dood spoor leek: het bord is geen hartslag maar de weg naar de dongle.
+
+**De "COM1..COM3 gaf fout 5"-regels** in het logboek komen uit een ouder deel van hetzelfde
+(bijgevoegde) logboek, van vóór het nagebootste COM-handvat: in het huidige deel staat overal
+`CreateFileA(COM1, ...) -> nagebootst bordhandvat`.
+
+**Wat er in `tools/rg-rhio/rg_rhio.cpp` gerepareerd is** (vijf punten van de leiding): ClearCommError
+meldt cbInQue en logt; de originelen van de KERNEL32-functies worden vóór het omzetten vastgelegd en
+de haken worden **synchroon in DllMain** gezet (een spel-draad mag ons niet voor zijn; `LoadLibrary`
+blijft erbuiten); `rg_GetProcAddress` vangt ordinalen af (alles onder 0x10000) voordat hij `strcmp`
+aanroept; `LogOpen` probeert het maar een keer (atoomvlag) en `RG_RHIO_STIL` werkt nu echt;
+`GetCommState`/`GetCommTimeouts` controleren hun uitvoerpointer. Bouwen kan met
+`tools/dev/build-rhio.sh` of `cmake --build build --target rg-rhio` (dat doel staat niet in ALL,
+want het vraagt podman).
+
+**Volgende stap:** de *inhoud* van het antwoord. Een echo laat het spel door de beveiligingscontrole
+komen, maar de I/O-controle wil meer: waarschijnlijk een toestandskader (schakelaars, bord-id). Zoek
+in de exe de lezer van het antwoord (de aanroepen van `ReadFile` zitten in een hulpfunctie; de
+IAT-slot van ReadFile is VA 0x1ec0c8) en kijk welke bytes hij vergelijkt.
