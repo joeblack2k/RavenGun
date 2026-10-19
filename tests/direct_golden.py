@@ -142,8 +142,10 @@ def sparse(path, size, magic):
 
 def in_gamemap(name):
     """Vaste keuze per naam (niet per plaats in de lijst): een nieuw profiel verschuift de andere niet."""
-    if name in ("RobinHood", "MarioKartDX"):
-        return False   # hun profiel vraagt een view (ViewWritable/StackReserve); zie fixture()
+    if name in ("RobinHood", "MarioKartDX", "SegaGameShell", "TNXK0OC"):
+        # Hun profiel vraagt een view (ViewWritable/ViewCopies/StackReserve); zie fixture(). Zonder view
+        # weigert de motor en dan legt het gouden bestand alleen de weigering vast (review 16, punt 8).
+        return False
     return zlib.crc32(name.encode()) % 2 == 1
 
 
