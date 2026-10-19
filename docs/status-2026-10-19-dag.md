@@ -75,7 +75,11 @@ PRbk*.dat) zijn niet verplaatst, gewijzigd of verwijderd.
   de AMAuth-proefariteit en de dubbele TC5-noot).
 * **(D)** Robin Hood 90 min: de wachtende hoofddraad volgen (op welk handvat wacht hij, waar wordt dat
   gemaakt, welk pad hoort het te seinen).
-* **(D)** Robin Hood 90 min: de wachtende hoofddraad -- **deels gedaan**: de mutex is gevonden en
+* **(D)** Robin Hood 90 min (09:50-10:47): de meetdraad **loopt** nu (markerbestand) en de meting
+  wijst uit dat de hoofddraad in `NtWaitForSingleObject` wacht terwijl geen enkele draad in de
+  lock-helper zit; de volgende stap is de handvatwaarde. Zie `docs/research/wartran/README.md`.
+  De mutex-haken zijn gebouwd maar mogen niet aan (ze laten de game stoppen) -- dat staat er ook.
+  **Oudere notitie:** de wachtende hoofddraad -- **deels gedaan**: de mutex is gevonden en
   gedocumenteerd (`docs/research/wartran/README.md`), en de valkuilen bij het meten staan er ook
   (controller voor de daemon, `pgrep` die je eigen shell matcht). De meetdraad zelf moet nog
   lopen: `RG_COMPAT_SAMPLE=200` in de drop-in en dan de draad in 0x580fa0-0x5810a0 zoeken.

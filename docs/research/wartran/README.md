@@ -859,3 +859,42 @@ Twee valkuilen die vannacht tijd kostten:
 Daarna: sample lezen in `<prefix>/drive_c/users/<user>/AppData/Local/Temp/rg-compat-<pid>.txt`, de
 pc's omzetten naar functies, en zoeken naar de draad die in **0x580fa0-0x5810a0** (de lock-helper)
 zit of in een van onze haken blijft hangen.
+
+## (D) meten met de meetdraad: wat de draden doen (2026-10-19)
+
+De meetdraad van rg-compat loopt nu echt tijdens I/O CHECKING. Dat kon pas nadat twee dingen waren
+opgelost:
+
+1. **De omgeving van de drop-in komt niet door** (alleen `RG_RHIO_LOG` haalde het plan). Daarom kan
+   `rg-rhio` de meetdraad nu ook aanzetten met een **markerbestand** naast de DLL: `rg-compat.aan`
+   (inhoud = milliseconden, leeg = 200). rg-rhio zet dan zelf `RG_COMPAT_SAMPLE` en
+   `RG_COMPAT_SAMPLE_LOG` (naar `<map van de DLL>\rg-compat-sample.txt`) voordat het rg-compat laadt.
+2. **De daemon moet een controller hebben.** Zonder `ravengunctl mouse-gun --player 1 --mouse ...`
+   blijft hij wachten ("Zet de PS Move van speler 1 aan") en start er geen game: geen drop-in in het
+   proces, geen logboek, geen omgezette schrijfmap. Na **elke** herstart van `ravengund` opnieuw
+   zetten.
+
+### Uitkomst van de meting (150 rondes, 25 ms, I/O CHECKING)
+
+| draad | wat hij doet |
+|---|---|
+| 260 (hoofd) | 134/150 in `ntdll+0xd410` = **NtWaitForSingleObject** (syscall 0x35), de rest in `NtReadFile`/`NtWriteFile` (0x12/0x07) en een enkele keer `game.exe+0x58008e` |
+| 352, 356 | 150/150 `NtWaitForSingleObject`, geen aanroeper in de exe |
+| 368 | 148/150 `ntdll+0xe0c0` (wineserver-aanroep 0x100) met `game.exe+0x34696d`: de presentatie/renderdraad |
+| 372 | `ntdll+0xe0c0`, wisselende aanroepers: ook een wachtdraad |
+
+**Geen enkele draad zit in de lock-helper 0x580fa0-0x5810a0.** De hoofddraad wacht dus op een object
+(en de syscall is inderdaad NtWaitForSingleObject) terwijl de *houder* van dat object zelf ergens
+anders op wacht. De volgende stap is de **handvatwaarde** van die wacht te lezen; dat kan op twee
+manieren:
+
+* de mutex-haken in rg_rhio (`WaitForSingleObject`/`ReleaseMutex`/`CreateMutexA`) -- die bestaan nu,
+  maar ze **mogen niet aan**: gezet in DllMain (of zelfs lui bij de eerste bordaanraking) laat de
+  CRT de game meteen stoppen (zie de dagstand). Ze staan achter `rg-rhio-mutex.aan` en zijn
+  gedocumenteerd als onbruikbaar tot de oorzaak daarvan bekend is;
+* of: de argumenten van de wachtdraad uit het geheugen lezen (het handvat staat op de stapel van
+  draad 260) en dan kijken wie dat handvat bezit.
+
+De syscallnummers zijn te vinden met `objdump -d --start-address=$((0x7bc00000+RVA))` op
+`wine/proton-*/lib/wine/i386-windows/ntdll.dll` (let op: de VMA, niet de RVA -- dat kostte hier een
+kwartier).
