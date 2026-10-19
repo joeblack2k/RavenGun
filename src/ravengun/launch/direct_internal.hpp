@@ -103,6 +103,13 @@ std::vector<std::string> prefixstap_problemen(const DirectSetupStep& st, const s
 // koppelpuntentabel, elke stap). Leeg = veilig; de schrijfmappen (ViewWritable) controleert schrijfmap_problemen() apart.
 // De prefix die bij dit plan hoort (plan.prefix, anders de omgevingsvariabelen uit plan.env).
 std::string prefix_van_plan(const DirectPlan& plan);
+// EEN prefix voor de prefixstappen (review 15, ronde 2, punt 4): de stempel, de prefix:-bron en de NAS-controle gebruiken
+// prefix_van_plan(), dus de wine van de run-stappen moet in DIE prefix draaien. Een gewone wine leest WINEPREFIX, de wrapper
+// wine-prefix leest RG_WINEPREFIX (scripts/wine-prefix.sh); staat daar iets anders in, dan weigert dit. Leeg = in orde (ook
+// zonder run-stappen).
+std::vector<std::string> prefix_omgeving_problemen(const DirectPlan& plan);
+// De omgeving voor de run-stappen en wineserver: env met WINEPREFIX (en bij de wrapper ook RG_WINEPREFIX) op prefix_van_plan().
+EnvMap prefixstap_omgeving(const DirectPlan& plan, const EnvMap& env);
 // Alleen de stempel van de prefixstappen (review 14, punt 3; review 15, punt 4).
 std::vector<std::string> stempel_problemen(const DirectPlan& plan, const DirectPaths& p);
 std::vector<std::string> prefixstappen_problemen(const DirectPlan& plan, const DirectPaths& p);

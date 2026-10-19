@@ -2364,6 +2364,50 @@ int main() {
             CHECK(f.empty());
             toon(f);
         }
+        /* Review 15, ronde 2, punt 4: EEN prefix voor de stappen. Een gewone wine leest WINEPREFIX, de wrapper RG_WINEPREFIX; wat
+         * daar staat moet prefix_van_plan() zijn, en prefixstap_omgeving() legt hem op. */
+        {
+            DirectPlan x = gp;   // de motor: plan.prefix en WINEPREFIX gelijk
+            x.wine = "/opt/wine/bin/wine";
+            for (DirectSetupStep& s : x.prefix_setup)
+                if (!s.copy) s.argv.front() = x.wine;
+            x.env = {{"WINEPREFIX", gp.prefix}};
+            CHECK(D::prefix_omgeving_problemen(x).empty());
+            x.env["WINEPREFIX"] = gp.prefix + "/";   // dezelfde map
+            CHECK(D::prefix_omgeving_problemen(x).empty());
+            x.env["RG_WINEPREFIX"] = (root / "elders").string();   // een gewone wine leest RG_WINEPREFIX niet
+            CHECK(D::prefix_omgeving_problemen(x).empty());
+            x.env = {{"WINEPREFIX", (nep / "pfx").string()}};
+            CHECK(!D::prefix_omgeving_problemen(x).empty());
+            CHECK(!D::prefixstappen_problemen(x, pg).empty());
+            x.prefix.clear();   // de zaak uit de review: RG_WINEPREFIX lokaal, WINEPREFIX op de NAS
+            x.env = {{"RG_WINEPREFIX", gp.prefix}, {"WINEPREFIX", (nep / "pfx").string()}};
+            CHECK(D::prefix_van_plan(x) == gp.prefix);
+            const auto f = D::prefix_omgeving_problemen(x);
+            CHECK(!f.empty() && contains(f.front(), "WINEPREFIX=" + (nep / "pfx").string()));
+            x.env.erase("WINEPREFIX");   // niets in WINEPREFIX: de loper zet hem
+            CHECK(D::prefix_omgeving_problemen(x).empty());
+            CHECK(D::getenv_or(D::prefixstap_omgeving(x, x.env), "WINEPREFIX") == gp.prefix);
+            x.env.clear();   // helemaal geen prefix en wel een run-stap
+            CHECK(!D::prefix_omgeving_problemen(x).empty());
+            x.prefix_setup = {stap_copy(gv / "AMCUS/k.ini")};   // zonder run-stap draait er geen wine
+            CHECK(D::prefix_omgeving_problemen(x).empty());
+
+            DirectPlan w = gp;   // de wrapper zoals de motor hem plant: plan.prefix = RG_WINEPREFIX
+            w.wine = "/opt/rg/wine-prefix";
+            for (DirectSetupStep& s : w.prefix_setup)
+                if (!s.copy) s.argv.front() = w.wine;
+            w.env = {{"RG_WINEPREFIX", gp.prefix}, {"WINEPREFIX", (nep / "pfx").string()}};   // die leest de wrapper niet
+            CHECK(D::prefix_omgeving_problemen(w).empty());
+            CHECK(D::prefixstappen_problemen(w, pg).empty());
+            const EnvMap we = D::prefixstap_omgeving(w, w.env);
+            CHECK(D::getenv_or(we, "RG_WINEPREFIX") == gp.prefix && D::getenv_or(we, "WINEPREFIX") == gp.prefix);
+            w.env["RG_WINEPREFIX"] = (root / "elders").string();
+            CHECK(!D::prefix_omgeving_problemen(w).empty());
+            w.env.erase("RG_WINEPREFIX");   // leeg: de loper zet hem
+            CHECK(D::prefix_omgeving_problemen(w).empty());
+            CHECK(D::getenv_or(D::prefixstap_omgeving(w, w.env), "RG_WINEPREFIX") == gp.prefix);
+        }
         CHECK(weigert(stap_copy(gv / "Mucha/WritableConfig.ini"), "doelmap is een koppeling naar de NAS", pg));
         CHECK(weigert(stap_run(gv / "Mucha"), "werkmap is een koppeling naar de NAS", pg));
         std::error_code gec;
@@ -2443,6 +2487,7 @@ int main() {
         CHECK(vr == Verdict::Ok && vp.prefix_setup.size() == 4);
         if (vr != Verdict::Ok) std::fprintf(stderr, "N2: %s\n", vwhy.c_str());
         CHECK(!D::prefixstappen_problemen(vp, pg).empty());
+        CHECK(D::prefix_omgeving_problemen(vp).empty());   // een plan van de motor heeft EEN prefix (punt 4)
         CHECK(!D::schrijfmap_problemen((vv / "AMCUS").string(), pg).empty());
         std::vector<std::string> vlog;
         std::string verr;

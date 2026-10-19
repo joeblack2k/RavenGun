@@ -1145,6 +1145,15 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
     // Draait met de wine van de lader, zonder WINEARCH (de prefix van Mario Kart DX is 64-bits en met
     // WINEARCH=win32 weigert wine).
     if (!plan.prefix_setup.empty()) {
+        /* EEN prefix voor alles (review 15, ronde 2, punt 4): pfx hierboven is die van de stempel, de prefix:-bron en de
+         * NAS-controle. Wat wine (WINEPREFIX) of de wrapper (RG_WINEPREFIX) in de omgeving vindt moet daarmee kloppen, en de
+         * stappen en wineserver -k/-w krijgen hem opgelegd: stapenv, niet env. */
+        if (const std::vector<std::string> pf = D::prefix_omgeving_problemen(plan); !pf.empty()) {
+            for (const std::string& x : pf) log("prefixstap: GEWEIGERD: " + x);
+            log("prefixstap MISLUKT: de prefix van de stappen is niet eenduidig; de game wordt niet gestart");
+            return 1;
+        }
+        const L::EnvMap stapenv = D::prefixstap_omgeving(plan, env);
         const bool stempel_gezet =
             !plan.prefix_setup_mark.empty() && ::access(plan.prefix_setup_mark.c_str(), F_OK) == 0;
         if (stempel_gezet)
@@ -1187,7 +1196,7 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                 }
                 log("prefixstap: " + join_quoted(stap.argv) + " (cwd " + stap.cwd + ")");
                 /* Eigen procesgroep: een time-out moet de hele boom meenemen. */
-                Child c = spawn(stap.argv, stap.cwd, env, true, false, true);
+                Child c = spawn(stap.argv, stap.cwd, stapenv, true, false, true);
                 if (c.pid <= 0) return 1;
                 StapUitvoer uit{c.out, "prefixstap: ", ""};
                 const auto einde = std::chrono::steady_clock::now() + std::chrono::seconds(timeout_s);
@@ -1214,7 +1223,7 @@ int voer_prefixstappen(const L::DirectPlan& plan, const L::EnvMap& env, const L:
                         (gestopt ? "stop gevraagd" : afgebroken ? "afgebroken na " + std::to_string(timeout_s) + " s" :
                                                                   "de wachtdienst op de stap gaf een fout") +
                         "; de procesgroep gaat dood");
-                    stap_afbreken(plan, env, c.pid, uit);
+                    stap_afbreken(plan, stapenv, c.pid, uit);
                     goed = false;
                     if (gestopt) return 1;
                 }

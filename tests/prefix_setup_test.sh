@@ -70,6 +70,7 @@ case "\${1:-}" in
     *stempelkoppeling*) rm -rf "\$WINEPREFIX/.ravengun-prefixsetup"
                    ln -s "$NAS/stempels" "\$WINEPREFIX/.ravengun-prefixsetup";;
     *prefixkoppeling*) mv "\$WINEPREFIX" "\$WINEPREFIX.weg"; ln -s "$NAS/\${WINEPREFIX##*/}" "\$WINEPREFIX";;
+    *toonprefix*)  echo "WINEPREFIX=\${WINEPREFIX:-} RG_WINEPREFIX=\${RG_WINEPREFIX:-}" >> "$W/prefixen.log";;
     *verbuig*)     rm -rf "$V/AMCUS/werk"; ln -s "$W/elders" "$V/AMCUS/werk";;
     *teller*)      echo gelopen >> "$W/gelopen.log";;
     *mislukt*)     for i in \$(seq 1 300); do echo "regel \$i"; done; echo "FOUTMELDING-LAATSTE"; exit 3;;
@@ -104,7 +105,8 @@ STEMPEL="$PFX/.ravengun-prefixsetup/proef.done"
 #      wrapper      de wrapper wine-prefix in $W/prefix2 (plan.prefix en RG_WINEPREFIX);
 #      leegprefix   plain wine, plan.prefix leeg, de prefix ($3) alleen in de omgeving onder de sleutel $4
 #                   (standaard WINEPREFIX); een lege $3 = geen prefix in de omgeving;
-#      leegwrapper  de wrapper, plan.prefix leeg, RG_WINEPREFIX = $3.
+#      leegwrapper  de wrapper, plan.prefix leeg, RG_WINEPREFIX = $3;
+#      wrapperpfx   de wrapper, plan.prefix = $3 en RG_WINEPREFIX = $3.
 # $3 = de prefix (standaard $PFX; "" is echt leeg: ${3-...}, niet ${3:-...}, review 15, ronde 2, punt 1).
 # De stempel komt altijd in de prefix van het plan zelf: <prefix>/.ravengun-prefixsetup/proef.done.
 # $5 = "geenstempel" voor een plan zonder stempel.
@@ -127,10 +129,10 @@ elif soort == "wrapper":
     wine = w + "/wrap/wine-prefix"
     env.update({"RG_WINE": w + "/bin2/wine", "RG_WINEPREFIX": w + "/prefix2"})
     prefix = pfx = w + "/prefix2"
-elif soort == "leegwrapper":
+elif soort in ("leegwrapper", "wrapperpfx"):
     wine = w + "/wrap/wine-prefix"
     env.update({"RG_WINE": w + "/bin2/wine", "RG_WINEPREFIX": pfx})
-    prefix = ""
+    prefix = pfx if soort == "wrapperpfx" else ""
 else:
     wine = w + "/bin/wine"
     if pfx:
@@ -465,6 +467,58 @@ case "$uit" in *"stempel wordt NIET geschreven"*) ;; *) mislukt "9j: de prefix a
 # 9z. nergens op de NAS een stempel of stempelmap.
 op_nas=$(find "$NAS" \( -name '*.done' -o -name .ravengun-prefixsetup \) -print)
 [ -z "$op_nas" ] || mislukt "stempels op de nagebootste NAS: $op_nas"
+
+# --- 13. EEN prefix voor alles (review 15, ronde 2, punt 4) -------------------------------------------
+# De stempel, de prefix:-bron en de NAS-controle gaan over prefix_van_plan(); wine moet in DIE prefix draaien. Een gewone wine
+# leest WINEPREFIX, de wrapper wine-prefix RG_WINEPREFIX. De nep-wine schrijft bij "toonprefix" op wat hij kreeg.
+P13="$W/p13"
+mkdir -p "$P13" "$W/anders"
+toon='[{"run": ".", "prog": "toonprefix"}]'
+prefix_geweigerd() {   # $1 = de zaak, $2 = de sleutel die niet klopt
+    [ "$rc" != 0 ] || mislukt "$1: aangenomen (status 0): $uit"
+    case "$uit" in *"$2="*"is niet de prefix van de stappen"*) ;; *) mislukt "$1: niet om $2 geweigerd: $uit";; esac
+    [ ! -e "$W/prefixen.log" ] || mislukt "$1: de stap liep toch ($(cat "$W/prefixen.log"))"
+    rm -f "$W/prefixen.log"
+}
+prefix_gelopen() {   # $1 = de zaak, $2 = de regel die de nep-wine moet hebben geschreven
+    [ "$rc" = 0 ] || mislukt "$1: geweigerd (status $rc): $uit"
+    [ "$(cat "$W/prefixen.log" 2>/dev/null)" = "$2" ] || mislukt "$1: de stap kreeg '$(cat "$W/prefixen.log" 2>/dev/null)', niet '$2'"
+    [ -e "$P13/.ravengun-prefixsetup/proef.done" ] || mislukt "$1: de stempel is niet in $P13 geschreven"
+    rm -rf "$W/prefixen.log" "$P13/.ravengun-prefixsetup"
+}
+rm -f "$W/prefixen.log"
+# 13a. de zaak uit de review: plan.prefix leeg, RG_WINEPREFIX lokaal, WINEPREFIX op de NAS, gewone wine: weigeren.
+PLAN_ENV='{"WINEPREFIX": "'"$NAS/prefix"'"}' maak_plan "$toon" leegprefix "$P13" RG_WINEPREFIX
+uit=$(stappen); rc=$?
+prefix_geweigerd "13a RG_WINEPREFIX lokaal, WINEPREFIX op de NAS" WINEPREFIX
+# 13b. plan.prefix en WINEPREFIX verschillen (gewone wine): weigeren.
+PLAN_ENV='{"WINEPREFIX": "'"$W/anders"'"}' maak_plan "$toon" "" "$P13"
+uit=$(stappen); rc=$?
+prefix_geweigerd "13b plan.prefix en WINEPREFIX verschillen" WINEPREFIX
+# 13c. de prefix alleen in RG_WINEPREFIX (gewone wine, geen WINEPREFIX): de loper zet WINEPREFIX zelf.
+maak_plan "$toon" leegprefix "$P13" RG_WINEPREFIX
+uit=$(stappen); rc=$?
+prefix_gelopen "13c prefix alleen in RG_WINEPREFIX" "WINEPREFIX=$P13 RG_WINEPREFIX=$P13"
+# 13d. de wrapper met plan.prefix leeg, RG_WINEPREFIX lokaal en een WINEPREFIX op de NAS: de wrapper leest alleen
+# RG_WINEPREFIX (en zet WINEPREFIX zelf), dus dit klopt; aannemen, en wine draait in P13.
+PLAN_ENV='{"WINEPREFIX": "'"$NAS/prefix"'"}' maak_plan "$toon" leegwrapper "$P13"
+uit=$(stappen); rc=$?
+prefix_gelopen "13d wrapper, WINEPREFIX op de NAS" "WINEPREFIX=$P13 RG_WINEPREFIX=$P13"
+# 13e. de wrapper met een RG_WINEPREFIX die niet plan.prefix is: weigeren.
+PLAN_ENV='{"RG_WINEPREFIX": "'"$W/anders"'"}' maak_plan "$toon" wrapperpfx "$P13"
+uit=$(stappen); rc=$?
+prefix_geweigerd "13e wrapper, RG_WINEPREFIX is niet plan.prefix" RG_WINEPREFIX
+# 13f. de wrapper met plan.prefix en een lege RG_WINEPREFIX: de loper zet hem (anders stopt de wrapper meteen).
+PLAN_ENV='{"RG_WINEPREFIX": ""}' maak_plan "$toon" wrapperpfx "$P13"
+uit=$(stappen); rc=$?
+prefix_gelopen "13f wrapper, RG_WINEPREFIX leeg" "WINEPREFIX=$P13 RG_WINEPREFIX=$P13"
+# 13g. een hangende stap met de prefix alleen in RG_WINEPREFIX: wineserver -k krijgt die prefix.
+maak_plan '[{"run": ".", "prog": "hang"}]' leegprefix "$P13" RG_WINEPREFIX
+rm -f "$W/wineserver.log"
+uit=$(stappen RG_PREFIXSTAP_TIMEOUT=2); rc=$?
+[ "$rc" != 0 ] || mislukt "13g: een hangende stap gaf status 0"
+grep -q -- "-k WINEPREFIX=$P13\$" "$W/wineserver.log" 2>/dev/null || mislukt "13g: wineserver -k niet met WINEPREFIX=$P13: $(cat "$W/wineserver.log" 2>/dev/null)"
+[ "$fout" = 0 ] && zeg "13 een prefix voor alles: verschil met WINEPREFIX/RG_WINEPREFIX geweigerd, wrapper aangenomen, stap en wineserver -k in de prefix van het plan (goed)"
 
 if [ "$fout" != 0 ]; then zeg "mislukt"; exit 1; fi
 zeg "alles goed"
