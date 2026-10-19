@@ -664,7 +664,9 @@ bool CodeGoed(unsigned char c) {
  *                        elke start liet stoppen, daarom standaard uit).
  *   RG_RHIO_STACK      = (eerste gebruik) idem voor rg-rhio-stack.aan: "0" uit, anders aan; zet de
  *                        stapelregels "stack:" aan (LeesWachthandvatten, een keer per seconde).
- *   RG_COMPAT_SAMPLE   = ms; laadt de meetdraad van rg-compat (lazy, bij de eerste CreateFileA)
+ *   RG_COMPAT_SAMPLE   = ms; laadt de meetdraad van rg-compat (lazy, bij de eerste CreateFileA).
+ *                        Zoals hierboven: gezet beslist ("0" is uit, ook met rg-compat.aan);
+ *                        afwezig: kijk naar rg-compat.aan
  *   RG_COMPAT_SAMPLE_LOG = pad van het meetlogboek; afwezig = rg-compat-sample.txt naast de DLL (wordt
  *                        door LaadMeetdraad gezet als er een meting is)
  *   Markerbestanden, gezocht in de map van deze DLL (alleen of ze bestaan; de inhoud telt niet,
@@ -984,8 +986,9 @@ bool Bestaat(const std::string& pad) {
 
 /* --- (D) Wie houdt het slot? ---------------------------------------------------------------
  * De hoofddraad van Robin Hood wacht met WaitForSingleObject(mutex, INFINITE) in de lock-helper op
- * 0x580fa0-0x580fde, met de unlock op 0x580ff6. Deze drie haken laten zien welk handvat dat is, welke
- * draad het kreeg en welke draad het nooit teruggeeft. Alleen aan met RG_RHIO_MUTEX=1. */
+ * 0x580fa0-0x580fde, met de unlock op 0x580ff6. Deze drie haken laten zien welk handvat dat is en welke
+ * draad er lang op wacht (de wachtregels); ReleaseMutex en (na de eerste 32 regels) CreateMutexA worden
+ * alleen nog geteld (review 14, ronde 2). Alleen aan met RG_RHIO_MUTEX=1. */
 bool MutexAan() {
     static const bool aan = [] {
         char v[8] = {0};
@@ -996,7 +999,8 @@ bool MutexAan() {
     return aan;
 }
 
-/* Vanaf deze duur noemen we een wachtdienst "lang" en loggen we ook het einde (review 14, punt a). */
+/* Vanaf deze duur noemen we een wachtdienst "lang" en loggen we het einde (review 14, punt a; begrensd
+ * door kMutexMiddelMax, review 14 ronde 2). */
 constexpr DWORD kMutexLangMs = 50;
 
 using WaitForSingleObjectFn = DWORD(WINAPI*)(HANDLE, DWORD);
@@ -1037,49 +1041,135 @@ void onthoud_sloten() {
         g_echte_createmutex = reinterpret_cast<CreateMutexAFn>(GetProcAddress(k, "CreateMutexA"));
 }
 
+/* Het mutex-budget moet blijven tot er echt iets hangt (review 14, ronde 2). Daarom per aanroep alleen
+ * tellen en af en toe een samenvatting: ReleaseMutex en CreateMutexA lieten elk een regel achter, en
+ * een spel dat een slot vaak pakt en teruggeeft at zo het hele budget op. De eerste kMutexNamenMax
+ * CreateMutexA-regels blijven wel volledig (naam en handvat): daarmee is een handvat uit een
+ * wachtregel terug te vinden. */
+constexpr LONG kMutexNamenMax = 32;
+constexpr DWORD kMutexTellingMs = 10000;
+/* Vanaf deze duur kan een wachtdienst een hang zijn: dan komt het BEGIN in het logboek, voor het verder
+ * blokkeren. Wat eerder terugkomt is gewoon verkeer. */
+constexpr DWORD kMutexHangMs = 1000;
+/* Wachtdiensten tussen kMutexLangMs en kMutexHangMs (een slot dat even bezet was) krijgen samen
+ * hoogstens zoveel regels; daarna alleen de teller. Zo blijft het grootste deel van het budget over
+ * voor de wachtdiensten van een seconde en langer. */
+constexpr LONG kMutexMiddelMax = 500;
+volatile LONG g_mutex_create = 0;
+volatile LONG g_mutex_release = 0;
+volatile LONG g_mutex_wacht = 0;
+volatile LONG g_mutex_verlopen = 0;
+volatile LONG g_mutex_middel = 0;
+volatile LONG g_mutex_hang = 0;
+
+/* Hoogstens een keer per kMutexTellingMs een regel met de tellers. Atomair, zoals de tempo-poort van
+ * LeesWachthandvatten: twee draden tegelijk schrijven niet allebei. Staat het spel stil, dan roept het
+ * deze haken niet meer aan en komt er ook geen telling meer bij. */
+void MeldMutexTelling() {
+    static volatile LONG g_mutex_tik = 0;
+    const DWORD nu = GetTickCount();
+    const LONG vorige = g_mutex_tik;
+    if (vorige != 0 && nu - static_cast<DWORD>(vorige) < kMutexTellingMs) return;
+    if (InterlockedCompareExchange(&g_mutex_tik, static_cast<LONG>(nu ? nu : 1), vorige) != vorige) return;
+    if (vorige == 0) return;   // de eerste aanroep zet alleen de klok
+    LogMutex("mutex: telling: CreateMutexA=%ld ReleaseMutex=%ld wachtdiensten=%ld (verlopen=%ld, "
+             ">=%lu ms=%ld, >=%lu ms=%ld)",
+             g_mutex_create, g_mutex_release, g_mutex_wacht, g_mutex_verlopen,
+             static_cast<unsigned long>(kMutexLangMs), g_mutex_middel, static_cast<unsigned long>(kMutexHangMs),
+             g_mutex_hang);
+}
+
+/* GetLastError blijft in deze drie haken precies wat de echte functie achterliet (review 14, ronde 2):
+ * MutexAan (bij de eerste aanroep: omgeving en markerbestand), LogMutex en MeldMutexTelling kunnen hem
+ * veranderen, en het spel kan hem na de aanroep lezen. Daarom: de waarde van de beller bewaren en voor
+ * elke echte aanroep terugzetten, de waarde na de laatste echte aanroep bewaren en vlak voor het
+ * teruggeven terugzetten. */
 HANDLE WINAPI rg_CreateMutexA(LPSECURITY_ATTRIBUTES sa, BOOL eigenaar, LPCSTR naam) {
     HANDLE h = g_echte_createmutex ? g_echte_createmutex(sa, eigenaar, naam) : nullptr;
-    if (MutexAan())
-        LogMutex("mutex: CreateMutexA(naam=%s, eigenaar=%d) -> %p  beller=%s",
-                 naam ? naam : "(geen)", (int)eigenaar, h, BellerTekst(__builtin_return_address(0)).c_str());
+    const DWORD fout = GetLastError();
+    if (MutexAan()) {
+        if (InterlockedIncrement(&g_mutex_create) <= kMutexNamenMax)
+            LogMutex("mutex: CreateMutexA(naam=%s, eigenaar=%d) -> %p  beller=%s",
+                     naam ? naam : "(geen)", (int)eigenaar, h, BellerTekst(__builtin_return_address(0)).c_str());
+        MeldMutexTelling();
+    }
+    SetLastError(fout);
     return h;
 }
 
 DWORD WINAPI rg_WaitForSingleObject(HANDLE h, DWORD ms) {
-    const void* beller = __builtin_return_address(0);
-    const DWORD tid_voor = GetCurrentThreadId();
-    /* Voor het blokkeren loggen: een wachter die nooit terugkomt schreef anders niets weg, en juist
-     * die willen we zien (review 12, punt 3). */
-    /* Alleen het BEGIN van een wachtdienst wordt altijd gelogd (een wachter die nooit terugkomt schrijft
-     * anders niets weg). Het einde alleen als de wachtdienst lang duurde: de CRT wacht vaak even op
-     * iets onbelangrijks, en die regels verdringen juist de interessante (review 14, punt a). */
-    /* Een wachtdienst van 0 ms kan niet blijven hangen (die komt meteen terug), en juist die vullen het
-     * budget: in de hermeting waren alle 3000 mutex-regels zo'n poll van de CRT (game.exe+0x90bdd, 0 ms)
-     * en bleef er voor de interessante wachtdiensten niets over. Alleen een echte wachttijd loggen we. */
-    const bool meld = MutexAan() && ms != 0;
-    const DWORD begin = meld ? GetTickCount() : 0;
-    if (meld)
-        LogMutex("mutex: draad %lu GAAT wachten op %p (%lu ms)  beller=%s", static_cast<unsigned long>(tid_voor),
-                 h, static_cast<unsigned long>(ms), BellerTekst(beller).c_str());
-    DWORD r = g_echte_waitobj ? g_echte_waitobj(h, ms) : WAIT_FAILED;
-    if (meld) {
-        const DWORD duur = GetTickCount() - begin;
-        if (duur >= kMutexLangMs || ms == INFINITE)
-            LogMutex("mutex: draad %lu wachtte op %p (%lu ms, geduurd %lu ms) -> %lu  beller=%s",
-                     static_cast<unsigned long>(tid_voor), h, static_cast<unsigned long>(ms),
-                     static_cast<unsigned long>(duur), static_cast<unsigned long>(r),
-                     BellerTekst(beller).c_str());
+    const DWORD fout_in = GetLastError();
+    if (!MutexAan() || ms == 0) {
+        SetLastError(fout_in);
+        return g_echte_waitobj ? g_echte_waitobj(h, ms) : WAIT_FAILED;
     }
+    /* Een wachtdienst van 0 ms kan niet blijven hangen (die komt meteen terug), en juist die vulden het
+     * budget: in de hermeting waren alle 3000 mutex-regels zo'n poll van de CRT (game.exe+0x90bdd, 0 ms).
+     * Ze lopen hierboven ongemeten door.
+     *
+     * De rest (review 14, ronde 2): het budget moet blijven tot er echt iets hangt, dus alleen een
+     * wachtdienst die LANG blijkt komt in het logboek -- ook bij INFINITE, want de lock-helper van het
+     * spel wacht INFINITE op een slot dat bijna altijd vrij is. Een wachtdienst met INFINITE of een
+     * time-out boven kMutexHangMs wachten we eerst zelf hoogstens kMutexHangMs. Komt hij binnen die tijd
+     * terug (het gewone geval), dan is dat de uitkomst. Loopt die eerste ronde af, dan schrijven we het
+     * BEGIN weg en wachten pas daarna de rest (INFINITE blijft INFINITE): een wachter die nooit
+     * terugkomt staat dus vóór het verder blokkeren in het logboek (review 12, punt 3). Voor het spel is
+     * dit hetzelfde: een WaitForSingleObject die afloopt verandert niets aan het object, en de totale
+     * wachttijd blijft gelijk. Een wachtdienst die op zijn eigen korte time-out afloopt is een poll en
+     * wordt alleen geteld. */
+    InterlockedIncrement(&g_mutex_wacht);
+    const void* beller = __builtin_return_address(0);
+    const DWORD begin = GetTickCount();
+    const bool kan_hangen = ms == INFINITE || ms > kMutexHangMs;
+    SetLastError(fout_in);
+    DWORD r = g_echte_waitobj ? g_echte_waitobj(h, kan_hangen ? kMutexHangMs : ms) : WAIT_FAILED;
+    DWORD fout = GetLastError();
+    if (!kan_hangen || r != WAIT_TIMEOUT) {
+        const DWORD duur = GetTickCount() - begin;
+        if (r == WAIT_TIMEOUT) {
+            InterlockedIncrement(&g_mutex_verlopen);
+        } else if (duur >= kMutexLangMs) {
+            if (InterlockedIncrement(&g_mutex_middel) <= kMutexMiddelMax)
+                LogMutex("mutex: draad %lu wachtte op %p (%lu ms, geduurd %lu ms) -> %lu  beller=%s",
+                         static_cast<unsigned long>(GetCurrentThreadId()), h, static_cast<unsigned long>(ms),
+                         static_cast<unsigned long>(duur), static_cast<unsigned long>(r),
+                         BellerTekst(beller).c_str());
+        }
+        MeldMutexTelling();
+        SetLastError(fout);
+        return r;
+    }
+    /* Mogelijk een hang: nu het begin, voor het verder blokkeren. */
+    InterlockedIncrement(&g_mutex_hang);
+    const DWORD tid = GetCurrentThreadId();
+    LogMutex("mutex: draad %lu GAAT lang wachten op %p (%lu ms, al %lu ms bezet)  beller=%s",
+             static_cast<unsigned long>(tid), h, static_cast<unsigned long>(ms),
+             static_cast<unsigned long>(GetTickCount() - begin), BellerTekst(beller).c_str());
+    DWORD rest = INFINITE;
+    if (ms != INFINITE) {
+        const DWORD al = GetTickCount() - begin;
+        rest = al < ms ? ms - al : 0;
+    }
+    SetLastError(fout_in);
+    r = g_echte_waitobj(h, rest);
+    fout = GetLastError();
+    LogMutex("mutex: draad %lu wachtte op %p (%lu ms, geduurd %lu ms) -> %lu  beller=%s",
+             static_cast<unsigned long>(tid), h, static_cast<unsigned long>(ms),
+             static_cast<unsigned long>(GetTickCount() - begin), static_cast<unsigned long>(r),
+             BellerTekst(beller).c_str());
+    MeldMutexTelling();
+    SetLastError(fout);
     return r;
 }
 
 BOOL WINAPI rg_ReleaseMutex(HANDLE h) {
-    const void* beller = __builtin_return_address(0);
-    const DWORD tid = GetCurrentThreadId();
     BOOL r = g_echte_release ? g_echte_release(h) : FALSE;
-    if (MutexAan())
-        LogMutex("mutex: draad %lu geeft %p terug -> %d  beller=%s", static_cast<unsigned long>(tid), h,
-                 (int)r, BellerTekst(beller).c_str());
+    const DWORD fout = GetLastError();
+    if (MutexAan()) {
+        InterlockedIncrement(&g_mutex_release);
+        MeldMutexTelling();
+    }
+    SetLastError(fout);
     return r;
 }
 
@@ -1177,15 +1267,17 @@ void LaadMeetdraad() {
 
     char v[32] = {0};
     /* Nul betekent UIT, net als bij RG_RHIO_MUTEX en RG_RHIO_STACK (review 14, punt d): eerst telde
-     * elke waarde als "aan", dus RG_COMPAT_SAMPLE=0 zette de meetdraad juist aan. */
-    const bool via_omgeving = GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0 && v[0] != '0';
+     * elke waarde als "aan", dus RG_COMPAT_SAMPLE=0 zette de meetdraad juist aan. En zoals daar beslist
+     * een GEZETTE variabele, ook "0": eerder telde "0" als niet gezet, zodat een marker hem alsnog
+     * overschreef en de meetdraad toch laadde (review 14, ronde 2). */
+    const bool omgeving_gezet = GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0;
+    bool aan = omgeving_gezet && v[0] != '0';
 
     /* Markerbestand: <map van deze DLL>\rg-compat.aan. De inhoud is het aantal milliseconden
      * (leeg of onleesbaar = 200). Zo kan de meetdraad aan zonder de omgeving aan te raken.
      * BELANGRIJK (review 12, punt 4): een expliciet gezette omgevingsvariabele wint. Eerder zette het
      * markerbestand de variabele overschrijvend, waardoor een marker in de view een bewust gekozen
      * waarde stil veranderde. */
-    bool via_marker = false;
     if (!map.empty()) {
         const std::string marker = map + "\\rg-compat.aan";
         FILE* m = std::fopen(marker.c_str(), "rb");
@@ -1193,12 +1285,12 @@ void LaadMeetdraad() {
             char inhoud[32] = {0};
             const size_t n = std::fread(inhoud, 1, sizeof inhoud - 1, m);
             std::fclose(m);
-            via_marker = true;
-            if (via_omgeving) {
+            if (omgeving_gezet) {
                 Log("meetdraad: markerbestand %s gevonden, maar RG_COMPAT_SAMPLE staat al expliciet op "
-                    "%s; de omgeving wint",
-                    marker.c_str(), v);
+                    "%s (%s); de omgeving wint",
+                    marker.c_str(), v, aan ? "aan" : "uit");
             } else {
+                aan = true;
                 long ms = n ? std::strtol(inhoud, nullptr, 10) : 0;
                 if (ms <= 0) ms = 200;
                 char tekst[32];
@@ -1208,9 +1300,8 @@ void LaadMeetdraad() {
             }
         }
     }
-    if (!via_omgeving && !via_marker) {
-        if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) != 0)
-            Log("meetdraad: RG_COMPAT_SAMPLE=%s betekent uit", v);
+    if (!aan) {
+        if (omgeving_gezet) Log("meetdraad: RG_COMPAT_SAMPLE=%s betekent uit", v);
         return;
     }
 
@@ -1241,16 +1332,21 @@ void MeldMarkers() {
         {"rg-rhio-mutex.aan", "mutex-haken (RG_RHIO_MUTEX)"},
         {"rg-compat.aan", "meetdraad (RG_COMPAT_SAMPLE)"},
     };
+    /* Voor alle drie geldt dezelfde regel: een gezette variabele beslist (ook "0" = uit), de marker
+     * telt alleen als de variabele niet gezet is (MutexAan, StackAan, LaadMeetdraad; review 14,
+     * ronde 2). De regel noemt daarom de waarde en wat die betekent. */
     for (const auto& l : lijst) {
-        const bool aan = Bestaat(map + "\\" + l.naam);
-        char omg[8] = {0};
-        const bool via_omg = GetEnvironmentVariableA(
-                                 std::strcmp(l.naam, "rg-compat.aan") == 0      ? "RG_COMPAT_SAMPLE"
-                                 : std::strcmp(l.naam, "rg-rhio-mutex.aan") == 0 ? "RG_RHIO_MUTEX"
-                                 : "RG_RHIO_STACK",
-                                 omg, sizeof omg) != 0;
-        Log("marker %s: %s%s%s (%s)", l.naam, aan ? "aanwezig" : "afwezig",
-            via_omg ? ", omgeving expliciet" : "", aan && via_omg ? " -- de omgeving wint" : "", l.wat);
+        const bool aanwezig = Bestaat(map + "\\" + l.naam);
+        const char* var = std::strcmp(l.naam, "rg-compat.aan") == 0       ? "RG_COMPAT_SAMPLE"
+                          : std::strcmp(l.naam, "rg-rhio-mutex.aan") == 0 ? "RG_RHIO_MUTEX"
+                                                                          : "RG_RHIO_STACK";
+        char omg[32] = {0};
+        const bool via_omg = GetEnvironmentVariableA(var, omg, sizeof omg) != 0;
+        if (via_omg)
+            Log("marker %s: %s, omgeving expliciet %s=%s (%s)%s (%s)", l.naam, aanwezig ? "aanwezig" : "afwezig",
+                var, omg, omg[0] != '0' ? "aan" : "uit", aanwezig ? " -- de omgeving wint" : "", l.wat);
+        else
+            Log("marker %s: %s (%s)", l.naam, aanwezig ? "aanwezig" : "afwezig", l.wat);
     }
 }
 
@@ -1362,6 +1458,9 @@ DWORD WINAPI StackKlok(LPVOID) {
 }
 
 void StartStackKlok() {
+    /* Alleen als de stackmeting aanstaat: anders deed de draad elke twee seconden niets, het hele
+     * spel lang (review 14, ronde 2). StackAan wordt een keer bepaald en verandert daarna niet. */
+    if (!StackAan()) return;
     static volatile LONG gedaan = 0;
     if (InterlockedCompareExchange(&gedaan, 1, 0) != 0) return;
     HANDLE d = CreateThread(nullptr, 0, StackKlok, nullptr, 0, nullptr);

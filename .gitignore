@@ -36,6 +36,11 @@ __pycache__/
 !/patches/Halo/data/fmod/rg-fmod-host.exe
 build-saver/
 
+# De uit-map van het rg-rhio-gereedschap: bouwsel (rg-rhio.dll) en metingen van tools/dev
+# (rh-dump/*.bin, de A/B-foto's en resultaten). De opgeleverde DLL staat in patches/RobinHood/dropin.
+# Geen van de uitzonderingen hierboven (alleen patches/...) past op dit pad (review 14, ronde 2).
+/tools/rg-rhio/out/
+
 # Maar nooit de markerbestanden van het gereedschap (.aan). Die horen bij een meting in de
 # view van een speler en niet bij de bron: een marker in een drop-in-map zou de volgende
 # start stil veranderen (review 12, punt 4). Deze regel staat bewust HELEMAAL ACHTERAAN: in
