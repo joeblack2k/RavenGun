@@ -137,9 +137,15 @@ static DWORD WINAPI achtergrond(LPVOID arg)
 
     (void)arg;
 
-    /* Pas hier, niet in DllMain: de loader-lock is nu vrij. */
-    if (patchmem_apply_from_env() < 0) return 0;
+    /* De lijst is al gelezen en de hoofdmodule is al gedaan in DllMain (synchrone ronde). Hier dus
+     * NIET opnieuw lezen: dat zou de lijst opnieuw opbouwen en elke al toegepaste patch weer als
+     * "wachtend" zetten. Alleen wat nog op een module wacht komt hier aan bod. */
     if (patchmem_verbose()) patchmem_toon_modules();
+    if (patchmem_pending() == 0) {
+        if (patchmem_verbose())
+            fprintf(stderr, "patchmem: niets meer te doen na de synchrone ronde\n");
+        return 0;
+    }
 
     wacht = env_int("RAVENGUN_PATCHMEM_WACHT", 30);
     poll = env_int("RAVENGUN_PATCHMEM_POLL", 250);
@@ -148,7 +154,6 @@ static DWORD WINAPI achtergrond(LPVOID arg)
         fprintf(stderr, "patchmem: RAVENGUN_PATCHMEM_WACHT=0 -- geen achtergrondthread\n");
         return 0;
     }
-    if (patchmem_pending() == 0) return 0;
 
     begin = GetTickCount64();
     for (;;) {
@@ -184,6 +189,13 @@ BOOL WINAPI DllMain(HINSTANCE instantie, DWORD reden, LPVOID gereserveerd)
         verslag = patchmem_apply_from_env();
         g_alleen_hoofdmodule = 0;
         if (verslag < 0) return TRUE;   /* geen RAVENGUN_PATCHMEM_FILE: niets doen */
+
+        /* Wacht er na deze ronde niets meer, dan is een thread overbodig. */
+        if (patchmem_pending() == 0) {
+            if (patchmem_verbose())
+                fprintf(stderr, "patchmem: alles in de synchrone ronde gedaan; geen achtergrondthread\n");
+            return TRUE;
+        }
 
         draad = CreateThread(NULL, 0, achtergrond, NULL, 0, NULL);
         if (draad) {

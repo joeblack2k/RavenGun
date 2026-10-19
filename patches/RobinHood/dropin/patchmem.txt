@@ -10,7 +10,7 @@
 # Zonder dongle is er geen antwoord, dus altijd het foutpad. Twee NOP's laten de vergelijking
 # vervallen; de rest van het goedpad loopt gewoon door.
 #
-# game.exe+0x1526 (VA 0x491526): de uitslag zelf. 0x491521 zet de vlag 0x1a6be80 op 2
+# game.exe+0x91526 (VA 0x491526): de uitslag zelf. 0x491521 zet de vlag 0x1a6be80 op 2
 # ("onbekende HASP-uitslag": de aanroep 0x57a9e0 gaf iets buiten 0..0x1f, of de sprongtabel koos de
 # fouttak). Alleen de lezer op 0x40129b kijkt naar die vlag, dus met een 0 hier ziet het spel alles
 # als in orde. (Eerder stond hier een sprong op 0x4012a2; dat haalde de foutmelding weg maar het spel

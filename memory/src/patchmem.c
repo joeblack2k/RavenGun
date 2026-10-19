@@ -431,7 +431,19 @@ static void pas_toe(patchmem_patch *p)
 
     memcpy(voor, adres, lees);
 
-    /* 1. De controle. Klopt `verwacht` niet, dan wordt er NIETS geschreven. */
+    /* 1. Stond het al goed? Dan is de verwacht-controle niet meer van toepassing: de bytes zijn al
+     *    die van ons. Dat gebeurt in de tweede ronde van de Windows-kant, waar de synchrone ronde
+     *    in DllMain de hoofdmodule al gedaan heeft; zonder deze volgorde meldt die tweede ronde
+     *    elke patch als "verkeerde spelversie" terwijl alles goed staat. */
+    if (memcmp(voor, p->nieuw, p->nieuw_len) == 0) {
+        p->status = PATCHMEM_AL_GOED;
+        zet_melding(p, "de bytes op %s+0x%llx stonden al goed; niets geschreven",
+                    p->module, p->offset);
+        if (patchmem_verbose()) meld(p, voor, lees);
+        return;
+    }
+
+    /* 2. De controle. Klopt `verwacht` niet, dan wordt er NIETS geschreven. */
     if (p->verwacht_len > 0 && memcmp(voor, p->verwacht, p->verwacht_len) != 0) {
         char h_gevonden[3 * PATCHMEM_HEX_TONEN + 8];
         char h_verwacht[3 * PATCHMEM_HEX_TONEN + 8];
@@ -441,15 +453,6 @@ static void pas_toe(patchmem_patch *p)
         zet_melding(p, "de bytes op %s+0x%llx zijn %s, verwacht zegt %s (verkeerde spelversie?); "
                        "er is NIETS geschreven", p->module, p->offset, h_gevonden, h_verwacht);
         meld(p, voor, lees);
-        return;
-    }
-
-    /* 2. Stond het al goed? Dan niet nog eens schrijven. */
-    if (memcmp(voor, p->nieuw, p->nieuw_len) == 0) {
-        p->status = PATCHMEM_AL_GOED;
-        zet_melding(p, "de bytes op %s+0x%llx stonden al goed; niets geschreven",
-                    p->module, p->offset);
-        if (patchmem_verbose()) meld(p, voor, lees);
         return;
     }
 
@@ -528,20 +531,35 @@ static int lees_offset(const char *tekst, unsigned long long *uit)
     return 1;
 }
 
+/* Het pad van de lijst wordt EEN keer onthouden. Reden: het pad uit de omgeving is meestal
+ * betrekkelijk (patchmem.txt naast de exe) en de tweede ronde loopt pas als het spel al draait --
+ * en een spel mag van werkmap veranderen. Zonder dit leest die ronde een lege lijst en wist hij de
+ * hele toestand. */
+static char g_lijstpad[1024];
+
 static int lees_lijst(const char *pad)
 {
     FILE *fh;
     char regel[PATCHMEM_REGEL_MAX];
     unsigned int nummer = 0;
     size_t k;
+    const char *gebruik = pad;
 
-    g_aantal = 0;
-    g_gelezen = 0;
-    fh = fopen(pad, "r");
+    if (pad && *pad && g_lijstpad[0] == 0) {
+        snprintf(g_lijstpad, sizeof g_lijstpad, "%s", pad);
+    }
+    if (g_lijstpad[0] != 0) gebruik = g_lijstpad;
+
+    fh = fopen(gebruik, "r");
     if (!fh) {
-        fprintf(stderr, "patchmem: kan de patchlijst %s niet openen\n", pad);
+        fprintf(stderr, "patchmem: kan de patchlijst %s niet openen\n", gebruik);
         return 0;
     }
+
+    /* Pas leegmaken als het bestand echt open is: anders wist een mislukte tweede ronde de lijst
+     * en het verslag. */
+    g_aantal = 0;
+    g_gelezen = 0;
 
     while (fgets(regel, sizeof regel, fh)) {
         char *velden[PATCHMEM_VELDEN_MAX];
@@ -553,7 +571,7 @@ static int lees_lijst(const char *pad)
         if (*werk == '\0' || *werk == '#') continue;      /* leeg of commentaar */
         if (g_aantal >= PATCHMEM_MAX_PATCHES) {
             fprintf(stderr, "patchmem: meer dan %d patches in %s; de rest wordt overgeslagen\n",
-                    PATCHMEM_MAX_PATCHES, pad);
+                    PATCHMEM_MAX_PATCHES, gebruik);
             break;
         }
 
