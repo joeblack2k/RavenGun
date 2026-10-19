@@ -92,7 +92,7 @@
    "view_writable": [
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/ShellData",
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/temp",
-    "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/shell"
+    "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/shell/variables"
    ],
    "windowed_override": false,
    "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
@@ -193,7 +193,7 @@
    "view_writable": [
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/ShellData",
     "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/temp",
-    "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/shell"
+    "@TMP@/home/.local/share/ravengun/runtime/views/SegaGameShell/shell/variables"
    ],
    "windowed_override": false,
    "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"

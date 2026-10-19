@@ -1740,6 +1740,38 @@ int main() {
             write(ugi2, std::string("[Launch]\nViewWritable = ") + fout + "\n");
             CHECK(plan_direct("Spel", p, o, wp, w) == Verdict::Refused && contains(w, "ViewWritable"));
         }
+        /* Review 17 (K1): een schrijfmap die in de view AL een echte map is, met daarin een MAP-koppeling
+         * naar de NAS, wordt geweigerd. Dat is waarom "ViewWritable = shell" bij SegaGameShell ELKE start
+         * liet mislukken: Graphics, Sounds en variables zijn in die view map-koppelingen naar de NAS. In
+         * ViewWritable hoort alleen de map waarin de game werkelijk schrijft (shell/variables); de
+         * bestanden daarin worden dan lokaal gekopieerd en de NAS blijft ongemoeid. */
+        {
+            namespace D = ravengun::launch::direct_detail;
+            const fs::path nas_shell = home / "mnt/nas/SGS/shell";
+            write(nas_shell / "variables/erlg", "van de NAS\n");
+            write(nas_shell / "Attract - 261009.log", "oud logboek\n");
+            const fs::path v_shell = view / "SGS/shell";
+            fs::create_directories(v_shell);
+            fs::create_symlink((nas_shell / "variables").string(), (v_shell / "variables").string());
+            fs::create_symlink((nas_shell / "Attract - 261009.log").string(), (v_shell / "Attract - 261009.log").string());
+            std::vector<std::string> wl;
+            std::string we;
+            DirectPlan heel;
+            heel.view_writable = {v_shell.string()};
+            CHECK(!D::place_view_writable(heel, p, wl, we));
+            CHECK(contains(we, "koppeling naar een map"));
+            CHECK(fs::is_symlink(v_shell / "variables"));                        // de map-koppeling blijft staan
+            /* Een bestands-koppeling kan al lokaal gemaakt zijn voordat de map-koppeling aan de beurt was
+             * (de map wordt in leesorde doorlopen). Dat is onschadelijk -- het is een kopie, en de start
+             * wordt geweigerd -- maar de NAS mag er niets van merken: */
+            CHECK(slurp(nas_shell / "Attract - 261009.log") == "oud logboek\n");
+            DirectPlan alleen;
+            alleen.view_writable = {(v_shell / "variables").string()};
+            CHECK(D::place_view_writable(alleen, p, wl, we));
+            CHECK(!fs::is_symlink(v_shell / "variables") && fs::is_directory(v_shell / "variables"));
+            CHECK(slurp(v_shell / "variables/erlg") == "van de NAS\n");           // lokaal gekopieerd
+            CHECK(slurp(nas_shell / "variables/erlg") == "van de NAS\n");         // NAS ongemoeid
+        }
         // A8-schrijflaag: de moeilijke gevallen van de schrijflaag (review 10).
         {
             namespace D = ravengun::launch::direct_detail;
