@@ -744,3 +744,27 @@ twee andere sporen over: de aanroeper van de hulpfunctie volgen (wat doet hij me
 1-4), en kijken of het spel misschien op een *ander* kanaal wacht (de daemon schrijft de
 bordtoestand ook in het gedeelde geheugen; het spel zou die zelf kunnen lezen in plaats van via de
 seriele poort).
+
+### De aanroeper van de bordhulp: een peillus met slaap, die niet loopt (2026-10-19 06:00)
+
+De bordhulpfunctie begint op **0x490140** (niet 0x4902a0; daar zit het midden van de code) en wordt
+vanaf **0x48f976** aangeroepen. Die aanroeper is een peillus:
+
+```
+0x48f976  call 0x490140            ; bordhulp: antwoord lezen
+0x48f981  cmpl $0x64,0x1a6be5c     ; teller tegen 100
+0x48f988  jle  0x48f9f3            ; nog niet 100: terug
+0x48f99b  mov  0x5ec0a4,%edi       ; Sleep
+0x48f9a1  push $0x64 / call *%edi  ; Sleep(100)
+0x48f9ab  push $0x7d0 / call *%edi ; Sleep(2000)
+0x48f9c8  cmp  $0x32,%eax          ; teller tegen 50
+```
+
+Dat leek de verklaring voor "het duurt lang": honderd ronden met 2 seconden slaap is ruim drie
+minuten. **Gemeten: het is het niet.** Een run van vijf minuten (foto's op 60, 120, 180, 240 en 290 s)
+blijft op `BOOTING . / I/O ... CHECKING` staan (23 kB per foto), en in het levende proces staan de
+tellers van die lus op **0**: `0x1a6be5c = 0`, `0x1a6bf04 = 0`, `0x1a6bf00 = 0` (en ook
+`0x1a6be74`/`0x1a6be80`, de code en de vlag van de beveiligingscontrole, staan op 0). Die peillus
+wordt dus **niet uitgevoerd**; het spel wacht ergens anders, terwijl het die tekst al op het scherm
+heeft gezet. Volgende stap: uitzoeken welke draad het scherm tekent en waar die op wacht (de
+meetdraad van rg-compat kan dat per draad laten zien, zoals bij Mario Kart).
