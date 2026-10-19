@@ -485,6 +485,48 @@ const char* AntwoordStand() {
     return stand;
 }
 
+// --- Het bordbeeld van de daemon (ons eigen gedeelde geheugen) --------------------------------
+// De daemon schrijft de mapping "TeknoParrot_JvsState" (indeling WartranTroopers): besturing als
+// 32-bits bitveld op offset 8 (bit 0 test, 1 service, 2 munt 1, 3 munt 2, 4 menu omhoog, 5 omlaag,
+// per speler start/trekker/herladen/granaat/extra) en de richtbytes op 12..19 (P1X, P1Y, P2X, ...).
+// Zo hoeft het bord niet zelf bedacht te worden: het is de toestand die de daemon al bijhoudt.
+unsigned char* g_bordbeeld = nullptr;
+
+using OpenFileMappingAFn2 = HANDLE(WINAPI*)(DWORD, BOOL, LPCSTR);
+using MapViewOfFileFn2 = LPVOID(WINAPI*)(HANDLE, DWORD, DWORD, DWORD, SIZE_T);
+
+void OpenBordbeeld() {
+    if (g_bordbeeld) return;
+    HMODULE k = GetModuleHandleA("KERNEL32.dll");
+    if (!k) return;
+    auto open = reinterpret_cast<OpenFileMappingAFn2>(GetProcAddress(k, "OpenFileMappingA"));
+    auto view = reinterpret_cast<MapViewOfFileFn2>(GetProcAddress(k, "MapViewOfFile"));
+    if (!open || !view) return;
+    /* Onze eigen haken staan op de importtabel van het spel, niet op deze aanroepen; we gebruiken
+     * daarom de echte functies rechtstreeks via GetProcAddress. */
+    HANDLE h = open(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
+    if (!h) {
+        Log("bordbeeld: mapping TeknoParrot_JvsState niet gevonden (fout %lu)",
+            static_cast<unsigned long>(GetLastError()));
+        return;
+    }
+    g_bordbeeld = static_cast<unsigned char*>(view(h, FILE_MAP_READ, 0, 0, 0));
+    Log("bordbeeld: mapping TeknoParrot_JvsState %s", g_bordbeeld ? "gekoppeld" : "NIET gekoppeld");
+}
+
+/* De toestand in het antwoord zetten. De kaderregel blijft: byte 0 is de code, byte 6 de som van de
+ * eerste zes bytes. Bytes 1-5 dragen de toestand: 1 = besturingsbyte (munt/start/trekker), 2 = de
+ * richtas van speler 1 (X), 3 = die van speler 1 (Y), 4 en 5 blijven 0. */
+void VulToestand(unsigned char* k) {
+    if (!g_bordbeeld) return;
+    const unsigned besturing = *reinterpret_cast<const unsigned*>(g_bordbeeld + 8);
+    k[1] = static_cast<unsigned char>(besturing & 0xff);
+    k[2] = g_bordbeeld[12];
+    k[3] = g_bordbeeld[13];
+    k[4] = 0;
+    k[5] = 0;
+}
+
 void BouwAntwoord() {
     if (g_laatste_lengte < 7) return;
     unsigned char* k = g_laatste_kader;
@@ -498,6 +540,14 @@ void BouwAntwoord() {
         k[0] = static_cast<unsigned char>(std::strtoul(keuze, nullptr, 16));
     } else if (!CodeGoed(k[0])) {
         k[0] = 0x94;   /* deze opdrachtcode is geen geldig antwoord: "bord aanwezig" */
+    }
+    /* De toestand uit ons eigen gedeelde geheugen (de daemon schrijft die), tenzij de proefstand
+     * "niks" of "nul" aan staat. Met RG_RHIO_BORD=0 blijft het een echo. */
+    char bord[8];
+    const bool met_bord = GetEnvironmentVariableA("RG_RHIO_BORD", bord, sizeof bord) == 0 || bord[0] != '0';
+    if (met_bord) {
+        OpenBordbeeld();
+        VulToestand(k);
     }
     unsigned som = 0;
     for (int i = 0; i < 6; ++i) som += k[i];

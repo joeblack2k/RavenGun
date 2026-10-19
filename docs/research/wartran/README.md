@@ -695,3 +695,29 @@ welke bytes van het antwoord de bordtoestand (schakelaars, bord-id, dongle-antwo
 Voor de andere Wartran-spellen (Coopers 9!) is dit protocol vermoedelijk hetzelfde: dezelfde
 7-byte kaders, dezelfde somregel en dezelfde lijst geldige codes -- dat is de eerste zaak om daar te
 proberen.
+
+### Het antwoord draagt nu de bordtoestand van onze eigen daemon (2026-10-19 05:30)
+
+In plaats van een vast echokader vult `rg_rhio` de bytes 1-5 van het antwoord nu uit **ons eigen
+gedeelde geheugen**: de mapping `TeknoParrot_JvsState` die de daemon al schrijft (indeling
+WartranTroopers uit `packaging/tp-shm-profiles.json` -- besturing als 32-bits bitveld op offset 8,
+richtbytes op 12..19). Byte 1 is de besturingsbyte (munt/start/trekker), byte 2 en 3 zijn de richtas
+van speler 1 (X en Y), 4 en 5 blijven 0; byte 0 blijft de code en byte 6 de som van de eerste zes
+bytes. Gemeten in het logboek:
+
+```
+frame-paar: opdracht 00 b8 66 1b 23 00 5c -> antwoord 00 00 80 80 00 00 00
+frame-paar: opdracht 25 c7 66 1b 23 00 90 -> antwoord 94 00 80 80 00 00 94
+```
+
+`bordbeeld: mapping TeknoParrot_JvsState gekoppeld` staat er meteen bij, en `80 80` is precies het
+midden van het scherm zoals de daemon dat schrijft. De somregel klopt (0x94+0x00+0x80+0x80+0x00+0x00
+= 0x194 -> 0x94). Met `RG_RHIO_BORD=0` valt hij terug op de echo.
+
+**Het spel blijft nog op `BOOTING . / I/O ... CHECKING` staan.** Belangrijk om te weten: de lezer op
+0x490357-0x4904a0 vergelijkt *alleen* byte 0 (de lijst geldige codes) en byte 6 (de som) -- verder
+niets. Onze kaders worden dus geaccepteerd; de I/O-controle hangt aan iets anders. Twee sporen voor de
+volgende ronde: (a) de aanroeper van de hulpfunctie volgen (het echte functiebegin ligt vóór 0x4902a0;
+een `call` naar 0x4902a0 is er niet, dus de proloog staat eerder in het blok) en kijken wat hij met de
+bewaarde bytes 1-4 doet; (b) de daemon een munt/start laten aanbieden terwijl het spel op de controle
+staat -- misschien wil de controle een toestandsverandering zien in plaats van een vaste waarde.
