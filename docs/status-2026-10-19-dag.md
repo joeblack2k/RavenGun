@@ -362,13 +362,22 @@ Twee dingen zijn hier de winst van deze ronde:
 1. **De IAuth van AMAuthd geeft `hr 0x00000000`** -- de automatisering (`PrefixSetup` met
    PreprocessAmAuth, de kopie naar `AMCUS/` en `regsvr32 /s`) doet dus precies wat de handmatige
    stappen deden. Zonder die stappen gaf dezelfde aanroep niets.
-2. Het spel loopt daarna door tot in de **ShareK**-laag (`RG_SHAREK_FAKE=1` in de drop-in) en blijft
-   daar staan: **`slot 7` wordt aangeroepen en daarna gebeurt er niets meer**. Dat is waar het zwarte
-   scherm vandaan komt -- niet van D3D (het apparaat wordt gemaakt, DXVK staat aan met de juiste
-   overrides en `DXVK_HUD=1` in de omgeving, maar er wordt niets getoond omdat het spel op dat
-   ShareK-antwoord wacht).
+2. Het spel loopt daarna door tot in de **ShareK**-laag (`RG_SHAREK_FAKE=1` in de drop-in):
+   `QueryInterface`, `CoCreateInstance({CCC44B2A-...})` en **`slot 7`** (= `StartIpcClient`) worden
+   aangeroepen. Die fake **antwoordt daar wel op** -- `tools/rg-mfcam/sharek_fake.h` beschrijft slot 7
+   als `StartIpcClient([out] VARIANT_BOOL*)` en de fake zet hem op -1 ("Startup ShareK-Client"), en
+   het logboekregeltje `slot 7 aangeroepen (beller 00000000)` is alleen de laatste regel die *onze*
+   DLL schrijft. **Correctie op mijn eerste conclusie**: het spel wacht daar niet op een antwoord; het
+   gaat daarna zijn eigen weg en roept onze DLL niet meer aan. Het zwarte scherm zit dus **na** de
+   ShareK-afhandeling.
 
-**Volgende stap voor (F)**: de ShareK-fake in `src/ravengun/sharek/` (met zijn eigen proef
-`ravengun_sharek_fake_tests`) slot 7 laten antwoorden zoals de echte ShareK-server doet. Daarvoor is
-de interface van dat slot nodig (de docs van de ShareK-kant en de bestaande fake geven de andere
-slots al een antwoord).
+Stand van de renderkant: het spel maakt zijn D3D9-apparaat (logboek: `Windowed: true`, `Swap effect:
+1`), DXVK staat aan met de juiste `WINEDLLOVERRIDES` (d3d8/d3d9/d3d10core/d3d11/dxgi = n), `DXVK_HUD=1`
+staat in de omgeving -- en er verschijnt geen HUD en niets anders op het scherm. Met `WINEDEBUG` in de
+drop-in-omgeving lukt het niet om de d3d-kanalen aan te zetten (de motor zet zelf `-all`); dat moet via
+de `--log-full`-weg van rg-direct of door de motor een `WINEDEBUG`-sleutel te geven.
+
+**Volgende stap voor (F)**: de presentatie-kant. Twee goedkope kandidaten: (a) de motor een
+`WINEDEBUG`-sleutel geven zodat `+d3d9,+dxgi` echt doorkomt, en (b) kijken of het spel zijn venster wel
+presenteert maar niets tekent (het spel gebruikt `RG_JVS_COMPORT=COM3`; net als bij Robin Hood kan het
+op bordgegevens wachten voordat het zijn eerste frame tekent).
