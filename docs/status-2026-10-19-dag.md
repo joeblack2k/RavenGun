@@ -60,6 +60,13 @@ niet beter; de instelling is daarna teruggezet op `false`.
 
 
 
+
+### Nog een proef: de resolutie (19:25)
+
+Het profiel vraagt 1360x768 en het venster is 1920x1080. Met `General/ResolutionWidth/Height` op
+1920x1080 gezet (alleen de geinstalleerde kopie) is de start herhaald: opname weer **10.669 bytes**
+(zwart), geen verschil. Daarna teruggezet.
+
 ### De kern van het verschil: de JVS-pijp deed het toen wel (19:23)
 
 Het laatste regeltje van de werkende 15-10-meting is de sleutel:
