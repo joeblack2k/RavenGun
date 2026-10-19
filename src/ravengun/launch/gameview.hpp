@@ -28,9 +28,11 @@ struct GameViewSpec {
     // Proton meldt een gelinkte map als map plus reparse point (GetFileAttributes 0x410, gemeten 2026-10-16); een game die op precies
     // FILE_ATTRIBUTE_DIRECTORY (0x10) controleert, mist hem dan (Haunted Museum II: ".\data" -> chdir("..\"), SOUND ERROR).
     std::vector<std::string> real_dirs;
-    // [Launch] ViewWritable: paden ten opzichte van de view-wortel waar de game zelf in schrijft. De
-    // verversing maakt daar NOOIT een link naar de NAS (review 10, A6): een link binnen zo'n map laat
-    // een schrijvende game alsnog op de NAS uitkomen.
+    // [Launch] ViewWritable: paden ten opzichte van de view-wortel waar de game zelf in schrijft (zonder hoofdletters vergeleken).
+    // Opbouw en verversing zetten NOOIT een link IN zo'n map (review 10, A6): een link daarin laat een schrijvende game alsnog op de
+    // NAS uitkomen. Een echte schrijfmap blijft altijd staan, ook leeg (dat is de stand van de game); een pad uit real_dirs houdt op
+    // bij de map erboven. Ontbreekt de schrijfmap, dan een link naar de gamemap als die hem heeft (zoals in een nieuwe view; de
+    // directe route maakt er bij de start een echte map met een kopie van, place_view_writable), anders een lege echte map.
     std::vector<std::string> writable_dirs;
 };
 

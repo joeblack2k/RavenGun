@@ -54,6 +54,7 @@ static std::string slurp(const fs::path& p) {
     return ss.str();
 }
 static bool contains(const std::string& s, const std::string& part) { return s.find(part) != std::string::npos; }
+static bool lexists_any(const fs::path& p) { std::error_code ec; return fs::symlink_status(p, ec).type() != fs::file_type::not_found && !ec; }
 
 static const char* kGameIni = R"([Game]
 Profile = Spel
@@ -1853,6 +1854,65 @@ int main() {
         fs::remove_all(fs::path(p.views()) / "Nas");
         CHECK(plan_direct("Nas", p, o, lp, lw) == Verdict::Refused && contains(lw, "ViewWritable vraagt een view"));
         fs::remove(nuser);
+    }
+
+    // (l) A6: de opbouw en de verversing van de view zetten nooit een link IN een schrijfmap en maken van een (lege) echte schrijfmap
+    // nooit weer een link; een ontbrekende schrijfmap komt terug. De vorm van InfinityBladeFX (ViewRealDirs = ViewWritable =
+    // SwordGame/Logs) en een schrijfmap in de wortel.
+    {
+        const fs::path ngame = home / "mnt/nas/Nas Spel";
+        const fs::path nview = fs::path(p.views()) / "Nas";
+        const fs::path nuser = fs::path(p.dirs.user) / "Nas/game.ini";
+        write(ngame / "SwordGame/Logs/Launch.log", "nas-log\n");
+        write(ngame / "SwordGame/Config/a.ini", "a\n");
+        write(ngame / "Save/stand.dat", "nas-stand\n");
+        write(nuser, "[Launch]\nViewRealDirs = SwordGame/Logs\nViewWritable = swordgame/logs, Save, Leeg\n");
+        fs::remove_all(nview);
+        DirectOptions mo = o;
+        mo.make_view = true;
+        DirectPlan ap;
+        std::string w, err;
+        std::vector<std::string> l;
+        auto start = [&]() {
+            l.clear();
+            err.clear();
+            const bool ok = plan_direct("Nas", p, mo, ap, w) == Verdict::Ok && apply_direct(ap, p, l, err);
+            if (!ok) std::fprintf(stderr, "A6-start: %s %s\n", w.c_str(), err.c_str());
+            return ok;
+        };
+        CHECK(start());
+        CHECK(fs::is_directory(nview / "SwordGame") && !fs::is_symlink(nview / "SwordGame") && fs::is_symlink(nview / "SwordGame/Config"));
+        CHECK(!fs::is_symlink(nview / "SwordGame/Logs") && !fs::is_symlink(nview / "SwordGame/Logs/Launch.log") &&
+              slurp(nview / "SwordGame/Logs/Launch.log") == "nas-log\n");
+        CHECK(!fs::is_symlink(nview / "Save") && slurp(nview / "Save/stand.dat") == "nas-stand\n");
+        CHECK(fs::is_directory(nview / "Leeg") && !fs::is_symlink(nview / "Leeg"));   // niet in de gamemap: een lege echte map
+        // De game schrijft; op de NAS komt er iets bij. Verversen zet daar geen link voor en laat de stand van de game staan.
+        write(nview / "SwordGame/Logs/Launch.log", "eigen\n");
+        write(ngame / "SwordGame/Logs/Launch-backup-1.log", "b\n");
+        write(ngame / "Save/nieuw.dat", "n\n");
+        CHECK(start());
+        CHECK(!fs::exists(nview / "SwordGame/Logs/Launch-backup-1.log") && !fs::is_symlink(nview / "SwordGame/Logs/Launch-backup-1.log"));
+        CHECK(!fs::is_symlink(nview / "Save/nieuw.dat") && !fs::exists(nview / "Save/nieuw.dat"));
+        CHECK(slurp(nview / "SwordGame/Logs/Launch.log") == "eigen\n");
+        // Een leeggemaakte schrijfmap in de wortel blijft een lege echte map (eerder: weer een link, en de volgende start vulde hem
+        // opnieuw van de NAS over de stand van de game heen).
+        fs::remove_all(nview / "Save");
+        fs::create_directory(nview / "Save");
+        CHECK(start());
+        CHECK(fs::is_directory(nview / "Save") && !fs::is_symlink(nview / "Save") && fs::is_empty(nview / "Save"));
+        // Een ontbrekende schrijfmap komt terug: met de inhoud van de gamemap (een link die de start omzet in een echte kopie).
+        fs::remove_all(nview / "SwordGame/Logs");
+        CHECK(start());
+        CHECK(!fs::is_symlink(nview / "SwordGame/Logs") && slurp(nview / "SwordGame/Logs/Launch-backup-1.log") == "b\n" &&
+              !fs::is_symlink(nview / "SwordGame/Logs/Launch.log"));
+        // Alleen de verversing (geen start): ook dan geen link IN een schrijfmap.
+        write(ngame / "SwordGame/Logs/later.log", "l\n");
+        CHECK(plan_direct("Nas", p, mo, ap, w) == Verdict::Ok && !lexists_any(nview / "SwordGame/Logs/later.log"));
+        // Niets op de NAS veranderd.
+        CHECK(slurp(ngame / "SwordGame/Logs/Launch.log") == "nas-log\n" && slurp(ngame / "Save/stand.dat") == "nas-stand\n");
+        CHECK(!fs::exists(ngame / "Leeg") && !fs::exists(ngame / "SwordGame/Logs/teknoparrot.ini"));
+        fs::remove(nuser);
+        fs::remove_all(nview);
     }
 
     // (b)-(k) De schrijflaag zelf, met een nep-view en een nep-NAS onder ~/mnt (on_nas() ziet ~/mnt als NAS).

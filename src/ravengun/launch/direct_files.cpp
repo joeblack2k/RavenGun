@@ -175,8 +175,12 @@ std::vector<std::string> schrijf_mappen(const gsn::Ini& settings) {
     std::string in = settings.get("Launch", "ViewWritable");
     for (char& c : in) if (c == ';') c = ',';
     for (const std::string& r : nonempty_split(in, ',')) {
-        const std::string t = trim(r);
-        if (!t.empty()) uit.push_back(t);
+        std::string t = trim(r);
+        std::replace(t.begin(), t.end(), '\\', '/');
+        const std::string n = normpath(t);
+        // Een ongeldig pad (absoluut of met ..) weigert direct.cpp; hier komt het nooit in de view.
+        if (t.empty() || t[0] == '/' || n == "." || n == ".." || n.starts_with("../")) continue;
+        uit.push_back(n);
     }
     return uit;
 }
@@ -199,7 +203,8 @@ bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& g
         const std::string wortel = view_wortel(dirname(game), p), rel = relpath(abspath(game), wortel), echt = realpath_(game);
         if (make && echt.ends_with("/" + rel) && !islink(wortel)) {
             std::vector<std::string> l;
-            if (!refresh_game_view({echt.substr(0, echt.size() - rel.size() - 1), wortel, rel, vs.empty_dirs, {}, vs.real_dirs}, nas, l, err)) {
+            if (!refresh_game_view({echt.substr(0, echt.size() - rel.size() - 1), wortel, rel, vs.empty_dirs, {}, vs.real_dirs, schrijf_mappen(settings)},
+                                   nas, l, err)) {
                 err = "view: " + err;
                 return false;
             }
@@ -218,7 +223,8 @@ bool plan_view(const std::string& name, const gsn::Ini& settings, std::string& g
     std::string gdir = dirname(abspath(game));
     for (int i = 0; i < n; ++i) gdir = dirname(gdir);
     const std::string rel = relpath(abspath(game), gdir), view = pjoin(views, name), vgame = pjoin(view, rel);
-    const GameViewSpec spec{gdir, view, rel, vs.empty_dirs, et == "ElfLdr2" ? pjoin(p.tp, "ElfLdr2") : std::string(), vs.real_dirs};
+    const GameViewSpec spec{gdir, view, rel, vs.empty_dirs, et == "ElfLdr2" ? pjoin(p.tp, "ElfLdr2") : std::string(), vs.real_dirs,
+                            schrijf_mappen(settings)};
     bool leeg = false;
     if (isdir(view) && !islink(view)) {
         std::error_code ec;
