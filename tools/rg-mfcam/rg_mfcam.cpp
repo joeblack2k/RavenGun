@@ -816,6 +816,7 @@ void setup_dongle_trace() {
     rg_dongle::g_fake = lstrcmpiA(v, "fake") == 0;
     AddVectoredExceptionHandler(1, reinterpret_cast<PVECTORED_EXCEPTION_HANDLER>(&rg_dongle::hook_vectored));
     rg_dongle::g_chain = lstrcmpiA(v, "chain") == 0;
+    rg_dongle::g_cm_fake = rg_dongle::g_fake;
     rg_log("dongle: on (%s), tracing SetupAPI and DeviceIoControl", v);
     HMODULE self = GetModuleHandleW(nullptr);
     auto koppel = [self](const char* dll, const char* fn, void* repl, void** oud) {
@@ -837,6 +838,16 @@ void setup_dongle_trace() {
            reinterpret_cast<void**>(&rg_dongle::g_crt_exit));
     koppel("KERNEL32.dll", "TerminateProcess", reinterpret_cast<void*>(&rg_dongle::hook_terminate_process),
            reinterpret_cast<void**>(&rg_dongle::g_terminate_process));
+    koppel("setupapi.dll", "CM_Locate_DevNodeW", reinterpret_cast<void*>(&rg_dongle::hook_cm_locate),
+           reinterpret_cast<void**>(&rg_dongle::g_cm_locate));
+    koppel("setupapi.dll", "CM_Get_DevNode_Registry_PropertyW", reinterpret_cast<void*>(&rg_dongle::hook_cm_prop),
+           reinterpret_cast<void**>(&rg_dongle::g_cm_prop));
+    koppel("setupapi.dll", "CM_Get_Child", reinterpret_cast<void*>(&rg_dongle::hook_cm_child),
+           reinterpret_cast<void**>(&rg_dongle::g_cm_child));
+    koppel("setupapi.dll", "CM_Get_Parent", reinterpret_cast<void*>(&rg_dongle::hook_cm_parent),
+           reinterpret_cast<void**>(&rg_dongle::g_cm_parent));
+    koppel("setupapi.dll", "CM_Get_Sibling", reinterpret_cast<void*>(&rg_dongle::hook_cm_sibling),
+           reinterpret_cast<void**>(&rg_dongle::g_cm_sibling));
     koppel("KERNEL32.dll", "ExitThread", reinterpret_cast<void*>(&rg_dongle::hook_exit_thread),
            reinterpret_cast<void**>(&rg_dongle::g_exit_thread));
     // Inline hooks on ntdll: a direct terminate does not go through any import table.

@@ -24,3 +24,9 @@ MK_AGP3_FINAL.exe|0x8149a|0f84c7000000|909090909090
 # het spel en het toepassen van deze patch zit dus een korte race; voor deze patch (een poortwachter
 # in de opstartcode) is dat gemeten ruim genoeg, maar een patch die *voor* de eerste code van het
 # spel moet staan kan hier te laat komen. De lader zelf (TP_PRELOAD_DLL) laadt de motor wel synchroon.
+
+# Drive cabinet board worker (0x607C50): with the USB dongle fake present the game starts a worker
+# that looks the drive board up in the device tree and dereferences a null object at 0x6080A7
+# (mov ecx,[esi+0xce8] with esi=0). Returning "not available" from the worker entry keeps the game
+# running; the steering check then reports force feedback off, exactly like the TP comparison run.
+MK_AGP3_FINAL.exe|0x207c50|558bec|b000c3

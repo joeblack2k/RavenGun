@@ -336,4 +336,75 @@ inline LONG CALLBACK hook_vectored(EXCEPTION_POINTERS* ep) {
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
+// --- the device-tree walk that follows the dongle read (CM_* from setupapi) -------------------------
+using cm_locate_fn = CONFIGRET(WINAPI*)(PDEVINST, DEVINSTID_W, ULONG);
+using cm_prop_fn = CONFIGRET(WINAPI*)(DEVINST, ULONG, PULONG, PBYTE, PULONG, ULONG);
+using cm_one_fn = CONFIGRET(WINAPI*)(DEVINST, PDEVINST);
+inline cm_locate_fn g_cm_locate = nullptr;
+inline cm_prop_fn g_cm_prop = nullptr;
+inline cm_one_fn g_cm_child = nullptr;
+inline cm_one_fn g_cm_parent = nullptr;
+inline cm_one_fn g_cm_sibling = nullptr;
+inline bool g_cm_fake = false;   // RG_DONGLE=fake: answer the walk ourselves
+
+inline CONFIGRET WINAPI hook_cm_locate(PDEVINST dev, DEVINSTID_W id, ULONG flags) {
+    CONFIGRET r = g_cm_locate ? g_cm_locate(dev, id, flags) : CR_FAILURE;
+    if (g_log) g_log("dongle: CM_Locate_DevNodeW(id %ls) -> %lu devinst 0x%lx", id ? id : L"(null)",
+                     static_cast<unsigned long>(r), dev ? static_cast<unsigned long>(*dev) : 0ul);
+    if (g_cm_fake && dev) { *dev = 0x1000; r = CR_SUCCESS; }
+    return r;
+}
+
+inline CONFIGRET WINAPI hook_cm_prop(DEVINST dev, ULONG prop, PULONG type, PBYTE buf, PULONG len, ULONG flags) {
+    if (g_cm_fake) {
+        // Property 0x0A is the driver key and 0x01 the device description. The game matches the
+        // driver key against the string it read from the dongle and, on a match, copies the
+        // description out. With a zero dongle payload the search string is empty, so answer empty.
+        if (prop == 0x0A || prop == 0x01) {
+            const wchar_t* val = prop == 0x0A ? L"" : L"RavenGun Drive Board";
+            const size_t bytes = (wcslen(val) + 1) * sizeof(wchar_t);
+            if (type) *type = REG_SZ;
+            if (buf && len && *len >= bytes) std::memcpy(buf, val, bytes);
+            if (len) *len = static_cast<ULONG>(bytes);
+            if (g_log) g_log("dongle:  property 0x%lx -> \"%ls\" (fake)", static_cast<unsigned long>(prop), val);
+            return CR_SUCCESS;
+        }
+        if (g_log) g_log("dongle:  property 0x%lx -> CR_NO_SUCH_VALUE (fake)", static_cast<unsigned long>(prop));
+        return CR_NO_SUCH_VALUE;
+    }
+    const CONFIGRET r = g_cm_prop ? g_cm_prop(dev, prop, type, buf, len, flags) : CR_FAILURE;
+    if (g_log) {
+        g_log("dongle: CM_Get_DevNode_Registry_PropertyW(dev 0x%lx, prop 0x%lx) -> %lu type 0x%lx len %lu",
+              static_cast<unsigned long>(dev), static_cast<unsigned long>(prop), static_cast<unsigned long>(r),
+              type ? static_cast<unsigned long>(*type) : 0ul, len ? static_cast<unsigned long>(*len) : 0ul);
+        if (r == CR_SUCCESS && buf && len && *type == REG_SZ && *len >= 2)
+            g_log("dongle:  property value \"%ls\"", reinterpret_cast<const wchar_t*>(buf));
+    }
+    return r;
+}
+
+inline CONFIGRET WINAPI hook_cm_child(DEVINST dev, PDEVINST out) {
+    if (g_cm_fake) { if (g_log) g_log("dongle: CM_Get_Child(0x%lx) -> none (fake)", static_cast<unsigned long>(dev)); return CR_NO_SUCH_DEVNODE; }
+    const CONFIGRET r = g_cm_child ? g_cm_child(dev, out) : CR_FAILURE;
+    if (g_log) g_log("dongle: CM_Get_Child(dev 0x%lx) -> %lu child 0x%lx", static_cast<unsigned long>(dev),
+                     static_cast<unsigned long>(r), out ? static_cast<unsigned long>(*out) : 0ul);
+    return r;
+}
+
+inline CONFIGRET WINAPI hook_cm_parent(DEVINST dev, PDEVINST out) {
+    if (g_cm_fake) { if (g_log) g_log("dongle: CM_Get_Parent(0x%lx) -> none (fake)", static_cast<unsigned long>(dev)); return CR_NO_SUCH_DEVNODE; }
+    const CONFIGRET r = g_cm_parent ? g_cm_parent(dev, out) : CR_FAILURE;
+    if (g_log) g_log("dongle: CM_Get_Parent(dev 0x%lx) -> %lu parent 0x%lx", static_cast<unsigned long>(dev),
+                     static_cast<unsigned long>(r), out ? static_cast<unsigned long>(*out) : 0ul);
+    return r;
+}
+
+inline CONFIGRET WINAPI hook_cm_sibling(DEVINST dev, PDEVINST out) {
+    if (g_cm_fake) { if (g_log) g_log("dongle: CM_Get_Sibling(0x%lx) -> none (fake)", static_cast<unsigned long>(dev)); return CR_NO_SUCH_DEVNODE; }
+    const CONFIGRET r = g_cm_sibling ? g_cm_sibling(dev, out) : CR_FAILURE;
+    if (g_log) g_log("dongle: CM_Get_Sibling(dev 0x%lx) -> %lu sibling 0x%lx", static_cast<unsigned long>(dev),
+                     static_cast<unsigned long>(r), out ? static_cast<unsigned long>(*out) : 0ul);
+    return r;
+}
+
 }  // namespace rg_dongle
