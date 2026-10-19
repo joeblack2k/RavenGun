@@ -1013,6 +1013,62 @@ int run_plan(const std::string& plan_file) {
         }
     }
 
+    // 2z. [Launch] PrefixSetup: de eenmalige stappen per prefix, elk met een stempelbestand in de
+    // prefix (zie direct.hpp). Een stap die al gedaan is wordt overgeslagen; een mislukte stap stopt
+    // de start. Draait met de wine van de lader, zonder WINEARCH (de prefix van Mario Kart DX is
+    // 64-bits en met WINEARCH=win32 weigert wine).
+    for (const auto& stap : plan.prefix_setup) {
+        if (!stap.mark.empty() && ::access(stap.mark.c_str(), F_OK) == 0) {
+            log("prefixstap: al gedaan (" + stap.tekst + ")");
+            continue;
+        }
+        bool goed = true;
+        if (stap.copy) {
+            std::error_code ec;
+            std::filesystem::create_directories(std::filesystem::path(stap.to).parent_path(), ec);
+            std::filesystem::copy_file(stap.from, stap.to, std::filesystem::copy_options::overwrite_existing, ec);
+            goed = !ec;
+            log(std::string("prefixstap: kopieren ") + (goed ? "klaar" : "MISLUKT") + ": " + stap.from + " -> " +
+                stap.to + (goed ? "" : " (" + ec.message() + ")"));
+        } else {
+            log("prefixstap: " + join_quoted(stap.argv) + " (cwd " + stap.cwd + ")");
+            Child c = spawn(stap.argv, stap.cwd, env, true, false);
+            if (c.pid <= 0) return 1;
+            read_lines(c.out, [&](const std::string& l) { log("prefixstap: " + decode_console(l)); });
+            /* Een prefixstap mag de start nooit laten hangen (regsvr32 zonder /s wacht bijvoorbeeld op
+             * een venster). Na deze tijd gaat hij dood en mislukt de stap. */
+            constexpr int kPrefixstapTimeout = 180;
+            const auto einde = std::chrono::steady_clock::now() + std::chrono::seconds(kPrefixstapTimeout);
+            int st = 0;
+            bool klaar = false;
+            while (std::chrono::steady_clock::now() < einde) {
+                const pid_t r = ::waitpid(c.pid, &st, WNOHANG);
+                if (r == c.pid) { klaar = true; break; }
+                if (r < 0 && errno != EINTR) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            if (!klaar) {
+                ::kill(c.pid, SIGKILL);
+                ::waitpid(c.pid, &st, 0);
+                log("prefixstap: na " + std::to_string(kPrefixstapTimeout) + " s afgebroken (hing)");
+                goed = false;
+            } else {
+                goed = WIFEXITED(st) && WEXITSTATUS(st) == 0;
+            }
+            log(std::string("prefixstap: klaar (status ") + std::to_string(st) + ")" + (goed ? "" : " -- MISLUKT"));
+        }
+        if (!goed) {
+            log("prefixstap MISLUKT: " + stap.tekst + "; de game wordt niet gestart");
+            return 1;
+        }
+        if (!stap.mark.empty()) {
+            std::error_code ec;
+            std::filesystem::create_directories(std::filesystem::path(stap.mark).parent_path(), ec);
+            if (FILE* f = std::fopen(stap.mark.c_str(), "w")) { std::fputs(stap.tekst.c_str(), f); std::fclose(f); }
+            log("prefixstap klaar: " + stap.mark);
+        }
+    }
+
     // 2a. [Launch] Install: het installatieprogramma uit de spelmap één keer per prefix (de markering zegt of het al gebeurd is).
     if (!plan.install_cmd.empty() && ::access(plan.install_mark.c_str(), F_OK) != 0) {
         log("installatie: " + join_quoted(plan.install_cmd));
