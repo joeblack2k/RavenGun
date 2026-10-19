@@ -1128,16 +1128,25 @@ SharekObject g_sharek = {nullptr, 1};
 volatile LONG g_sharek_seen[rg_sharek::kVtableSize];
 
 // Het eerste gebruik van elk slot in het logboek: zo staat er na een tv-run welke methodes het spel werkelijk aanriep.
-void sk_note(int slot) {
-    if (slot >= 0 && slot < rg_sharek::kVtableSize && InterlockedExchange(&g_sharek_seen[slot], 1) == 0) rg_log("ShareK-object: slot %d aangeroepen", slot);
+void sk_note_van(int slot, void* beller) {
+    if (slot >= 0 && slot < rg_sharek::kVtableSize && InterlockedExchange(&g_sharek_seen[slot], 1) == 0)
+        rg_log("ShareK-object: slot %d aangeroepen (beller %p)", slot, beller);
 }
+void sk_note(int slot) { sk_note_van(slot, nullptr); }
 
 HRESULT STDMETHODCALLTYPE sk_query_interface(SharekObject* self, REFIID riid, void** ppv) {
     if (!ppv) return E_POINTER;
-    if (!rg_sharek::knows_iid(as_guid(riid))) {
+    char tekst[48];
+    guid_text(riid, tekst, sizeof tekst);
+    const bool bekend = rg_sharek::knows_iid(as_guid(riid));
+    char any[8];
+    const bool alles = GetEnvironmentVariableA("RG_SHAREK_ANY_IID", any, sizeof any) != 0 && any[0] == '1';
+    if (!bekend && !alles) {
+        rg_log("ShareK-object: QueryInterface(%s) -> E_NOINTERFACE (onbekend)", tekst);
         *ppv = nullptr;
         return E_NOINTERFACE;
     }
+    rg_log("ShareK-object: QueryInterface(%s) -> hetzelfde object%s", tekst, bekend ? "" : " (onbekend, RG_SHAREK_ANY_IID)");
     *ppv = self;
     InterlockedIncrement(&self->ref);
     return S_OK;
@@ -1163,12 +1172,12 @@ HRESULT STDMETHODCALLTYPE sk_invoke(SharekObject*, DISPID, REFIID, LCID, WORD, v
 
 template <int N>
 HRESULT STDMETHODCALLTYPE sk_nop8(SharekObject*, void*) {
-    sk_note(N);
+    sk_note_van(N, __builtin_return_address(0));
     return S_OK;
 }
 template <int N>
 HRESULT STDMETHODCALLTYPE sk_nop20(SharekObject*, void*, void*, void*, void*) {
-    sk_note(N);
+    sk_note_van(N, __builtin_return_address(0));
     return S_OK;
 }
 template <int N, rg_sharek::Kind K>
@@ -1241,6 +1250,33 @@ HRESULT WINAPI rg_CoCreateInstance(REFCLSID clsid, LPUNKNOWN outer, DWORD ctx, R
         rg_log("CoCreateInstance(%s, ctx 0x%lx, %s) -> hr 0x%08lx (echte aanroep)", c, static_cast<unsigned long>(ctx), i, static_cast<unsigned long>(hr));
     }
     return hr;
+}
+
+// Het meetinstrument van rg-compat (docs/rg-compat.md, RG_COMPAT_SAMPLE=<ms>): een draad die de
+// andere draden bemonstert en de heetste plekken als module+RVA wegschrijft. Mario Kart heeft maar
+// een preload (deze DLL), dus laden we rg-compat.dll hier zelf. Zonder RG_COMPAT_SAMPLE gebeurt er
+// niets en is het bestand ook niet nodig.
+// De geheugen-motor (memory/src, docs/memory-engine.md) ook hier: Mario Kart heeft maar een preload
+// (deze DLL), dus laden we ravengun-patchmem32.dll zelf als RAVENGUN_PATCHMEM_FILE gezet is. De
+// motor doet dan zijn eigen synchrone ronde op de hoofdmodule en leest zijn patchlijst.
+void setup_geheugen_motor() {
+    char v[MAX_PATH];
+    if (GetEnvironmentVariableA("RAVENGUN_PATCHMEM_FILE", v, sizeof v) == 0) return;
+    HMODULE m = LoadLibraryA("ravengun-patchmem32.dll");
+    rg_log("geheugen-motor: ravengun-patchmem32.dll %s (lijst %s)", m ? "geladen" : "NIET geladen", v);
+}
+
+void setup_meetdraad() {
+    char v[8];
+    if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) == 0) return;
+    HMODULE m = LoadLibraryA("rg-compat.dll");
+    rg_log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", v);
+}
+
+DWORD WINAPI laad_hulp_dlls(LPVOID) {
+    setup_geheugen_motor();
+    setup_meetdraad();
+    return 0;
 }
 
 void setup_sharek_fake() {
@@ -1911,6 +1947,12 @@ void setup() {
     setup_d3dx10_hrfix();   // los van de camera: ook met RG_MFCAM_OFF=1
     setup_jvs_com();        // idem: alleen met RG_JVS_COMPORT
     setup_str_board();      // idem: alleen met RG_STR_COMPORT
+    // Deze twee laden allebei een DLL en mogen daarom NIET in DllMain (loader-lock): in een draad,
+    // net als de stalldump hierboven.
+    {
+        HANDLE t = CreateThread(nullptr, 0, &laad_hulp_dlls, nullptr, 0, nullptr);
+        if (t) CloseHandle(t);
+    }
     setup_sharek_fake();    // idem: alleen met RG_SHAREK_FAKE=1
     setup_stall_dump();     // idem: alleen met RG_STALL_DUMP
     setup_drive_fix();      // idem: alleen met RG_DRIVE_FIXUP

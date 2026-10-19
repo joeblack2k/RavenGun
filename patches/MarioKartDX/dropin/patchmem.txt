@@ -1,0 +1,20 @@
+# Mario Kart Arcade GP DX: de poortwachter voor de ShareK-status.
+#
+# Het spel vraagt de ShareK-status (vtable-slot 35, vtable+0x8c) in de functie op 0x481490:
+#
+#   0x481492  xor  %ebx,%ebx
+#   0x481494  cmp  %bl,0x394(%eax)     ; vlag in het eigen ShareK-object
+#   0x48149a  je   0x481567            ; <-- vlag 0: de statusvraag wordt OVERGESLAGEN
+#   0x4814a0  cmp  %ebx,(%eax)         ; interface-pointer nul?
+#   0x4814a2  je   0x481567
+#   0x4814b7  mov  0x8c(%ecx),%eax     ; slot 35
+#   0x4814bd  call *%eax               ; <- de statusvraag die wij nooit zagen
+#
+# In onze view staat die vlag op 0 (ShareK is daar niet "aan"), dus vraagt het spel nooit om de
+# status en blijft de tick op 0x47ecd0 in de wachtstand: zwart beeld. Met deze regel slaan we
+# alleen die eerste poortwachter over, zodat de statusvraag wel komt; onze eigen ShareK-client
+# (tools/rg-mfcam/sharek_fake.h) antwoordt dan 1 ("配信機能OFF": distributie uit, gewoon werk).
+#
+# De module moet bij de NAAM kloppen: dit spel heet MK_AGP3_FINAL.exe (niet game.exe, zoals
+# Robin Hood). RVA = adres min de image base 0x400000: 0x48149a is dus RVA 0x8149a.
+MK_AGP3_FINAL.exe|0x8149a|0f84c7000000|909090909090

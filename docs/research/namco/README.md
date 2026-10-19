@@ -621,3 +621,46 @@ event sink) die bij "verbonden" wordt aangeroepen. Zolang die niet nagemaakt wor
 op het zwarte beeld. Het alternatief blijft de echte `ShareK.exe` (met dotnet48 in de prefix, dat is
 gemeten) als tweede programma, maar dat brak de run af (docs/research/namco/README.md, ouder
 gedeelte) en vraagt de tweede-Programma-route van de engine.
+
+## ShareK IPC, tweede meting: de poortwachter, de sampler en de AM-daemon (2026-10-19 04:20-05:05)
+
+Vervolg op het zwarte beeld. Met een eigen meetdraad (de sampler van `rg-compat`,
+`RG_COMPAT_SAMPLE=<ms>`, geladen door `rg-mfcam.dll` omdat de preload-plaats al bezet is) is te zien
+waar het spel zit: de hoofdraad in `win32u+0x11d38` (de berichtenlus) en de logica-draden in
+`ntdll+0xd410` (een wacht). Het spel valt dus niet om en zit niet in een rare aanroep; het komt
+alleen niet verder.
+
+**De poortwachter.** De functie die de ShareK-status vraagt staat op `0x481490`:
+
+```
+0x481492  xor  %ebx,%ebx
+0x481494  cmp  %bl,0x394(%eax)     ; vlag in het eigen ShareK-object
+0x48149a  je   0x481567            ; vlag 0 -> de statusvraag wordt OVERGESLAGEN
+0x4814a0  cmp  %ebx,(%eax)         ; interface-pointer nul?
+0x4814a2  je   0x481567
+0x4814b7  mov  0x8c(%ecx),%eax     ; slot 35
+0x4814bd  call *%eax               ; de statusvraag die wij nooit zagen
+```
+
+Met de geheugen-motor (die `rg-mfcam.dll` nu zelf laadt als `RAVENGUN_PATCHMEM_FILE` gezet is) is de
+eerste poortwachter opengezet (`MK_AGP3_FINAL.exe|0x8149a|0f84c7000000|909090909090`, in het geheugen
+gecontroleerd: `90 90 90 90 90 90`). Daarna blijkt de **tweede** voorwaarde te blokkeren: de
+interface-pointer in het object van het spel is nul, dus de statusvraag komt alsnog niet. Let op de
+valkuil die dat kostte: de motor zoekt de module bij **naam**, en dit spel heet `MK_AGP3_FINAL.exe`
+(niet `game.exe`, zoals Robin Hood); met de verkeerde naam past hij niets toe.
+
+**Wat niet hielp:** `[Launch] AmDaemon = true` (de AM-daemon van de engine, `amdaemon.cpp`) tegen het
+zwarte beeld. Gemeten: het spel draait, het beeld blijft zwart. Die regel staat daarom niet in het
+profiel.
+
+**Wat er nu wel ligt** (allemaal uitgeschakeld in de drop-in, met de naam erbij om aan te zetten):
+* `tools/rg-mfcam/rg_mfcam.cpp` logt elke `QueryInterface` met zijn IID en heeft `RG_SHAREK_ANY_IID=1`
+  om onbekende IID's toch te beantwoorden (meten, niet de standaard);
+* de motor en de sampler worden door `rg-mfcam.dll` zelf geladen als `RAVENGUN_PATCHMEM_FILE`
+  respectievelijk `RG_COMPAT_SAMPLE` gezet is (de preload-plaats is van `rg-mfcam.dll`);
+* `patches/MarioKartDX/dropin/patchmem.txt` met de poortwachter-patch en de uitleg erbij.
+
+**Volgende stap:** uitzoeken waarom `obj+0` (de interface-pointer) nul blijft. Het spel zet die
+vermoedelijk pas als een andere stap slaagt -- dezelfde vraag als bij de callback: wie schrijft dat
+veld, en welke methode van onze nep-client hoort dat te doen? Zoek de schrijver met dezelfde
+byte-zoekmethode (`89 8? <disp32>` op `+0x0` in de buurt van het ShareK-init op `0x47e800`).
