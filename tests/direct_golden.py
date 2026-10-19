@@ -212,6 +212,18 @@ def fixture(tmp, patches, profiles, gs):
                 os.symlink(os.path.join(nas, name, "AMCUS", "AMConfig.ini"),
                            os.path.join(views, name, "AMCUS", "AMConfig.ini"))
                 write(os.path.join(views, name, "AMCUS", "AMAuthd.exe"), "MZ")
+                # Tot een echt plan (pass 2): de tweede exe (AMAuthd) en de schrijfmap AMCUS doen dan mee. De mod zoals
+                # scripts/fetch-mods.py hem neerzet (stempel = TreeSha256, een lijst met een regel) en DXVK alleen voor deze game
+                # ([Env] RAVENGUN_DXVK in de gebruikerslaag; een gedeelde nep-DXVK zou de plannen van andere games veranderen).
+                mod = os.path.join(home, ".local/share/ravengun/mods", name, "english")
+                write(os.path.join(mod, "tree-sha256"), (g.get("Mod english", "TreeSha256", "") or "") + "\n")
+                write(os.path.join(mod, "files", "files.csv"), "target,file,offset\nData/voorbeeld.pac,voorbeeld.bin,replace\n")
+                write(os.path.join(mod, "files", "voorbeeld.bin"), "x")
+                dxvk = os.path.join(tmp, "dxvk-" + name)
+                for arch in ("x32", "x64"):
+                    for dll in ("d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"):
+                        write(os.path.join(dxvk, arch, dll), "x")
+                extra.append((name, "\n[Env]\nRAVENGUN_DXVK = %s\n" % dxvk))
         # Een tweede exe (HasTwoExecutables): [Identify] Path2, relatief aan dezelfde gamemap als Path.
         path2 = (g.get("Identify", "Path2", "") or "").replace("\\", "/").strip("/")
         if path2 and name not in ("TC5", "Rampage"):

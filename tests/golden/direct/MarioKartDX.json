@@ -10,8 +10,215 @@
    "why": ""
   },
   "launch_mode": "direct",
-  "verdict": "refused",
-  "why": "Instelling geweigerd: [Launch] Mod = english: de mod staat niet (of niet in deze versie) in @TMP@/home/.local/share/ravengun/mods/MarioKartDX/english/files: draai scripts/fetch-mods.py MarioKartDX"
+  "plan": {
+   "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\MK_AGP3_FINAL.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/MarioKartDX/dropin/rg-mfcam.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-mfcam.dll"
+    ],
+    [
+     "@PATCHES@/MarioKartDX/dropin/rg-compat.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-compat.dll"
+    ],
+    [
+     "@PATCHES@/MarioKartDX/dropin/ravengun-patchmem32.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/ravengun-patchmem32.dll"
+    ],
+    [
+     "@PATCHES@/MarioKartDX/dropin/patchmem.txt",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/patchmem.txt"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/d3d8.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d8.dll"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/d3d9.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d9.dll"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/d3d10core.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d10core.dll"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/d3d11.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d11.dll"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/dxgi.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/dxgi.dll"
+    ]
+   ],
+   "dropin_lines": [
+    "rg-mfcam.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-mfcam.dll",
+    "rg-compat.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-compat.dll",
+    "ravengun-patchmem32.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/ravengun-patchmem32.dll",
+    "patchmem.txt -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/patchmem.txt",
+    "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d8.dll",
+    "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d9.dll",
+    "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d10core.dll",
+    "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d11.dll",
+    "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/dxgi.dll",
+    "WINEDLLOVERRIDES += d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
+    "dxvk: @TMP@/dxvk-MarioKartDX/x32 uit @TMP@/dxvk-MarioKartDX",
+    "preload: rg-mfcam.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\rg-mfcam.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_DXVK": "@TMP@/dxvk-MarioKartDX",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_CAMERA_EXPOSURE": "photo",
+    "RG_DRIVE_FIXUP": "F",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-mfcam.dll",
+    "RG_JVS_COMPORT": "COM3",
+    "RG_JVS_TRANSPORT": "pipe",
+    "RG_LOADER_CORE": "ravengun",
+    "RG_MOD": "english",
+    "RG_SHAREK_FAKE": "1",
+    "TP_GAMESCOPE": "1",
+    "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\rg-mfcam.dll",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nWindowed=1\nEnable Outputs=0\nFreezeCountdownTimer=0\nAutoAcclOff=0\nExperimental Webcam Hack=0\nCustomResolution=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\nKeyboard/Button Axis Pedal Sensitivity=10\nResolutionWidth=1360\nResolutionHeight=768\n[FFB Blaster]\nEnable=0\n[Network]\nGateway=192.168.1.1\nServerAddress=164.132.246.154\nServerPort=49200\nPlayerId=\n"
+    ],
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nWindowed=1\nEnable Outputs=0\nFreezeCountdownTimer=0\nAutoAcclOff=0\nExperimental Webcam Hack=0\nCustomResolution=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\nKeyboard/Button Axis Pedal Sensitivity=10\nResolutionWidth=1360\nResolutionHeight=768\n[FFB Blaster]\nEnable=0\n[Network]\nGateway=192.168.1.1\nServerAddress=164.132.246.154\nServerPort=49200\nPlayerId=\n"
+    ]
+   ],
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "mk_agp3_final.e",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": true,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RG_DRIVE_FIXUP": "F",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-mfcam.dll",
+    "RG_JVS_COMPORT": "COM3",
+    "RG_SHAREK_FAKE": "1",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\rg-mfcam.dll",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": {
+    "dest": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
+    "reserve": 16777216,
+    "src": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe"
+   },
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\AMCUS\\AMAuthd.exe"
+     ],
+     "comms": [
+      "amauthd.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/AMAuthd.exe",
+     "gamescope": false,
+     "name": "AMAuthd.exe",
+     "role": "second",
+     "wait_before": 0.0
+    },
+    {
+     "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\MK_AGP3_FINAL.exe"
+     ],
+     "comms": [
+      "mk_agp3_final.e"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
+     "gamescope": true,
+     "name": "MK_AGP3_FINAL.exe",
+     "role": "main",
+     "wait_before": 5.0
+    }
+   ],
+   "view_links": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/Data/System/Shader/Polygon2D_D3D10.fx",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/Data/System/Shader/Polygon2D_D3D10.cfx"
+    ]
+   ],
+   "view_writable": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS"
+   ],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
+  },
+  "verdict": "ok",
+  "why": ""
  },
  "start": {
   "input": {
@@ -24,7 +231,214 @@
    "why": ""
   },
   "launch_mode": "direct",
-  "verdict": "refused",
-  "why": "Instelling geweigerd: [Launch] Mod = english: de mod staat niet (of niet in deze versie) in @TMP@/home/.local/share/ravengun/mods/MarioKartDX/english/files: draai scripts/fetch-mods.py MarioKartDX"
+  "plan": {
+   "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+    "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+    "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\MK_AGP3_FINAL.exe"
+   ],
+   "control_pipe": null,
+   "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
+   "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX",
+   "cwd_is_tp": false,
+   "dropin_files": [
+    [
+     "@PATCHES@/MarioKartDX/dropin/rg-mfcam.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-mfcam.dll"
+    ],
+    [
+     "@PATCHES@/MarioKartDX/dropin/rg-compat.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-compat.dll"
+    ],
+    [
+     "@PATCHES@/MarioKartDX/dropin/ravengun-patchmem32.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/ravengun-patchmem32.dll"
+    ],
+    [
+     "@PATCHES@/MarioKartDX/dropin/patchmem.txt",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/patchmem.txt"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/d3d8.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d8.dll"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/d3d9.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d9.dll"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/d3d10core.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d10core.dll"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/d3d11.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d11.dll"
+    ],
+    [
+     "@TMP@/dxvk-MarioKartDX/x32/dxgi.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/dxgi.dll"
+    ]
+   ],
+   "dropin_lines": [
+    "rg-mfcam.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-mfcam.dll",
+    "rg-compat.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-compat.dll",
+    "ravengun-patchmem32.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/ravengun-patchmem32.dll",
+    "patchmem.txt -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/patchmem.txt",
+    "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d8.dll",
+    "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d9.dll",
+    "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d10core.dll",
+    "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/d3d11.dll",
+    "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/dxgi.dll",
+    "WINEDLLOVERRIDES += d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
+    "dxvk: @TMP@/dxvk-MarioKartDX/x32 uit @TMP@/dxvk-MarioKartDX",
+    "preload: rg-mfcam.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\rg-mfcam.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
+   "dropin_materialise": [],
+   "env": {
+    "DISPLAY": ":97",
+    "HOME": "@TMP@/home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_DXVK": "@TMP@/dxvk-MarioKartDX",
+    "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
+    "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_CAMERA_EXPOSURE": "photo",
+    "RG_DRIVE_FIXUP": "F",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-mfcam.dll",
+    "RG_JVS_COMPORT": "COM3",
+    "RG_JVS_TRANSPORT": "pipe",
+    "RG_LOADER_CORE": "ravengun",
+    "RG_MOD": "english",
+    "RG_SHAREK_FAKE": "1",
+    "TP_GAMESCOPE": "1",
+    "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\rg-mfcam.dll",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX",
+    "XDG_CONFIG_HOME": "@TMP@/home/.config",
+    "XDG_DATA_HOME": "@TMP@/home/.local/share",
+    "XDG_RUNTIME_DIR": "@TMP@/run",
+    "XDG_STATE_HOME": "@TMP@/home/.local/state"
+   },
+   "files": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nWindowed=1\nEnable Outputs=0\nFreezeCountdownTimer=0\nAutoAcclOff=0\nExperimental Webcam Hack=0\nCustomResolution=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\nKeyboard/Button Axis Pedal Sensitivity=10\nResolutionWidth=1360\nResolutionHeight=768\n[FFB Blaster]\nEnable=0\n[Network]\nGateway=192.168.1.1\nServerAddress=164.132.246.154\nServerPort=49200\nPlayerId=\n"
+    ],
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/teknoparrot.ini",
+     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nWindowed=1\nEnable Outputs=0\nFreezeCountdownTimer=0\nAutoAcclOff=0\nExperimental Webcam Hack=0\nCustomResolution=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\nKeyboard/Button Axis Pedal Sensitivity=10\nResolutionWidth=1360\nResolutionHeight=768\n[FFB Blaster]\nEnable=0\n[Network]\nGateway=192.168.1.1\nServerAddress=164.132.246.154\nServerPort=49200\nPlayerId=\n"
+    ]
+   ],
+   "game": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
+   "game_comms": [
+    "budgieloader.ex",
+    "budgieloader_x6",
+    "mk_agp3_final.e",
+    "openparrotloade",
+    "teknomacaw.exe",
+    "teknomacaw64.ex"
+   ],
+   "gamescope": true,
+   "launch_env": {
+    "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
+    "RG_DRIVE_FIXUP": "F",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/rg-mfcam.dll",
+    "RG_JVS_COMPORT": "COM3",
+    "RG_SHAREK_FAKE": "1",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\rg-mfcam.dll",
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX"
+   },
+   "patch_lines": [],
+   "pipe_mode": "pipe",
+   "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX",
+   "shm_source": "/dev/shm/TeknoParrot_JvsState",
+   "stack": {
+    "dest": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
+    "reserve": 16777216,
+    "src": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe"
+   },
+   "starts": [
+    {
+     "argv": [
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\AMCUS\\AMAuthd.exe"
+     ],
+     "comms": [
+      "amauthd.exe"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/AMAuthd.exe",
+     "gamescope": false,
+     "name": "AMAuthd.exe",
+     "role": "second",
+     "wait_before": 0.0
+    },
+    {
+     "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
+      "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
+      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\MK_AGP3_FINAL.exe"
+     ],
+     "comms": [
+      "mk_agp3_final.e"
+     ],
+     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX",
+     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
+     "gamescope": true,
+     "name": "MK_AGP3_FINAL.exe",
+     "role": "main",
+     "wait_before": 5.0
+    }
+   ],
+   "view_links": [
+    [
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/Data/System/Shader/Polygon2D_D3D10.fx",
+     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/Data/System/Shader/Polygon2D_D3D10.cfx"
+    ]
+   ],
+   "view_writable": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS"
+   ],
+   "windowed_override": false,
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
+  },
+  "verdict": "ok",
+  "why": ""
  }
 }
