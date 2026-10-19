@@ -61,6 +61,30 @@ niet beter; de instelling is daarna teruggezet op `false`.
 
 
 
+
+### Doorbraak: het scherm is NIET zwart (19:31)
+
+Ik heb het venster van AMAuthd naar voren gehaald en het scherm opnieuw opgenomen
+(`docs/screenshots/mariakartdx-str-pcb-fout-2026-10-19.png`). Wat er dan te zien is, is niet zwart:
+achter de console van AMAuthd staat het **eigen foutscherm van het spel**:
+
+- "**... call an attendant.**" (geel op rood),
+- "**STR PCB 通信エラー**" -- STR PCB-communicatiefout,
+- "**STR PCB との通信に異常が発生しました**" (de communicatie met de STR PCB is verstoord).
+
+De zwarte opnames van 10.669 bytes waren dus de **achtergrond van dat foutscherm** op het moment dat de
+banner er nog niet stond; het spel tekent wel degelijk. De oorzaak is nu concreet: het spel krijgt geen
+antwoord van zijn **STR PCB** (het stuur-bord). Dat past precies bij de meting uit (3): de brug ziet
+**0 pakketten** en het spel verbindt nooit met de `TeknoParrot_JVS`-pijp.
+
+De console van AMAuthd laat ondertussen zien dat die op zijn beurt op een netwerknaam wacht
+("hostname=tenporouter.loc", "name resolution failed", "getaddrinfo() err=11001", "DHCP Renew"), wat
+voor het beeld zelf niet uitmaakt maar wel verklaart waarom AMAuthd blijft draaien.
+
+**Volgende stap**: uitzoeken waarom de COM3/pipe-omleiding van de drop-in (`rg-mfcam`) het bord niet
+bereikt -- het profiel vraagt `Route = jvs`, `Board = MKDX`, `JvsTransport = pipe`, en de brug staat op
+`route jvs ... /dev/pts/0`.
+
 ### Nog een proef: de resolutie (19:25)
 
 Het profiel vraagt 1360x768 en het venster is 1920x1080. Met `General/ResolutionWidth/Height` op
