@@ -2698,7 +2698,9 @@ int main() {
             std::string bin = RG_DIRECT_BIN;
             std::vector<char*> av{bin.data(), const_cast<char*>("--run"), const_cast<char*>(planf.c_str()), nullptr};
             std::string h = "HOME=" + home.string(), pth = std::string("PATH=") + (std::getenv("PATH") ? std::getenv("PATH") : "/usr/bin:/bin");
-            std::vector<char*> envp{h.data(), pth.data(), nullptr};
+            // Een eigen pad voor het gedeelde geheugen: weigert --run (onterecht) niet, dan raakt hij nooit /dev/shm/TeknoParrot_JvsState.
+            std::string shm = "RG_DIRECT_SHM_PATH=" + (root / "shm-vlf").string();
+            std::vector<char*> envp{h.data(), pth.data(), shm.data(), nullptr};
             pid_t pid = 0;
             CHECK(posix_spawn(&pid, bin.c_str(), &fa, nullptr, av.data(), envp.data()) == 0);
             posix_spawn_file_actions_destroy(&fa);
