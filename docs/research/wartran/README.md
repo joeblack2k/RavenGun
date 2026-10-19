@@ -482,3 +482,25 @@ kijken of het spel verder komt.
 daemon opnieuw start. De engine meldde "is al actueel" terwijl het bestand in de view ouder was; pas
 na `systemctl --user restart ravengund` werd de nieuwe DLL gebruikt. Tekstbestanden (patchmem.txt)
 werden wel meteen bijgewerkt.
+
+### I/O-bord, tweede meting: het spel LEEST de poort nooit (2026-10-19 03:15)
+
+Met de haken van `tools/rg-rhio` in het spel (via `RAVENGUN_PATCHMEM_HOOK`) is het bordverkeer
+compleet te zien. Uitkomst van een run van 60 seconden:
+
+* `CreateFileA(COM1..COM3)` -> fout 5, `CreateFileA(COM4)` -> gelukt (nagebootst bordhandvat);
+* 288 x `WriteFile(bord, 7 bytes)` met het kader hierboven -- en **geen enkele `ReadFile`**, geen
+  `DeviceIoControl` op het bordhandvat, geen `SetCommMask`/`WaitCommEvent`/`GetOverlappedResult`
+  (die drie staan niet eens in de importtabel van de exe);
+* het spel blijft dus schrijven en wachten: de I/O-controle komt nooit verder dan
+  `I/O ... CHECKING`.
+
+**Conclusie:** het antwoord van het bord komt niet van de seriele poort. Het spel stuurt alleen
+kaders *naar* het bord (een hartslag/opdracht) en haalt de bordtoestand ergens anders vandaan --
+bij deze familie is dat het gedeelde geheugen dat de kern/daemon vult (`tp-shm`, indeling
+WartranTroopers), precies zoals bij Time Crisis 5 het bordbeeld in `TeknoParrot_JvsState` staat. De
+volgende stap is dus niet het antwoordkader maar de **bordtoestand in het gedeelde geheugen**: welke
+naam, welke indeling en of onze daemon die voor RobinHood daadwerkelijk vult (nu waarschijnlijk
+niet, want de I/O-controle blijft staan).
+
+Het volledige logboek van deze run: `bench-captures/RobinHood/20261019-bordprotocol.log`.

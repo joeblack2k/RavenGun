@@ -129,6 +129,9 @@ using SetCommStateFn = BOOL(WINAPI*)(HANDLE, LPDCB);
 using GetCommTimeoutsFn = BOOL(WINAPI*)(HANDLE, LPCOMMTIMEOUTS);
 using SetCommTimeoutsFn = BOOL(WINAPI*)(HANDLE, LPCOMMTIMEOUTS);
 using EscapeCommFunctionFn = BOOL(WINAPI*)(HANDLE, DWORD);
+using SetCommMaskFn = BOOL(WINAPI*)(HANDLE, DWORD);
+using WaitCommEventFn = BOOL(WINAPI*)(HANDLE, LPDWORD, LPOVERLAPPED);
+using GetOverlappedResultFn = BOOL(WINAPI*)(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
 
 GetProcAddrFn g_echte_gpa = nullptr;
 CreateFileAFn g_echte_createfile = nullptr;
@@ -144,6 +147,11 @@ SetCommStateFn g_echte_setstate = nullptr;
 GetCommTimeoutsFn g_echte_gettimeouts = nullptr;
 SetCommTimeoutsFn g_echte_settimeouts = nullptr;
 EscapeCommFunctionFn g_echte_escape = nullptr;
+SetCommMaskFn g_echte_setmask = nullptr;
+WaitCommEventFn g_echte_wait = nullptr;
+GetOverlappedResultFn g_echte_ovl = nullptr;
+unsigned char g_laatste_kader[64];
+DWORD g_laatste_lengte = 0;
 
 FARPROC WINAPI rg_GetProcAddress(HMODULE mod, LPCSTR naam);
 HANDLE WINAPI rg_CreateFileA(LPCSTR pad, DWORD toegang, DWORD deel, LPSECURITY_ATTRIBUTES sa, DWORD aanmaak, DWORD vlaggen, HANDLE sjabloon);
@@ -307,6 +315,13 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR pad, DWORD toegang, DWORD deel, LPSECURITY_A
 BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD inl, LPVOID uit, DWORD uitl, LPDWORD terug,
                                LPOVERLAPPED ov) {
     LogOpen();
+    if (h == g_com_handle) {
+        Log("DeviceIoControl(bord, code=0x%08lx, in=%lu, uit=%lu)", static_cast<unsigned long>(code),
+            static_cast<unsigned long>(inl), static_cast<unsigned long>(uitl));
+        if (uit && uitl) std::memset(uit, 0, uitl);
+        if (terug) *terug = uitl;
+        return TRUE;
+    }
     if (h == g_nep_handle) {
         Log("DeviceIoControl(handvat=%p, code=0x%08lx, in=%lu, uit=%lu)", h, static_cast<unsigned long>(code),
             static_cast<unsigned long>(inl), static_cast<unsigned long>(uitl));
@@ -330,9 +345,22 @@ BOOL WINAPI rg_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD inl, LPVOI
 
 BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLAPPED ov) {
     if (h == g_com_handle) {
-        Log("ReadFile(bord, %lu bytes gevraagd) -> nog geen antwoord", static_cast<unsigned long>(n));
-        if (gelezen) *gelezen = 0;
-        SetLastError(ERROR_TIMEOUT);
+        /* Eerste proef: het laatste opdrachtkader terugsturen (bord aanwezig, geen schakelaars).
+         * RG_RHIO_ANTWOORD=0 zet dat uit; RG_RHIO_ANTWOORD=niks laat het antwoord leeg. */
+        const char* stand = std::getenv("RG_RHIO_ANTWOORD");
+        if (stand && std::strcmp(stand, "niks") == 0) {
+            Log("ReadFile(bord, %lu bytes gevraagd) -> geen antwoord (RG_RHIO_ANTWOORD=niks)",
+                static_cast<unsigned long>(n));
+            if (gelezen) *gelezen = 0;
+            SetLastError(ERROR_TIMEOUT);
+            return TRUE;
+        }
+        DWORD m = g_laatste_lengte;
+        if (m > n) m = n;
+        if (buf && m) std::memcpy(buf, g_laatste_kader, m);
+        if (gelezen) *gelezen = m;
+        Log("ReadFile(bord, %lu bytes gevraagd) -> %lu bytes antwoord (echo)", static_cast<unsigned long>(n),
+            static_cast<unsigned long>(m));
         return TRUE;
     }
     return g_echte_read ? g_echte_read(h, buf, n, gelezen, ov) : FALSE;
@@ -345,6 +373,8 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD geschreven, LPO
         for (DWORD i = 0; i < m; ++i) std::snprintf(hex + i * 3, 4, "%02x ", reinterpret_cast<const BYTE*>(buf)[i]);
         hex[m * 3] = '\0';
         Log("WriteFile(bord, %lu bytes): %s", static_cast<unsigned long>(n), hex);
+        g_laatste_lengte = n < sizeof g_laatste_kader ? n : (DWORD)(sizeof g_laatste_kader);
+        if (buf) std::memcpy(g_laatste_kader, buf, g_laatste_lengte);
         if (geschreven) *geschreven = n;
         return TRUE;
     }
@@ -412,6 +442,36 @@ BOOL WINAPI rg_EscapeCommFunction(HANDLE h, DWORD code) {
     return g_echte_escape ? g_echte_escape(h, code) : FALSE;
 }
 
+BOOL WINAPI rg_SetCommMask(HANDLE h, DWORD masker) {
+    if (h == g_com_handle) { Log("SetCommMask(bord, 0x%lx)", static_cast<unsigned long>(masker)); return TRUE; }
+    return g_echte_setmask ? g_echte_setmask(h, masker) : FALSE;
+}
+
+BOOL WINAPI rg_WaitCommEvent(HANDLE h, LPDWORD masker, LPOVERLAPPED ov) {
+    if (h == g_com_handle) {
+        /* Er is altijd een antwoord klaar: het bord heeft net een opdracht gehad. */
+        if (masker) *masker = EV_RXCHAR;
+        if (ov && ov->hEvent) {
+            Log("WaitCommEvent(bord, overlapped) -> gebeurtenis gezet");
+            SetEvent(ov->hEvent);
+            SetLastError(ERROR_IO_PENDING);
+            return FALSE;
+        }
+        Log("WaitCommEvent(bord) -> EV_RXCHAR");
+        return TRUE;
+    }
+    return g_echte_wait ? g_echte_wait(h, masker, ov) : FALSE;
+}
+
+BOOL WINAPI rg_GetOverlappedResult(HANDLE h, LPOVERLAPPED ov, LPDWORD aantal, BOOL wachten) {
+    if (h == g_com_handle) {
+        Log("GetOverlappedResult(bord) -> %lu bytes", static_cast<unsigned long>(g_laatste_lengte));
+        if (aantal) *aantal = g_laatste_lengte;
+        return TRUE;
+    }
+    return g_echte_ovl ? g_echte_ovl(h, ov, aantal, wachten) : FALSE;
+}
+
 DWORD WINAPI StartDraad(LPVOID) {
     HMODULE exe = GetModuleHandleA(nullptr);
     void* oud = PatchIat(exe, "KERNEL32.dll", "GetProcAddress", reinterpret_cast<void*>(&rg_GetProcAddress));
@@ -433,6 +493,9 @@ DWORD WINAPI StartDraad(LPVOID) {
         {"GetCommTimeouts", reinterpret_cast<void*>(&rg_GetCommTimeouts), reinterpret_cast<void**>(&g_echte_gettimeouts)},
         {"SetCommTimeouts", reinterpret_cast<void*>(&rg_SetCommTimeouts), reinterpret_cast<void**>(&g_echte_settimeouts)},
         {"EscapeCommFunction", reinterpret_cast<void*>(&rg_EscapeCommFunction), reinterpret_cast<void**>(&g_echte_escape)},
+        {"SetCommMask", reinterpret_cast<void*>(&rg_SetCommMask), reinterpret_cast<void**>(&g_echte_setmask)},
+        {"WaitCommEvent", reinterpret_cast<void*>(&rg_WaitCommEvent), reinterpret_cast<void**>(&g_echte_wait)},
+        {"GetOverlappedResult", reinterpret_cast<void*>(&rg_GetOverlappedResult), reinterpret_cast<void**>(&g_echte_ovl)},
     };
     for (auto& c : comm) {
         void* oud = PatchIat(exe, "KERNEL32.dll", c.naam, c.nep);
