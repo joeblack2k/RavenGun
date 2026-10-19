@@ -2271,6 +2271,160 @@ int main() {
         CHECK(plan_direct("Stap", p, o, sp, swhy) == Verdict::Ok && sp.prefix_setup_mark != mark_een);
     }
 
+    // --- review 13, ronde 2: de controle van --run/--alleen-stappen en de loper voor prefixstappen ----------------------------
+    // (N1) De view-wortel van Mario Kart DX staat vol koppelingen naar de NAS en is toch de werkmap van PreprocessAmAuth en de
+    // map van een kopieerdoel: de controle kijkt naar het pad zelf en de weg ernaartoe, niet naar de kinderen. Wat wel weigert:
+    // een doelmap die een koppeling naar de NAS is, een koppeling in een middelste deel, een variant in andere hoofdletters, een
+    // koppelpunt in de view, .., een prefix:-bron met .. of een leidende schuine streep (punt 5) en een lege koppelpuntentabel
+    // (punt 7). prefixstappen_problemen() is precies wat rg-direct --run en --alleen-stappen vooraf draaien (controle_voor_start).
+    {
+        namespace D = ravengun::launch::direct_detail;
+        DirectPaths pg = p;
+        const fs::path nep = root / "nep-nas";   // een CIFS-koppelpunt volgens de nagebootste tabel
+        pg.mounts = (root / "mounts-gids").string();
+        write(pg.mounts, "proc /proc proc rw 0 0\n//nas/emu " + nep.string() + " cifs rw 0 0\n");
+        const fs::path gv = fs::path(pg.views()) / "Gids";
+        write(gv / "spel.exe", "MZ");
+        write(nep / "Gids/PreprocessAmAuth.exe", "MZ");
+        write(nep / "Gids/D3D11Ref.dll", "MZ");
+        write(nep / "Gids/Mucha/x.bin", "nas");
+        fs::create_directories(gv / "AMCUS");
+        for (const char* n : {"PreprocessAmAuth.exe", "D3D11Ref.dll", "Mucha"}) fs::create_symlink(nep / "Gids" / n, gv / n);
+        auto stap_run = [&](const fs::path& cwd) {
+            DirectSetupStep s;
+            s.cwd = cwd.string();
+            s.argv = {"wine", "x.exe"};
+            s.tekst = "run " + cwd.string();
+            return s;
+        };
+        auto stap_copy = [&](const fs::path& naar) {
+            DirectSetupStep s;
+            s.copy = true;
+            s.from_prefix = true;
+            s.from_rel = "drive_c/windows/WritableConfig.ini";
+            s.from = (root / "pfx").string() + "/" + s.from_rel;
+            s.to = naar.string();
+            s.tekst = "copy " + naar.string();
+            return s;
+        };
+        DirectPlan gp;
+        gp.game = (gv / "spel.exe").string();
+        gp.prefix = (root / "pfx").string();
+        gp.view_writable = {(gv / "AMCUS").string()};
+        gp.prefix_setup = {stap_run(gv / "."), stap_copy(gv / "WritableConfig.ini"), stap_copy(gv / "AMCUS/WritableConfig.ini"),
+                           stap_run(gv / "AMCUS")};
+        CHECK(!D::schrijfmap_problemen(gv.string(), pg).empty());   // de oude controle op de wortel weigerde elke start
+        auto toon = [](const std::vector<std::string>& f) { for (const auto& x : f) std::fprintf(stderr, "  %s\n", x.c_str()); };
+        {
+            const auto f = D::prefixstappen_problemen(gp, pg);
+            CHECK(f.empty());
+            toon(f);
+        }
+        auto weigert = [&](const DirectSetupStep& s, const char* waarom, const DirectPaths& q) {
+            DirectPlan x = gp;
+            x.prefix_setup = {s};
+            const auto f = D::prefixstappen_problemen(x, q);
+            if (f.empty()) std::fprintf(stderr, "niet geweigerd: %s\n", waarom);
+            return !f.empty();
+        };
+        CHECK(weigert(stap_copy(gv / "Mucha/WritableConfig.ini"), "doelmap is een koppeling naar de NAS", pg));
+        CHECK(weigert(stap_run(gv / "Mucha"), "werkmap is een koppeling naar de NAS", pg));
+        std::error_code gec;
+        fs::create_directories(root / "elders/diep", gec);
+        fs::create_directory_symlink(root / "elders", gv / "AMCUS/midden", gec);
+        CHECK(weigert(stap_copy(gv / "AMCUS/midden/diep/x.ini"), "koppeling (naar een lokale map) in het midden", pg));
+        CHECK(weigert(stap_run(gv / "AMCUS/midden/diep"), "werkmap achter een koppeling", pg));
+        fs::create_directory_symlink(nep / "Gids/Mucha", gv / "CFG", gec);   // "cfg" bestaat niet: Wine neemt CFG
+        CHECK(weigert(stap_copy(gv / "cfg/x.ini"), "variant in andere hoofdletters is een koppeling", pg));
+        fs::create_directories(gv / "Data", gec);
+        fs::create_directory_symlink(nep / "Gids/Mucha", gv / "data", gec);
+        CHECK(weigert(stap_run(gv / "Data"), "zuster in andere hoofdletters is een koppeling naar de NAS", pg));
+        fs::create_symlink(nep / "Gids/D3D11Ref.dll", gv / "AMCUS/doel.ini", gec);
+        CHECK(weigert(stap_copy(gv / "AMCUS/doel.ini"), "het doel zelf is een koppeling", pg));
+        CHECK(weigert(stap_run(gv / "AMCUS/.."), "werkmap met ..", pg));
+        CHECK(weigert(stap_copy(root / "buiten.ini"), "doel buiten de view", pg));
+        CHECK(weigert(stap_run(gv / "bestaat-niet"), "werkmap bestaat niet", pg));
+        {
+            DirectPaths pk = pg;   // een echte map in de view waar een CIFS-share op zit: geen koppeling op de weg, wel de NAS
+            fs::create_directories(gv / "koppelpunt", gec);
+            pk.mounts = (root / "mounts-koppelpunt").string();
+            write(pk.mounts, "proc /proc proc rw 0 0\n//nas/kp " + (gv / "koppelpunt").string() + " cifs rw 0 0\n");
+            CHECK(weigert(stap_run(gv / "koppelpunt"), "werkmap is een koppelpunt van de NAS", pk));
+        }
+        {
+            DirectSetupStep s = stap_copy(gv / "AMCUS/a.ini");   // punt 5: een met de hand bewerkt plan
+            s.from_rel = "../../../etc/passwd";
+            CHECK(weigert(s, "prefix: met ..", pg));
+            s.from_rel = "/etc/passwd";
+            CHECK(weigert(s, "prefix: absoluut", pg));
+            s.from_rel = "";
+            CHECK(weigert(s, "prefix: leeg", pg));
+        }
+        {
+            DirectPaths q = pg;   // punt 7: een tabel die er niet is of leeg is, telt als "alles NAS" en weigert met een melding
+            q.mounts = (root / "bestaat-niet-mounts").string();
+            CHECK(D::on_nas(gv.string(), q) && !D::koppelpunten_fout(q).empty());
+            const auto f = D::prefixstappen_problemen(gp, q);
+            CHECK(!f.empty() && contains(f.front(), "koppelpuntentabel"));
+            write(root / "lege-mounts", "");
+            q.mounts = (root / "lege-mounts").string();
+            CHECK(D::on_nas(gv.string(), q) && !D::koppelpunten_fout(q).empty());
+            CHECK(D::koppelpunten_fout(pg).empty());
+        }
+        {
+            DirectPlan x = gp;   // zonder view geen prefixstappen
+            x.game = (root / "elders/spel.exe").string();
+            CHECK(!D::prefixstappen_problemen(x, pg).empty());
+        }
+        {
+            // Alles wat hierboven in de view is bijgekomen zijn kinderen: het plan zelf blijft goed.
+            const auto f = D::prefixstappen_problemen(gp, pg);
+            CHECK(f.empty());
+            toon(f);
+        }
+
+        // (N2) ViewWritable = AMCUS, en AMCUS is bij het plannen nog een koppeling naar de NAS (een verse view; gameview.cpp bouwt
+        // hem zo en place_view_writable maakt er pas bij de start een echte map van). Het plan moet lukken; de controle van de
+        // loper weigert zolang AMCUS een koppeling is (een kale --run), en na place_view_writable (de daemon-route) mag het.
+        write(fs::path(p.dirs.shipped) / "Vers/game.ini",
+              "[Game]\nProfile = Vers\nType = TeknoParrot\nEmulationProfile = ALLSHOTDSD\nExecutable = spel.exe\n"
+              "[Launch]\nMode = direct\nViewWritable = AMCUS\n"
+              "PrefixSetup = run . PreprocessAmAuth.exe -wait | copy prefix:drive_c/windows/WritableConfig.ini WritableConfig.ini | "
+              "copy prefix:drive_c/windows/WritableConfig.ini AMCUS/WritableConfig.ini | run AMCUS regsvr32.exe /s iauthdll.dll\n\n"
+              "[Identify]\nPath = spel.exe\n");
+        const fs::path vv = fs::path(pg.views()) / "Vers";
+        write(vv / "spel.exe", "MZ");
+        write(nep / "Vers/AMCUS/AMConfig.ini", "nas\n");
+        write(nep / "Vers/PreprocessAmAuth.exe", "MZ");
+        write(nep / "Vers/Mucha/x.bin", "nas");
+        fs::create_symlink(nep / "Vers/PreprocessAmAuth.exe", vv / "PreprocessAmAuth.exe");
+        fs::create_directory_symlink(nep / "Vers/AMCUS", vv / "AMCUS");
+        fs::create_directory_symlink(nep / "Vers/Mucha", vv / "Mucha");
+        DirectPlan vp;
+        std::string vwhy;
+        const Verdict vr = plan_direct("Vers", pg, o, vp, vwhy);
+        CHECK(vr == Verdict::Ok && vp.prefix_setup.size() == 4);
+        if (vr != Verdict::Ok) std::fprintf(stderr, "N2: %s\n", vwhy.c_str());
+        CHECK(!D::prefixstappen_problemen(vp, pg).empty());
+        CHECK(!D::schrijfmap_problemen((vv / "AMCUS").string(), pg).empty());
+        std::vector<std::string> vlog;
+        std::string verr;
+        CHECK(D::place_view_writable(vp, pg, vlog, verr));
+        CHECK(!fs::is_symlink(vv / "AMCUS") && fs::is_directory(vv / "AMCUS") && slurp(vv / "AMCUS/AMConfig.ini") == "nas\n");
+        {
+            const auto f = D::prefixstappen_problemen(vp, pg);
+            CHECK(f.empty());
+            toon(f);
+        }
+        CHECK(fs::is_symlink(vv / "PreprocessAmAuth.exe") && slurp(nep / "Vers/AMCUS/AMConfig.ini") == "nas\n");
+        // Buiten een schrijfmap blijft het plannen streng: een doelmap of werkmap die een koppeling naar de NAS is weigert meteen.
+        const fs::path vu = fs::path(p.dirs.user) / "Vers/game.ini";
+        write(vu, "[Launch]\nPrefixSetup = copy prefix:drive_c/windows/WritableConfig.ini Mucha/WritableConfig.ini\n");
+        CHECK(plan_direct("Vers", pg, o, vp, vwhy) != Verdict::Ok && contains(vwhy, "koppeling"));
+        write(vu, "[Launch]\nPrefixSetup = run Mucha regsvr32.exe /s x.dll\n");
+        CHECK(plan_direct("Vers", pg, o, vp, vwhy) != Verdict::Ok && contains(vwhy, "koppeling"));
+    }
+
     fs::remove_all(root);
     std::printf("direct-launch: %d controles, %d fout\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

@@ -778,14 +778,23 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         auto schoon = [&](const std::string& x) {
             return x.empty() || x.front() == '/' || x.find("..") != std::string::npos;
         };
-        /* Geen enkele koppeling op de weg naar dit pad (de ouders en het pad zelf). */
-        auto koppeling_op_weg = [&](const std::string& pad) {
-            std::string loop = abspath(wortel);
-            for (const std::string& deel : nonempty_split(relpath(abspath(pad), loop), '/')) {
-                loop = pjoin(loop, deel);
-                if (islink(loop)) return true;
-            }
+        /* Review 13, ronde 2 (N2): een map IN een schrijfmap (ViewWritable) is bij het plannen vaak nog een koppeling naar de
+         * NAS: place_view_writable maakt er pas bij de start een echte map van (gameview.cpp, de view wordt met een koppeling
+         * gebouwd). Hier dan alleen lexicaal controleren (in de schrijfmap, geen .., niet absoluut: schoon() hierboven); de
+         * controle op koppelingen en de NAS doet de loper, die op de daemon-route NA place_view_writable draait. Een kale
+         * rg-direct --run weigert zolang de schrijfmap nog een koppeling is (schrijfmap_problemen). Eerder weigerde het plan
+         * hier, kwam de start er nooit en bleef de schrijfmap altijd een koppeling. */
+        auto in_schrijfmap = [&](const std::string& pad) {
+            for (const std::string& w : pl.view_writable)
+                if (binnen(abspath(pad), abspath(w))) return true;
             return false;
+        };
+        /* Elke andere map: dezelfde controle als de loper (prefixstap_map_problemen): bestaat, geen koppeling op de weg vanaf
+         * de wortel, geen zuster in andere hoofdletters op een koppeling of de NAS, niet op de NAS. */
+        auto map_fout = [&](const std::string& map) {
+            if (in_schrijfmap(map)) return std::string();
+            const std::vector<std::string> f = prefixstap_map_problemen(map, wortel, p);
+            return f.empty() ? std::string() : f.front();
         };
         /* Een kale naam is een programma uit de prefix zelf (regsvr32.exe zoekt wine in system32).
          * Alleen deze namen mogen dat: anders werd een tikfout in een bestandsnaam stil een programma
@@ -824,22 +833,12 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
                     st.from = pjoin(wortel, van);
                 }
                 st.to = pjoin(wortel, woorden[2]);
-                if (!binnen(abspath(st.to), abspath(p.views())))
+                if (!binnen(abspath(st.to), abspath(wortel)) || abspath(st.to) == abspath(wortel))
                     return setting_refused("[Launch] PrefixSetup: het doel " + st.to + " ligt buiten de view");
-                if (!isdir(dirname(st.to)))
-                    return setting_refused("[Launch] PrefixSetup: de map " + dirname(st.to) +
-                                           " van het doel bestaat niet (de motor maakt hem niet aan: dat zou door "
-                                           "een koppeling kunnen lopen)");
-                if (on_nas(dirname(st.to), p))
-                    return setting_refused("[Launch] PrefixSetup: het doel " + st.to + " ligt op de NAS");
-                if (koppeling_op_weg(st.to))
-                    return setting_refused("[Launch] PrefixSetup: het doel " + st.to + " loopt door een koppeling");
-                bool in_schrijfmap = false;
-                for (const std::string& w : pl.view_writable)
-                    if (binnen(abspath(st.to), abspath(w))) in_schrijfmap = true;
-                if (!in_schrijfmap && islink(dirname(st.to)))
-                    return setting_refused("[Launch] PrefixSetup: het doel " + st.to +
-                                           " staat niet in een schrijfmap (ViewWritable) en de map is een koppeling");
+                if (const std::string f = map_fout(dirname(st.to)); !f.empty())
+                    return setting_refused("[Launch] PrefixSetup: het doel " + st.to + ": " + f);
+                if (!in_schrijfmap(st.to) && islink(st.to))
+                    return setting_refused("[Launch] PrefixSetup: het doel " + st.to + " is een koppeling");
                 /* De bron kan door een eerdere stap gemaakt worden (PreprocessAmAuth schrijft
                  * WritableConfig.ini), dus hier niet op bestaan controleren; de loper doet dat. */
             } else if (woorden[0] == "run") {
@@ -847,11 +846,8 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
                     return setting_refused("[Launch] PrefixSetup = " + stap +
                                            " (run <map> <bestand> [argumenten], beide in de map van de game)");
                 st.cwd = pjoin(wortel, woorden[1]);
-                if (!isdir(st.cwd)) return setting_refused("[Launch] PrefixSetup: de map " + st.cwd + " bestaat niet");
-                if (on_nas(st.cwd, p))
-                    return setting_refused("[Launch] PrefixSetup: de werkmap " + st.cwd + " ligt op de NAS");
-                if (koppeling_op_weg(st.cwd))
-                    return setting_refused("[Launch] PrefixSetup: de werkmap " + st.cwd + " loopt door een koppeling");
+                if (const std::string f = map_fout(st.cwd); !f.empty())
+                    return setting_refused("[Launch] PrefixSetup: de werkmap " + st.cwd + ": " + f);
                 const std::string pad = pjoin(wortel, woorden[2]);
                 std::string programma;
                 if (isfile(pad)) {
