@@ -449,13 +449,17 @@ std::string writable_route_refusal(const Config& c, const std::string& profile) 
     const ravengun::gamesettings::Game g = ravengun::gamesettings::load_game(c.dirs, profile);
     /* [Launch] PrefixSetup en [Launch] SecondBare bestaan alleen op de directe route. Ze stil laten
      * vallen zou betekenen dat een profiel "werkt" zonder de IAuth-stappen of zonder de tweede exe
-     * (review 13, punt 5). */
+     * (review 13, punt 5). PrefixSetup weigert zodra er stappen staan; SecondBare alleen als hij AAN staat, met dezelfde
+     * waarden als de motor (direct.cpp: true, 1, yes, ja). "SecondBare = false" weigerde eerder ook (review 13, ronde 2,
+     * punt 8). */
     for (const char* sleutel : {"PrefixSetup", "SecondBare"}) {
         const std::string* w = g.settings.find("Launch", sleutel);
-        if (w && !trim(*w).empty())
-            return std::string("[Launch] ") + sleutel + " = " + trim(*w) +
-                   " werkt alleen op de directe route ([Launch] Mode = direct); de Unity- en native-route "
-                   "voeren geen prefixstappen uit en starten geen tweede exe.";
+        if (!w || trim(*w).empty()) continue;
+        const std::string v = trim(*w);
+        if (std::string(sleutel) == "SecondBare" && v != "true" && v != "1" && v != "yes" && v != "ja") continue;
+        return std::string("[Launch] ") + sleutel + " = " + v +
+               " werkt alleen op de directe route ([Launch] Mode = direct); de Unity- en native-route "
+               "voeren geen prefixstappen uit en starten geen tweede exe.";
     }
     const std::string* vw = g.settings.find("Launch", "ViewWritable");
     if (!vw || trim(*vw).empty()) return {};
