@@ -108,6 +108,8 @@ case "\$1 \${2:-}" in
     case "\$stap" in
       draait) echo draait > "\$S/status" ;;
       mislukt) echo mislukt > "\$S/status"; echo "ravengunctl: de game stopte meteen" >&2; exit 5 ;;
+      crasht) echo "--- nieuw proces: de I/O-bordkant van RavenGun geladen ---" > "$VIEWMAP/rg-rhio.log"
+              echo mislukt > "\$S/status"; echo "ravengunctl: RobinHood is niet gestart" >&2; exit 5 ;;
       *) echo geen > "\$S/status" ;;
     esac
     echo "De game wordt gestart..." ;;
@@ -269,9 +271,9 @@ A=$!
 for _ in $(seq 1 100); do [ -e "$S/a-wacht" ] && break; command -p sleep 0.1; done
 [ -e "$S/a-wacht" ] || mislukt "run A kwam niet bij de wachttijd"
 mkdir -p "$W/uit2"; printf OLD > "$W/uit2/old-rg-rhio.dll"
-nep env RG_AB_UIT="$W/uit2" RG_AB_NEW="$W/dll/new.dll" RG_AB_NOSTRIP="$W/dll/nostrip.dll" DOEL=1 \
+nep env XDG_STATE_HOME="$W/elders" RG_AB_UIT="$W/uit2" RG_AB_NEW="$W/dll/new.dll" RG_AB_NOSTRIP="$W/dll/nostrip.dll" DOEL=1 \
     bash "$W/repo2/tools/dev/ab-rhio/ab2.sh" > "$W/b.uit" 2>&1
-gelijk "run B uit een andere kloon en uit-map weigert terwijl A loopt: exitcode" 3 "$?"
+gelijk "run B uit een andere kloon, uit-map en XDG_STATE_HOME weigert terwijl A loopt: exitcode" 3 "$?"
 grep -q "er loopt al een A/B- of mutex-proef" "$W/b.uit" || mislukt "run B zegt niet dat er al een proef loopt"
 gelijk "run B liet de proef-DLL van A staan" OLD "$(cat "$ENG")"
 nep env RG_AB_UIT="$W/uit2" bash "$W/repo2/tools/dev/ab-rhio/mutex-hermeten.sh" "$W/dll/new.dll" 1 > "$W/b2.uit" 2>&1
@@ -321,20 +323,78 @@ rm -f "$S/aanroepen"
 nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/k4.uit" 2>&1
 gelijk "afgekapte reservekopie: weigeren, exitcode" 3 "$?"
 grep -q "sha1 $(sha1sum "$W/uit/old-rg-rhio.dll" | cut -d' ' -f1)" "$W/k4.uit" || mislukt "afgekapte reservekopie: de weigering noemt de sha1 niet"
-grep -q "Zet eerst de vastgelegde DLL terug" "$W/k4.uit" || mislukt "afgekapte reservekopie: geen aanwijzing om de DLL terug te zetten"
+grep -q "Oplossing: zet de vastgelegde DLL terug" "$W/k4.uit" || mislukt "afgekapte reservekopie: geen aanwijzing om de DLL terug te zetten"
 gelijk "afgekapte reservekopie: de engine bleef onaangeroerd" OLD "$(cat "$ENG")"
 if grep -q "systemctl" "$S/aanroepen" 2>/dev/null; then mislukt "afgekapte reservekopie: toch de daemon herstart"; fi
 
-# De geinstalleerde DLL is gelijk aan OLD (zonder reservekopie): weigeren, tenzij
-# RG_AB_HUIDIG_IS_ORIGINEEL=1; dan bewaren en daarna terugzetten.
+# Herreview 2: kill -9 terwijl NEWv1 in de engine staat, daarna een run met een andere NEW (NEWv2): het
+# grootboek kent NEWv1 als proef-DLL, dus de heldere reservekopie wint en het origineel komt terug (niet
+# NEWv1, dat zou anders als "origineel" bewaard en voorgoed teruggezet worden).
+opnieuw
+printf '%s\n' draait draait draait draait > "$S/plan"
+echo "2 KILL" > "$S/breek-af"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > /dev/null 2>&1
+gelijk "kill -9 met NEWv1 in de engine" NEW "$(cat "$ENG")"
+echo geen > "$S/status"
+printf NEWv2 > "$W/dll/new.dll"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/v2.uit" 2>&1
+gelijk "run met NEWv2 na kill -9 met NEWv1: loopt af" 0 "$?"
+teruggezet "run met NEWv2 na kill -9 met NEWv1"
+
+# Spiegelgeval: na kill -9 (NEW in de engine) wordt de engine gewoon bijgewerkt naar een DLL die
+# byte-gelijk is aan NEW, maar met een nieuw inode en een nieuwe mtime: die update mag niet onder de
+# oude reservekopie verdwijnen.
+opnieuw
+printf '%s\n' draait draait draait draait > "$S/plan"
+echo "2 KILL" > "$S/breek-af"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > /dev/null 2>&1
+echo geen > "$S/status"
+printf NEW > "$ENG.update" && touch -d '2026-01-02 03:04:05' "$ENG.update" && mv -f "$ENG.update" "$ENG"
+ino_update=$(stat -c %i "$ENG")
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/sp.uit" 2>&1
+# De update is byte-gelijk aan een variant van deze run en staat niet in git: het script weigert
+# (exit 3) in plaats van de oude reservekopie eroverheen te zetten.
+gelijk "spiegelgeval: weigeren" 3 "$?"
+grep -q "oude reservekopie (engine)" "$W/sp.uit" || mislukt "spiegelgeval: de oude reservekopie werd niet weggegooid"
+gelijk "spiegelgeval: de byte-gelijke update blijft staan" "NEW $ino_update" "$(cat "$ENG") $(stat -c %i "$ENG")"
+
+# Een engine die gelijk is aan een vastgelegde versie van de DLL in git (zoals nu de geinstalleerde) mag
+# altijd als origineel bewaard worden, ook als OLD dezelfde is: zonder vlag.
+if git -C "$ROOT" cat-file -e HEAD:patches/RobinHood/dropin/rg-rhio.dll 2>/dev/null; then
+    opnieuw
+    git -C "$ROOT" show HEAD:patches/RobinHood/dropin/rg-rhio.dll > "$ENG"
+    cp "$ENG" "$W/uit/old-rg-rhio.dll"
+    goed=$(sha1sum < "$ENG" | cut -d' ' -f1)
+    printf '%s\n' draait draait draait > "$S/plan"
+    nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/g.uit" 2>&1
+    gelijk "engine = vastgelegde DLL (ook OLD): loopt af zonder vlag" 0 "$?"
+    gelijk "engine = vastgelegde DLL: daarna weer die" "$goed" "$(sha1sum < "$ENG" | cut -d' ' -f1)"
+else
+    zeg "geen git-boom; proef met een vastgelegde DLL overgeslagen"
+fi
+
+# Een engine gelijk aan een variant van deze run die NIET in git staat en zonder reservekopie: weigeren,
+# met de sha1 en de oplossing. De oude uitweg RG_AB_HUIDIG_IS_ORIGINEEL bestaat niet meer.
 opnieuw
 printf OLD > "$ENG"
 printf '%s\n' draait draait draait > "$S/plan"
 nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/o1.uit" 2>&1
-gelijk "engine = OLD zonder reservekopie: weigeren" 3 "$?"
+gelijk "engine = OLD (niet in git) zonder reservekopie: weigeren" 3 "$?"
+grep -q "Oplossing: zet de vastgelegde DLL terug" "$W/o1.uit" || mislukt "engine = OLD: geen oplossing in de weigering"
 nep env "${ABENV[@]}" RG_AB_HUIDIG_IS_ORIGINEEL=1 DOEL=1 bash "$AB" > "$W/o2.uit" 2>&1
-gelijk "engine = OLD met RG_AB_HUIDIG_IS_ORIGINEEL=1: loopt af" 0 "$?"
-gelijk "engine = OLD: daarna weer OLD" OLD "$(cat "$ENG")"
+gelijk "RG_AB_HUIDIG_IS_ORIGINEEL=1 verandert niets meer" 3 "$?"
+if grep -rq "RG_AB_HUIDIG_IS_ORIGINEEL" "$ROOT/tools/dev/ab-rhio"; then mislukt "RG_AB_HUIDIG_IS_ORIGINEEL staat nog in de scripts"; else zeg "goed: de uitweg RG_AB_HUIDIG_IS_ORIGINEEL is weg"; fi
+gelijk "engine = OLD: onaangeroerd" OLD "$(cat "$ENG")"
+
+# De DLL laadde (rg-rhio.log niet leeg) maar de game viel meteen om ("is niet gestart"): dat is de
+# uitkomst die de proef zoekt, dus gestopt tegen de variant, niet ongeldig.
+opnieuw
+printf '%s\n' crasht draait draait > "$S/plan"
+nep env "${ABENV[@]}" DOEL=1 bash "$AB" > "$W/c.uit" 2>&1
+gelijk "crash met logboek: de reeks loopt af" 0 "$?"
+gelijk "crash met logboek: gestopt tegen OLD" "OLD 1 nee gestopt" "$(awk '$1=="OLD" {print $1, $2, $6, $9}' "$W/uit/resultaten.txt")"
+gelijk "crash met logboek: telt mee (drie starts)" 3 "$(wc -l < "$W/uit/resultaten.txt")"
+teruggezet "na een crash met logboek"
 
 # Een mislukte start: ongeldig-start-mislukt (telt niet), de uitvoer van de start in het logboek, en de
 # volgende start gaat door (de herstart ruimt "Starten is mislukt." op; eerder: na 60 s exit 3).
