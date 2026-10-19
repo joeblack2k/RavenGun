@@ -196,7 +196,7 @@ route) en of `pl.view_writable` daar gevuld is. **Stopgap**: `views/RobinHood/lo
   `build-rhio.sh` had `-s` weer verloren en stript opnieuw (pass 2): de DLL gaat van 2,37 MB naar
   **299 kB** (het eerder genoemde 197 kB klopte niet voor de DLL in de repo); het logboek is begrensd
   op 20.000 regels (`Log` en `LogVan` samen) met één afsluitende regel, begint bij elke start schoon
-  (het vorige blijft als `rg-rhio.vorige.log`) en `ClearCommError` logt alleen een wijziging.
+  (het vorige blijft als `rg-rhio.vorige.log`) en `ClearCommError` logt een wijziging van cbInQue plus een levensteken per ~1 s.
 * **C1 (aanvulling, pass 2)**: `g_antwoord_op` wordt nu in `rg_WriteFile` zelf teruggezet, ook bij een
   frame korter dan 7 bytes (`BouwAntwoord` keert dan eerder terug).
 * **C5**: de conclusie over "slot 9" is in `docs/research/namco/README.md` en

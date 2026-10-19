@@ -63,15 +63,13 @@ char g_pad[256] = {0};
 /* Het logboek (review 10 C4, pass 2). Een regel is een regel, welke functie hem ook schrijft: Log en
  * LogVan delen een teller en een maximum, zodat rg-rhio.log niet onbeperkt groeit (de ReadFile-regels
  * van LogVan zaten er eerder buiten). Na het maximum komt er nog een keer een regel en daarna niets
- * meer. Flushen is duur (elke ClearCommError/ReadFile/WriteFile schrijft): de eerste regels (het
- * opstarten, waar je bij een vastloper naar kijkt) en elke LogFout worden meteen weggeschreven, de rest
- * bij elke 16e regel of als er 200 ms geen flush was. */
+ * meer. Elke regel wordt meteen geflusht: de nieuwste regels zijn precies die van het moment van een
+ * vastloper en gaan verloren als het spel wordt gedood. Het volume is laag genoeg doordat
+ * ClearCommError alleen een wijziging (of een levensteken per seconde) logt. */
 volatile LONG g_log_regels = 0;
 constexpr LONG kLogMax = 20000;
-constexpr LONG kLogMeteenFlush = 100;
-DWORD g_laatste_flush = 0;
 
-void SchrijfRegel(const char* tekst, bool fout) {
+void SchrijfRegel(const char* tekst) {
     if (!g_log || g_stil) return;
     if (g_log_regels > kLogMax) return;   // vooraf kijken: de teller loopt zo nooit door in een lus
     const LONG nr = InterlockedIncrement(&g_log_regels);
@@ -84,11 +82,7 @@ void SchrijfRegel(const char* tekst, bool fout) {
     }
     std::fputs(tekst, g_log);
     std::fputc('\n', g_log);
-    const DWORD nu = GetTickCount();
-    if (fout || nr <= kLogMeteenFlush || nr % 16 == 0 || nu - g_laatste_flush >= 200) {
-        std::fflush(g_log);
-        g_laatste_flush = nu;
-    }
+    std::fflush(g_log);
 }
 
 void LogVan(const void* beller, const char* fmt, ...) {
@@ -100,7 +94,7 @@ void LogVan(const void* beller, const char* fmt, ...) {
     va_end(ap);
     char regel[640];
     std::snprintf(regel, sizeof regel, "[%8lu] beller=%p %s", static_cast<unsigned long>(GetTickCount()), beller, tekst);
-    SchrijfRegel(regel, false);
+    SchrijfRegel(regel);
 }
 
 void Log(const char* fmt, ...) {
@@ -110,10 +104,10 @@ void Log(const char* fmt, ...) {
     char regel[640];
     vsnprintf(regel, sizeof regel, fmt, ap);
     va_end(ap);
-    SchrijfRegel(regel, false);
+    SchrijfRegel(regel);
 }
 
-/* Zoals Log, maar meteen weggeschreven (voor fouten: een vastloper mag ze niet in de buffer laten). */
+/* Zoals Log (alles wordt nu meteen weggeschreven); apart gehouden om de foutregels te kunnen onderscheiden. */
 void LogFout(const char* fmt, ...) {
     if (!g_log || g_stil) return;
     va_list ap;
@@ -121,7 +115,7 @@ void LogFout(const char* fmt, ...) {
     char regel[640];
     vsnprintf(regel, sizeof regel, fmt, ap);
     va_end(ap);
-    SchrijfRegel(regel, true);
+    SchrijfRegel(regel);
 }
 
 volatile LONG g_log_geprobeerd = 0;
@@ -153,16 +147,23 @@ void LogOpen() {
             std::strncat(pad, "rg-rhio.log", sizeof pad - std::strlen(pad) - 1);
         }
         /* Elke start een schoon logboek; het vorige blijft een start lang bewaard als <naam>.vorige.log
-         * (bij een pad dat niet op .log eindigt: <pad>.vorige). Lukt het hernoemen niet, dan wordt het
-         * bestand door "w" alsnog leeggemaakt. */
+         * (bij een pad dat niet op .log eindigt: <pad>.vorige). Lukt het hernoemen niet om een andere
+         * reden dan "bestaat nog niet" (bv. een sharing violation omdat een tweede proces het logboek
+         * open heeft), dan openen we met "a" en laten het bestand staan in plaats van het leeg te maken. */
         char vorige[MAX_PATH + 16];
         const size_t lp = std::strlen(pad);
         if (lp > 4 && std::strcmp(pad + lp - 4, ".log") == 0)
             std::snprintf(vorige, sizeof vorige, "%.*s.vorige.log", static_cast<int>(lp - 4), pad);
         else
             std::snprintf(vorige, sizeof vorige, "%s.vorige", pad);
-        MoveFileExA(pad, vorige, MOVEFILE_REPLACE_EXISTING);
-        g_log = std::fopen(pad, "w");
+        DWORD hernoem_fout = 0;
+        if (!MoveFileExA(pad, vorige, MOVEFILE_REPLACE_EXISTING)) hernoem_fout = GetLastError();
+        const bool geen_vorige = hernoem_fout == 0 || hernoem_fout == ERROR_FILE_NOT_FOUND ||
+                                 hernoem_fout == ERROR_PATH_NOT_FOUND;
+        g_log = std::fopen(pad, geen_vorige ? "w" : "a");
+        if (!geen_vorige)
+            LogFout("logboek: hernoemen naar %s mislukt (fout %lu); logboek geopend met \"a\" (toevoegen)", vorige,
+                    static_cast<unsigned long>(hernoem_fout));
     }
     Log("rg-rhio geladen (32-bits): pad=%s, ioctl-gelukt=%d", g_pad, g_ioctl_ok ? 1 : 0);
 }
@@ -255,6 +256,11 @@ DWORD g_laatste_overdracht = 0;
 /* De laatste cbInQue die ClearCommError gelogd heeft (onder g_bord_cs); de aanroep staat in een
  * strakke lus en logde elke keer dezelfde regel. 0xFFFFFFFF = nog niets gelogd. */
 DWORD g_clear_gelogd = 0xFFFFFFFFu;
+/* Aantal ClearCommError-aanroepen sinds de laatste ClearCommError-logregel en het tijdstip van die
+ * regel (onder g_bord_cs): zonder deze twee is "het spel pollt nog" niet te onderscheiden van "het
+ * spel roept niet meer aan" als cbInQue op 0 of 7 blijft staan. */
+DWORD g_clear_aanroepen = 0;
+DWORD g_clear_tick = 0;
 /* RG_RHIO_EERSTEBYTE en RG_RHIO_BORD, een keer gelezen in LeesOmgeving() (DllMain), dus niet per
  * frame onder g_bord_cs. */
 bool g_eerstebyte_gezet = false;
@@ -474,7 +480,8 @@ const char* AntwoordStand();
 BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD n, LPDWORD gelezen, LPOVERLAPPED ov) {
     if (h == g_com_handle) {
         /* Eerste proef: het laatste opdrachtkader terugsturen (bord aanwezig, geen schakelaars).
-         * RG_RHIO_ANTWOORD=0 zet dat uit; RG_RHIO_ANTWOORD=niks laat het antwoord leeg. */
+         * RG_RHIO_ANTWOORD=0 (of echo) is hetzelfde als niet gezet: echo; RG_RHIO_ANTWOORD=niks laat
+         * het antwoord leeg. */
         const char* stand = AntwoordStand();
         if (stand && std::strcmp(stand, "niks") == 0) {
             Log("ReadFile(bord, %lu bytes gevraagd) -> geen antwoord (RG_RHIO_ANTWOORD=niks)",
@@ -588,7 +595,9 @@ bool CodeGoed(unsigned char c) {
  *   RG_RHIO_LOG        = pad van het logboek; leeg of afwezig = rg-rhio.log naast de DLL. Bij elke
  *                        start opnieuw begonnen; het vorige logboek wordt hernoemd naar
  *                        <naam>.vorige.log (bij een pad zonder .log: <pad>.vorige). Maximaal 20000
- *                        regels (Log en LogVan tellen samen); ClearCommError logt alleen een wijziging.
+ *                        regels (Log en LogVan tellen samen), elke regel meteen geflusht; ClearCommError logt een
+ *                        wijziging van cbInQue en verder een levensteken per ~1 s met het aantal
+ *                        aanroepen sinds de vorige regel.
  *   RG_RHIO_STIL       = alleen de waarde "1" zet het logboek helemaal uit (er wordt dan ook geen
  *                        bestand aangemaakt of hernoemd); elke andere waarde telt als uit.
  *   RG_RHIO_PAD        = het apparaatpad dat de SetupDi-opsomming teruggeeft (standaard \\.\USBPDCOM)
@@ -770,8 +779,17 @@ BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD fouten, LPCOMSTAT stat) {
         /* Geen spookdata: is het antwoord helemaal gelezen (of is er geen), dan is cbInQue 0. Zonder
          * dit las het spel na een volledig kader opnieuw 7 bytes en begon het rondje opnieuw. */
         rest = g_antwoord_op ? 0 : (g_laatste_lengte > g_antwoord_gelezen ? g_laatste_lengte - g_antwoord_gelezen : 0);
-        const bool gewijzigd = rest != g_clear_gelogd;
-        g_clear_gelogd = rest;
+        /* Loggen bij een wijziging van cbInQue, en verder een levensteken zodra de vorige regel minstens
+         * 1000 ms geleden is (meegenomen op deze aanroep, geen extra draad). */
+        const DWORD nu = GetTickCount();
+        ++g_clear_aanroepen;
+        const bool loggen = rest != g_clear_gelogd || nu - g_clear_tick >= 1000;
+        const DWORD aanroepen = g_clear_aanroepen;
+        if (loggen) {
+            g_clear_gelogd = rest;
+            g_clear_aanroepen = 0;
+            g_clear_tick = nu;
+        }
         if (g_bord_cs_klaar) LeaveCriticalSection(&g_bord_cs);
         if (fouten) *fouten = 0;
         if (stat) {
@@ -780,7 +798,10 @@ BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD fouten, LPCOMSTAT stat) {
              * leest het de rest nooit (en dat was precies het oude misverstand). */
             stat->cbInQue = rest;
         }
-        if (gewijzigd) Log("ClearCommError(bord) -> cbInQue=%lu (alleen wijzigingen gelogd)", static_cast<unsigned long>(rest));
+        if (loggen)
+            Log("ClearCommError: cbInQue=%lu (%lu aanroepen sinds vorige regel, tick %lu)",
+                static_cast<unsigned long>(rest), static_cast<unsigned long>(aanroepen),
+                static_cast<unsigned long>(nu));
         return TRUE;
     }
     return g_echte_clear ? g_echte_clear(h, fouten, stat) : FALSE;
