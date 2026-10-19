@@ -66,6 +66,26 @@ ets te zien was); de instelling is daarna teruggezet op `false`.
 
 
 
+
+### De USB-dongel: SetupAPI nagebootst, het spel opent hem (22:01)
+
+Het spel zoekt de dongel via klasse `{3abf6f2d-71c4-462a-8a92-1e6861e6af27}` (trace met
+`RG_DONGLE=trace`). In `tools/rg-mfcam/dongle_trace.h` staan nu de hooks op
+`SetupDiGetClassDevsW`, `SetupDiEnumDeviceInterfaces`, `SetupDiGetDeviceInterfaceDetailW`,
+`CreateFileW` en `DeviceIoControl`. Met `RG_DONGLE=fake`:
+
+```
+dongel: SetupDiGetClassDevsW {3abf6f2d-71c4-462a-8a92-1e6861e6af27}
+dongel: eigen apparaat in de lijst gezet
+dongel: SetupDiEnumDeviceInterfaces index 0 -> eigen dongel
+dongel: apparaatpad \\?\rg-dongle#vid_0000&pid_0000#1
+dongel: het spel opent de dongel -> eigen pijp
+dongel: DeviceIoControl code 0x00220424 in 6 uit 6 (invoer aanwezig)
+```
+
+Het spel **opent onze dongel dus** en stuurt zijn eerste opdracht. Ons antwoord (zes nullen) wordt
+daarna afgekeurd en het spel sluit af; dat antwoord is het laatste stukje.
+
 ### De USB-dongel is `muchacd` -- en onze eigen webinterface houdt zijn poort bezet (21:00)
 
 Het spel zoekt zijn dongel niet via HID/SetupAPI (die imports heeft het niet); het **start

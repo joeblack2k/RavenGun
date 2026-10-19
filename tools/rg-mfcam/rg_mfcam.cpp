@@ -139,6 +139,7 @@
 #include "bngrw_fake.h"
 #include "window_mode.h"
 #include "str_board.h"
+#include "dongle_trace.h"
 
 // --- GUID's die niet in elke MinGW-importbibliotheek staan (eigen namen, dezelfde waarden als in mfidl.h / mfapi.h) -------------
 DEFINE_GUID(RG_DEVSOURCE_SOURCE_TYPE, 0xc60ac5fe, 0x252a, 0x478f, 0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3);
@@ -802,6 +803,38 @@ void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
         }
     }
     return nullptr;
+}
+
+// --- de USB-dongel (zie dongle_trace.h; schakelaar RG_DONGLE) -------------------------------------------------
+// Het spel zoekt zijn dongel via SetupAPI en praat er daarna mee via DeviceIoControl. In de
+// TP-vergelijking zijn er geen apparaat-handvatten te zien: de TP-kern beantwoordt dit in het proces.
+// Met RG_DONGLE=trace loggen we alleen wat het spel vraagt; met RG_DONGLE=fake antwoorden we zelf.
+void setup_dongle_trace() {
+    char v[16];
+    if (GetEnvironmentVariableA("RG_DONGLE", v, sizeof v) == 0 || !v[0]) return;   // uit
+    rg_dongle::g_log = &rg_log;
+    rg_dongle::g_fake = lstrcmpiA(v, "fake") == 0;
+    rg_log("dongel: aan (%s), SetupAPI en DeviceIoControl worden gevolgd", v);
+    HMODULE self = GetModuleHandleW(nullptr);
+    auto koppel = [self](const char* dll, const char* fn, void* repl, void** oud) {
+        void* old = patch_iat(self, dll, fn, repl);
+        if (old) {
+            *oud = old;
+            rg_log("dongel: importtabel %s!%s omgezet", dll, fn);
+        } else {
+            rg_log("dongel: importtabel %s!%s NIET gevonden", dll, fn);
+        }
+    };
+    koppel("KERNEL32.dll", "DeviceIoControl", reinterpret_cast<void*>(&rg_dongle::hook_device_io_control),
+           reinterpret_cast<void**>(&rg_dongle::g_device_io_control));
+    koppel("KERNEL32.dll", "CreateFileW", reinterpret_cast<void*>(&rg_dongle::hook_create_file_w),
+           reinterpret_cast<void**>(&rg_dongle::g_create_file_w));
+    koppel("setupapi.dll", "SetupDiGetClassDevsW", reinterpret_cast<void*>(&rg_dongle::hook_get_class_devs),
+           reinterpret_cast<void**>(&rg_dongle::g_get_class_devs));
+    koppel("setupapi.dll", "SetupDiEnumDeviceInterfaces", reinterpret_cast<void*>(&rg_dongle::hook_enum_device_interfaces),
+           reinterpret_cast<void**>(&rg_dongle::g_enum_interfaces));
+    koppel("setupapi.dll", "SetupDiGetDeviceInterfaceDetailW", reinterpret_cast<void*>(&rg_dongle::hook_get_device_interface_detail_w),
+           reinterpret_cast<void**>(&rg_dongle::g_get_detail));
 }
 
 // --- d3dx10: pHResult zoals Windows (zie TWEEDE TAAK bovenaan) ---------------------------------------------------------------------------
@@ -2016,6 +2049,7 @@ void setup() {
     setup_d3dx10_hrfix();   // los van de camera: ook met RG_MFCAM_OFF=1
     setup_jvs_com();        // idem: alleen met RG_JVS_COMPORT
     setup_str_board();      // idem: alleen met RG_STR_COMPORT
+    setup_dongle_trace();   // idem: alleen met RG_DONGLE
     // Deze twee laden allebei een DLL en mogen daarom NIET in DllMain (loader-lock): in een draad,
     // net als de stalldump hierboven.
     {
