@@ -859,8 +859,6 @@ static double aim_aspect_of(const ravengun::gamesettings::Dirs& dirs, const std:
     return 0;
 }
 
-// [Audio] Speakers uit game.ini ("STEREO" of "LPCM 5.1", zoals de opties van de app hem schrijven) als waarde voor de FMOD-wrapper:
-// "stereo" of "5.1". Leeg = niets gekozen (de wrapper gebruikt dan zijn standaard, 5.1).
 // [Display] GamescopeBackend (docs/game-opties.md): the gamescope backend of the native route. Empty or "auto" keeps
 // gamescope's own choice; "headless" is used for measurements while the TV is in use.
 static std::string gamescope_backend_of(const ravengun::gamesettings::Dirs& dirs, const std::string& profile) {
@@ -870,6 +868,8 @@ static std::string gamescope_backend_of(const ravengun::gamesettings::Dirs& dirs
     return v;
 }
 
+// [Audio] Speakers uit game.ini ("STEREO" of "LPCM 5.1", zoals de opties van de app hem schrijven) als waarde voor de FMOD-wrapper:
+// "stereo" of "5.1". Leeg = niets gekozen (de wrapper gebruikt dan zijn standaard, 5.1).
 static std::string speakers_of(const ravengun::gamesettings::Dirs& dirs, const std::string& profile) {
     std::string v = ravengun::gamesettings::load_game(dirs, profile).get("Audio", "Speakers");
     for (char& ch : v) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));

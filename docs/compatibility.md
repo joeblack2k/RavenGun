@@ -5,7 +5,7 @@
 This list shows what has been tried so far, on one setup (a Steam Deck with a PS Move ZCM1 and a PS3 Eye). It is a snapshot, not a promise: arcade games differ a lot, and some depend on the TeknoParrot runtime or on your own dump.
 RavenGun ships no games. You need your own legally obtained copies.
 
-## Working (49)
+## Working (48)
 
 These games run on RavenGun's own loader and start straight from RavenGun (double-click), without TeknoParrot; they were played with the lightgun (PS Move or mouse) and checked on the TV. The note says what was tested.
 
@@ -23,7 +23,6 @@ These games run on RavenGun's own loader and start straight from RavenGun (doubl
 - **HALO Fireteam Raven**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> BudgieLoader, input through the tp-shm I/O bridge). Measured on the TV in mouse mode: skip calibration with TEST twice (hold key 0 briefly), coin (key 5), START (key 1), aim, shoot, reload (right button), a kill; ran 5:12 min. The native route (Linux, own loader) also exists and skips calibration with START.
 - **Haunted Museum**: WORKING via double-click (2026-10-16): attract, coin, START, game; same recipe as Gaia Attack 4. Gun calibration ships with RavenGun (made in the test menu); to recalibrate: TEST > GUN CHECK > START 1, save with TEST.
 - **Haunted Museum II**: WORKING via double-click (2026-10-16): attract, coin, START, game; same recipe as Gaia Attack 4. Gun calibration (P1 and P2) and the date ship with RavenGun (made in the test menu); to recalibrate: TEST > GUN CHECK > START 1, save with TEST.
-- **House of the Dead: Scarlet Dawn**: WORKING without TeknoParrotUi (2026-10-14): a double-click in RavenGun starts amdaemon.exe and the game through rg-direct (two executables, the closed core). All input comes from the daemon: triggers and aim through the shared memory (HOTDSDPipe), START, sub-trigger, controller select, test and coin through the ALLS USB-IO report on TeknoParrotPipe (control pipe AllsUsbIo). Measured on the TV (the daemon's test pattern and trigger): START -> title -> MODE SELECT -> STORY MODE -> ITEMS -> in the level, CONTINUE, GAME OVER and ranking; 8:44 min continuous. An earlier run stopped after ~3 min with exit code 3 while my mouse injection was clicking on the desktop (cause not established). Not yet played with the real Move; sub-trigger and controller select not checked separately.
 - **Infinity Blade FX**: Since 2026-10-18 without TeknoParrot (our core, our rg-kaboom/PQMTClient/Matrix): on the TV without the TP folder attract movie, coin (2/4 CREDITS), sound, D3D9 (SM3). Starts by double-click (2026-10-17): DXVK, dongle passes, then the attract (are you ready, 0/4 credits). Needs Windowed = 1 under gamescope. The cabinet I/O (Kaboom: coins, keypad, tickets) still fails; play not measured. Play test 2026-10-17 (mouse mode): coins do not arrive (0/4 credits); the cabinet's Kaboom I/O fails.
 - **Jurassic Park Arcade**: WORKING: runs on our own loader, started straight from RavenGun (double-click; the RavenGun engine starts it itself, no scripts), native Linux, OpenGL on Vulkan (zink); played with a PS Move and with a mouse (2026-10-14). The lightgun board answers as the real USB board (RIO bridge, rio-invoer.ini): no more "RIO Disconnected"; START (key 1), aim and trigger work (score and kills measured), the game's own settings (free play, difficulty, volume, ...) are in the app. Four glow shaders Mesa rejected are fixed (data/shaders). Not measured: player 2's trigger, a physical mouse and the PS Move. See bewijs-speelbaar-20261014/LEESMIJ.md.
 - **Let's Go Island 3D: Lost on the Island of Tropics**: WORKING on our own route (2026-10-14): a double-click in RavenGun starts the game without scripts and without TeknoParrotUi (daemon -> rg-direct -> Wine -> OpenParrot loader; JVS over the pipe to the daemon's board). Measured on the TV in mouse mode: START (hold key 1 briefly), aim, shoot, combos (score 37500); 5:15 min of attract and play after the first attract screen. Red-cyan 3D picture (the 2D button was not checked). Not yet played with the real Move on this route. Since 2026-10-18 without the TeknoParrot core (our core + rg-amhw.dll), measured on the TV without the TP folder: attract, coin (CREDIT(S) 2), start to 3D CALIBRATION, sound.
@@ -67,11 +66,12 @@ These games start from RavenGun and can be played with the lightgun. Some are no
 - **Go Go Strike**: Works: bowling with the Move as trackball (direction and swing set the throw), start (key 1) and trigger (click). 4:3 picture with black bars (gamescope).
 - **Luigi's Mansion Arcade**: Starts by double-click in RavenGun (2026-10-14): on our own OpenParrot core and through gamescope the game runs full screen in attract (with the closed core it stopped after ~13 s). Measured earlier: ~6 min of continuous attract/demo on our core (BEWIJS-5MIN.md), with the drop-in rg-pe-hook.dll (see MECHANISME-PE-HOOK.md). NOT playable yet: coin and TEST do not reach the game (DIRECT-ROUTE-INVOER.md).
 
-## Not tested yet (2)
+## Not tested yet (3)
 
 These games are set up, but nobody has tried them with the lightgun yet.
 
 - **Coopers's 9**: Starts by double-click (2026-10-17): with Windowed = 1 under gamescope it shows PLEASE CALIBRATE THE GUN. Calibration and play not measured. Play test 2026-10-17 (mouse mode): 'please calibrate the gun': calibrate in the test menu first.
+- **House of the Dead: Scarlet Dawn**: No-TeknoParrot route (2026-10-20): rg-direct starts amdaemon.exe and the game with RavenGun's own core; rg-allsio.dll provides the Sega ALLS USB-IO board; data/platform.reg holds synthetic platform values in the format the daemon validates. Measurement in progress (headless).
 - **Tank! Tank! Tank!**: Never started and impossible to plan: the game is not on the NAS, so there is no game map, no file evidence and no start measurement (--plan stops with rc=4, "game not found"). The profile names no dongle, but that was not measured against the game.
 
 ## Not working yet (10)

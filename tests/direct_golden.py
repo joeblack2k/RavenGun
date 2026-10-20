@@ -147,9 +147,10 @@ def sparse(path, size, magic):
 
 def in_gamemap(name):
     """Vaste keuze per naam (niet per plaats in de lijst): een nieuw profiel verschuift de andere niet."""
-    if name in ("RobinHood", "MarioKartDX", "SegaGameShell", "TNXK0OC"):
+    if name in ("RobinHood", "MarioKartDX", "SegaGameShell", "TNXK0OC", "HOTDSD"):
         # Hun profiel vraagt een view (ViewWritable/ViewCopies/StackReserve); zie fixture(). Zonder view
         # weigert de motor en dan legt het gouden bestand alleen de weigering vast (review 16, punt 8).
+        # HOTDSD: its drop-in writes AMDaemon/config.json, next to the second exe, so it needs the whole game as a view.
         return False
     return zlib.crc32(name.encode()) % 2 == 1
 
