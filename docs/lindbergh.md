@@ -183,7 +183,7 @@ GPU bewezen: `/proc/<pid van de game>/maps` bevat `libvulkan_radeon.so` en `libg
 | `Primevil` | **werkt** na de extra bibliotheken; het aanraakscherm ontbreekt bewust (het spel kiest op de timer) |
 | `2Spicy` | **werkt** met `stackalign` (zie hieronder) en `libsndio.so.7`; 5,5 min gespeeld |
 | `HOTD4SP` | draait met `stackalign` en `/var/tmp`; ride-reset met START, dan attract (spelstart: zie patch 0004) |
-| `HOTD4` | draait met `stackalign`; attract klopt, maar tijdens het spel wit beeld (shaders uitgesloten; met radeonsi i.p.v. zink ook wit, 2026-10-15); open |
+| `HOTD4` | runs with `stackalign`; the attract is correct, but the in-game picture is white (shaders excluded; also white with radeonsi instead of zink, 2026-10-15); open. Measured 2026-10-20 (headless, through the daemon): coin and START work and start a real session (chapter 1 intro movie, 'ESCAPE / CHAPTER 1', the stage, GAME OVER, back to the attract); the gun cursor follows the aim but the gun is not calibrated in the game's EEPROM yet. The white picture is the stage/video layer: the frame right after the chapter card is uniformly white (luma 255) while the 2D layer still draws (subtitle bars), and the attract's own movie and 3D scenes render fine, so it is not shader compilation. Holding TEST (key 0) makes the game exit. |
 | `LGJ` | **werkt** met `stackalign` en patch 0003 |
 | `LGJS` | **werkt** (ride-versie) met `stackalign` en patches 0003 en 0004; bij de start eerst START voor de ride-reset |
 | `HOTDEX` | **werkt** met `stackalign` |
