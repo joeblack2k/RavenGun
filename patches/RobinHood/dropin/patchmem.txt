@@ -48,3 +48,10 @@ game.exe|0x91569|52|00
 game.exe|0x91572|48|00
 game.exe|0x9150b|7431|eb31
 game.exe|0x9159c|7d06|eb06
+#
+# game.exe+0x91620 (VA 0x491620): a SECOND dongle login (callers 0x480f80 and 0x481587), reached only once the board
+# check passes. Without a dongle 0x57a9e0 returns a status above 0x1f -> flag 0x1a6be80 = 2 and error code 0x0c
+# (ERROR / SECURITY CHECK BAD). Measured 2026-10-20 after the rg-rhio 0x25 fix: the first patch set is in memory
+# (0x491496=9090 ...) but the flag is still 2 and the screen shows SECURITY CHECK BAD. Make the function return 0
+# at once (xor eax,eax; ret), same as its own success path.
+game.exe|0x91620|518d04|33c0c3
