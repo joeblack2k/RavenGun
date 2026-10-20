@@ -9,9 +9,9 @@ script. Everything the cabinet normally provides is stood in for by two files in
 
 Each part has its own switch in `dropin/dropin.ini` (`Env`). With the TeknoParrot core in the process
 (Properties > Online play = TeknoParrot, `[Loader] Core = teknoparrot`) every part of rg-mfcam and the memory engine
-switch themselves off, so the online route stays exactly as it was. That is also why `AMCUS/AMAuthd.exe` is still
-started as the second exe: the TeknoParrot route needs it. On the offline route it runs but the game never talks to it
-(the IAuth object is answered in the process); in full screen (gamescope) its console window is not visible.
+switch themselves off, so the online route stays exactly as it was. `AMCUS/AMAuthd.exe`, Namco's ALL.Net server, starts
+only on that route (`[Launch] SecondCore = teknoparrot`): on ours the IAuth object is answered in the process, and
+AMAuthd only put a console window on the desktop at every start.
 
 Addresses below are virtual addresses of `MK_AGP3_FINAL.exe` (image base 0x400000, no ASLR). Error ids are the
 argument of the game's error raise function at 0x6095C0; the screen codes were measured on the TV.

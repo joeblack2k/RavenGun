@@ -128,10 +128,6 @@
     [
      "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/teknoparrot.ini",
      "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nWindowed=1\nEnable Outputs=0\nFreezeCountdownTimer=0\nAutoAcclOff=0\nExperimental Webcam Hack=0\nCustomResolution=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\nKeyboard/Button Axis Pedal Sensitivity=10\nResolutionWidth=1360\nResolutionHeight=768\n[FFB Blaster]\nEnable=0\n[Network]\nGateway=192.168.1.1\nServerAddress=164.132.246.154\nServerPort=49200\nPlayerId=\n"
-    ],
-    [
-     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nWindowed=1\nEnable Outputs=0\nFreezeCountdownTimer=0\nAutoAcclOff=0\nExperimental Webcam Hack=0\nCustomResolution=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\nKeyboard/Button Axis Pedal Sensitivity=10\nResolutionWidth=1360\nResolutionHeight=768\n[FFB Blaster]\nEnable=0\n[Network]\nGateway=192.168.1.1\nServerAddress=164.132.246.154\nServerPort=49200\nPlayerId=\n"
     ]
    ],
    "game": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
@@ -220,7 +216,6 @@
     }
    ],
    "prefix_setup_mark": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX/.ravengun-prefixsetup/3b92f495bbfda327.done",
-   "second_bare": true,
    "shm_source": "/dev/shm/TeknoParrot_JvsState",
    "stack": {
     "dest": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
@@ -228,21 +223,6 @@
     "src": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe"
    },
    "starts": [
-    {
-     "argv": [
-      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\AMCUS\\AMAuthd.exe"
-     ],
-     "comms": [
-      "amauthd.exe"
-     ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX",
-     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/AMAuthd.exe",
-     "gamescope": false,
-     "name": "AMAuthd.exe",
-     "role": "second",
-     "wait_before": 0.0
-    },
     {
      "argv": [
       "/usr/bin/gamescope",
@@ -269,7 +249,7 @@
      "gamescope": true,
      "name": "MK_AGP3_FINAL.exe",
      "role": "main",
-     "wait_before": 5.0
+     "wait_before": 0.0
     }
    ],
    "view_copies": [],
@@ -417,10 +397,6 @@
     [
      "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/teknoparrot.ini",
      "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nWindowed=1\nEnable Outputs=0\nFreezeCountdownTimer=0\nAutoAcclOff=0\nExperimental Webcam Hack=0\nCustomResolution=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\nKeyboard/Button Axis Pedal Sensitivity=10\nResolutionWidth=1360\nResolutionHeight=768\n[FFB Blaster]\nEnable=0\n[Network]\nGateway=192.168.1.1\nServerAddress=164.132.246.154\nServerPort=49200\nPlayerId=\n"
-    ],
-    [
-     "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/teknoparrot.ini",
-     "[GlobalHotkeys]\nExitKey=0x1B\nPauseKey=0x13\n[General]\nInput API=DirectInput\nWindowed=1\nEnable Outputs=0\nFreezeCountdownTimer=0\nAutoAcclOff=0\nExperimental Webcam Hack=0\nCustomResolution=0\nUse Keyboard/Button For Axis=0\nKeyboard/Button Axis Wheel Sensitivity=10\nKeyboard/Button Axis Pedal Sensitivity=10\nResolutionWidth=1360\nResolutionHeight=768\n[FFB Blaster]\nEnable=0\n[Network]\nGateway=192.168.1.1\nServerAddress=164.132.246.154\nServerPort=49200\nPlayerId=\n"
     ]
    ],
    "game": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
@@ -509,7 +485,6 @@
     }
    ],
    "prefix_setup_mark": "@TMP@/home/.local/share/ravengun/prefixes/MarioKartDX/.ravengun-prefixsetup/3b92f495bbfda327.done",
-   "second_bare": true,
    "shm_source": "/dev/shm/TeknoParrot_JvsState",
    "stack": {
     "dest": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe",
@@ -517,21 +492,6 @@
     "src": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/MK_AGP3_FINAL.exe"
    },
    "starts": [
-    {
-     "argv": [
-      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
-      "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\MarioKartDX\\AMCUS\\AMAuthd.exe"
-     ],
-     "comms": [
-      "amauthd.exe"
-     ],
-     "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX",
-     "exe": "@TMP@/home/.local/share/ravengun/runtime/views/MarioKartDX/AMCUS/AMAuthd.exe",
-     "gamescope": false,
-     "name": "AMAuthd.exe",
-     "role": "second",
-     "wait_before": 0.0
-    },
     {
      "argv": [
       "/usr/bin/gamescope",
@@ -558,7 +518,7 @@
      "gamescope": true,
      "name": "MK_AGP3_FINAL.exe",
      "role": "main",
-     "wait_before": 5.0
+     "wait_before": 0.0
     }
    ],
    "view_copies": [],

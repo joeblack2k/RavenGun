@@ -136,7 +136,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         if (r == -2) return setting_refused(m);
         if (r == 0) second.path.clear();
     }
-    const bool have_second = !second.path.empty();
+    bool have_second = !second.path.empty();   // [Launch] SecondCore can still drop it, once the core is known (below)
     // resolve_loader()
     const std::string et = pr.get("EmulatorType");
     const bool is64 = ld_truthy(pr.get("Is64Bit", "false"));
@@ -183,6 +183,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     // TeknoParrot-profiel, zoals Mighty Moto: de TeknoParrot-kern stopt dan met exitcode 57 en OpenParrot met "Unsupported Executable").
     std::string core_dir = tp;
     bool zonder_lader = false;
+    std::string effective_core = "teknoparrot";   // the core the plan really uses: teknoparrot, ravengun or none ([Launch] SecondCore)
     {
         const gsn::Section* ls = settings.settings.section("Loader");
         auto lget = [&](const char* k) { return ls ? kv_get(ls->kv, k) : std::string(); };
@@ -199,6 +200,7 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             if (enabled.count(kFpfix)) enabled[kFpfix] = false;   // die patch hoort bij de lader
         }
         if (core.empty() && build == "ravengun" && et == "OpenParrot") core = "ravengun";
+        effective_core = zonder_lader ? "none" : core == "ravengun" ? "ravengun" : "teknoparrot";
         if (build == "ravengun" || core == "ravengun") {
             const std::string pth = trim(lget("Path"));
             const std::string base = pth.empty() ? pjoin(p.data, "openparrot/current") : expand_home(pth, p.home);
@@ -463,6 +465,27 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         args.insert(args.end(), spel_args.begin(), spel_args.end());
     }
     // De tweede exe krijgt dezelfde wine, dezelfde lader en dezelfde kern als de eerste: anders haakt de kern er niet aan.
+    // [Launch] SecondCore = teknoparrot (a comma-separated list is fine): start the second exe only with that core. Mario Kart DX:
+    // AMAuthd.exe belongs to the route with the TeknoParrot core; on our own core the drop-in answers IAuth inside the game, so the
+    // program is not needed there (and its console window would only show up on the desktop).
+    if (have_second) {
+        const std::string want = lower(trim(lini("SecondCore")));
+        if (!want.empty()) {
+            bool match = false;
+            for (std::string c : nonempty_split(want, ',')) {
+                c = trim(c);
+                if (c != "teknoparrot" && c != "ravengun" && c != "none")
+                    return setting_refused("[Launch] SecondCore = " + want + " (choose teknoparrot, ravengun or none)");
+                if (c == effective_core) match = true;
+            }
+            if (!match) {
+                pl.notes.push_back("second exe " + basename(second.path) + " not started: [Launch] SecondCore = " + want +
+                                   ", this plan uses core " + effective_core);
+                second.path.clear();
+                have_second = false;
+            }
+        }
+    }
     std::vector<std::string> args2;
     if (have_second) {
         std::vector<std::string> delen2;

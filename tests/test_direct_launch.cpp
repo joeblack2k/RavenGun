@@ -2230,6 +2230,42 @@ int main() {
         CHECK(plan_from_json(plan_to_json(bp), back, berr) && back.second_bare && back.starts.size() == 2);
     }
 
+    // --- [Launch] SecondCore: the second exe only with that core -----------------------------------
+    // Mario Kart DX (2026-10-20): AMAuthd.exe belongs to the TeknoParrot route; on our own core it is not started.
+    write(fs::path(p.dirs.shipped) / "Kern2/game.ini",
+          "[Game]\nProfile = Kern2\nType = TeknoParrot\nEmulationProfile = ALLSHOTDSD\nExecutable = spel.exe\n"
+          "Executable2 = server.exe\nIs64Bit = true\nHasTwoExecutables = true\nLaunchSecondExecutableFirst = true\n"
+          "[Launch]\nMode = direct\nSecondBare = true\nSecondCore = teknoparrot\n\n"
+          "[Identify]\nPath = spel.exe\nPath2 = server.exe\n");
+    {
+        const fs::path kview = fs::path(p.views()) / "Kern2";
+        const fs::path kuser = fs::path(p.dirs.user) / "Kern2/game.ini";
+        write(kview / "spel.exe", "MZ");
+        write(kview / "server.exe", "MZ");
+        auto has_note = [](const DirectPlan& d, const std::string& s) {
+            return std::any_of(d.notes.begin(), d.notes.end(), [&](const std::string& n) { return contains(n, s); });
+        };
+        DirectPlan kp;
+        std::string kwhy;
+        // The TeknoParrot core (the default of this profile): both exes.
+        CHECK(plan_direct("Kern2", p, o, kp, kwhy) == Verdict::Ok);
+        CHECK(kp.starts.size() == 2 && !has_note(kp, "SecondCore"));
+        // Our own core: only the game, and a note that says why.
+        write(kuser, "[Loader]\nCore = ravengun\n");
+        const Verdict kv = plan_direct("Kern2", p, o, kp, kwhy);
+        if (kv != Verdict::Ok) std::fprintf(stderr, "SecondCore with Core = ravengun: %s\n", kwhy.c_str());
+        CHECK(kv == Verdict::Ok);
+        CHECK(kp.starts.size() == 1 && kp.starts[0].role == "main" && kp.starts[0].name == "spel.exe");
+        CHECK(has_note(kp, "server.exe not started: [Launch] SecondCore = teknoparrot, this plan uses core ravengun"));
+        // A list: both cores start it.
+        write(kuser, "[Loader]\nCore = ravengun\n[Launch]\nSecondCore = teknoparrot, ravengun\n");
+        CHECK(plan_direct("Kern2", p, o, kp, kwhy) == Verdict::Ok && kp.starts.size() == 2);
+        // An unknown core name refuses the start instead of guessing.
+        write(kuser, "[Launch]\nSecondCore = tekno\n");
+        CHECK(plan_direct("Kern2", p, o, kp, kwhy) == Verdict::Refused && contains(kwhy, "SecondCore = tekno"));
+        fs::remove(kuser);
+    }
+
     // --- (F) [Launch] PrefixSetup: stappen die eenmalig per prefix gebeuren ------------------------
     write(fs::path(p.dirs.shipped) / "Stap/game.ini",
           "[Game]\nProfile = Stap\nType = TeknoParrot\nEmulationProfile = ALLSHOTDSD\nExecutable = spel.exe\n"

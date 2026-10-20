@@ -138,6 +138,9 @@ struct DirectPlan {
     // [Launch] SecondBare = true: de tweede exe zonder onze lader en kern starten. De
     // ALL.Net-server van Mario Kart DX (AMAuthd) is een gewone server; met onze kern stopt
     // hij meteen met "Failed to Load DLL! (Error 4)" (gemeten 2026-10-19).
+    // [Launch] SecondCore = teknoparrot: start the second exe only with that core (a list with commas is fine; teknoparrot,
+    // ravengun or none). With another core the plan has one start less and a note says why (Mario Kart DX: AMAuthd only on the
+    // TeknoParrot route; on our own core the drop-in answers IAuth inside the game).
     bool second_bare = false;
     std::vector<std::string> view_ttc_fonts;               // [Launch] ViewTtcAsTtf: links naar een .ttc die face 0 als losse font worden (ttc.hpp)
     // [Launch] Mod = <naam> ([Mod <naam>] in game.ini, scripts/fetch-mods.py): per regel van de lijst van de mod het doel (pad in de
