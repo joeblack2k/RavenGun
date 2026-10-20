@@ -81,10 +81,20 @@ The earlier "no window" was not this game: the shared Wine prefix had `HKCU\Soft
 (set 2026-10-20 16:30 during an experiment), so Wine drew with winewayland on the desktop compositor instead of on
 gamescope's Xwayland. With that value deleted Wine uses its X11 driver, like MarioKartDX in its own prefix.
 
-**Not working yet: START.** Key 1 sets bit 7 of the player-1 switch word (report byte 28 = 0x80) and the trigger bit 5,
-but the game stays on `PRESS START BUTTON`. Inverting the switch words in rg-allsio (active-low) makes it worse: the game
-then stops with `ERROR 3002 LED Board Not Found`. Coin, Start, trigger, reload, grenade and aim inside a game are
-therefore unmeasured; `[Status] Status = untested`.
+**Play (measured headless, 2026-10-20).** Free play, no coin needed. START during the attract first jumps to the
+title; a second START enters the game. Shooting selects in the menus; the intro skips with START. In the stage the
+trigger fires, the reload button refills the ammo (offset 8 bits 2/3 of `HOTDSDPipe`, RavenGun's own bits, which
+rg-allsio reports to the game as "gun off screen with the trigger pulled"; the game also restocks by itself when you
+aim off screen), and the sub-trigger and controller select both switch to the next item. CONTINUE? takes START, GAME
+OVER returns to the attract. rg-allsio.log lists every change of the switch words amdaemon reads ("ingang:
+schakelaars ...").
+
+**Gun adjustment.** The adjustment stored in the game's backup did not match our gun sensor (a centred aim showed the
+cursor at about 0.54/0.37). It was redone once in the game's TEST menu (CONTROLLER ADJUSTMENT: START selects TOP, LEFT,
+CENTER, RIGHT, BOTTOM, the trigger takes the aim on that target; player 1 is now 48/28/514/514/995/975) and lives in
+RavenGun's write layer (`writelayer/HOTDSD/.../AMDaemon/TeknoParrot/D/SDET/appfile.dat`). Since then the cursor
+follows the aim to the corners and the middle. A fresh write layer starts from the NAS backup and needs the same
+adjustment again. `[Status] Status = untested` until the owner's PS Move test.
 
 ## Verify (without TeknoParrot)
 

@@ -253,10 +253,11 @@ void test_layouts() {
         auto n = render(p, IoState{});
         CHECK(control(n) == 0 && n[12] == 128 && n[40] == 128);
     }
-    // HOTDSDPipe (House of the Dead: Scarlet Dawn): twee trekkers, vier assen; de rest gaat over de besturingspipe (AllsUsbIo).
+    // HOTDSDPipe (House of the Dead: Scarlet Dawn): two triggers, two reload buttons (RavenGun's own bits 2 and 3, read by
+    // rg-allsio.dll), four axes; the rest goes over the control pipe (AllsUsbIo).
     {
         const TpShmProfile& p = *ps.find("HOTDSDPipe");
-        CHECK(p.complete && p.axes.size() == 4 && p.bits.size() == 2);
+        CHECK(p.complete && p.axes.size() == 4 && p.bits.size() == 4);
         IoState s;
         s.player[0] = aim(0.2, 0.4);
         s.player[0].trigger = true;
@@ -269,8 +270,13 @@ void test_layouts() {
         t.player[1].trigger = true;
         CHECK(control(render(p, t)) == 0x2u);
         t.player[1].trigger = false;
-        t.player[0].start = t.player[0].reload = true;
+        t.player[0].start = true;
         CHECK(control(render(p, t)) == 0u);
+        t.player[0].reload = true;
+        CHECK(control(render(p, t)) == 0x4u);
+        t.player[0].reload = false;
+        t.player[1].reload = true;
+        CHECK(control(render(p, t)) == 0x8u);
     }
     // FarCryPipe (Far Cry Paradise Lost, Medaru No Gunman): bits 3, 5..10, 13..16.
     {

@@ -762,6 +762,16 @@ DWORD WINAPI tick_thread(LPVOID) {
             uint8_t frame[rg_allsio::kReport];
             rg_allsio::Board::input_frame(g_have_pipe ? g_pipe_report : nullptr, frame);
             InterlockedIncrement(&g_n_frames);
+            // What amdaemon reads: log the switch words (input bytes 28-31) and the coin counter on every change.
+            static uint8_t last_sw[rg_allsio::Board::kSwitchBytes + 2] = {1, 2, 3, 4, 5, 6};
+            const uint8_t* sw = frame + 1 + rg_allsio::Board::kSwitchOffset;
+            const uint8_t* coin = frame + 1 + 24;
+            if (std::memcmp(last_sw, sw, rg_allsio::Board::kSwitchBytes) != 0 || last_sw[4] != coin[0] || last_sw[5] != coin[1]) {
+                std::memcpy(last_sw, sw, rg_allsio::Board::kSwitchBytes);
+                last_sw[4] = coin[0];
+                last_sw[5] = coin[1];
+                rg_log("ingang: schakelaars %02x %02x %02x %02x, munt %02x %02x", sw[0], sw[1], sw[2], sw[3], coin[0], coin[1]);
+            }
             if (g_read_ov && !g_read_done && g_read_buf) {
                 std::memcpy(g_read_buf, frame, sizeof frame);
                 g_read_done = true;

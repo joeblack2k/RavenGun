@@ -617,7 +617,7 @@
    ]
   },
   "HOTDSDPipe": {
-   "description": "House of the Dead: Scarlet Dawn (profiel HOTDSD, EmulationProfile ALLSHOTDSD). Control (offset 8): alleen de trekkers (P1ButtonUp = 0x1, P2ButtonUp = 0x2). Aim: offset 12/16 = P1 X/Y, 20/24 = P2 X/Y, 1 byte, links/boven = 0. Meer schrijft TeknoParrotUi niet in het gedeelde geheugen (HOTDSDPipe). Start, service, test, subtrekker (Button1), controllerkeuze (Down) en munt gaan over de besturingspipe TeknoParrotPipe (ALLS USB-IO-rapport): in game.ini [Input] ControlPipe = AllsUsbIo (packaging/control-pipe-profiles.json).",
+   "description": "House of the Dead: Scarlet Dawn (profiel HOTDSD, EmulationProfile ALLSHOTDSD). Control (offset 8): alleen de trekkers (P1ButtonUp = 0x1, P2ButtonUp = 0x2). Aim: offset 12/16 = P1 X/Y, 20/24 = P2 X/Y, 1 byte, links/boven = 0. Meer schrijft TeknoParrotUi niet in het gedeelde geheugen (HOTDSDPipe). Start, service, test, subtrekker (Button1), controllerkeuze (Down) en munt gaan over de besturingspipe TeknoParrotPipe (ALLS USB-IO-rapport): in game.ini [Input] ControlPipe = AllsUsbIo (packaging/control-pipe-profiles.json). RavenGun adds the reload buttons on offset 8 bits 2 (P1) and 3 (P2); TeknoParrotUi never writes them, and rg-allsio.dll turns them into the Sega reload (gun off screen with the trigger pulled) in the COM1 gun sensor.",
    "size": 64,
    "complete": true,
    "mirror_bytes": [
@@ -634,6 +634,16 @@
      "signal": "p2.trigger",
      "offset": 8,
      "bit": 1
+    },
+    {
+     "signal": "p1.reload",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "p2.reload",
+     "offset": 8,
+     "bit": 3
     }
    ],
    "axes": [

@@ -121,6 +121,23 @@ void test_ingang() {
     for (size_t i = 1; i < kReport; ++i) CHECK(rpt[i] == 0);
 }
 
+void test_gunsensor_reload() {
+    uint8_t shm[64] = {}, out[11] = {};
+    shm[12] = shm[16] = shm[20] = shm[24] = 128;   // both guns aim at the middle
+    GunSensor::frame(shm, out);
+    CHECK(out[8] == 0x00);                           // both on screen, no trigger
+    shm[8] = 0x04;                                   // P1 reload button
+    GunSensor::frame(shm, out);
+    CHECK(out[8] == (0x80 | 0x20));                  // P1 off screen with the trigger; P2 untouched
+    shm[8] = 0x08;                                   // P2 reload button
+    GunSensor::frame(shm, out);
+    CHECK(out[8] == (0x40 | 0x10));
+    shm[8] = 0x01; shm[12] = 0;                      // P1 aims off screen and pulls the trigger: the same report
+    GunSensor::frame(shm, out);
+    CHECK(out[8] == (0x80 | 0x20));
+    CHECK(out[10] == GunSensor::checksum(out, 10));
+}
+
 void test_gunsensor() {
     GunSensor sensor;
     uint8_t shm[64] = {}, out[32] = {};
@@ -192,6 +209,7 @@ int main() {
     test_verzoeken();
     test_ingang();
     test_gunsensor();
+    test_gunsensor_reload();
     std::printf("%d controles, %d fouten\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

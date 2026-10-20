@@ -114,9 +114,12 @@ public:
             out[player * 4 + 1] = static_cast<uint8_t>(raw_x);
             out[player * 4 + 2] = static_cast<uint8_t>(raw_y >> 8);
             out[player * 4 + 3] = static_cast<uint8_t>(raw_y);
-            if (shm && x > 1 && x < 254 && y > 1 && y < 254)
+            // The reload button (HOTDSDPipe offset 8 bit 2 + player, written by RavenGun, not by TeknoParrotUi) is the Sega
+            // reload: the gun reports "off screen" with the trigger pulled, whatever the aim is.
+            const bool reload = shm && (shm[8] & (4u << player));
+            if (shm && !reload && x > 1 && x < 254 && y > 1 && y < 254)
                 out[8] &= static_cast<uint8_t>(~(0x80 >> player));
-            if (shm && (shm[8] & (1u << player))) out[8] |= static_cast<uint8_t>(0x20 >> player);
+            if (shm && (reload || (shm[8] & (1u << player)))) out[8] |= static_cast<uint8_t>(0x20 >> player);
         }
         out[10] = checksum(out, 10);
     }
@@ -207,6 +210,9 @@ public:
     }
 
     // Het periodieke ingangsrapport uit de AllsUsbIo-pijp (64 bytes of null = niets ontvangen): byte 0 = id, byte 1.. = pijp[0..62].
+    // The switch words (pipe bytes 28-31, players 1 and 2) go through unchanged: active high, START = bit 7 of player 1
+    // (measured 2026-10-20: START enters the game, and inverting them makes the game stop with ERROR 3002 "LED Board Not Found").
+    static constexpr size_t kSwitchOffset = 28, kSwitchBytes = 4;
     static void input_frame(const uint8_t* pipe64, uint8_t* rpt) {
         std::memset(rpt, 0, kReport);
         rpt[0] = kIdIn;
