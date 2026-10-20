@@ -23,7 +23,7 @@
     "--backend",
     "wayland",
     "--",
-    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\game.exe"
@@ -48,6 +48,26 @@
     [
      "@PATCHES@/RobinHood/dropin/rg-compat.dll",
      "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/d3d8.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d8.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/d3d9.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d9.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/d3d10core.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d10core.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/d3d11.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d11.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/dxgi.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dxgi.dll"
     ]
    ],
    "dropin_lines": [
@@ -55,6 +75,13 @@
     "patchmem.txt -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/patchmem.txt",
     "rg-rhio.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-rhio.dll",
     "rg-compat.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll",
+    "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d8.dll",
+    "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d9.dll",
+    "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d10core.dll",
+    "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d11.dll",
+    "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dxgi.dll",
+    "WINEDLLOVERRIDES += d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
+    "dxvk: @TMP@/dxvk-RobinHood/x32 uit @TMP@/dxvk-RobinHood",
     "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
    ],
    "dropin_materialise": [],
@@ -64,6 +91,7 @@
     "LANG": "C.UTF-8",
     "PATH": "/usr/bin:/bin",
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_DXVK": "@TMP@/dxvk-RobinHood",
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
     "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
@@ -73,13 +101,13 @@
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
     "RG_LOADER_CORE": "ravengun",
     "RG_RHIO_LOG": "rg-rhio.log",
-    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
     "TP_GAMESCOPE": "1",
     "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
-    "WINEDLLOVERRIDES": "d3d9=n,b",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
     "XDG_RUNTIME_DIR": "@TMP@/run",
@@ -109,12 +137,14 @@
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
     "RG_RHIO_LOG": "rg-rhio.log",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
-    "WINEDEBUG": "-all"
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
    "pipe_mode": "pipe",
    "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
-   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
    "shm_source": "/dev/shm/TeknoParrot_JvsState",
    "stack": null,
    "starts": [
@@ -131,7 +161,7 @@
       "--backend",
       "wayland",
       "--",
-      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\game.exe"
@@ -153,7 +183,7 @@
     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/log"
    ],
    "windowed_override": false,
-   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
   },
   "verdict": "ok",
   "why": ""
@@ -182,7 +212,7 @@
     "--backend",
     "wayland",
     "--",
-    "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+    "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\game.exe"
@@ -207,6 +237,26 @@
     [
      "@PATCHES@/RobinHood/dropin/rg-compat.dll",
      "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/d3d8.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d8.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/d3d9.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d9.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/d3d10core.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d10core.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/d3d11.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d11.dll"
+    ],
+    [
+     "@TMP@/dxvk-RobinHood/x32/dxgi.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dxgi.dll"
     ]
    ],
    "dropin_lines": [
@@ -214,6 +264,13 @@
     "patchmem.txt -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/patchmem.txt",
     "rg-rhio.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-rhio.dll",
     "rg-compat.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll",
+    "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d8.dll",
+    "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d9.dll",
+    "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d10core.dll",
+    "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d11.dll",
+    "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dxgi.dll",
+    "WINEDLLOVERRIDES += d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
+    "dxvk: @TMP@/dxvk-RobinHood/x32 uit @TMP@/dxvk-RobinHood",
     "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
    ],
    "dropin_materialise": [],
@@ -223,6 +280,7 @@
     "LANG": "C.UTF-8",
     "PATH": "/usr/bin:/bin",
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_DXVK": "@TMP@/dxvk-RobinHood",
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
     "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
@@ -232,13 +290,13 @@
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
     "RG_LOADER_CORE": "ravengun",
     "RG_RHIO_LOG": "rg-rhio.log",
-    "RG_WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
     "TP_GAMESCOPE": "1",
     "TP_GAMESCOPE_PATH": "/usr/bin/gamescope",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
-    "WINEDLLOVERRIDES": "d3d9=n,b",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
     "XDG_RUNTIME_DIR": "@TMP@/run",
@@ -268,12 +326,14 @@
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
     "RG_RHIO_LOG": "rg-rhio.log",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
-    "WINEDEBUG": "-all"
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
    "pipe_mode": "pipe",
    "pipehelper": "@TMP@/home/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe",
-   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/ravengun-test-dxvk",
+   "prefix": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
    "shm_source": "/dev/shm/TeknoParrot_JvsState",
    "stack": null,
    "starts": [
@@ -290,7 +350,7 @@
       "--backend",
       "wayland",
       "--",
-      "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix",
+      "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\game.exe"
@@ -312,7 +372,7 @@
     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/log"
    ],
    "windowed_override": false,
-   "wine": "@TMP@/home/.local/share/ravengun/wrappers/wine-prefix"
+   "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
   },
   "verdict": "ok",
   "why": ""

@@ -1,17 +1,28 @@
 {
  "plan": {
   "input": {
-   "board": "",
+   "board": "SegaGun2P",
    "control_pipe": "",
-   "layout": "WartranTroopers",
-   "route": "tp-shm",
-   "transport": "",
+   "layout": "",
+   "route": "jvs",
+   "transport": "pipe",
    "verdict": "ok",
    "why": ""
   },
   "launch_mode": "direct",
   "plan": {
    "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
@@ -21,8 +32,16 @@
    "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
    "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC",
    "cwd_is_tp": false,
-   "dropin_files": [],
-   "dropin_lines": [],
+   "dropin_files": [
+    [
+     "@PATCHES@/TNXK0OC/dropin/rg-amhw.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/rg-amhw.dll"
+    ]
+   ],
+   "dropin_lines": [
+    "rg-amhw.dll -> @TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/rg-amhw.dll",
+    "preload: rg-amhw.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\TNXK0OC\\rg-amhw.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
    "dropin_materialise": [],
    "env": {
     "DISPLAY": ":97",
@@ -33,7 +52,17 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_AMHW_DIPIN": "FE,FF",
+    "RG_AMHW_NOREPARSE": "1",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_REGION": "4",
+    "RG_AMHW_SRAMSEED": "0+1000:200",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/rg-amhw.dll",
+    "RG_JVS_TRANSPORT": "pipe",
     "RG_LOADER_CORE": "ravengun",
+    "TP_GAMESCOPE": "1",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\TNXK0OC\\rg-amhw.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
@@ -57,9 +86,17 @@
     "teknomacaw.exe",
     "teknomacaw64.ex"
    ],
-   "gamescope": false,
+   "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_AMHW_DIPIN": "FE,FF",
+    "RG_AMHW_NOREPARSE": "1",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_REGION": "4",
+    "RG_AMHW_SRAMSEED": "0+1000:200",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/rg-amhw.dll",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\TNXK0OC\\rg-amhw.dll",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
@@ -72,6 +109,17 @@
    "starts": [
     {
      "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
@@ -82,7 +130,7 @@
      ],
      "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC",
      "exe": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/gs2.exe",
-     "gamescope": false,
+     "gamescope": true,
      "name": "gs2.exe",
      "role": "main",
      "wait_before": 0.0
@@ -102,17 +150,28 @@
  },
  "start": {
   "input": {
-   "board": "",
+   "board": "SegaGun2P",
    "control_pipe": "",
-   "layout": "WartranTroopers",
-   "route": "tp-shm",
-   "transport": "",
+   "layout": "",
+   "route": "jvs",
+   "transport": "pipe",
    "verdict": "ok",
    "why": ""
   },
   "launch_mode": "direct",
   "plan": {
    "argv": [
+    "/usr/bin/gamescope",
+    "-W",
+    "1920",
+    "-H",
+    "1080",
+    "-S",
+    "fit",
+    "-f",
+    "--backend",
+    "wayland",
+    "--",
     "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
     "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
     "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
@@ -122,8 +181,16 @@
    "core_dll": "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll",
    "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC",
    "cwd_is_tp": false,
-   "dropin_files": [],
-   "dropin_lines": [],
+   "dropin_files": [
+    [
+     "@PATCHES@/TNXK0OC/dropin/rg-amhw.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/rg-amhw.dll"
+    ]
+   ],
+   "dropin_lines": [
+    "rg-amhw.dll -> @TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/rg-amhw.dll",
+    "preload: rg-amhw.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\TNXK0OC\\rg-amhw.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
+   ],
    "dropin_materialise": [],
    "env": {
     "DISPLAY": ":97",
@@ -134,7 +201,17 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_AMHW_DIPIN": "FE,FF",
+    "RG_AMHW_NOREPARSE": "1",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_REGION": "4",
+    "RG_AMHW_SRAMSEED": "0+1000:200",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/rg-amhw.dll",
+    "RG_JVS_TRANSPORT": "pipe",
     "RG_LOADER_CORE": "ravengun",
+    "TP_GAMESCOPE": "1",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\TNXK0OC\\rg-amhw.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
@@ -158,9 +235,17 @@
     "teknomacaw.exe",
     "teknomacaw64.ex"
    ],
-   "gamescope": false,
+   "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_AMHW_DIPIN": "FE,FF",
+    "RG_AMHW_NOREPARSE": "1",
+    "RG_AMHW_OEM": "AAM",
+    "RG_AMHW_REGION": "4",
+    "RG_AMHW_SRAMSEED": "0+1000:200",
+    "RG_AMHW_VENDOR": "Supermicro",
+    "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/rg-amhw.dll",
+    "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\TNXK0OC\\rg-amhw.dll",
     "WINEDEBUG": "-all",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
@@ -173,6 +258,17 @@
    "starts": [
     {
      "argv": [
+      "/usr/bin/gamescope",
+      "-W",
+      "1920",
+      "-H",
+      "1080",
+      "-S",
+      "fit",
+      "-f",
+      "--backend",
+      "wayland",
+      "--",
       "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine",
       "@TMP@/home/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe",
       "Z:@TMP@\\home\\.local\\share\\ravengun\\openparrot\\current\\OpenParrotWin32\\OpenParrot",
@@ -183,7 +279,7 @@
      ],
      "cwd": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC",
      "exe": "@TMP@/home/.local/share/ravengun/runtime/views/TNXK0OC/gs2.exe",
-     "gamescope": false,
+     "gamescope": true,
      "name": "gs2.exe",
      "role": "main",
      "wait_before": 0.0

@@ -801,6 +801,12 @@ void BouwAntwoord() {
     /* Eerste byte en bordtoestand komen uit g_eerstebyte/g_met_bord, een keer gelezen in LeesOmgeving. */
     if (g_eerstebyte_gezet) {
         k[0] = g_eerstebyte;
+    } else if (k[0] == 0x25) {
+        /* The poll command. The game's reply loop (0x49075e..0x49094c, helper 0x4902c0) sends it again until the
+         * first byte of the reply EQUALS the command byte; a first byte from the "approved" list (0x94...) is only
+         * a status code and never ends the loop (it polled 0x25 forever, "I/O CHECKING"). 0x25 is not in the list,
+         * so the reader takes it as a data frame: 6 more bytes with byte 6 = sum of bytes 0..5 (done below). Its
+         * handler (0x49085f) latches the board flags and sets ds:0xde7000. */
     } else if (!CodeGoed(k[0])) {
         k[0] = 0x94;   /* deze opdrachtcode is geen geldig antwoord: "bord aanwezig" */
     }

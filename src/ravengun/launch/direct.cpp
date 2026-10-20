@@ -393,8 +393,18 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         d.letter = letter;
         d.target = doel;
         d.link = cmap.empty() ? pjoin(pjoin(prefix, "dosdevices"), lower(letter) + ":") : pjoin(pjoin(prefix, "drive_c"), cmap);
-        if (!cmap.empty() && !isdir(pjoin(prefix, "drive_c")))
-            return setting_refused("map " + letter + ": de prefix " + prefix + " heeft geen drive_c (nog niet aangemaakt; start het spel een keer zonder)");
+        if (!cmap.empty() && !isdir(pjoin(prefix, "drive_c"))) {
+            // A fresh own prefix ([Wine] PrefixMode = Isolated, Pigs Might Fly) has no drive_c before its first start. Making the
+            // directory is enough: Wine fills the rest of the prefix in on that start (system.reg is still missing).
+            if (!o.make_view)
+                pl.notes.push_back("map " + letter + ": de prefix " + prefix + " heeft nog geen drive_c; hij wordt bij de start gemaakt");
+            else {
+                std::error_code mec;
+                fs::create_directories(pjoin(prefix, "drive_c"), mec);
+                if (!isdir(pjoin(prefix, "drive_c")))
+                    return setting_refused("map " + letter + ": drive_c in de prefix " + prefix + " kon niet gemaakt worden: " + mec.message());
+            }
+        }
         if (cmap.empty() && !isdir(pjoin(prefix, "dosdevices"))) return setting_refused("schijf " + letter + ": de prefix " + prefix + " heeft geen dosdevices-map (nog niet aangemaakt; start het spel een keer zonder schijfletters)");
         if (lexists(d.link)) {
             if (!islink(d.link) || realpath_(d.link) != realpath_(doel))
