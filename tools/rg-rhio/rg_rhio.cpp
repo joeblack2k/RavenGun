@@ -790,6 +790,102 @@ void VulToestand(unsigned char* k) {
     ProefToestand(k);
 }
 
+/* Input events (measured layout, 2026-10-20). The game answers a poll (command 0x25) by reading reply frames until
+ * one has byte 0 = 0x25. Every other reply frame is an EVENT (handler jump table at 0x4909e4, byte table 0x490a1c):
+ *   0x40 / 0x41  coin counter 1 / 2 += 1 (flag 0x40)      0x42  flag 0x100 + payload byte 5
+ *   0x43 flag 0x08   0x44 flag 0x20   0x50 / 0x51  payload byte 5 -> two bytes of a word (flags 2 / 1)
+ *   0x80 flag 1   0x81 flag 2   0x83 flag 0x10   0x84 flag 4
+ * The flags are OR-ed until the 0x25 frame latches them (0x49085f), so a held input must be sent again every cycle,
+ * a coin only once. One event per poll write; the 0x25 frame ends the cycle. At most ~20 frames per cycle (the game
+ * counts loops and raises error 0x11 above that). Dev hook: RG_RHIO_INJECT=<file> holds hex tokens "CC" or "CC:PP"
+ * (code, payload) that are sent every cycle; the file is re-read at most every 50 ms. */
+struct Ereignis { unsigned char code, lading; };
+Ereignis g_ev[24];
+int g_ev_n = 0, g_ev_i = 0;
+
+int LeesInjectie(Ereignis* uit, int max) {
+    static char pad[260];
+    static bool klaar = false;
+    static DWORD laatst = 0;
+    static Ereignis kopie[24];
+    static int kopie_n = 0;
+    if (!klaar) {
+        klaar = true;
+        pad[0] = '\0';
+        DWORD n = GetEnvironmentVariableA("RG_RHIO_INJECT", pad, sizeof pad);
+        if (n == 0 || n >= sizeof pad) pad[0] = '\0';
+    }
+    if (!pad[0]) return 0;
+    const DWORD nu = GetTickCount();
+    if (nu - laatst >= 50) {
+        laatst = nu;
+        kopie_n = 0;
+        HANDLE f = CreateFileA(pad, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (f != INVALID_HANDLE_VALUE) {
+            char b[256];
+            DWORD g = 0;
+            if (ReadFile(f, b, sizeof b - 1, &g, nullptr)) {
+                b[g] = '\0';
+                const char* c = b;
+                while (*c && kopie_n < 24) {
+                    while (*c == ' ' || *c == '\n' || *c == '\r' || *c == '\t') ++c;
+                    if (!*c) break;
+                    char* e;
+                    unsigned long code = std::strtoul(c, &e, 16);
+                    if (e == c) break;
+                    unsigned long lading = 0;
+                    if (*e == ':') lading = std::strtoul(e + 1, &e, 16);
+                    kopie[kopie_n].code = static_cast<unsigned char>(code);
+                    kopie[kopie_n].lading = static_cast<unsigned char>(lading);
+                    ++kopie_n;
+                    c = e;
+                }
+            }
+            CloseHandle(f);
+        }
+    }
+    int n = kopie_n < max ? kopie_n : max;
+    for (int i = 0; i < n; ++i) uit[i] = kopie[i];
+    return n;
+}
+
+/* Called under g_bord_cs for a poll write. Returns true and fills code/lading when an event frame must be sent;
+ * false when this poll gets the closing 0x25 frame (and the next cycle's events are collected). */
+bool VolgendEreignis(unsigned char* code, unsigned char* lading) {
+    if (g_ev_i < g_ev_n) {
+        *code = g_ev[g_ev_i].code;
+        *lading = g_ev[g_ev_i].lading;
+        ++g_ev_i;
+        return true;
+    }
+    g_ev_n = LeesInjectie(g_ev, 20);
+    g_ev_i = 0;
+    if (g_met_bord) {
+        OpenBordbeeld();
+        if (g_bordbeeld) {
+            /* The daemon's state (tp-shm layout WartranTroopers, besturing bits at +8, P1 aim bytes at +12/+13)
+             * as board events. Coin 1 is an edge (each event frame adds one coin); the rest are levels. */
+            static bool munt_vorig = false;
+            const unsigned b = *reinterpret_cast<const unsigned*>(g_bordbeeld + 8);
+            const bool munt = (b & 0x04u) != 0;
+            auto voeg = [](unsigned char c, unsigned char l) {
+                if (g_ev_n < 20) { g_ev[g_ev_n].code = c; g_ev[g_ev_n].lading = l; ++g_ev_n; }
+            };
+            if (munt && !munt_vorig) voeg(0x40, 0);
+            munt_vorig = munt;
+            if (b & 0x01u) voeg(0x43, 0);    /* test    (test menu: execute / admin switch) */
+            if (b & 0x02u) voeg(0x84, 0);    /* service (test menu: select switch) */
+            if (b & 0x400u) voeg(0x44, 0);   /* aux1: credit/service button of the game (flag 0x20, function 0x48f030) */
+            if (b & 0x40u) voeg(0x83, 0);    /* player 1 start */
+            /* Trigger/reload/grenade and the aim are NOT board events: 0x42 and 0x50/0x51 only feed the test screen's
+             * input display (0x1a6bf2c / 0x1a6bf38) and 0x44 (flag 0x20) is the credit/service button of the
+             * function at 0x48f030; the game takes aim and shot from RawInput (mouse), as the profile says. */
+        }
+    }
+    return false;
+}
+
 void BouwAntwoord() {
     if (g_laatste_lengte < 7) return;
     unsigned char* k = g_laatste_kader;
@@ -802,6 +898,14 @@ void BouwAntwoord() {
     if (g_eerstebyte_gezet) {
         k[0] = g_eerstebyte;
     } else if (k[0] == 0x25) {
+        unsigned char ev_code, ev_lading;
+        if (VolgendEreignis(&ev_code, &ev_lading)) {
+            std::memset(k, 0, 7);
+            k[0] = ev_code;
+            k[5] = ev_lading;
+            k[6] = static_cast<unsigned char>(ev_code + ev_lading);
+            return;
+        }
         /* The poll command. The game's reply loop (0x49075e..0x49094c, helper 0x4902c0) sends it again until the
          * first byte of the reply EQUALS the command byte; a first byte from the "approved" list (0x94...) is only
          * a status code and never ends the loop (it polled 0x25 forever, "I/O CHECKING"). 0x25 is not in the list,
