@@ -26,8 +26,11 @@ engine logs `seed: ... gezet uit ...`):
 * `pmuser/aud/save/mountedGun{0,1}Calibration.{0,1,2}.xml`: format `[u32 20][SHA-1][u32 length][UTF-16LE XML incl. BOM and NUL]`, with
   `x_min/x_max/y_min/y_max` = the raw readings at the two calibration targets (top-left, bottom-right) and `x_orient=1`, `y_orient=1`.
   They were produced by running the game's own calibration (Utilities > "Gun Cal with Balls", or the boot screens) with the engine's
-  synthetic aim exactly on the two targets (targets at 0.083,0.152 and 0.917,0.848 of the screen), so they match our full 12-bit range.
-  The engine already delivers calibrated aim, so this calibration is the same for every user and screen.
+  synthetic aim at (0.1,0.1) for the first shot and (0.9,0.9) for the second, which gives `x_min=y_min=3703`, `x_max=y_max=391`
+  (0.1 and 0.9 of our 12-bit range, inverted). The game places its two targets at 0.1/0.9 of the screen even though the red target
+  icon is drawn at about 0.083,0.152 / 0.917,0.848: aiming at the drawn icon (the first version of these files) put the reticle up to
+  6% of the screen off at the edges, aiming at 0.1/0.9 puts it within 7 px everywhere. The calibration is the same for every user and
+  screen because the engine already delivers calibrated aim.
 * `pmuser/adj/save/playerCost/freeplay.{0,1,2}.txt`: `val = 1`, same `[u32][SHA-1][u32][text]` wrapper as the other RTDT adjustment
   files (the builder reproduces the game-written `useBallMechs.0.txt` byte for byte).
 
@@ -61,6 +64,13 @@ X is RIO channel 20 (gun 1) / 22 (gun 2), Y is channel 19 / 21. Both axes are in
 * The calibration screen prints the raw values it reads (`GUN1 X/Y`); `ravengunctl test-pattern corners` gave X 310..3785 and Y 3491..604.
 * With X not inverted the game stored `x_orient=0` and the calibration reticle and the proton beam were mirrored in X. With X inverted
   the game stores `x_orient=1` and the beam follows the aim (top-left aim: beam to the top-left, top-right aim: beam to the top-right).
+
+## Reticle check (measured 2026-10-20)
+
+On the calibration verification screen the game draws a reticle at the aimed position. With the seeded values and `ravengunctl
+test-pattern` held at a point (commanded vs reticle centre found in the 1920x1080 screenshot): (0.5,0.5), (0.1,0.5), (0.9,0.5),
+(0.5,0.35), (0.5,0.7), (0.3,0.7), (0.7,0.4), (0.1,0.1), (0.9,0.1), (0.1,0.9), (0.9,0.9) all within 1 to 7 px (at most 0.4% of the
+screen) for gun 1, and 1 to 7 px for gun 2 (9 points). The extreme edges (0.0 and 1.0) were not tested.
 
 ## Test notes
 
