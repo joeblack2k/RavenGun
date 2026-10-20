@@ -72,14 +72,19 @@ There is no `dongle.json` and there is no `[Dongle]` section; the loader no long
 
 ## State (2026-10-20)
 
-Measured headless, without the TeknoParrot folder: amdaemon.exe starts (`Ver.2437`, `setup Game Mode` then
-`Advertise`) and stays up, the game process starts with our core and both drop-ins, initialises Direct3D 11
-through DXVK and polls the emulated ALLS board continuously (more than 280,000 input reports read in one
-run).
+Measured headless, without the TeknoParrot folder (`ravengunctl game start HOTDSD`): amdaemon.exe starts (`Ver.2437`,
+`setup Game Mode` then `Advertise`) and stays up, the game loads `PL_InitializeTest` and then `PL_Advertise` and shows its
+own attract loop with `PRESS START BUTTON / FREE PLAY` (`docs/screenshots/hotdsd-attract-2026-10-20.png`), more than 5
+minutes without a crash.
 
-**Not working yet: the picture.** In that run no window appears in gamescope, so attract mode has not been
-seen and coin, Start, trigger, reload, grenade and aim are unmeasured. `[Status] Status = untested` for that
-reason; the `Note`/`NoteEN` keys in `game.ini` say the same.
+The earlier "no window" was not this game: the shared Wine prefix had `HKCU\Software\Wine\Drivers` `Graphics=wayland`
+(set 2026-10-20 16:30 during an experiment), so Wine drew with winewayland on the desktop compositor instead of on
+gamescope's Xwayland. With that value deleted Wine uses its X11 driver, like MarioKartDX in its own prefix.
+
+**Not working yet: START.** Key 1 sets bit 7 of the player-1 switch word (report byte 28 = 0x80) and the trigger bit 5,
+but the game stays on `PRESS START BUTTON`. Inverting the switch words in rg-allsio (active-low) makes it worse: the game
+then stops with `ERROR 3002 LED Board Not Found`. Coin, Start, trigger, reload, grenade and aim inside a game are
+therefore unmeasured; `[Status] Status = untested`.
 
 ## Verify (without TeknoParrot)
 
@@ -88,8 +93,8 @@ ravengunctl game status        # nothing may be running that you did not start
 ravengunctl game start HOTDSD
 ```
 
-With the TV free this runs full screen through gamescope. While the TV is in use, the measurement recipe
-is: `[Display] GamescopeBackend = headless` plus `[Env] VK_LOADER_LAYERS_DISABLE =
-VK_LAYER_FROG_gamescope_wsi_x86_64` (the gamescope WSI layer cannot get its Wayland objects from a
-headless gamescope, and DXVK then fails to create its swap chain), screenshots with
-`GAMESCOPE_WAYLAND_DISPLAY=gamescope-N gamescopectl screenshot <file>`. Remove both keys afterwards.
+With the TV free this runs full screen through gamescope. While the TV is in use: `[Display] GamescopeBackend =
+headless` in the user layer (nothing else is needed), screenshots with `GAMESCOPE_WAYLAND_DISPLAY=gamescope-N gamescopectl
+screenshot <file>` into a folder under `$HOME` (the game's systemd unit has a private `/tmp`, so a path there fails with
+"Failed to save screenshot"). The start screen waits for player 1's PS Move; without it, `ravengunctl mouse-gun --player 1
+--mouse <id>` lets the start through. Remove the user-layer key afterwards.
