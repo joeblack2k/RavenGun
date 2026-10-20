@@ -1,15 +1,39 @@
 Windows Registry Editor Version 5.00
 
-; House of the Dead: Scarlet Dawn (amdaemon.exe, Sega AM Daemon 2437) zonder de TeknoParrot-kern.
+; House of the Dead: Scarlet Dawn (amdaemon.exe, Sega AM Daemon) without the TeknoParrot core.
 ;
-; Waarom: am::platform::Manager::initialize() (amdaemon.exe 0x1401e66a0) roept amPlatformGetPlatformInformation() (0x14022eec0) aan.
-; Die leest HKLM\System\SEGA\SystemProperty\Static, waarde PlatformId (0x140259f50; amsSystemPropertyStaticInit), eist een tekenreeks
-; van precies 4 tekens en vult daarmee {platform-id, cijfer}. Ontbreekt de waarde, dan geeft de functie 0 ("ErrCode 0") met een leeg
-; platform-id terug en weigert initialize() dat: "Runtime exception ... amw_platform_manager.cpp Line 102 ... amPlatformGetPlatformInformation().
-; ErrCode 0" en de daemon stopt na 1 s (gemeten 2026-10-13, patches/HOTDSD/METING-1-DAEMON.md). De gesloten kern van TeknoParrot haakt die
-; registerleesactie; hier staat de waarde gewoon in het register.
+; Why: am::platform::Manager::initialize() (amdaemon.exe 0x1401e66a0) calls amPlatformGetPlatformInformation()
+; (0x14022eec0), which reads HKLM\System\SEGA\SystemProperty\Static, value PlatformId (0x140259f50;
+; amsSystemPropertyStaticInit). It requires a string of exactly four characters and fills {platform-id, digit}.
+; Without the value the call returns 0 with an empty platform id, initialize() refuses it ("amPlatformGetPlatformInformation().
+; ErrCode 0") and the daemon stops after about 1 s (measured 2026-10-13). The closed core hooked that registry read;
+; here the value simply exists in the registry.
 ;
-; Waarde: ACA0 = het platform-id uit pxGetHwInfo.ini van de game (platform-id = ACA0, ALLS).
-; Let op: de prefix is de gedeelde prefix; de sleutel is van Sega's systeemlaag en wordt door geen andere game van ons gelezen.
+; PlatformId ACA0 is the platform id from the game's own pxGetHwInfo.ini (ALLS). The keychip section below is
+; synthetic, built from the format the daemon validates (game id, 16-character keychip id, model 1..98, region 1).
+; The prefix is the shared prefix; no other game of ours reads these Sega system keys.
+[HKEY_LOCAL_MACHINE\System\SEGA\SystemProperty]
+"OSVersion"="1_0_0"
+
 [HKEY_LOCAL_MACHINE\System\SEGA\SystemProperty\Static]
 "PlatformId"="ACA0"
+; Synthetic limit for the emulated sensor; not an original cabinet setting.
+"CpuTempError"=dword:00000050
+
+; Public registry interface. SDET is the game id from our own dump; the serial number is synthetic.
+[HKEY_LOCAL_MACHINE\System\SEGA\SystemProperty\keychip]
+"gameId"=hex:53,44,45,54
+; Synthetic RAVN-01A000000001: 16 characters, the format validated at 0x140227460.
+"keychipId"=hex:52,41,56,4e,2d,30,31,41,30,30,30,30,30,30,30,31
+"platformId"=hex:41,43,41
+; Synthetic model 1: the daemon validates the range 1..98.
+"modelType"=dword:00000001
+"region"=dword:00000001
+"systemFlag"=dword:00000000
+"formatType"=dword:00000000
+"serverIpIpv4"=hex:7f,00,00,01
+"serverIpIpv6"=hex:00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01
+
+[HKEY_LOCAL_MACHINE\System\SEGA\SystemProperty\mount]
+"AMFS"="TeknoParrot\\AMFS\\"
+"APPDATA"="TeknoParrot\\D\\"

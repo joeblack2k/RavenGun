@@ -982,8 +982,10 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
                 "LANG=C.UTF-8"};
     if (gamescope) {
         out.argv.push_back("WAYLAND_DISPLAY=" + o.wayland_display);
-        out.argv.insert(out.argv.end(), {gs, "-f", "-W", std::to_string(o.out_w), "-H", std::to_string(o.out_h), "-w", W, "-h", H,
-                                         "--force-grab-cursor", "--", p.exec_helper, "--keep", "DISPLAY", "--"});
+        std::vector<std::string> gs_args{gs, "-f", "-W", std::to_string(o.out_w), "-H", std::to_string(o.out_h), "-w", W, "-h", H};
+        if (!o.gamescope_backend.empty()) gs_args.insert(gs_args.end(), {"--backend", o.gamescope_backend});
+        gs_args.insert(gs_args.end(), {"--force-grab-cursor", "--", p.exec_helper, "--keep", "DISPLAY", "--"});
+        out.argv.insert(out.argv.end(), gs_args.begin(), gs_args.end());
         out.identity.push_back("hulp=" + p.exec_helper);
     }
     out.argv.insert(out.argv.end(), bw.begin(), bw.end());

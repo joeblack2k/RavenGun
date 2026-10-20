@@ -102,6 +102,7 @@ struct PlanOptions {
     std::string wayland_display = "wayland-0";
     std::string host_display;                 // zonder gamescope: DISPLAY van de host (leeg = :0)
     std::string host_xauthority;              // zonder gamescope: XAUTHORITY van de host (leeg = geen)
+    std::string gamescope_backend;            // --backend of gamescope (empty = gamescope's own choice; "headless" for tests)
     int out_w = 1920, out_h = 1080;           // uitvoer van gamescope (de tv)
     std::vector<std::pair<std::string, std::string>> env;   // keuzes van de gebruiker (game.ini), na het profiel-env: gaan voor
 };

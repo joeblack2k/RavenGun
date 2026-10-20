@@ -316,6 +316,14 @@ int main() {
     CHECK(a.size() > 4 && a[0] == (root / "bin/env").string() && a[1] == "-i");
     CHECK(has_seq(a, {"WAYLAND_DISPLAY=wayland-0", (root / "bin/gamescope").string(), "-f", "-W", "1920", "-H", "1080", "-w", "1360", "-h", "768"}));
     CHECK(has_seq(a, {"--force-grab-cursor", "--", p.exec_helper, "--keep", "DISPLAY", "--", (root / "bin/bwrap").string()}));
+    {
+        // [Display] GamescopeBackend: the native route passes the gamescope backend through (headless for tests).
+        PlanOptions ob = PlanOptions{};
+        ob.gamescope_backend = "headless";
+        NativePlan plb;
+        CHECK(plan(pr, p, ob, plb, err));
+        CHECK(has_seq(plb.argv, {"--backend", "headless", "--force-grab-cursor", "--"}));
+    }
     CHECK(has_seq(a, {"--overlay-src", p.nas + "/Game", "--overlay", p.data + "/native/Game/0/upper", p.data + "/native/Game/0/work", "/pm"}));
     CHECK(index_of(a, "/pm/data/programs_enc") > index_of(a, "--overlay"));   // ro-mount na de overlay eronder
     CHECK(has_seq(a, {"--ro-bind", p.patches + "/Game/dropin/slots.tsv", "/rg/slots.tsv"}));

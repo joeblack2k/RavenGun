@@ -861,6 +861,15 @@ static double aim_aspect_of(const ravengun::gamesettings::Dirs& dirs, const std:
 
 // [Audio] Speakers uit game.ini ("STEREO" of "LPCM 5.1", zoals de opties van de app hem schrijven) als waarde voor de FMOD-wrapper:
 // "stereo" of "5.1". Leeg = niets gekozen (de wrapper gebruikt dan zijn standaard, 5.1).
+// [Display] GamescopeBackend (docs/game-opties.md): the gamescope backend of the native route. Empty or "auto" keeps
+// gamescope's own choice; "headless" is used for measurements while the TV is in use.
+static std::string gamescope_backend_of(const ravengun::gamesettings::Dirs& dirs, const std::string& profile) {
+    std::string v = ravengun::gamesettings::load_game(dirs, profile).get("Display", "GamescopeBackend");
+    for (char& ch : v) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    if (v == "auto") return {};
+    return v;
+}
+
 static std::string speakers_of(const ravengun::gamesettings::Dirs& dirs, const std::string& profile) {
     std::string v = ravengun::gamesettings::load_game(dirs, profile).get("Audio", "Speakers");
     for (char& ch : v) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
@@ -1029,6 +1038,7 @@ std::string GameService::run_native(const std::string& profile) {
     if (const char* w = std::getenv("WAYLAND_DISPLAY"); w && *w) po.wayland_display = w;
     if (const char* d = std::getenv("DISPLAY"); d && *d) po.host_display = d;
     if (const char* x = std::getenv("XAUTHORITY"); x && *x) po.host_xauthority = x;
+    po.gamescope_backend = gamescope_backend_of(c_.direct.dirs, profile);
     // Geluid (FMOD-wrapper, tools/fmod-bridge): de keuze uit de opties van de game ([Audio] Speakers in game.ini, de gebruikerslaag gaat voor).
     if (const std::string spk = speakers_of(c_.direct.dirs, profile); !spk.empty()) {
         po.env.emplace_back("RG_FMOD_SPEAKERS", spk);

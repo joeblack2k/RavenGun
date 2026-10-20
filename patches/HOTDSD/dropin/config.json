@@ -1,0 +1,59 @@
+{
+  "common": {
+    "max_player": 2,
+    "language": "english",
+    "custom_resource_id": ["common"]
+  },
+  "error": { "auto_reset": true },
+  "video": {
+    "enable": false,
+    "resolution": { "width": 1920, "height": 1080 },
+    "ignore_unconnected": true
+  },
+  "credit": {
+    "enable": true,
+    "max_credit": 24,
+    "config": {
+      "coin_chute_type_common": true,
+      "service_type_common": true,
+      "game_cost": [-1, -1, 1, 1, -1, -1, -1, -1]
+    }
+  },
+  "usb_io": {
+    "enable": true,
+    "node": [{
+      "id": 0,
+      "required_function": {
+        "coin_input": { "enable": true, "slot": 2 },
+        "switch_input": { "enable": true, "player": 2, "button": 8 },
+        "general_output": { "enable": true, "slot": 20 },
+        "unique_io": [{ "command": 65, "param": [6], "input": false, "output": true }]
+      }
+    }]
+  },
+  "input": {
+    "system": [
+      { "id": "bakuon", "type": "usb_switch", "usb_node": 0, "usb_player": 0, "index": 14 },
+      { "id": "eye0", "type": "usb_switch", "usb_node": 0, "usb_player": 0, "index": 10 },
+      { "id": "proximity_cabinet", "type": "usb_switch", "usb_node": 0, "usb_player": 1, "index": 10 },
+      { "id": "emoney_left", "type": "usb_switch", "usb_node": 0, "usb_player": 1, "index": 13 },
+      { "id": "emoney_right", "type": "usb_switch", "usb_node": 0, "usb_player": 1, "index": 12 },
+      { "id": "emoney_center", "type": "usb_switch", "usb_node": 0, "usb_player": 1, "index": 11 },
+      { "id": "cabinet_kind", "type": "usb_switch", "usb_node": 0, "usb_player": 0, "index": 11 },
+      { "id": "test", "type": "usb_switch", "usb_node": 0, "usb_player": -1, "index": 0 },
+      { "id": "service", "type": "usb_switch", "usb_node": 0, "usb_player": 0, "index": 6 }
+    ],
+    "players": [
+      [
+        { "id": "start", "type": "usb_switch", "usb_node": 0, "usb_player": 0, "index": 7 },
+        { "id": "gun_select", "type": "usb_switch", "usb_node": 0, "usb_player": 0, "index": 4 },
+        { "id": "gun_special", "type": "usb_switch", "usb_node": 0, "usb_player": 0, "index": 1 }
+      ],
+      [
+        { "id": "start", "type": "usb_switch", "usb_node": 0, "usb_player": 1, "index": 7 },
+        { "id": "gun_select", "type": "usb_switch", "usb_node": 0, "usb_player": 1, "index": 4 },
+        { "id": "gun_special", "type": "usb_switch", "usb_node": 0, "usb_player": 1, "index": 1 }
+      ]
+    ]
+  }
+}
