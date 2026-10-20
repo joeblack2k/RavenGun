@@ -81,9 +81,29 @@ int main(void)
     hr = IDirectInput8_EnumDevices(di, 0, enum_cb, NULL, DIEDFL_ATTACHEDONLY);
     printf("EnumDevices hr 0x%lx, %d apparaten\n", hr, ngevonden);
     if (ngevonden != 2) return 3;
+    {   /* legacy entry point (Robin Hood: DirectInputCreateA, version 0x0500, EnumDevices(DIDEVTYPE_JOYSTICK)) */
+        typedef HRESULT(WINAPI * create_a_fn)(HINSTANCE, DWORD, LPVOID *, LPUNKNOWN);
+        create_a_fn ca = (create_a_fn)GetProcAddress(GetModuleHandleA("dinput8.dll"), "DirectInputCreateA");
+        LPDIRECTINPUT8A old_di = NULL;
+        int voor = ngevonden;
+        if (!ca || FAILED(ca(GetModuleHandleA(NULL), 0x0500, (void **)&old_di, NULL))) { printf("FOUT DirectInputCreateA\n"); return 8; }
+        IDirectInput8_EnumDevices(old_di, 4, enum_cb, NULL, DIEDFL_ATTACHEDONLY);
+        printf("DirectInputCreateA: %d apparaten\n", ngevonden - voor);
+        if (ngevonden - voor != 2) return 8;
+        ngevonden = voor;
+        IDirectInput8_Release(old_di);
+    }
     hr = IDirectInput8_CreateDevice(di, &gevonden[0], &dev, NULL);
     printf("CreateDevice hr 0x%lx\n", hr);
     if (FAILED(hr)) return 4;
+    {   /* legacy games query IDirectInputDevice2A ({5944E682-...}) on the device they just created */
+        static const GUID iid2a = {0x5944E682, 0xC92E, 0x11CF, {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
+        void *q = NULL;
+        HRESULT hq = IDirectInputDevice8_QueryInterface(dev, &iid2a, &q);
+        printf("QueryInterface(IDirectInputDevice2A) hr 0x%lx\n", hq);
+        if (FAILED(hq) || q != (void *)dev) return 10;
+        IDirectInputDevice8_Release(dev);
+    }
     IDirectInputDevice8_SetCooperativeLevel(dev, NULL, 6);
     DIDEVCAPS caps = {sizeof caps};
     IDirectInputDevice8_GetCapabilities(dev, &caps);

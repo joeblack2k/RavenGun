@@ -201,6 +201,13 @@ static const GUID kIUnknown = {0x00000000, 0x0000, 0x0000, {0xC0, 0, 0, 0, 0, 0,
 static const GUID kIDI8A = {0xBF798030, 0x483A, 0x4DA2, {0xAA, 0x99, 0x5D, 0x64, 0xED, 0x36, 0x97, 0x00}};
 static const GUID kIDI8W = {0xBF798031, 0x483A, 0x4DA2, {0xAA, 0x99, 0x5D, 0x64, 0xED, 0x36, 0x97, 0x00}};
 static const GUID kIDev8A = {0x54D41080, 0xDC15, 0x4833, {0xA4, 0x1B, 0x74, 0x8F, 0x73, 0xA3, 0x81, 0x79}};
+/* Legacy interface ids (DirectInput 3..7): the same objects answer them, see DirectInputCreateA. */
+static const GUID kIDevA = {0x5944E680, 0xC92E, 0x11CF, {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
+static const GUID kIDev2A = {0x5944E682, 0xC92E, 0x11CF, {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
+static const GUID kIDev7A = {0x57D7C6BC, 0x2356, 0x11D3, {0x8E, 0x9D, 0x00, 0xC0, 0x4F, 0x68, 0x44, 0xAE}};
+static const GUID kIDIA = {0x89521360, 0xAA8A, 0x11CF, {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
+static const GUID kIDI2A = {0x5944E662, 0xAA8A, 0x11CF, {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
+static const GUID kIDI7A = {0x9A4CB684, 0x236D, 0x11D3, {0x8E, 0x9D, 0x00, 0xC0, 0x4F, 0x68, 0x44, 0xAE}};
 static const GUID kXAxis = {0xA36D02E0, 0xC9F3, 0x11CF, {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
 static const GUID kYAxis = {0xA36D02E1, 0xC9F3, 0x11CF, {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
 static const GUID kButton = {0xA36D02F0, 0xC9F3, 0x11CF, {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
@@ -254,7 +261,8 @@ typedef struct {
 static HRESULT WINAPI dev_QueryInterface(void *s, REFIID riid, void **out)
 {
     if (!out) return E_POINTER;
-    if (IsEqualGUID(riid, &kIUnknown) || IsEqualGUID(riid, &kIDev8A)) {
+    if (IsEqualGUID(riid, &kIUnknown) || IsEqualGUID(riid, &kIDev8A) || IsEqualGUID(riid, &kIDevA) ||
+        IsEqualGUID(riid, &kIDev2A) || IsEqualGUID(riid, &kIDev7A)) {
         *out = s;
         InterlockedIncrement(&D(s)->ref);
         return S_OK;
@@ -460,7 +468,8 @@ typedef struct {
 static HRESULT WINAPI di_QueryInterface(void *s, REFIID riid, void **out)
 {
     if (!out) return E_POINTER;
-    if (IsEqualGUID(riid, &kIUnknown) || IsEqualGUID(riid, &kIDI8A)) {
+    if (IsEqualGUID(riid, &kIUnknown) || IsEqualGUID(riid, &kIDI8A) || IsEqualGUID(riid, &kIDIA) ||
+        IsEqualGUID(riid, &kIDI2A) || IsEqualGUID(riid, &kIDI7A)) {
         *out = s;
         InterlockedIncrement(&((RgDI *)s)->ref);
         return S_OK;
@@ -547,6 +556,24 @@ EXPORT HRESULT WINAPI DirectInput8Create(HINSTANCE inst, DWORD versie, REFIID ri
     di->ref = 1;
     *out = di;
     logf_("DirectInput8Create(versie 0x%04lX): IDirectInput8A van RavenGun (%d geweren)", (unsigned long)versie, tabel_ok ? tabel.spelers : 0);
+    return DI_OK;
+}
+
+/* Legacy entry point for games that import DINPUT.dll!DirectInputCreateA (DirectInput 3..7, e.g. Robin Hood: version 0x0500,
+ * EnumDevices(DIDEVTYPE_JOYSTICK), c_dfDIJoystick). The IDirectInputA and IDirectInputDeviceA methods those games call
+ * (CreateDevice, EnumDevices, SetDataFormat, SetProperty, Acquire, Poll, GetDeviceState) have the same vtable slots as the
+ * DirectInput8 ones, so the same objects serve. Ship this DLL under the name dinput.dll for such a game (build.sh --as dinput.dll). */
+EXPORT HRESULT WINAPI DirectInputCreateA(HINSTANCE inst, DWORD versie, LPVOID *out, LPUNKNOWN outer)
+{
+    (void)inst, (void)outer;
+    if (!out) return DIERR_INVALIDPARAM;
+    *out = NULL;
+    RgDI *di = (RgDI *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof *di);
+    if (!di) return DIERR_OUTOFMEMORY;
+    di->vtbl = di_vtbl;
+    di->ref = 1;
+    *out = di;
+    logf_("DirectInputCreateA(versie 0x%04lX): IDirectInputA van RavenGun (%d geweren)", (unsigned long)versie, tabel_ok ? tabel.spelers : 0);
     return DI_OK;
 }
 

@@ -50,6 +50,14 @@
      "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll"
     ],
     [
+     "@PATCHES@/RobinHood/dropin/dinput.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dinput.dll"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/rg-dinput8.ini",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-dinput8.ini"
+    ],
+    [
      "@TMP@/dxvk-RobinHood/x32/d3d8.dll",
      "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d8.dll"
     ],
@@ -75,12 +83,14 @@
     "patchmem.txt -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/patchmem.txt",
     "rg-rhio.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-rhio.dll",
     "rg-compat.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll",
+    "dinput.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dinput.dll",
+    "rg-dinput8.ini -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-dinput8.ini",
     "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d8.dll",
     "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d9.dll",
     "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d10core.dll",
     "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d11.dll",
     "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dxgi.dll",
-    "WINEDLLOVERRIDES += d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
+    "WINEDLLOVERRIDES += dinput=n, d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
     "dxvk: @TMP@/dxvk-RobinHood/x32 uit @TMP@/dxvk-RobinHood",
     "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
    ],
@@ -98,6 +108,7 @@
     "RAVENGUN_PATCHMEM_VERBOSE": "1",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DINPUT8_LOG": "rg-dinput8.log",
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
     "RG_LOADER_CORE": "ravengun",
     "RG_RHIO_LOG": "rg-rhio.log",
@@ -106,7 +117,7 @@
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
-    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEDLLOVERRIDES": "dinput=n;d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
@@ -134,11 +145,12 @@
     "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
     "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
     "RAVENGUN_PATCHMEM_VERBOSE": "1",
+    "RG_DINPUT8_LOG": "rg-dinput8.log",
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
     "RG_RHIO_LOG": "rg-rhio.log",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WINEDEBUG": "-all",
-    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEDLLOVERRIDES": "dinput=n;d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
@@ -239,6 +251,14 @@
      "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll"
     ],
     [
+     "@PATCHES@/RobinHood/dropin/dinput.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dinput.dll"
+    ],
+    [
+     "@PATCHES@/RobinHood/dropin/rg-dinput8.ini",
+     "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-dinput8.ini"
+    ],
+    [
      "@TMP@/dxvk-RobinHood/x32/d3d8.dll",
      "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d8.dll"
     ],
@@ -264,12 +284,14 @@
     "patchmem.txt -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/patchmem.txt",
     "rg-rhio.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-rhio.dll",
     "rg-compat.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-compat.dll",
+    "dinput.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dinput.dll",
+    "rg-dinput8.ini -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/rg-dinput8.ini",
     "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d8.dll",
     "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d9.dll",
     "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d10core.dll",
     "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/d3d11.dll",
     "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/dxgi.dll",
-    "WINEDLLOVERRIDES += d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
+    "WINEDLLOVERRIDES += dinput=n, d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
     "dxvk: @TMP@/dxvk-RobinHood/x32 uit @TMP@/dxvk-RobinHood",
     "preload: ravengun-patchmem32.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll (de OpenParrot-lader (OpenParrotLoader.exe) laadt deze DLL na de kern in het spelproces)"
    ],
@@ -287,6 +309,7 @@
     "RAVENGUN_PATCHMEM_VERBOSE": "1",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_DINPUT8_LOG": "rg-dinput8.log",
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
     "RG_LOADER_CORE": "ravengun",
     "RG_RHIO_LOG": "rg-rhio.log",
@@ -295,7 +318,7 @@
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
-    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEDLLOVERRIDES": "dinput=n;d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
@@ -323,11 +346,12 @@
     "RAVENGUN_PATCHMEM_FILE": "patchmem.txt",
     "RAVENGUN_PATCHMEM_HOOK": "rg-rhio.dll",
     "RAVENGUN_PATCHMEM_VERBOSE": "1",
+    "RG_DINPUT8_LOG": "rg-dinput8.log",
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/RobinHood/data/ravengun-patchmem32.dll",
     "RG_RHIO_LOG": "rg-rhio.log",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\RobinHood\\data\\ravengun-patchmem32.dll",
     "WINEDEBUG": "-all",
-    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
+    "WINEDLLOVERRIDES": "dinput=n;d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],

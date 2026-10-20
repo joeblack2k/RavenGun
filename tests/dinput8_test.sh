@@ -28,7 +28,7 @@ if [[ -x "$SR/usr/bin/i686-w64-mingw32-gcc" ]]; then
   bash "$ROOT/tools/rg-dinput8/build.sh" --out "$T/dll" >/dev/null 2>"$T/mingw.err" || { cat "$T/mingw.err"; echo "FAIL: dinput8.dll bouwt niet"; exit 1; }
   objdump -f "$T/dll/dinput8.dll" | grep -q "pei-i386" || { echo "FAIL: dinput8.dll is geen 32-bits PE"; exit 1; }
   exports=$(objdump -p "$T/dll/dinput8.dll" | sed -n '/Ordinal\/Name Pointer/,/^$/p' | sed -n 's/.*+base\[ *[0-9]*\] *[0-9a-f]* \(.*\)$/\1/p' | sort | tr '\n' ' ')
-  [[ "$exports" == "DirectInput8Create DllCanUnloadNow DllGetClassObject DllRegisterServer DllUnregisterServer " ]] \
+  [[ "$exports" == "DirectInput8Create DirectInputCreateA DllCanUnloadNow DllGetClassObject DllRegisterServer DllUnregisterServer " ]] \
     || { echo "FAIL: exports: $exports"; exit 1; }
 else
   echo "mingw-sysroot ontbreekt: DLL-bouw overgeslagen"

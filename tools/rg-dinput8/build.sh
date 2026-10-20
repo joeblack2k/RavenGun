@@ -4,14 +4,16 @@
 # mingw-w64-sysroot (zoals tools/rg-pqmt/build.sh) of, als die er niet is, in de gepinde podman-container van de OpenParrot-build
 # zonder netwerk (zoals tools/dev/build-adrio.sh). Schrijft dinput8.dll en BUILDINFO-dinput8.txt in elke --out-map.
 #
-# Gebruik: tools/rg-dinput8/build.sh [--out MAP]...   standaard build/rg-dinput8/; MAP is meestal patches/<Game>/dropin
+# Gebruik: tools/rg-dinput8/build.sh [--out MAP]... [--as dinput.dll]   standaard build/rg-dinput8/; MAP is meestal patches/<Game>/dropin
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 OUTS=()
+NAME=dinput8.dll
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --out) OUTS+=("$2"); shift 2 ;;
+    --as) NAME="$2"; shift 2 ;;   # file name of the copy in --out (dinput.dll for a game that imports DINPUT.dll)
     -h|--help) sed -n '3,8p' "$0"; exit 0 ;;
     *) echo "onbekende optie: $1" >&2; exit 2 ;;
   esac
@@ -46,6 +48,7 @@ fi
 } > "$TMP/BUILDINFO-dinput8.txt"
 for o in "${OUTS[@]}"; do
   mkdir -p "$o"
-  cp "$TMP/dinput8.dll" "$TMP/BUILDINFO-dinput8.txt" "$o/"
-  echo "klaar: $o/dinput8.dll"
+  cp "$TMP/dinput8.dll" "$o/$NAME"
+  cp "$TMP/BUILDINFO-dinput8.txt" "$o/"
+  echo "klaar: $o/$NAME"
 done
