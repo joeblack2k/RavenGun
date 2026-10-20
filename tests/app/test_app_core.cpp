@@ -23,6 +23,7 @@
 #include "core/Install.h"
 #include "core/Launcher.h"
 #include "core/MemoryCard.h"
+#include "core/ControlsLegend.h"
 #include "core/PreLaunch.h"
 #include "core/TextConfig.h"
 #include "core/TpProfile.h"
@@ -127,6 +128,7 @@ private Q_SLOTS:
     void steamNewFile();
     void steamPerGameShortcuts();
     void preLaunchPlan();
+    void controlsLegend();
     void steamUsersAndRunning();
     // A6: commando's van de wizard, installeren en de engine als service (zonder shell)
     void installPathLogic();
@@ -1951,7 +1953,7 @@ void AppCoreTest::preLaunchPlan() {
     // Een oudere engine (geen game_ready): geen scherm.
     Plan p = parsePlan(QJsonObject{});
     QVERIFY(!p.known);
-    QVERIFY(!needsScreen(p, true, true));
+    QVERIFY(!needsScreen(p, true));
     // Speler 1 heeft een Move die uit staat.
     p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":true,"gun_players":2,"source":"x","ready":false,"waiting":[1],
         "waiting_any":false,"optional_off":[2],"calibrate":[],"players":[]})").object());
@@ -1959,7 +1961,7 @@ void AppCoreTest::preLaunchPlan() {
     QCOMPARE(p.gunPlayers, 2);
     QCOMPARE(p.waiting, QList<int>{1});
     QCOMPARE(p.optionalOff, QList<int>{2});
-    QVERIFY(needsScreen(p, false, false));   // wachten op de Move: altijd een scherm, ook zonder kalibratie
+    QVERIFY(needsScreen(p, false));   // waiting for the Move: always a screen, also without calibration
     QCOMPARE(waitingText(p.waiting, p.waitingAny), QStringLiteral("Please turn on your PS Move controller"));
     QCOMPARE(waitingText({2}, false), QStringLiteral("Player 2: please turn on your PS Move controller"));
     QCOMPARE(waitingText({}, true), QStringLiteral("Please turn on your PS Move controller"));
@@ -1972,16 +1974,15 @@ void AppCoreTest::preLaunchPlan() {
     // Klaar, twee spelers aan: kalibreren als dat aan staat; met de kalibratie uit meteen starten.
     p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":true,"gun_players":2,"ready":true,"waiting":[],"calibrate":[1,2],"optional_off":[]})").object());
     QCOMPARE(p.calibrate, (QList<int>{1, 2}));
-    QVERIFY(needsScreen(p, true, false));
-    QVERIFY(!needsScreen(p, false, false));
-    QVERIFY(needsScreen(p, false, true));   // de uitleg van de knoppen (haak)
+    QVERIFY(needsScreen(p, true));
+    QVERIFY(!needsScreen(p, false));   // calibration off and the Move already on: straight to the game (no button set-up step)
     // Muismodus: klaar, niemand te kalibreren: geen scherm.
     p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":true,"ready":true,"calibrate":[]})").object());
-    QVERIFY(!needsScreen(p, true, false));
-    // Pad-game (Mario Kart): nooit een scherm, ook niet met de haak.
+    QVERIFY(!needsScreen(p, true));
+    // Gamepad game (Mario Kart): never a screen.
     p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":false,"gun_players":0,"ready":true,"calibrate":[1]})").object());
     QVERIFY(!p.lightgun);
-    QVERIFY(!needsScreen(p, true, true));
+    QVERIFY(!needsScreen(p, true));
     // Rommel in de lijsten wordt genegeerd.
     p = parsePlan(QJsonDocument::fromJson(R"({"lightgun":true,"ready":false,"waiting":[0,1,"2",9]})").object());
     QCOMPARE(p.waiting, QList<int>{1});
@@ -1990,6 +1991,54 @@ void AppCoreTest::preLaunchPlan() {
     QCOMPARE(ledPreset(2), QStringLiteral("rood"));
     QVERIFY(playerColor(1).blue() > playerColor(1).red() && playerColor(2).red() > playerColor(2).blue());
     QVERIFY(ledPreset(4).isEmpty());
+}
+
+// The legend of the PS Move buttons on the start screen: built from the real layout (engine status or config.json) and the game's own
+// [Controls]; only what applies.
+void AppCoreTest::controlsLegend() {
+    namespace gs = ravengun::gamesettings;
+    namespace ctl = rg::controls;
+    const QJsonObject status = QJsonDocument::fromJson(
+        R"({"gun_buttons":{"map":{"triangle":"key:5","circle":"key:f2","cross":"grenade","square":"key:1","select":"key:5","start":"key:1",
+        "move":"recenter","pump":"reload","ss_rl":"reload","ss_fire":"none"}}})").object();
+    auto text = [](const QList<ctl::LegendRow>& rows) {
+        QStringList out;
+        for (const auto& r : rows) out << r.buttons + QStringLiteral(" = ") + r.text;
+        return out;
+    };
+    const gs::Ini full = gs::parse_ini(
+        "[Controls]\ntrigger = Shoot | Fires.\nreload = Reload | Reloads.\ngrenade = Grenade | Throws.\noffscreen = Reload off-screen | Aim away.\n");
+    const auto base = ctl::baseLayout(status);
+    QCOMPARE(text(ctl::legend(full, ctl::effectiveLayout(base, full, 1))),
+             (QStringList{QStringLiteral("Trigger = Shoot"), QStringLiteral("Aim off-screen + Trigger = Reload off-screen"),
+                          QStringLiteral("Pump / RL button = Reload"), QStringLiteral("Cross = Grenade"), QStringLiteral("Square / Start = Start"),
+                          QStringLiteral("Triangle / Select = Coin"), QStringLiteral("Circle = TEST"), QStringLiteral("MOVE / PS = Recenter the aim")}));
+    // Only what the game declares: no grenade line when the game has no grenade; the off-screen reload shares the line with the pump.
+    const gs::Ini small = gs::parse_ini("[Controls]\ntrigger = Shoot | Fires.\noffscreen = Reload off-screen | Aim away.\n");
+    const QStringList s = text(ctl::legend(small, ctl::effectiveLayout(base, small, 1)));
+    QVERIFY(s.contains(QStringLiteral("Aim off-screen + Trigger / Pump / RL button = Reload off-screen")));
+    QVERIFY(!s.join(QLatin1Char('|')).contains(QStringLiteral("Grenade")));
+    // The game's own choice (P1.Triangle = grenade) over the global layout, read through controls_overrides.
+    const gs::Ini mine = gs::parse_ini(
+        "[Controls]\ntrigger = Shoot | Fires.\ngrenade = Grenade | Throws.\nP1.Triangle = grenade\nP1.Cross = none\nConfirmed = true\n");
+    const QStringList m = text(ctl::legend(mine, ctl::effectiveLayout(base, mine, 1)));
+    QVERIFY(m.contains(QStringLiteral("Triangle = Grenade")));
+    QVERIFY(m.contains(QStringLiteral("Select = Coin")));   // Triangle no longer gives coin
+    // Without an engine the config.json of the engine is read; whatever it does not name comes from the built-in default.
+    QDir().mkpath(rg::AppPaths::configDir());
+    QFile cfg(rg::AppPaths::engineConfigFile());
+    QVERIFY(cfg.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    cfg.write(R"({"gun_buttons":{"map":{"cross":"reload","circle":"key:f2","move":"recenter"}}})");
+    cfg.close();
+    const auto fromFile = ctl::baseLayout(QJsonObject());
+    QCOMPARE(QString::fromStdString(fromFile.at("cross")), QStringLiteral("reload"));
+    QCOMPARE(QString::fromStdString(fromFile.at("circle")), QStringLiteral("key:f2"));
+    QCOMPARE(QString::fromStdString(fromFile.at("square")), QStringLiteral("key:1"));   // built-in default
+    QVERIFY(text(ctl::legend(full, ctl::effectiveLayout(fromFile, full, 1))).contains(QStringLiteral("Cross / Pump / RL button = Reload")));
+    QFile::remove(rg::AppPaths::engineConfigFile());
+    // Names: plain words, the Sharp Shooter inputs included.
+    QCOMPARE(ctl::legendButtonName("move"), QStringLiteral("MOVE"));
+    QCOMPARE(ctl::legendButtonName("pump"), QStringLiteral("Pump"));
 }
 
 void AppCoreTest::steamNewFile() {

@@ -83,6 +83,9 @@ private Q_SLOTS:
     void bigPictureKeys();
     void aimStreamFallback();
     void preLaunchFlow();
+    void preLaunchMoveCalibrates();
+    void preLaunchLegend();
+    void controlsSetupSharpShooter();
     void wizardWithFakePkexec();
     void wizardEngineStep();
     void componentsPage();
@@ -545,8 +548,8 @@ void AppWidgetTest::bigPictureKeys() {
 }
 
 // Het startscherm (docs/prelaunch.md) zonder engine: de antwoorden van game_ready en de Move worden ingespeeld. Wachten op de Move
-// van speler 1, dan de kalibratie van speler 1 en 2 (MOVE en S slaan over), dan de start; zonder engine mislukt die met een melding
-// op het scherm. Escape tijdens het wachten breekt af.
+// van speler 1, dan de kalibratie van speler 1 en 2 (MOVE kalibreert, Tab en S slaan over), dan de start (geen knoppenstap); zonder
+// engine mislukt die met een melding op het scherm. Escape tijdens het wachten breekt af.
 void AppWidgetTest::preLaunchFlow() {
     using Step = ui::PreLaunchWindow::Step;
     AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
@@ -577,15 +580,15 @@ void AppWidgetTest::preLaunchFlow() {
         w.InjectAim(s);   // te vroeg na het begin van de stap: telt niet
         QCOMPARE(w.CurrentPlayer(), 1);
         QTest::qWait(400);
-        w.InjectAim(s);   // MOVE: speler 1 overslaan
+        w.InjectAim(s);   // MOVE calibrates (recenters), it does not skip: without an engine the request fails and player 1 stays
+        QCOMPARE(w.CurrentStep(), Step::Calibrate);
+        QCOMPARE(w.CurrentPlayer(), 1);
+        QTest::keyClick(&w, Qt::Key_Tab);   // skipping is keyboard (Tab) or gamepad (Menu): player 1 skipped
         QCOMPARE(w.CurrentStep(), Step::Calibrate);
         QCOMPARE(w.CurrentPlayer(), 2);
         QTest::qWait(400);
-        QTest::keyClick(&w, Qt::Key_S);   // speler 2 overslaan: dan de uitleg van de knoppen (Halo heeft [Controls], nog niet bevestigd)
-        QCOMPARE(w.CurrentStep(), Step::Controls);
-        auto* controls = w.findChild<ui::ControlsSetup*>();
-        QVERIFY(controls);
-        emit controls->finished(true);   // knoppen bevestigd: dan de start (zonder engine: mislukt, met melding)
+        QTest::keyClick(&w, Qt::Key_S);   // player 2 skipped: no button set-up step any more (Halo has an unconfirmed [Controls]), the game starts
+        QVERIFY(!w.findChild<ui::ControlsSetup*>());
         QCOMPARE(w.CurrentStep(), Step::Failed);
         QVERIFY(!w.grab().isNull());
         QCOMPARE(code, -1);
@@ -1122,6 +1125,140 @@ void AppWidgetTest::controlsSetupFlow() {
         QCOMPARE(done.at(0).at(0).toBool(), false);
     }
     QVERIFY(!readAll(user).contains(QStringLiteral("Confirmed")));
+    QFile::remove(user);
+}
+
+// MOVE on the calibration screen is a calibration (IPC recenter of that player), the same action as the trigger; it never skips. A fake
+// engine answers every request and records them.
+void AppWidgetTest::preLaunchMoveCalibrates() {
+    using Step = ui::PreLaunchWindow::Step;
+    const QString path = tmp_.filePath(QStringLiteral("move-cal.sock"));
+    QLocalServer server;
+    QVERIFY(server.listen(path));
+    QStringList requests;
+    connect(&server, &QLocalServer::newConnection, this, [&] {
+        QLocalSocket* client = server.nextPendingConnection();   // the engine connection and the aim stream are separate sockets
+        connect(client, &QLocalSocket::readyRead, this, [&requests, client] {
+            while (client->canReadLine()) {
+                const QJsonObject r = QJsonDocument::fromJson(client->readLine()).object();
+                requests << QString::fromUtf8(QJsonDocument(r).toJson(QJsonDocument::Compact));
+                client->write(QJsonDocument(QJsonObject{{QStringLiteral("v"), 1}, {QStringLiteral("ok"), true}, {QStringLiteral("id"), r.value(QStringLiteral("id"))}})
+                                  .toJson(QJsonDocument::Compact) + '\n');
+            }
+        });
+    });
+    AppCore core(nullptr, path, tmp_.filePath(QStringLiteral("library.json")));
+    core.start(false);
+    QTRY_VERIFY_WITH_TIMEOUT(core.engine()->isConnected(), 5000);
+    GameEntry g;
+    g.kind = GameKind::TeknoParrot;
+    g.id = QStringLiteral("tp:Halo");
+    g.profile = QStringLiteral("Halo");
+    g.name = QStringLiteral("HALO Fireteam Raven");
+    ui::PreLaunchWindow w(&core, g, ui::PreLaunchWindow::Mode::Play);
+    w.resize(1280, 720);
+    w.Begin();
+    w.InjectPlan(QJsonDocument::fromJson(R"({"lightgun":true,"gun_players":2,"ready":true,"waiting":[],"optional_off":[],"calibrate":[1,2]})").object());
+    QCOMPARE(w.CurrentStep(), Step::Calibrate);
+    QCOMPARE(w.CurrentPlayer(), 1);
+    auto recenters = [&] {
+        int n = 0;
+        for (const QString& r : requests) n += r.contains(QStringLiteral("\"recenter\"")) ? 1 : 0;
+        return n;
+    };
+    QTest::qWait(400);
+    bigpicture::AimState s;
+    s.valid = true;
+    s.movePresses = 1;
+    w.InjectAim(s);
+    QTRY_COMPARE_WITH_TIMEOUT(recenters(), 1, 2000);   // MOVE asked the engine to recenter player 1 ...
+    bool player1 = false;
+    for (const QString& r : requests) player1 = player1 || (r.contains(QStringLiteral("\"recenter\"")) && r.contains(QStringLiteral("\"player\":1")));
+    QVERIFY(player1);
+    QTRY_COMPARE_WITH_TIMEOUT(w.CurrentPlayer(), 2, 3000);   // ... and only after that went on to player 2
+    // A Tab press skips without a recenter.
+    QTest::qWait(400);
+    QTest::keyClick(&w, Qt::Key_Tab);
+    QCOMPARE(recenters(), 1);
+    QVERIFY(w.CurrentStep() != Step::Calibrate);
+    // No button set-up step in the flow, whatever the game's [Controls] say.
+    QVERIFY(!w.findChild<ui::ControlsSetup*>());
+}
+
+// The legend on the start screen comes from the configuration: the game's [Controls] labels over the global layout. Rendered once.
+void AppWidgetTest::preLaunchLegend() {
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/LGI/game.ini"));
+    writeFile(user, "[Controls]\ntrigger = Shoot | Fires.\nreload = Reload | Reloads.\ngrenade = Grenade | Throws.\nP1.Triangle = grenade\nConfirmed = true\n");
+    GameEntry g;
+    g.kind = GameKind::TeknoParrot;
+    g.id = QStringLiteral("tp:LGI");
+    g.profile = QStringLiteral("LGI");
+    g.name = QStringLiteral("Let's Go Island");
+    ui::PreLaunchWindow w(&core, g, ui::PreLaunchWindow::Mode::Play);
+    w.resize(1920, 1080);
+    w.Begin();
+    const QStringList lines = w.LegendLines();
+    QVERIFY(!lines.isEmpty());
+    QCOMPARE(lines.first(), QStringLiteral("Trigger = Shoot"));
+    bool triangleGrenade = false;
+    for (const QString& l : lines) triangleGrenade = triangleGrenade || (l.startsWith(QStringLiteral("Triangle")) && l.endsWith(QStringLiteral("= Grenade")));
+    QVERIFY(triangleGrenade);   // the game's own choice (P1.Triangle = grenade) over the global layout
+    QVERIFY(lines.contains(QStringLiteral("Cross / Pump / RL button = Reload")));
+    QVERIFY(lines.join(QLatin1Char('|')).contains(QStringLiteral("= Coin")));
+    QVERIFY(lines.join(QLatin1Char('|')).contains(QStringLiteral("= Start")));
+    w.InjectPlan(QJsonDocument::fromJson(R"({"lightgun":true,"ready":false,"waiting":[1],"calibrate":[]})").object());
+    QVERIFY(!w.grab().isNull());
+    QFile::remove(user);
+}
+
+// ControlsSetup recognises the Sharp Shooter inputs: the pump (and RL) can be chosen for a signal and show as defaults.
+void AppWidgetTest::controlsSetupSharpShooter() {
+    namespace gs = ravengun::gamesettings;
+    const gs::ControlsInfo info = gs::controls_info(gs::parse_ini(std::string("[Game]\nProfile = X\n") + kDemoControls));
+    std::map<std::string, std::string> base = demoBase();
+    base["pump"] = "reload";
+    base["ss_rl"] = "reload";
+    ControlsWalk w(info, base);
+    QCOMPARE(w.defaultButtons("reload"), (std::vector<std::string>{"cross", "pump", "ss_rl"}));   // the right defaults with a Sharp Shooter
+    w.press("t");   // trigger explanation
+    QCOMPARE(int(w.press("pump")), int(ControlsWalk::Press::Picked));   // the pump is recognised for Reload
+    QCOMPARE(QString::fromStdString(w.step().signal), QStringLiteral("grenade"));
+    QCOMPARE(int(w.press("pump")), int(ControlsWalk::Press::Duplicate));
+    QCOMPARE(int(w.press("ss_rl")), int(ControlsWalk::Press::Picked));   // and the RL bit
+    // Choosing Triangle for Reload frees Cross but never takes the pump away from Reload.
+    ControlsWalk v(info, base);
+    v.press("t");
+    QCOMPARE(int(v.press("triangle")), int(ControlsWalk::Press::Picked));
+    bool pumpCleared = false, crossCleared = false;
+    for (const auto& ch : v.choices()) {
+        pumpCleared = pumpCleared || ch.first == "pump" || ch.first == "ss_rl";
+        crossCleared = crossCleared || (ch.first == "cross" && ch.second == "none");
+    }
+    QVERIFY(!pumpCleared && crossCleared);
+    const auto sum = v.summary();
+    QCOMPARE(sum.at(1).buttons, (std::vector<std::string>{"triangle", "pump", "ss_rl"}));
+    QCOMPARE(QString::fromStdString(ControlsWalk::buttonName("pump")), QStringLiteral("Pump"));
+    // The widget: a pump press on the Reload step is a choice, saved as P1.Pump; the trigger explanation still takes "t".
+    AppCore core(nullptr, tmp_.filePath(QStringLiteral("geen.sock")), tmp_.filePath(QStringLiteral("library.json")));
+    const QString user = tmp_.filePath(QStringLiteral("data/ravengun/patches/LGI/game.ini"));
+    writeFile(user, kDemoControls);
+    {
+        ui::ControlsSetup cs(&core, QStringLiteral("LGI"));
+        cs.resize(1280, 720);
+        cs.show();
+        QSignalSpy done(&cs, &ui::ControlsSetup::finished);
+        auto press = [&](const char* b) { cs.pressButton(QString::fromLatin1(b)); QTest::qWait(400); };
+        press("t");        // trigger explanation
+        press("pump");     // Reload = the pump
+        QCOMPARE(QString::fromStdString(cs.walk().step().signal), QStringLiteral("grenade"));
+        press("ps");
+        press("t");        // off-screen explanation
+        QVERIFY(cs.onConfirmPage());
+        press("ss_fire");  // with a Sharp Shooter the trigger is its fire bit: saves
+        QCOMPARE(done.count(), 1);
+    }
+    QVERIFY(readAll(user).contains(QStringLiteral("P1.Pump = reload")));
     QFile::remove(user);
 }
 

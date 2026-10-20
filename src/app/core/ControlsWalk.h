@@ -24,16 +24,17 @@ public:
     const ravengun::gamesettings::ControlSignal& step() const { return steps_[index_]; }
     int player() const { return player_; }
 
-    // Een druk op een Move-knop (naam uit de engine: triangle, circle, cross, square, select, start, move, ps, t, ...).
-    // - uitleg-stap (trigger, offscreen): elke knop gaat verder
-    // - toewijsbare stap: een van de zeven indeelbare knoppen wordt de keuze (Duplicate als hij al voor een ander signaal is gekozen);
-    //   PS laat de standaard staan (Kept); T (de trekker) en andere knoppen tellen niet (Ignored).
+    // A press of a Move button (name as the engine reports it: triangle, circle, cross, square, select, start, move, ps, t, pump, ss_rl, ...).
+    // - explanation step (trigger, offscreen): any button moves on
+    // - assignable step: one of the seven assignable buttons or a Sharp Shooter input (pump, ss_rl) becomes the choice (Duplicate if it is
+    //   already chosen for another signal); PS keeps the default (Kept); T (the trigger) and other buttons do not count (Ignored).
     Press press(const std::string& button);
     void keepDefault();   // de standaard laten staan en verder
     void back();          // een stap terug (wist de keuze van die stap)
     void restart();
 
-    // Knoppen die nu (volgens de basis) dit signaal geven, in de vaste volgorde van control_buttons().
+    // Buttons that currently (per the base layout) give this signal, in the fixed order of control_buttons() followed by the Sharp Shooter
+    // inputs (pump, ss_rl).
     std::vector<std::string> defaultButtons(const std::string& signal) const;
     std::string picked(const std::string& signal) const;   // gekozen knop of leeg
 
@@ -49,6 +50,11 @@ public:
     std::vector<std::pair<std::string, std::string>> choices() const;
     // Signalen die na het opslaan geen enkele knop hebben (bv. de standaardknop ging naar een ander signaal).
     std::vector<std::string> unbound() const;
+
+    // The Move buttons plus the Sharp Shooter inputs (pump, ss_rl), in this order; and whether `button` is one of them.
+    static std::vector<std::string> allButtons();
+    static bool assignableButton(const std::string& button);
+    static bool isSharpShooter(const std::string& button);   // pump or ss_rl
 
     // Weergavenaam van een Move-knop ("cross" -> "Cross", "move" -> "Move (big button)", "t" -> "Trigger").
     static std::string buttonName(const std::string& button);

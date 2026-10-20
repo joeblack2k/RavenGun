@@ -32,6 +32,10 @@ std::string control_action(const std::string& signal, int player);
 
 // De Move-knoppen die de gebruiker mag indelen (de PS-knop is altijd recenter, T is de trekker).
 const std::vector<std::string>& control_buttons();   // triangle, circle, cross, square, select, start, move
+// The Sharp Shooter inputs that can also be given a signal (docs/architecture.md, "Uitbreidingsconnector"): `pump` (T without the fire
+// bit) and `ss_rl` (the RL bit). They exist in gun_buttons.map and only act with a Sharp Shooter fitted. Not part of control_buttons():
+// the on-screen button row and the number of buttons per player stay as they are.
+const std::vector<std::string>& sharp_shooter_buttons();   // pump, ss_rl
 
 struct ControlSignal {
     std::string signal, label, explanation;

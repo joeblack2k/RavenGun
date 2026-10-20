@@ -33,6 +33,11 @@ const std::vector<std::string>& control_buttons() {
     return b;
 }
 
+const std::vector<std::string>& sharp_shooter_buttons() {
+    static const std::vector<std::string> b{"pump", "ss_rl"};
+    return b;
+}
+
 std::pair<std::string, std::string> split_label(const std::string& value) {
     auto trim = [](const std::string& s) {
         size_t a = 0, b = s.size();
@@ -92,7 +97,8 @@ std::vector<std::pair<std::string, std::string>> controls_overrides(const Ini& m
         int p;
         std::string b;
         if (!parse_choice_key(kv.first, &p, &b) || p != player || kv.second.empty()) continue;
-        if (std::find(control_buttons().begin(), control_buttons().end(), b) == control_buttons().end()) {
+        if (std::find(control_buttons().begin(), control_buttons().end(), b) == control_buttons().end() &&
+            std::find(sharp_shooter_buttons().begin(), sharp_shooter_buttons().end(), b) == sharp_shooter_buttons().end()) {
             warn("[Controls] " + kv.first + ": onbekende of vaste knop '" + b + "'");
             continue;
         }

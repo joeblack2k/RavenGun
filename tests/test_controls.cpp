@@ -80,6 +80,14 @@ static void test_overrides_and_apply() {
     CHECK(o2.size() == 1 && o2[0].first == "move" && o2[0].second == "key:5");
     CHECK(gs::controls_overrides(ini, 3).empty());
 
+    // The Sharp Shooter inputs (pump, ss_rl) can be given a signal; they reach gun_buttons.map like the Move buttons.
+    gs::Ini ss = gs::parse_ini(std::string(kShipped) + "P1.Pump = grenade\nP1.SS_RL = none\n");
+    std::vector<std::string> ssw;
+    auto os = gs::controls_overrides(ss, 1, &ssw);
+    CHECK(os.size() == 2 && ssw.empty());
+    const auto ssmap = cfg::with_gun_overrides(cfg::GunButtonSettings{}, os);
+    CHECK(ssmap.map.at("pump") == "grenade" && ssmap.map.at("ss_rl") == "none");
+
     // Toepassen: zonder keuzes ongewijzigd, met keuzes alleen die knoppen.
     const cfg::GunButtonSettings def;
     const auto same = cfg::with_gun_overrides(def, {});

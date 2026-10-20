@@ -12,6 +12,7 @@
 #include <QVBoxLayout>
 
 #include "core/AppPaths.h"
+#include "core/ControlsLegend.h"
 #include "ravengun/gamesettings/controls_settings.hpp"
 
 namespace gs = ravengun::gamesettings;
@@ -41,11 +42,6 @@ QPushButton* bigButton(const QString& text) {
     b->setMinimumWidth(150);
     b->setFocusPolicy(Qt::NoFocus);   // de Move kiest, niet Tab
     return b;
-}
-
-// De standaard van de engine (config::GunButtonSettings::default_gun_map), alleen als de engine niets meldt.
-std::map<std::string, std::string> fallbackLayout() {
-    return {{"move", "grenade"}, {"cross", "reload"}, {"triangle", "key:5"}, {"square", "key:1"}, {"select", "key:5"}, {"start", "key:1"}, {"circle", "none"}};
 }
 
 gs::ControlsInfo infoFor(const QString& profile, const gs::Dirs& dirs, bool* needs = nullptr) {
@@ -191,13 +187,10 @@ void ControlsSetup::setGameTitle(const QString& title) {
     rebuild();
 }
 
+// The global layout the walk starts from: the engine's status, else its config.json, else the engine's built-in default (so the
+// Sharp Shooter inputs pump and ss_rl are always part of it). The same source as the legend on the start screen.
 std::map<std::string, std::string> ControlsSetup::baseLayout(rg::AppCore* core) {
-    std::map<std::string, std::string> out;
-    if (core) {
-        const QJsonObject m = core->engine()->status().value(QStringLiteral("gun_buttons")).toObject().value(QStringLiteral("map")).toObject();
-        for (auto it = m.begin(); it != m.end(); ++it) out[it.key().toStdString()] = it.value().toString().toStdString();
-    }
-    return out.empty() ? fallbackLayout() : out;
+    return rg::controls::baseLayout(core ? core->engine()->status() : QJsonObject());
 }
 
 QString ControlsSetup::defaultText(const rg::ControlsWalk::Line& l) const {
@@ -262,11 +255,11 @@ void ControlsSetup::onAim(const rg::bigpicture::AimState& s) {
 }
 
 void ControlsSetup::pressButton(const QString& moveButton) {
-    // Debounce: een snelle dubbele druk (of twee knoppen in een frame) telt als een.
+    // Debounce: a quick double press (or two buttons in one frame) counts as one.
     if (sinceAccepted_.isValid() && sinceAccepted_.elapsed() < 350) return;
     const std::string b = moveButton.toStdString();
-    if (walk_.done()) {   // bevestigen: de trekker bewaart, PS begint opnieuw
-        if (b == "t") {
+    if (walk_.done()) {   // confirm page: the trigger saves, PS starts over
+        if (b == "t" || b == "ss_fire") {   // with a Sharp Shooter fitted the trigger is its fire bit
             sinceAccepted_.restart();
             if (save()) emit finished(true);
             else rebuild();

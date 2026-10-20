@@ -10,7 +10,7 @@
 #include <cmath>
 #include <utility>
 
-#include "widgets/ControlsSetup.h"
+#include "core/ControlsLegend.h"
 
 namespace rg::ui {
 
@@ -20,6 +20,7 @@ namespace {
 const QColor kText(0xc8, 0xc8, 0xc8);
 const QColor kDim(0x6a, 0x6a, 0x6a);
 const QColor kFaint(0x3c, 0x3c, 0x3c);
+const QColor kLegendText(0x9a, 0x9a, 0x9a);   // between kText and kDim: readable on a TV, still quiet
 const QColor kRed(0xc0, 0x26, 0x26);
 
 constexpr qint64 kInputGuardMs = 350;    // zo lang na het begin van een stap telt een trekker niet (de vorige stap)
@@ -94,6 +95,7 @@ PreLaunchWindow::~PreLaunchWindow() {
 void PreLaunchWindow::Begin() {
     g_active = this;
     calibrate_ = rg::prelaunch::calibrateEnabled();
+    RefreshLegend();
     SetStep(Step::Connecting);
     // In Steam Game Mode is er verder niets te zien: meteen een zwart scherm met de naam van de game.
     if (mode_ == Mode::Play) ShowScreen();
@@ -141,7 +143,8 @@ void PreLaunchWindow::OnPlan(const rg::prelaunch::Plan& p) {
     switch (step_) {
         case Step::Connecting:
             engineWait_.stop();
-            if (!rg::prelaunch::needsScreen(p, calibrate_, ControlsSetupNeeded(game_.profile))) {
+            RefreshLegend();   // the engine is connected now: its button layout is the real one
+            if (!rg::prelaunch::needsScreen(p, calibrate_)) {
                 StartGame();
                 return;
             }
@@ -197,10 +200,6 @@ void PreLaunchWindow::Advance() {
     }
     poll_.stop();
     RestoreLeds();
-    if (!controlsDone_) {
-        controlsDone_ = true;
-        if (RunControlsSetupStep()) return;
-    }
     StartGame();
 }
 
@@ -283,10 +282,13 @@ void PreLaunchWindow::OnLauncherState() {
 
 void PreLaunchWindow::OnAim(const rg::bigpicture::AimState& s) {
     aimState_ = s;
-    if (finished_ || step_ == Step::Controls) return;
+    if (finished_) return;
     const bool guard = clock_.elapsed() - stepAt_ < kInputGuardMs;
     if (!guard) {
-        if (s.movePresses > 0) Skip();
+        // On the calibration screen MOVE recenters, as it does in the game (the same action as the trigger); it never skips.
+        // Elsewhere (the join wait) MOVE still skips the wait. Skipping a calibration is keyboard (Tab) or gamepad (Menu) only.
+        if (s.movePresses > 0 && step_ == Step::Calibrate) Confirm();
+        else if (s.movePresses > 0) Skip();
         else if (s.triggerPresses > 0 || (step_ == Step::Calibrate && s.psPresses > 0)) Confirm();
     }
     update();
@@ -295,7 +297,7 @@ void PreLaunchWindow::OnAim(const rg::bigpicture::AimState& s) {
 void PreLaunchWindow::InjectAim(const rg::bigpicture::AimState& s) { OnAim(s); }
 
 void PreLaunchWindow::OnGamepad(int action) {
-    if (finished_ || step_ == Step::Controls) return;
+    if (finished_) return;
     switch (static_cast<rg::GamepadInput::Action>(action)) {
         case rg::GamepadInput::Action::Accept: Confirm(); break;
         case rg::GamepadInput::Action::Back: Cancel(); break;
@@ -305,7 +307,6 @@ void PreLaunchWindow::OnGamepad(int action) {
 }
 
 void PreLaunchWindow::keyPressEvent(QKeyEvent* e) {
-    if (step_ == Step::Controls) return QWidget::keyPressEvent(e);
     switch (e->key()) {
         case Qt::Key_Escape:
         case Qt::Key_Back:
@@ -333,7 +334,7 @@ void PreLaunchWindow::Confirm() {
             recentering_ = true;
             const int p = player_;
             core_->engine()->request(QStringLiteral("recenter"), {{QStringLiteral("player"), p}}, [this, p](const rg::EngineReply& r) {
-                recentering_ = false;
+                if (player_ == p) recentering_ = false;
                 if (finished_ || step_ != Step::Calibrate || player_ != p) return;
                 if (!r.ok) {
                     note_ = tr("The PS Move is not ready yet. Hold it still for a moment, then aim at the centre and pull the trigger again.");
@@ -357,7 +358,7 @@ void PreLaunchWindow::Confirm() {
 
 void PreLaunchWindow::Skip() {
     if (finished_) return;
-    if (step_ == Step::Calibrate && !recentering_) FinishCalibration(true);
+    if (step_ == Step::Calibrate) FinishCalibration(true);   // also while a recenter is in flight: its reply is ignored (player changed)
     else if (step_ == Step::Join) Advance();
 }
 
@@ -401,7 +402,6 @@ void PreLaunchWindow::Done(int code) {
     engineWait_.stop();
     aim_.stop();
     pads_.stop();
-    if (controls_) controls_->deleteLater();
     hide();
     if (g_active == this) g_active = nullptr;
     emit Finished(code);
@@ -410,10 +410,6 @@ void PreLaunchWindow::Done(int code) {
 void PreLaunchWindow::closeEvent(QCloseEvent* e) {
     e->accept();
     if (!finished_) Cancel();
-}
-
-void PreLaunchWindow::resizeEvent(QResizeEvent*) {
-    if (controls_) controls_->setGeometry(rect());
 }
 
 void PreLaunchWindow::ColorLeds() {
@@ -444,28 +440,22 @@ void PreLaunchWindow::RestoreLeds() {
     leds_.clear();
 }
 
-// ---- HAAK: de uitleg van de knoppen ------------------------------------------------------------------------------------
-// Tussen de kalibratie en de start van de game: de uitleg van de knoppen (ControlsSetup) bij een lightgun-game waarvan de speler de
-// knoppen nog niet bevestigde. finished(true) = verder naar de start; finished(false) = de speler breekt af (terug, geen start).
-bool PreLaunchWindow::ControlsSetupNeeded(const QString& profile) { return ControlsSetup::needsSetup(profile); }
+// ---- The button legend ----------------------------------------------------------------------------------------------
 
-bool PreLaunchWindow::RunControlsSetupStep() {
-    if (!ControlsSetupNeeded(game_.profile)) return false;
-    ShowScreen();
-    SetStep(Step::Controls);
-    auto* w = new ControlsSetup(core_, game_.profile, this);
-    controls_ = w;
-    w->setGeometry(rect());
-    w->show();
-    w->setFocus();
-    connect(w, &ControlsSetup::finished, this, [this, w](bool ok) {
-        w->deleteLater();
-        if (finished_) return;
-        setFocus();
-        if (ok) StartGame();
-        else Done(kExitCancelled);
-    });
-    return true;
+// Built from the real configuration (rg::controls::legend): the global layout (engine status, else config.json) plus the game's own
+// [Controls] choices. Rebuilt once the engine is connected; reading one game.ini is cheap.
+QStringList PreLaunchWindow::LegendLines() const {
+    QStringList out;
+    for (const auto& r : legend_) out << r.buttons + QStringLiteral(" = ") + r.text;
+    return out;
+}
+
+void PreLaunchWindow::RefreshLegend() {
+    namespace gs = ravengun::gamesettings;
+    if (game_.profile.isEmpty()) { legend_.clear(); return; }
+    const gs::Game g = gs::load_game(core_->gameData()->dirs(), game_.profile.toStdString());
+    const auto base = rg::controls::baseLayout(core_->engine()->status());
+    legend_ = rg::controls::legend(g.settings, rg::controls::effectiveLayout(base, g.settings, 1));
 }
 
 // ---- Tekenen ---------------------------------------------------------------------------------------------------------
@@ -474,9 +464,8 @@ void PreLaunchWindow::paintEvent(QPaintEvent*) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
     p.fillRect(rect(), Qt::black);
-    if (step_ == Step::Controls) return;
     const double W = width(), H = height();
-    const double u = std::max(1.0, H / 1080.0);
+    const double u = std::max(0.5, H / 1080.0);   // layout in 1080p units; smaller screens (the Deck's 1280x800) scale down
     // Tekst gecentreerd vanaf y (in eenheden van 1080p), met afbreken; geeft de onderkant (zelfde eenheden) voor de volgende regel.
     auto text = [&](const QString& t, double y, double px, const QColor& c, bool bold = false) {
         QFont f = font();
@@ -504,16 +493,17 @@ void PreLaunchWindow::paintEvent(QPaintEvent*) {
             const double pulse = 0.5 + 0.5 * std::sin(now / 450.0);
             p.setPen(QPen(QColor(kDim.red(), kDim.green(), kDim.blue(), static_cast<int>(80 + 120 * pulse)), 3 * u));
             p.setBrush(Qt::NoBrush);
-            p.drawEllipse(QPointF(W / 2, H * 0.72), 26 * u, 26 * u);
+            p.drawEllipse(QPointF(W / 2, H * 0.55), 26 * u, 26 * u);
             break;
         }
         case Step::Calibrate: {
             const QColor pc = rg::prelaunch::playerColor(player_);
             const bool ready = flashUntil_ > now;
             const double below = text(tr("Player %1 (%2)").arg(player_).arg(playerName(player_)), 130, 46, pc, true);
-            text(ready ? tr("Player %1 is ready").arg(player_) : tr("Aim at the centre of the screen and pull the trigger"), below + 10, 40,
-                 ready ? pc : kText);
-            if (!note_.isEmpty()) text(note_, H / u * 0.70, 30, kRed);
+            const double below2 = text(ready ? tr("Player %1 is ready").arg(player_)
+                                             : tr("Aim at the centre of the screen and pull the trigger (or press MOVE)"),
+                                       below + 10, 40, ready ? pc : kText);
+            if (!note_.isEmpty()) text(note_, below2 + 12, 30, kRed);
             // Het doel in het midden, in de kleur van de speler.
             const QPointF c(W / 2, H / 2);
             p.setBrush(Qt::NoBrush);
@@ -532,7 +522,7 @@ void PreLaunchWindow::paintEvent(QPaintEvent*) {
                 p.drawLine(QPointF(a.x() - 22 * u, a.y()), QPointF(a.x() + 22 * u, a.y()));
                 p.drawLine(QPointF(a.x(), a.y() - 22 * u), QPointF(a.x(), a.y() + 22 * u));
             }
-            hint = tr("MOVE: skip   ·   B / Esc: cancel");
+            hint = tr("Tab / gamepad Menu: skip this player   ·   B / Esc: cancel");
             break;
         }
         case Step::Join: {
@@ -558,7 +548,35 @@ void PreLaunchWindow::paintEvent(QPaintEvent*) {
         default:
             break;
     }
+    if (step_ == Step::WaitMove || step_ == Step::Calibrate || step_ == Step::Join) DrawLegend(p, W, H, u);
     text(hint, H / u - 90, 26, kFaint);
+}
+
+// A compact legend of the PS Move buttons for this game, centred above the hint line: the buttons on the left (right-aligned to the
+// middle), what they do on the right.
+void PreLaunchWindow::DrawLegend(QPainter& p, double W, double H, double u) const {
+    if (legend_.isEmpty()) return;
+    constexpr double kRow = 34, kFont = 26, kTitle = 24, kGap = 20;
+    const double bottom = H / u - 118;
+    const double top = bottom - kRow * legend_.size();
+    QFont f = font();
+    f.setPixelSize(static_cast<int>(kFont * u));
+    QFont fb = f;
+    fb.setBold(true);
+    QFont ft = font();
+    ft.setPixelSize(static_cast<int>(kTitle * u));
+    p.setFont(ft);
+    p.setPen(kDim);
+    p.drawText(QRectF(0, (top - 38) * u, W, 34 * u), Qt::AlignHCenter | Qt::AlignVCenter, tr("PS Move buttons"));
+    for (int i = 0; i < legend_.size(); ++i) {
+        const double y = (top + kRow * i) * u;
+        p.setFont(fb);
+        p.setPen(kText);
+        p.drawText(QRectF(0, y, W / 2 - kGap * u, kRow * u), Qt::AlignRight | Qt::AlignVCenter, legend_[i].buttons);
+        p.setFont(f);
+        p.setPen(kLegendText);
+        p.drawText(QRectF(W / 2 + kGap * u, y, W / 2 - kGap * u, kRow * u), Qt::AlignLeft | Qt::AlignVCenter, legend_[i].text);
+    }
 }
 
 // ---- Eén ingang voor de app ------------------------------------------------------------------------------------------

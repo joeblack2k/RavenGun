@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-// Het startscherm vóór een lightgun-game (docs/prelaunch.md): schermvullend, zwart, te bedienen met alleen de Move (en een gamepad,
-// toetsenbord of B/Escape om af te breken). Werkt op het bureaublad (dubbelklik, Play, Big Picture) en in Steam Game Mode
-// (`ravengun --play PROFIEL`, gamescope), waar het hoofdvenster niet te zien is.
+// The start screen before a lightgun game (docs/prelaunch.md): full screen, black, operated with the Move alone (and a gamepad, the
+// keyboard, or B/Escape to cancel). Works on the desktop (double-click, Play, Big Picture) and in Steam Game Mode
+// (`ravengun --play PROFILE`, gamescope), where the main window is not visible.
 //
-// Stappen, elk alleen als het nodig is (de beslissing komt van de engine, IPC game_ready, src/ravengun/games/readiness.hpp):
-//   1. Wachten:     "Please turn on your PS Move controller" tot de Move van speler 1 aan is (geen time-out; afbreken kan).
-//   2. Kalibreren:  per speler met een verbonden Move (speler 1 blauw, speler 2 rood op de Move en op het scherm): op het midden
-//                   richten en de trekker overhalen (IPC recenter van die speler). MOVE slaat de speler over. Uit te zetten in
-//                   Settings > Display.
-//   3. Meedoen:     heeft de game een tweede gun en staat de Move van speler 2 uit, dan krijgt hij kJoinMs om hem aan te zetten.
-//   4. HAAK:        de uitleg van de knoppen (ControlsSetup), zie RunControlsSetupStep().
-//   5. Starten:     GameLauncher::play (IPC game_start; de engine wacht daar met dezelfde poort, dus nooit blind).
-// Mode::InApp sluit het venster zodra de game start (of meteen, als er niets te tonen is). Mode::Play (--play, Steam en
-// snelkoppelingen) blijft als proces bestaan zolang de game draait (Steam volgt dat proces) en stopt als de game stopt.
+// Steps, each only when needed (the engine decides, IPC game_ready, src/ravengun/games/readiness.hpp):
+//   1. Waiting:     "Please turn on your PS Move controller" until player 1's Move is on (no time-out; cancelling works).
+//   2. Calibrating: per player with a connected Move (player 1 blue, player 2 red on the Move and on the screen): aim at the centre
+//                   and pull the trigger or press MOVE (IPC recenter of that player; MOVE recenters in the game too). Skipping a
+//                   player is Tab or the gamepad Menu button, never a Move button. Can be switched off in Settings > Display.
+//   3. Joining:     if the game has a second gun and player 2's Move is off, it gets kJoinMs to switch it on.
+//   4. Starting:    GameLauncher::play (IPC game_start; the engine waits there with the same gate, so never blind).
+// While waiting, calibrating and joining the screen shows a legend of the PS Move buttons for this game (core/ControlsLegend.*, built
+// from the real configuration). There is no button set-up step: the buttons are the global layout, changed per game only in
+// Properties > Controls (widgets/ControlsSetup.*).
+// Mode::InApp closes the window as soon as the game starts (or at once if there is nothing to show). Mode::Play (--play, Steam and
+// shortcuts) stays as a process while the game runs (Steam follows that process) and ends when the game stops.
 #include <QElapsedTimer>
 #include <QJsonObject>
 #include <QPointer>
@@ -23,6 +25,7 @@
 
 #include "core/AppCore.h"
 #include "core/BigPicture.h"
+#include "core/ControlsLegend.h"
 #include "core/PreLaunch.h"
 
 namespace rg::ui {
@@ -31,7 +34,7 @@ class PreLaunchWindow final : public QWidget {
     Q_OBJECT
 public:
     enum class Mode { InApp, Play };
-    enum class Step { Connecting, WaitMove, Calibrate, Join, Controls, Starting, Running, Failed, Done };
+    enum class Step { Connecting, WaitMove, Calibrate, Join, Starting, Running, Failed, Done };
     // Afloop (Finished): 0 = de game is gestart (InApp) of gespeeld en gestopt (Play); 1 = mislukt; 2 = afgebroken.
     enum Exit { kExitOk = 0, kExitFailed = 1, kExitCancelled = 2 };
 
@@ -44,6 +47,8 @@ public:
     void Abort();
     Step CurrentStep() const { return step_; }
     int CurrentPlayer() const { return player_; }
+    // The legend lines as shown ("Square / Start = Start"), for tests.
+    QStringList LegendLines() const;
     // Voor tests en schermafdrukken: een antwoord van game_ready of een aim-frame inspelen, zonder engine.
     void InjectPlan(const QJsonObject& gameReady);
     void InjectAim(const rg::bigpicture::AimState& s);
@@ -58,7 +63,6 @@ protected:
     void paintEvent(QPaintEvent*) override;
     void keyPressEvent(QKeyEvent* e) override;
     void mousePressEvent(QMouseEvent* e) override;
-    void resizeEvent(QResizeEvent*) override;
     void closeEvent(QCloseEvent* e) override;
 
 private:
@@ -74,17 +78,15 @@ private:
     void OnAim(const rg::bigpicture::AimState& s);
     void OnGamepad(int action);
     void Confirm();                 // trekker, A, Enter
-    void Skip();                    // MOVE, Y, Tab
+    void Skip();                    // Tab, gamepad Menu (Join: MOVE)
     void Cancel();                  // B, Escape
     void Fail(const QString& message);
     void Done(int code);
     void OnLauncherState();
     void ColorLeds();
     void RestoreLeds();
-    // HAAK: de uitleg van de knoppen vóór de start (src/app/widgets/ControlsSetup.{h,cpp}, een aparte taak). true = de stap loopt
-    // (de widget meldt zich met finished(bool ok)); false = geen ControlsSetup in deze build of niet nodig voor deze game.
-    bool RunControlsSetupStep();
-    static bool ControlsSetupNeeded(const QString& profile);
+    void RefreshLegend();           // the button legend from the real configuration (rg::controls::legend)
+    void DrawLegend(QPainter& p, double W, double H, double u) const;
 
     rg::AppCore* core_;
     rg::GameEntry game_;
@@ -97,7 +99,6 @@ private:
     QSet<int> leds_;                // spelers met een tijdelijke LED-kleur
     bool joinOffered_ = false;
     QList<int> joinPlayers_;        // de spelers die de stap "meedoen" noemt
-    bool controlsDone_ = false;
     bool started_ = false;          // GameLauncher::play is aangeroepen
     bool startAcked_ = false;       // ... en de engine heeft game_start beantwoord
     qint64 startAt_ = 0;
@@ -116,7 +117,7 @@ private:
     QElapsedTimer clock_;
     QTimer poll_, frame_, engineWait_;
     bool planInFlight_ = false;
-    QPointer<QWidget> controls_;
+    QList<rg::controls::LegendRow> legend_;   // the PS Move buttons for this game, shown while waiting and calibrating
 };
 
 // Eén ingang voor elke start vanuit de app (dubbelklik, Play, Big Picture): het startscherm als het nodig is, anders meteen

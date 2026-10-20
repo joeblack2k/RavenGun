@@ -43,8 +43,8 @@ inline constexpr int kJoinMs = 10000;
 // Zo lang wacht --play op de engine voordat het een fout toont.
 inline constexpr int kEngineWaitMs = 10000;
 
-// Moet het startscherm verschijnen? Alleen voor een lightgun-game als er gewacht of gekalibreerd wordt, of als de uitleg van de
-// knoppen nodig is. Anders start de game meteen (een pad-game, of de kalibratie staat uit en de Move is al aan).
-bool needsScreen(const Plan& p, bool calibrate, bool controlsSetup);
+// Must the start screen appear? Only for a lightgun game when it has to wait for a Move or calibrate. Otherwise the game starts at
+// once (a gamepad game, or calibration is off and the Move is already on). There is no button set-up step in the launch flow.
+bool needsScreen(const Plan& p, bool calibrate);
 
 }  // namespace rg::prelaunch

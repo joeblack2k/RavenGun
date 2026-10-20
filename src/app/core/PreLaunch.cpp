@@ -74,9 +74,9 @@ void setCalibrateEnabled(bool on) {
     settings().sync();
 }
 
-bool needsScreen(const Plan& p, bool calibrate, bool controlsSetup) {
+bool needsScreen(const Plan& p, bool calibrate) {
     if (!p.known || !p.lightgun) return false;
-    if (!p.ready || controlsSetup) return true;
+    if (!p.ready) return true;
     return calibrate && !p.calibrate.isEmpty();
 }
 

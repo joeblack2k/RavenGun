@@ -16,6 +16,7 @@ add_library(ravengun_app_core STATIC
   core/ComponentsCli.cpp
   core/Components.cpp
   core/AppPaths.cpp
+  core/ControlsLegend.cpp
   core/ControlsWalk.cpp
   core/DongleStatus.cpp
   core/BigPicture.cpp
