@@ -1,32 +1,56 @@
-# Mario Kart Arcade GP DX: de poortwachter voor de ShareK-status.
+# Mario Kart Arcade GP DX (MK_AGP3_FINAL.exe 1.18.16): memory patches for our own route (no TeknoParrot core).
+# Applied by ravengun-patchmem32.dll, which rg-mfcam.dll loads when RAVENGUN_PATCHMEM_FILE is set (dropin.ini, Env).
+# Format: module|RVA|old bytes|new bytes. RVA = address minus the image base 0x400000. A line whose old bytes do
+# not match is not applied (and reported on stderr), so a different build of the game is left alone.
 #
-# Het spel vraagt de ShareK-status (vtable-slot 35, vtable+0x8c) in de functie op 0x481490:
-#
-#   0x481492  xor  %ebx,%ebx
-#   0x481494  cmp  %bl,0x394(%eax)     ; vlag in het eigen ShareK-object
-#   0x48149a  je   0x481567            ; <-- vlag 0: de statusvraag wordt OVERGESLAGEN
-#   0x4814a0  cmp  %ebx,(%eax)         ; interface-pointer nul?
-#   0x4814a2  je   0x481567
-#   0x4814b7  mov  0x8c(%ecx),%eax     ; slot 35
-#   0x4814bd  call *%eax               ; <- de statusvraag die wij nooit zagen
-#
-# In onze view staat die vlag op 0 (ShareK is daar niet "aan"), dus vraagt het spel nooit om de
-# status en blijft de tick op 0x47ecd0 in de wachtstand: zwart beeld. Met deze regel slaan we
-# alleen die eerste poortwachter over, zodat de statusvraag wel komt; onze eigen ShareK-client
-# (tools/rg-mfcam/sharek_fake.h) antwoordt dan 1 ("配信機能OFF": distributie uit, gewoon werk).
-#
-# De module moet bij de NAAM kloppen: dit spel heet MK_AGP3_FINAL.exe (niet game.exe, zoals
-# Robin Hood). RVA = adres min de image base 0x400000: 0x48149a is dus RVA 0x8149a.
+# Note: the engine is loaded by rg-mfcam.dll from a thread of its own (LoadLibrary is not allowed in DllMain), so
+# there is a short race between the game's start and these patches. That is measured to be early enough for the
+# boot-time gates below; a patch that has to be in place before the game's first instruction would need the loader.
+
+# ShareK status gate (0x48149A). The game asks the ShareK client for its status (vtable slot 35) in 0x481490, but
+# only when a flag in its own ShareK object (0x394) is set:
+#   0x481494  cmp  [eax+0x394],bl    ; flag in the ShareK object
+#   0x48149A  je   0x481567          ; <-- flag 0: the status question is skipped
+#   0x4814BD  call [ecx+0x8C]        ; the status question (slot 35)
+# In our view the flag is 0 (ShareK is not "on" there), so the game never asks and the tick at 0x47ECD0 keeps
+# waiting: black screen. This line skips only that first gate; our own ShareK client (tools/rg-mfcam/sharek_fake.h)
+# then answers 1 ("distribution off": a normal stand-alone cabinet).
 MK_AGP3_FINAL.exe|0x8149a|0f84c7000000|909090909090
 
-# LET OP (2026-10-19): de motor wordt hier NIET door de lader geladen maar door rg-mfcam.dll, en dat
-# gebeurt in een eigen draad (LoadLibrary mag niet in DllMain, loader-lock). Tussen het starten van
-# het spel en het toepassen van deze patch zit dus een korte race; voor deze patch (een poortwachter
-# in de opstartcode) is dat gemeten ruim genoeg, maar een patch die *voor* de eerste code van het
-# spel moet staan kan hier te laat komen. De lader zelf (TP_PRELOAD_DLL) laadt de motor wel synchroon.
+# Boot check, the ALL.Net/auth wait (clBootCheck tick, 0x603FAD): the check calls 0x803330, which asks the IAuth
+# client behind 0xEC29FC whether authentication finished, and keeps waiting (counter [ebx+0xBD8], up to 0x1C20
+# ticks) until it does. Offline there is no ALL.Net server, so the wait never ends on our route and the check
+# screen stops after "I/O check OK". This turns the counter compare into "counter = 0x1C21" and the jg into a jmp,
+# so the check takes its own timeout path at once (0x603FD5: status 0x32, the offline result) and carries on with
+# the next rows. Measured 2026-10-20 by diffing a runtime image of the comparison run against the exe: the
+# TeknoParrot core makes this same change.
+MK_AGP3_FINAL.exe|0x203fbc|81bbd80b0000201c00007f0d|c783d80b0000211c0000eb0d
 
-# Drive cabinet board worker (0x607C50): with the USB dongle fake present the game starts a worker
-# that looks the drive board up in the device tree and dereferences a null object at 0x6080A7
-# (mov ecx,[esi+0xce8] with esi=0). Returning "not available" from the worker entry keeps the game
-# running; the steering check then reports force feedback off, exactly like the TP comparison run.
-MK_AGP3_FINAL.exe|0x207c50|558bec|b000c3
+# Boot check, the reboot step (0x603D04): after adjusting its shutdown privilege the check calls
+# ExitWindowsEx(EWX_REBOOT | EWX_FORCE) to restart the cabinet. Under Wine that ends the session, so the game would
+# just quit. The call (push 0; push 6; call [ExitWindowsEx]) becomes ten NOPs; eax still holds the nonzero result
+# of the CloseHandle before it, so the check continues as if the reboot was accepted. Same change as the
+# TeknoParrot core (measured the same way).
+MK_AGP3_FINAL.exe|0x203d04|6a006a06ff1568369400|90909090909090909090
+
+# Content router check (0x71CB20; called by the boot check at 0x6034A0 and again at 0x826872). A real cabinet gets its address
+# from the store content router by DHCP. The check wants exactly that network: the default gateway of the network adapters
+# must not be 0.0.0.0 (else error 0x10, screen "E05-01"), and the cabinet's own address (0xEAEEE4, picked from the host's
+# interfaces by 0x71C3C0) must start with "192.168.112." (else error 0x11, screen "E05-02 コンテンツルーター不整合", measured
+# 2026-10-20 with our error trace) and end in .11 to .20 (else error 0x13). On our route the cabinet is the host PC, whose
+# network we leave alone, so the first bytes become "mov al,1; ret": the function's own success result (0x71CDBB).
+MK_AGP3_FINAL.exe|0x31cb20|558bec|b001c3
+
+# Route table rewrite (0x71C180; called by 0x71C130 from the boot check and from the network code). It reads the host's
+# routing table (GetIpForwardTable) and deletes and rewrites routes for the store network (DeleteIpForwardEntry,
+# SetIpForwardEntry); when that fails the game raises error 0x10. The game must never change the host's routing table,
+# so the first bytes become "mov al,1; ret": report success, touch nothing.
+MK_AGP3_FINAL.exe|0x31c180|558bec|b001c3
+
+# First network authentication (state 0xE of the ALL.Net sequence, 0x465356). When the online authentication did not
+# finish (states 4..0xC need an ALL.Net server) and there is no record of an earlier one (F:/system/last_auth.bin, read by
+# 0x462E60 and matched against the dongle serial), the game raises error 0x39, "E05-56 初回ネットワーク認証エラー" (first
+# network authentication error; measured 2026-10-20) - unless the dongle object's offline-grace flag ([0xEC2A04]+0xCDC)
+# is set, in which case it carries on at 0x4653D2 without the error. Offline there is never an ALL.Net server, so the jne
+# on that flag becomes a jmp: the game takes its own carry-on path.
+MK_AGP3_FINAL.exe|0x653c1|750f|eb0f

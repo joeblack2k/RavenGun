@@ -1,181 +1,293 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Mario Kart DX's USB dongle: the game looks for it through SetupAPI (SetupDiGetClassDevsW with
-// class {3abf6f2d-71c4-462a-8a92-1e6861e6af27}) and then talks to it via CreateFile/DeviceIoControl.
-// In the TeknoParrot comparison run there were NO device handles in the process, so the TP core
-// answers this check inside the process itself.
+// A USB dongle for games that find theirs by walking the Windows USB tree (switch RG_DONGLE).
 //
-// RG_DONGLE=trace only logs what the game asks for. RG_DONGLE=fake presents its own device: the
-// class enumeration yields one interface, the detail call yields a path, and CreateFile on that path
-// becomes a pipe whose other end we hold. The ioctl codes and buffers are logged; the first answer
-// is a zero buffer of the requested length.
+// Mario Kart Arcade GP DX reads its dongle in a worker thread (MK_AGP3_FINAL.exe 0x8B17B0) the way
+// Microsoft's USBView sample does:
+//   1. SetupDiGetClassDevsW(GUID_DEVINTERFACE_USB_HOST_CONTROLLER) and, per host controller,
+//      CreateFileW on its interface path;
+//   2. IOCTL_GET_HCD_DRIVERKEY_NAME and IOCTL_USB_GET_ROOT_HUB_NAME on the controller, then a walk over
+//      the PnP tree (CM_Locate_DevNodeW / CM_Get_DevNode_Registry_PropertyW) for the node with that
+//      driver key;
+//   3. CreateFileW("\\.\<root hub>"), IOCTL_USB_GET_NODE_INFORMATION for the port count, and per port
+//      IOCTL_USB_GET_NODE_CONNECTION_INFORMATION_EX;
+//   4. for the device with the dongle's vendor/product id: IOCTL_USB_GET_DESCRIPTOR_FROM_NODE_CONNECTION
+//      for the configuration descriptor and the manufacturer, product and serial number strings.
+// The game then wants exactly one such device and checks the serial number string (0x607D18): twelve
+// digits, "2710", a digit 0-4 or 9, any digit, "02", four digits. Only then does the boot check get
+// past its "drive cabinet board ID / serial" rows (state 3 of the dongle object at 0xEC2A04).
 //
-// Every log line carries the caller address (the game's return address into the hook) so we can find
-// the exact check in the game's code.
+// Wine has no USB host controllers to show, so with RG_DONGLE=fake this header answers that walk
+// itself: one host controller, one root hub with one port, and on that port one device with the
+// vendor/product id and strings from the environment. The handles the game gets are real handles to
+// the NUL device, so CloseHandle works as usual; only DeviceIoControl on them is answered here.
+// Nothing outside this walk is changed: every other class, path, handle and device node goes to the
+// original functions. (Every hook has the exact stdcall signature of its API: CM_Get_Child and friends
+// take three arguments, SetupDiGetDeviceInterfaceDetailW six. A hook with one argument too few
+// unbalances the caller's stack.)
+//
+//   RG_DONGLE=fake            answer the walk (RG_DONGLE=trace only logs what the game asks)
+//   RG_DONGLE_USB=vvvv:pppp   vendor and product id of the device (hex)
+//   RG_DONGLE_SERIAL=...      its serial number string
+//   RG_DONGLE_MANUFACTURER=.. its manufacturer string (default "RavenGun")
+//   RG_DONGLE_PRODUCT=...     its product string (default "USB dongle")
 #pragma once
-
-// SetupDiCreateDeviceInfoW is marked deprecated in the current MinGW headers; we need it to put a
-// device of our own into the list.
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 #include <windows.h>
 #include <setupapi.h>
 #include <cfgmgr32.h>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
-#include <string>
+#include <cwchar>
 
 namespace rg_dongle {
 
-using setupdi_get_class_devs_w_fn = HDEVINFO(WINAPI*)(const GUID*, PCWSTR, HWND, DWORD);
-using setupdi_enum_device_interfaces_fn = BOOL(WINAPI*)(HDEVINFO, PSP_DEVINFO_DATA, const GUID*, DWORD, PSP_DEVICE_INTERFACE_DATA);
-using setupdi_get_device_interface_detail_w_fn = BOOL(WINAPI*)(HDEVINFO, PSP_DEVICE_INTERFACE_DATA, PSP_DEVICE_INTERFACE_DETAIL_DATA_W, DWORD, PDWORD);
+using get_class_devs_fn = HDEVINFO(WINAPI*)(const GUID*, PCWSTR, HWND, DWORD);
+using enum_interfaces_fn = BOOL(WINAPI*)(HDEVINFO, PSP_DEVINFO_DATA, const GUID*, DWORD, PSP_DEVICE_INTERFACE_DATA);
+using get_detail_fn = BOOL(WINAPI*)(HDEVINFO, PSP_DEVICE_INTERFACE_DATA, PSP_DEVICE_INTERFACE_DETAIL_DATA_W, DWORD, PDWORD,
+                                    PSP_DEVINFO_DATA);
 using create_file_w_fn = HANDLE(WINAPI*)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
 using device_io_control_fn = BOOL(WINAPI*)(HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
-using read_file_fn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
-using exit_process_fn = void(WINAPI*)(UINT);
-inline exit_process_fn g_exit_process = nullptr;
-using crt_exit_fn = void(__cdecl*)(int);
-inline crt_exit_fn g_crt_exit = nullptr;
-using terminate_process_fn = BOOL(WINAPI*)(HANDLE, UINT);
-inline terminate_process_fn g_terminate_process = nullptr;
+using cm_locate_fn = CONFIGRET(WINAPI*)(PDEVINST, DEVINSTID_W, ULONG);
+using cm_prop_fn = CONFIGRET(WINAPI*)(DEVINST, ULONG, PULONG, PVOID, PULONG, ULONG);
+using cm_relative_fn = CONFIGRET(WINAPI*)(PDEVINST, DEVINST, ULONG);
 
-inline setupdi_get_class_devs_w_fn g_get_class_devs = nullptr;
-inline setupdi_enum_device_interfaces_fn g_enum_interfaces = nullptr;
-inline setupdi_get_device_interface_detail_w_fn g_get_detail = nullptr;
+inline get_class_devs_fn g_get_class_devs = nullptr;
+inline enum_interfaces_fn g_enum_interfaces = nullptr;
+inline get_detail_fn g_get_detail = nullptr;
 inline create_file_w_fn g_create_file_w = nullptr;
 inline device_io_control_fn g_device_io_control = nullptr;
-inline read_file_fn g_read_file = nullptr;
+inline cm_locate_fn g_cm_locate = nullptr;
+inline cm_prop_fn g_cm_prop = nullptr;
+inline cm_relative_fn g_cm_child = nullptr;
+inline cm_relative_fn g_cm_parent = nullptr;
+inline cm_relative_fn g_cm_sibling = nullptr;
 inline void (*g_log)(const char*, ...) = nullptr;
-inline bool g_fake = false;
-inline bool g_chain = false;   // RG_DONGLE=chain: only log what the original answers
-inline HANDLE g_dongle_handle = INVALID_HANDLE_VALUE;   // only this handle is the fake dongle
 
-inline constexpr wchar_t kDonglePath[] = L"\\\\?\\rg-dongle#vid_0000&pid_0000#1";
-inline constexpr wchar_t kDonglePipe[] = L"\\\\.\\pipe\\rg-dongle";
-inline GUID g_dongle_class = {};   // the class the game asked for
-inline bool g_dongle_class_set = false;
+inline bool g_fake = false;   // RG_DONGLE=fake
+inline unsigned short g_vid = 0, g_pid = 0;
+inline wchar_t g_serial[64] = L"";
+inline wchar_t g_manufacturer[64] = L"RavenGun";
+inline wchar_t g_product[64] = L"USB dongle";
+
+// USB ioctls (usbioctl.h); 0x220408 means "root hub name" on a controller and "node information" on a hub.
+constexpr DWORD kIoctlHcdDriverKeyName = 0x220424;
+constexpr DWORD kIoctlRootHubName = 0x220408;
+constexpr DWORD kIoctlNodeInformation = 0x220408;
+constexpr DWORD kIoctlConnectionInfoEx = 0x220448;
+constexpr DWORD kIoctlDescriptorFromConnection = 0x220410;
+
+// GUID_DEVINTERFACE_USB_HOST_CONTROLLER
+constexpr GUID kHostControllerClass = {0x3abf6f2d, 0x71c4, 0x462a, {0x8a, 0x92, 0x1e, 0x68, 0x61, 0xe6, 0xaf, 0x27}};
+constexpr wchar_t kControllerPath[] = L"\\\\?\\rg-usb#hc#0#{3abf6f2d-71c4-462a-8a92-1e6861e6af27}";
+constexpr wchar_t kControllerDriverKey[] = L"{36fc9e60-c465-11cf-8056-444553540000}\\rg-0000";
+constexpr wchar_t kControllerDescription[] = L"RavenGun USB host controller";
+constexpr wchar_t kRootHubName[] = L"RG#ROOT_HUB#0#{f18a0e88-c30c-11d0-8815-00a0c906bed8}";
+constexpr wchar_t kRootHubPath[] = L"\\\\.\\RG#ROOT_HUB#0#{f18a0e88-c30c-11d0-8815-00a0c906bed8}";
+constexpr ULONG kDonglePort = 1;
+constexpr DEVINST kControllerNode = 0x52470001;   // a device node number Wine does not hand out
+
+inline HDEVINFO g_list = INVALID_HANDLE_VALUE;     // the (empty, real) list we handed out for the controller class
+inline HANDLE g_controller = INVALID_HANDLE_VALUE;
+inline HANDLE g_hub = INVALID_HANDLE_VALUE;
 
 inline unsigned long caller_of(void* ra) {
     return static_cast<unsigned long>(reinterpret_cast<uintptr_t>(ra));
 }
 
-inline void guid_text(const GUID* g, char* out, size_t n) {
-    if (!g) { std::snprintf(out, n, "(none)"); return; }
-    std::snprintf(out, n, "{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
-                  static_cast<unsigned long>(g->Data1), g->Data2, g->Data3,
-                  g->Data4[0], g->Data4[1], g->Data4[2], g->Data4[3],
-                  g->Data4[4], g->Data4[5], g->Data4[6], g->Data4[7]);
+inline void env_wide(const char* name, wchar_t* out, size_t n) {
+    char v[64];
+    const DWORD len = GetEnvironmentVariableA(name, v, sizeof v);
+    if (len == 0 || len >= sizeof v) return;
+    MultiByteToWideChar(CP_ACP, 0, v, -1, out, static_cast<int>(n));
 }
 
-inline bool is_dongle_path(const wchar_t* p) {
-    return p && _wcsicmp(p, kDonglePath) == 0;
+// Reads the device from the environment. Returns false when RG_DONGLE_USB is missing or malformed.
+inline bool load_device() {
+    char v[32];
+    unsigned vid = 0, pid = 0;
+    if (GetEnvironmentVariableA("RG_DONGLE_USB", v, sizeof v) == 0 || std::sscanf(v, "%x:%x", &vid, &pid) != 2) return false;
+    g_vid = static_cast<unsigned short>(vid);
+    g_pid = static_cast<unsigned short>(pid);
+    env_wide("RG_DONGLE_SERIAL", g_serial, 64);
+    env_wide("RG_DONGLE_MANUFACTURER", g_manufacturer, 64);
+    env_wide("RG_DONGLE_PRODUCT", g_product, 64);
+    return true;
 }
 
-// The class the game asked for, or a fixed one as a fallback.
-inline const GUID* dongle_class() {
-    static const GUID fixed = {0x3abf6f2d, 0x71c4, 0x462a, {0x8a, 0x92, 0x1e, 0x68, 0x61, 0xe6, 0xaf, 0x27}};
-    return g_dongle_class_set ? &g_dongle_class : &fixed;
+// The answer for a "name" ioctl: ULONG ActualLength, then the name. A buffer too small for the name
+// still gets ActualLength, the way the USB stack does it, so the caller can ask again with that size.
+inline DWORD put_name(void* out, DWORD out_len, const wchar_t* name) {
+    const DWORD total = static_cast<DWORD>(sizeof(ULONG) + (wcslen(name) + 1) * sizeof(wchar_t));
+    if (!out || out_len < sizeof(ULONG)) return 0;
+    std::memset(out, 0, out_len);
+    std::memcpy(out, &total, sizeof total);
+    const DWORD room = out_len - static_cast<DWORD>(sizeof(ULONG));
+    const DWORD want = total - static_cast<DWORD>(sizeof(ULONG));
+    std::memcpy(static_cast<unsigned char*>(out) + sizeof(ULONG), name, room < want ? room : want);
+    return out_len < total ? out_len : total;
 }
 
+// USB_DEVICE_DESCRIPTOR of the dongle: USB 2.0, vendor class, strings 1/2/3.
+inline void device_descriptor(unsigned char* d) {
+    const unsigned char desc[18] = {18, 1, 0x00, 0x02, 0, 0, 0, 64,
+                                    static_cast<unsigned char>(g_vid), static_cast<unsigned char>(g_vid >> 8),
+                                    static_cast<unsigned char>(g_pid), static_cast<unsigned char>(g_pid >> 8),
+                                    0x00, 0x01, 1, 2, 3, 1};
+    std::memcpy(d, desc, sizeof desc);
+}
+
+// The descriptor behind a GET_DESCRIPTOR request (type in the high byte of wValue, index in the low).
+// Returns its length, 0 for one the device does not have.
+inline DWORD descriptor(unsigned type, unsigned index, unsigned char* d) {
+    if (type == 1) { device_descriptor(d); return 18; }
+    if (type == 2 && index == 0) {
+        // One configuration with one vendor-specific interface and no endpoints, bus powered, 100 mA.
+        const unsigned char conf[18] = {9, 2, 18, 0, 1, 1, 0, 0x80, 50,
+                                        9, 4, 0, 0, 0, 0xff, 0xff, 0xff, 0};
+        std::memcpy(d, conf, sizeof conf);
+        return sizeof conf;
+    }
+    if (type == 3) {
+        if (index == 0) {   // the language list: US English only
+            const unsigned char langs[4] = {4, 3, 0x09, 0x04};
+            std::memcpy(d, langs, sizeof langs);
+            return sizeof langs;
+        }
+        const wchar_t* s = index == 1 ? g_manufacturer : index == 2 ? g_product : index == 3 ? g_serial : nullptr;
+        if (!s) return 0;
+        size_t n = wcslen(s);
+        if (n > 126) n = 126;
+        d[0] = static_cast<unsigned char>(2 + 2 * n);
+        d[1] = 3;
+        std::memcpy(d + 2, s, 2 * n);
+        return d[0];
+    }
+    return 0;
+}
+
+inline BOOL answer(LPDWORD back, DWORD n) {
+    if (back) *back = n;
+    SetLastError(ERROR_SUCCESS);
+    return TRUE;
+}
+
+inline BOOL refuse(LPDWORD back, DWORD error) {
+    if (back) *back = 0;
+    SetLastError(error);
+    return FALSE;
+}
+
+inline BOOL controller_ioctl(DWORD code, void* out, DWORD out_len, LPDWORD back) {
+    if (code == kIoctlHcdDriverKeyName) return answer(back, put_name(out, out_len, kControllerDriverKey));
+    if (code == kIoctlRootHubName) return answer(back, put_name(out, out_len, kRootHubName));
+    return refuse(back, ERROR_INVALID_FUNCTION);
+}
+
+inline BOOL hub_ioctl(DWORD code, const void* in, DWORD in_len, void* out, DWORD out_len, LPDWORD back) {
+    auto* o = static_cast<unsigned char*>(out);
+    if (code == kIoctlNodeInformation) {
+        // USB_NODE_INFORMATION (76 bytes): NodeType UsbHub, then the hub descriptor with one port.
+        if (!o || out_len < 76) return refuse(back, ERROR_INSUFFICIENT_BUFFER);
+        std::memset(o, 0, 76);
+        o[4] = 9;      // bDescriptorLength
+        o[5] = 0x29;   // bDescriptorType: hub
+        o[6] = 1;      // bNumberOfPorts
+        return answer(back, 76);
+    }
+    if (code == kIoctlConnectionInfoEx) {
+        // USB_NODE_CONNECTION_INFORMATION_EX, packed: ConnectionIndex(0) DeviceDescriptor(4, 18 bytes)
+        // CurrentConfigurationValue(22) Speed(23) DeviceIsHub(24) DeviceAddress(25) NumberOfOpenPipes(27)
+        // ConnectionStatus(31), then the pipe list (none here).
+        if (!o || !in || in_len < 4 || out_len < 35) return refuse(back, ERROR_INSUFFICIENT_BUFFER);
+        ULONG port = 0;
+        std::memcpy(&port, in, sizeof port);
+        std::memset(o, 0, out_len);
+        std::memcpy(o, &port, sizeof port);
+        if (port == kDonglePort) {
+            device_descriptor(o + 4);
+            o[22] = 1;    // configured
+            o[23] = 1;    // full speed
+            o[25] = 1;    // device address
+            o[31] = 1;    // DeviceConnected
+        }
+        return answer(back, 35);
+    }
+    if (code == kIoctlDescriptorFromConnection) {
+        // USB_DESCRIPTOR_REQUEST: ConnectionIndex(0), setup packet bmRequest(4) bRequest(5) wValue(6)
+        // wIndex(8) wLength(10), then the data (12).
+        if (!o || !in || in_len < 12 || out_len < 12) return refuse(back, ERROR_INSUFFICIENT_BUFFER);
+        const auto* r = static_cast<const unsigned char*>(in);
+        ULONG port = 0;
+        std::memcpy(&port, r, sizeof port);
+        const unsigned value = r[6] | (r[7] << 8);
+        const unsigned length = r[10] | (r[11] << 8);
+        unsigned char d[256] = {};
+        const DWORD n = port == kDonglePort ? descriptor(value >> 8, value & 0xff, d) : 0;
+        if (!n) return refuse(back, ERROR_GEN_FAILURE);   // a STALL on the real bus
+        DWORD give = n < length ? n : length;
+        if (give > out_len - 12) give = out_len - 12;
+        if (o != r) std::memmove(o, r, 12);
+        std::memcpy(o + 12, d, give);
+        return answer(back, 12 + give);
+    }
+    return refuse(back, ERROR_INVALID_FUNCTION);   // e.g. the driver key of a port: the game then skips that lookup
+}
+
+// --- SetupAPI ------------------------------------------------------------------------------------------
 inline HDEVINFO WINAPI hook_get_class_devs(const GUID* cls, PCWSTR enumerator, HWND parent, DWORD flags) {
-    char g[64];
-    guid_text(cls, g, sizeof g);
+    const bool ours = g_fake && cls && IsEqualGUID(*cls, kHostControllerClass);
     if (g_log)
-        g_log("dongle: SetupDiGetClassDevsW %s (enumerator %ls, flags 0x%lx) caller 0x%08lx", g,
-              enumerator ? enumerator : L"(none)", static_cast<unsigned long>(flags),
-              caller_of(__builtin_return_address(0)));
-    if (cls) { g_dongle_class = *cls; g_dongle_class_set = true; }
-    if (g_fake) {
-        // A real list with our own (imaginary) device in it, so the rest of SetupAPI keeps working.
-        HDEVINFO list = SetupDiCreateDeviceInfoList(cls, nullptr);
-        if (list == INVALID_HANDLE_VALUE) {
-            if (g_log) g_log("dongle: SetupDiCreateDeviceInfoList failed (%lu)", static_cast<unsigned long>(GetLastError()));
-            return list;
-        }
-        SP_DEVINFO_DATA info = {};
-        info.cbSize = sizeof info;
-        if (!SetupDiCreateDeviceInfoW(list, L"RGUSB\\VID_0000&PID_0000", cls, nullptr, nullptr, 0, &info)) {
-            if (g_log) g_log("dongle: SetupDiCreateDeviceInfoW failed (%lu)", static_cast<unsigned long>(GetLastError()));
-            return list;
-        }
-        SP_DEVICE_INTERFACE_DATA iface = {};
-        iface.cbSize = sizeof iface;
-        if (!SetupDiCreateDeviceInterfaceW(list, &info, cls, nullptr, 0, &iface)) {
-            if (g_log) g_log("dongle: SetupDiCreateDeviceInterfaceW failed (%lu)", static_cast<unsigned long>(GetLastError()));
-        } else if (g_log) {
-            g_log("dongle: own device put into the list");
-        }
-        return list;
-    }
-    if (!g_get_class_devs) return INVALID_HANDLE_VALUE;
-    return g_get_class_devs(cls, enumerator, parent, flags);
+        g_log("dongle: SetupDiGetClassDevsW(%s, flags 0x%lx) caller 0x%08lx", ours ? "USB host controllers, answered" : "passed on",
+              static_cast<unsigned long>(flags), caller_of(__builtin_return_address(0)));
+    if (!ours) return g_get_class_devs ? g_get_class_devs(cls, enumerator, parent, flags) : INVALID_HANDLE_VALUE;
+    // A real (empty) list, so SetupDiDestroyDeviceInfoList works on it; the interface in it is ours.
+    g_list = SetupDiCreateDeviceInfoList(nullptr, nullptr);
+    return g_list;
 }
 
-inline BOOL WINAPI hook_enum_device_interfaces(HDEVINFO set, PSP_DEVINFO_DATA info, const GUID* cls, DWORD index,
-                                               PSP_DEVICE_INTERFACE_DATA data) {
-    const unsigned long caller = caller_of(__builtin_return_address(0));
-    if (g_fake) {
-        if (index != 0 || !cls) return FALSE;   // exactly one dongle
-        if (data) {
-            data->cbSize = sizeof *data;
-            data->InterfaceClassGuid = *cls;
-            data->Flags = 0;
-            data->Reserved = 0;
-        }
-        if (g_log) g_log("dongle: SetupDiEnumDeviceInterfaces index %lu -> own dongle, caller 0x%08lx",
-                         static_cast<unsigned long>(index), caller);
-        return TRUE;
-    }
-    if (g_log) g_log("dongle: SetupDiEnumDeviceInterfaces index %lu caller 0x%08lx",
-                     static_cast<unsigned long>(index), caller);
-    if (!g_enum_interfaces) return FALSE;
-    return g_enum_interfaces(set, info, cls, index, data);
+inline BOOL WINAPI hook_enum_interfaces(HDEVINFO set, PSP_DEVINFO_DATA info, const GUID* cls, DWORD index,
+                                        PSP_DEVICE_INTERFACE_DATA data) {
+    if (!(g_fake && set == g_list && set != INVALID_HANDLE_VALUE))
+        return g_enum_interfaces ? g_enum_interfaces(set, info, cls, index, data) : FALSE;
+    if (index != 0 || !data) return refuse(nullptr, ERROR_NO_MORE_ITEMS);   // exactly one host controller
+    data->cbSize = sizeof *data;
+    data->InterfaceClassGuid = kHostControllerClass;
+    data->Flags = SPINT_ACTIVE;
+    data->Reserved = 0;
+    return TRUE;
 }
 
-inline BOOL WINAPI hook_get_device_interface_detail_w(HDEVINFO set, PSP_DEVICE_INTERFACE_DATA iface,
-                                                      PSP_DEVICE_INTERFACE_DETAIL_DATA_W detail, DWORD size,
-                                                      PDWORD needed) {
-    const unsigned long caller = caller_of(__builtin_return_address(0));
-    if (g_fake) {
-        const DWORD bytes = static_cast<DWORD>(sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W) + (wcslen(kDonglePath) + 1) * sizeof(wchar_t));
-        if (needed) *needed = bytes;
-        if (!detail || size < sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W)) {
-            SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            return FALSE;
-        }
-        detail->cbSize = sizeof *detail;
-        wcscpy(detail->DevicePath, kDonglePath);
-        if (g_log) g_log("dongle: device path %ls caller 0x%08lx", detail->DevicePath, caller);
-        return TRUE;
-    }
-    if (!g_get_detail) return FALSE;
-    const BOOL ok = g_get_detail(set, iface, detail, size, needed);
-    if (g_log && ok) g_log("dongle: device path %ls caller 0x%08lx", detail ? detail->DevicePath : L"(none)", caller);
-    return ok;
+inline BOOL WINAPI hook_get_detail(HDEVINFO set, PSP_DEVICE_INTERFACE_DATA iface, PSP_DEVICE_INTERFACE_DETAIL_DATA_W detail,
+                                   DWORD size, PDWORD needed, PSP_DEVINFO_DATA info) {
+    if (!(g_fake && set == g_list && set != INVALID_HANDLE_VALUE))
+        return g_get_detail ? g_get_detail(set, iface, detail, size, needed, info) : FALSE;
+    const DWORD bytes = static_cast<DWORD>(offsetof(SP_DEVICE_INTERFACE_DETAIL_DATA_W, DevicePath) + sizeof kControllerPath);
+    if (needed) *needed = bytes;
+    if (!detail || size < bytes) return refuse(nullptr, ERROR_INSUFFICIENT_BUFFER);
+    std::memcpy(detail->DevicePath, kControllerPath, sizeof kControllerPath);
+    return TRUE;
 }
 
-inline HANDLE WINAPI hook_create_file_w(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa,
-                                        DWORD create, DWORD flags, HANDLE tmpl) {
-    const unsigned long caller = caller_of(__builtin_return_address(0));
-    if (g_fake && is_dongle_path(name)) {
-        // The path of our device becomes a pipe: the game gets the client end, we keep the other.
-        HANDLE pipe = CreateNamedPipeW(kDonglePipe, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-                                       PIPE_UNLIMITED_INSTANCES, 4096, 4096, 0, nullptr);
-        if (pipe == INVALID_HANDLE_VALUE) {
-            if (g_log) g_log("dongle: CreateNamedPipeW failed (%lu)", static_cast<unsigned long>(GetLastError()));
-            return INVALID_HANDLE_VALUE;
-        }
-        HANDLE client = CreateFileW(kDonglePipe, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
-        if (client == INVALID_HANDLE_VALUE) {
-            if (g_log) g_log("dongle: connecting to own pipe failed (%lu)", static_cast<unsigned long>(GetLastError()));
-            CloseHandle(pipe);
-            SetLastError(ERROR_FILE_NOT_FOUND);
-            return INVALID_HANDLE_VALUE;
-        }
-        g_dongle_handle = client;
-        if (g_log) g_log("dongle: the game opens the dongle -> own pipe, caller 0x%08lx", caller);
-        return client;
+// --- the controller and hub handles ----------------------------------------------------------------------
+inline HANDLE open_null() {
+    if (!g_create_file_w) return INVALID_HANDLE_VALUE;
+    return g_create_file_w(L"NUL", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0,
+                           nullptr);
+}
+
+inline HANDLE WINAPI hook_create_file_w(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD create,
+                                        DWORD flags, HANDLE tmpl) {
+    if (g_fake && name && (_wcsicmp(name, kControllerPath) == 0 || _wcsicmp(name, kRootHubPath) == 0)) {
+        const bool controller = _wcsicmp(name, kControllerPath) == 0;
+        HANDLE h = open_null();
+        // The game closes the controller before it opens the hub, and Wine hands out the freed handle
+        // value again: the role of a handle is the one of its latest open.
+        (controller ? g_controller : g_hub) = h;
+        if ((controller ? g_hub : g_controller) == h) (controller ? g_hub : g_controller) = INVALID_HANDLE_VALUE;
+        if (g_log) g_log("dongle: the game opens the %s -> handle %p", controller ? "host controller" : "root hub", h);
+        return h;
     }
     if (!g_create_file_w) return INVALID_HANDLE_VALUE;
     return g_create_file_w(name, access, share, sa, create, flags, tmpl);
@@ -183,244 +295,64 @@ inline HANDLE WINAPI hook_create_file_w(LPCWSTR name, DWORD access, DWORD share,
 
 inline BOOL WINAPI hook_device_io_control(HANDLE dev, DWORD code, LPVOID in, DWORD in_len, LPVOID out, DWORD out_len,
                                           LPDWORD back, LPOVERLAPPED ov) {
-    const unsigned long caller = caller_of(__builtin_return_address(0));
-    if (g_fake && g_dongle_handle != INVALID_HANDLE_VALUE && dev == g_dongle_handle) {
-        char hex[3 * 32 + 1] = {};
-        const auto* b = static_cast<const unsigned char*>(in);
-        if (b)
-            for (DWORD i = 0; i < in_len && i < 32; ++i) std::snprintf(hex + i * 3, 4, "%02x ", b[i]);
+    const bool controller = g_fake && dev != INVALID_HANDLE_VALUE && dev == g_controller;
+    const bool hub = g_fake && dev != INVALID_HANDLE_VALUE && dev == g_hub;
+    if (!controller && !hub) {
         if (g_log)
-            g_log("dongle: DeviceIoControl code 0x%08lx in %lu [%s] out %lu caller 0x%08lx",
-                  static_cast<unsigned long>(code), static_cast<unsigned long>(in_len), hex,
-                  static_cast<unsigned long>(out_len), caller);
-        if (out && out_len) {
-            std::memset(out, 0, out_len);
-            // The game asks with a 6-byte buffer first and expects the first dword to be the size of
-            // the dongle payload (> 6); it then asks again with that size. Answer that size here.
-            if ((code == 0x00220424u || code == 0x00220408u) && out_len >= 6) {
-                const unsigned long payload = 0x104;
-                std::memcpy(out, &payload, sizeof payload);
-                // Probe the payload layout: ASCII digits cycling, so whatever the game shows on its
-                // boot check (board id / serial) tells us at which offset it reads.
-                // The payload stays zero; only the size prefix is filled in.
-            }
-            if (back) *back = out_len;
-            SetLastError(ERROR_SUCCESS);
-            return TRUE;
-        }
-        if (back) *back = 0;
-        SetLastError(ERROR_SUCCESS);
-        return TRUE;
+            g_log("dongle: DeviceIoControl(code 0x%08lx, in %lu, out %lu) passed on, caller 0x%08lx",
+                  static_cast<unsigned long>(code), static_cast<unsigned long>(in_len), static_cast<unsigned long>(out_len),
+                  caller_of(__builtin_return_address(0)));
+        return g_device_io_control ? g_device_io_control(dev, code, in, in_len, out, out_len, back, ov) : FALSE;
     }
-    if (g_log)
-        g_log("dongle: DeviceIoControl code 0x%08lx in %lu out %lu caller 0x%08lx",
-              static_cast<unsigned long>(code), static_cast<unsigned long>(in_len),
-              static_cast<unsigned long>(out_len), caller);
-    if (!g_device_io_control) return FALSE;
-    const BOOL ok = g_device_io_control(dev, code, in, in_len, out, out_len, back, ov);
-    if (g_chain && g_log) {
-        const DWORD n = back ? *back : 0;
-        char hex[3 * 32 + 1] = {};
-        const auto* b = static_cast<const unsigned char*>(out);
-        if (ok && b)
-            for (DWORD i = 0; i < n && i < 32; ++i) std::snprintf(hex + i * 3, 4, "%02x ", b[i]);
-        g_log("dongle: chain code 0x%08lx -> %s, %lu bytes: %s", static_cast<unsigned long>(code), ok ? "ok" : "error",
-              static_cast<unsigned long>(n), hex);
+    const BOOL ok = controller ? controller_ioctl(code, out, out_len, back) : hub_ioctl(code, in, in_len, out, out_len, back);
+    if (g_log) {
+        const unsigned port = in && in_len >= 4 ? *static_cast<const unsigned char*>(in) : 0;
+        g_log("dongle: %s ioctl 0x%08lx (port %u, out %lu) -> %s, %lu bytes", controller ? "controller" : "hub",
+              static_cast<unsigned long>(code), port, static_cast<unsigned long>(out_len), ok ? "ok" : "refused",
+              back ? static_cast<unsigned long>(*back) : 0ul);
     }
     return ok;
 }
 
-inline BOOL WINAPI hook_terminate_process(HANDLE h, UINT code) {
-    if (g_log)
-        g_log("dongle: TerminateProcess(%p, %u) caller 0x%08lx", h, static_cast<unsigned>(code),
-              caller_of(__builtin_return_address(0)));
-    if (g_terminate_process) return g_terminate_process(h, code);
-    return FALSE;
-}
-
-inline void __cdecl hook_crt_exit(int code) {
-    if (g_log)
-        g_log("dongle: exit(%d) caller 0x%08lx", code, caller_of(__builtin_return_address(0)));
-    if (g_crt_exit) g_crt_exit(code);
-}
-
-inline void WINAPI hook_exit_process(UINT code) {
-    if (g_log)
-        g_log("dongle: ExitProcess(%u) caller 0x%08lx", static_cast<unsigned>(code),
-              caller_of(__builtin_return_address(0)));
-    if (g_exit_process) g_exit_process(code);
-}
-
-// --- inline hooks on ntdll, to catch a direct NtTerminateProcess / RtlExitUserProcess ----------------
-using nt_terminate_fn = LONG(WINAPI*)(HANDLE, LONG);
-inline unsigned char g_nt_saved[6] = {};
-inline void* g_nt_target = nullptr;
-inline unsigned char g_rl_saved[6] = {};
-inline void* g_rl_target = nullptr;
-using exit_thread_fn = void(WINAPI*)(DWORD);
-inline exit_thread_fn g_exit_thread = nullptr;
-
-inline bool install_inline(void* target, void* repl, unsigned char* saved) {
-    DWORD prot = 0;
-    if (!target || !VirtualProtect(target, 6, PAGE_EXECUTE_READWRITE, &prot)) return false;
-    std::memcpy(saved, target, 6);
-    unsigned char patch[6];
-    patch[0] = 0x68;   // push imm32
-    const auto addr = static_cast<unsigned long>(reinterpret_cast<uintptr_t>(repl));
-    std::memcpy(patch + 1, &addr, 4);
-    patch[5] = 0xC3;   // ret
-    std::memcpy(target, patch, 6);
-    VirtualProtect(target, 6, prot, &prot);
-    return true;
-}
-
-inline void restore_inline(void* target, unsigned char* saved) {
-    DWORD prot = 0;
-    if (!target || !VirtualProtect(target, 6, PAGE_EXECUTE_READWRITE, &prot)) return;
-    std::memcpy(target, saved, 6);
-    VirtualProtect(target, 6, prot, &prot);
-}
-
-inline LONG WINAPI hook_nt_terminate(HANDLE proc, LONG code) {
-    if (g_log)
-        g_log("dongle: NtTerminateProcess(%p, %ld) caller 0x%08lx", proc, static_cast<long>(code),
-              caller_of(__builtin_return_address(0)));
-    if (!g_nt_target) return 0;
-    restore_inline(g_nt_target, g_nt_saved);
-    return reinterpret_cast<nt_terminate_fn>(g_nt_target)(proc, code);
-}
-
-inline LONG WINAPI hook_rtl_exit_user(HANDLE proc, LONG code) {
-    if (g_log)
-        g_log("dongle: RtlExitUserProcess(%p, %ld) caller 0x%08lx", proc, static_cast<long>(code),
-              caller_of(__builtin_return_address(0)));
-    if (!g_rl_target) return 0;
-    restore_inline(g_rl_target, g_rl_saved);
-    return reinterpret_cast<nt_terminate_fn>(g_rl_target)(proc, code);
-}
-
-inline void WINAPI hook_exit_thread(DWORD code) {
-    if (g_log) g_log("dongle: ExitThread(%lu) caller 0x%08lx", static_cast<unsigned long>(code),
-                     caller_of(__builtin_return_address(0)));
-    if (g_exit_thread) g_exit_thread(code);
-}
-
-// --- first-chance exceptions: log where the game faults --------------------------------------------
-inline LONG CALLBACK hook_vectored(EXCEPTION_POINTERS* ep) {
-    if (g_log && ep && ep->ExceptionRecord) {
-        g_log("dongle: exception 0x%08lx at 0x%08lx", static_cast<unsigned long>(ep->ExceptionRecord->ExceptionCode),
-              static_cast<unsigned long>(reinterpret_cast<uintptr_t>(ep->ExceptionRecord->ExceptionAddress)));
-        if (ep->ExceptionRecord->ExceptionCode == 0xC0000005u && ep->ContextRecord) {
-            g_log("dongle:  eip 0x%08lx esp 0x%08lx ebp 0x%08lx esi 0x%08lx edi 0x%08lx",
-                  static_cast<unsigned long>(ep->ContextRecord->Eip), static_cast<unsigned long>(ep->ContextRecord->Esp),
-                  static_cast<unsigned long>(ep->ContextRecord->Ebp), static_cast<unsigned long>(ep->ContextRecord->Esi),
-                  static_cast<unsigned long>(ep->ContextRecord->Edi));
-            if (!IsBadReadPtr(reinterpret_cast<void*>(static_cast<uintptr_t>(ep->ContextRecord->Esp)), 8)) {
-                const auto* sp = reinterpret_cast<const unsigned long*>(static_cast<uintptr_t>(ep->ContextRecord->Esp));
-                g_log("dongle:  stack[0] 0x%08lx stack[1] 0x%08lx", sp[0], sp[1]);
-            }
-            // Walk the frame-pointer chain so the crash can be placed in the game's call tree.
-            auto* frame = reinterpret_cast<unsigned long*>(static_cast<uintptr_t>(ep->ContextRecord->Ebp));
-            for (int i = 0; i < 8 && frame; ++i) {
-                const auto addr = reinterpret_cast<uintptr_t>(frame);
-                if (addr < 0x10000 || (addr & 3)) break;
-                if (IsBadReadPtr(frame, 8)) break;
-                const unsigned long ret = frame[1];
-                const unsigned long next = frame[0];
-                g_log("dongle:  frame %d ret 0x%08lx", i, ret);
-                if (next <= addr || next > addr + 0x20000) break;
-                frame = reinterpret_cast<unsigned long*>(static_cast<uintptr_t>(next));
-            }
-        }
-    }
-    return EXCEPTION_CONTINUE_SEARCH;
-}
-
-// --- the device-tree walk that follows the dongle read (CM_* from setupapi) -------------------------
-using cm_locate_fn = CONFIGRET(WINAPI*)(PDEVINST, DEVINSTID_W, ULONG);
-using cm_prop_fn = CONFIGRET(WINAPI*)(DEVINST, ULONG, PULONG, PBYTE, PULONG, ULONG);
-using cm_one_fn = CONFIGRET(WINAPI*)(DEVINST, PDEVINST);
-inline cm_locate_fn g_cm_locate = nullptr;
-inline cm_prop_fn g_cm_prop = nullptr;
-inline cm_one_fn g_cm_child = nullptr;
-inline cm_one_fn g_cm_parent = nullptr;
-inline cm_one_fn g_cm_sibling = nullptr;
-inline bool g_cm_fake = false;   // RG_DONGLE=fake: answer the walk ourselves
-
+// --- the PnP tree: the controller's own device node -----------------------------------------------------
+// The game looks for the node whose driver key is the controller's (CM_DRP_DRIVER) and reads its
+// description (CM_DRP_DEVICEDESC). The walk starts at the root, so the root it gets is our controller
+// node; a walk from any other node goes to Wine.
 inline CONFIGRET WINAPI hook_cm_locate(PDEVINST dev, DEVINSTID_W id, ULONG flags) {
-    CONFIGRET r = g_cm_locate ? g_cm_locate(dev, id, flags) : CR_FAILURE;
-    if (g_log) g_log("dongle: CM_Locate_DevNodeW(id %ls) -> %lu devinst 0x%lx", id ? id : L"(null)",
-                     static_cast<unsigned long>(r), dev ? static_cast<unsigned long>(*dev) : 0ul);
-    if (g_cm_fake && dev) { *dev = 0x1000; r = CR_SUCCESS; }
-    return r;
-}
-
-inline CONFIGRET WINAPI hook_cm_prop(DEVINST dev, ULONG prop, PULONG type, PBYTE buf, PULONG len, ULONG flags) {
-    if (g_cm_fake) {
-        // Property 0x0A is the driver key and 0x01 the device description. The game matches the
-        // driver key against the string it read from the dongle and, on a match, copies the
-        // description out. With a zero dongle payload the search string is empty, so answer empty.
-        if (prop == 0x0A || prop == 0x01) {
-            const wchar_t* val = prop == 0x0A ? L"" : L"RavenGun Drive Board";
-            const size_t bytes = (wcslen(val) + 1) * sizeof(wchar_t);
-            if (type) *type = REG_SZ;
-            if (buf && len && *len >= bytes) std::memcpy(buf, val, bytes);
-            if (len) *len = static_cast<ULONG>(bytes);
-            if (g_log) g_log("dongle:  property 0x%lx -> \"%ls\" (fake)", static_cast<unsigned long>(prop), val);
-            return CR_SUCCESS;
-        }
-        if (g_log) g_log("dongle:  property 0x%lx -> CR_NO_SUCH_VALUE (fake)", static_cast<unsigned long>(prop));
-        return CR_NO_SUCH_VALUE;
+    if (g_fake && dev && !id) {
+        *dev = kControllerNode;
+        return CR_SUCCESS;
     }
-    const CONFIGRET r = g_cm_prop ? g_cm_prop(dev, prop, type, buf, len, flags) : CR_FAILURE;
-    if (g_log) {
-        g_log("dongle: CM_Get_DevNode_Registry_PropertyW(dev 0x%lx, prop 0x%lx) -> %lu type 0x%lx len %lu",
-              static_cast<unsigned long>(dev), static_cast<unsigned long>(prop), static_cast<unsigned long>(r),
-              type ? static_cast<unsigned long>(*type) : 0ul, len ? static_cast<unsigned long>(*len) : 0ul);
-        if (r == CR_SUCCESS && buf && len && *type == REG_SZ && *len >= 2)
-            g_log("dongle:  property value \"%ls\"", reinterpret_cast<const wchar_t*>(buf));
-    }
-    return r;
+    return g_cm_locate ? g_cm_locate(dev, id, flags) : CR_FAILURE;
 }
 
-inline CONFIGRET WINAPI hook_cm_child(DEVINST dev, PDEVINST out) {
-    if (g_cm_fake) { if (g_log) g_log("dongle: CM_Get_Child(0x%lx) -> none (fake)", static_cast<unsigned long>(dev)); return CR_NO_SUCH_DEVNODE; }
-    const CONFIGRET r = g_cm_child ? g_cm_child(dev, out) : CR_FAILURE;
-    if (g_log) g_log("dongle: CM_Get_Child(dev 0x%lx) -> %lu child 0x%lx", static_cast<unsigned long>(dev),
-                     static_cast<unsigned long>(r), out ? static_cast<unsigned long>(*out) : 0ul);
-    return r;
+inline CONFIGRET WINAPI hook_cm_prop(DEVINST dev, ULONG prop, PULONG type, PVOID buf, PULONG len, ULONG flags) {
+    if (dev != kControllerNode) return g_cm_prop ? g_cm_prop(dev, prop, type, buf, len, flags) : CR_FAILURE;
+    const wchar_t* val = prop == CM_DRP_DRIVER ? kControllerDriverKey : prop == CM_DRP_DEVICEDESC ? kControllerDescription : nullptr;
+    if (!val) return CR_NO_SUCH_VALUE;
+    const ULONG bytes = static_cast<ULONG>((wcslen(val) + 1) * sizeof(wchar_t));
+    if (type) *type = REG_SZ;
+    if (!len) return CR_INVALID_POINTER;
+    if (!buf || *len < bytes) { *len = bytes; return CR_BUFFER_SMALL; }
+    std::memcpy(buf, val, bytes);
+    *len = bytes;
+    if (g_log && prop == CM_DRP_DRIVER) g_log("dongle: device tree: host controller node found");
+    return CR_SUCCESS;
 }
 
-inline CONFIGRET WINAPI hook_cm_parent(DEVINST dev, PDEVINST out) {
-    if (g_cm_fake) { if (g_log) g_log("dongle: CM_Get_Parent(0x%lx) -> none (fake)", static_cast<unsigned long>(dev)); return CR_NO_SUCH_DEVNODE; }
-    const CONFIGRET r = g_cm_parent ? g_cm_parent(dev, out) : CR_FAILURE;
-    if (g_log) g_log("dongle: CM_Get_Parent(dev 0x%lx) -> %lu parent 0x%lx", static_cast<unsigned long>(dev),
-                     static_cast<unsigned long>(r), out ? static_cast<unsigned long>(*out) : 0ul);
-    return r;
+inline CONFIGRET WINAPI hook_cm_child(PDEVINST out, DEVINST dev, ULONG flags) {
+    if (dev == kControllerNode) return CR_NO_SUCH_DEVNODE;
+    return g_cm_child ? g_cm_child(out, dev, flags) : CR_FAILURE;
 }
 
-inline CONFIGRET WINAPI hook_cm_sibling(DEVINST dev, PDEVINST out) {
-    if (g_cm_fake) { if (g_log) g_log("dongle: CM_Get_Sibling(0x%lx) -> none (fake)", static_cast<unsigned long>(dev)); return CR_NO_SUCH_DEVNODE; }
-    const CONFIGRET r = g_cm_sibling ? g_cm_sibling(dev, out) : CR_FAILURE;
-    if (g_log) g_log("dongle: CM_Get_Sibling(dev 0x%lx) -> %lu sibling 0x%lx", static_cast<unsigned long>(dev),
-                     static_cast<unsigned long>(r), out ? static_cast<unsigned long>(*out) : 0ul);
-    return r;
+inline CONFIGRET WINAPI hook_cm_parent(PDEVINST out, DEVINST dev, ULONG flags) {
+    if (dev == kControllerNode) return CR_NO_SUCH_DEVNODE;
+    return g_cm_parent ? g_cm_parent(out, dev, flags) : CR_FAILURE;
 }
 
-// --- COM: the auth object (AMCUS/iauthdll.dll, interface IAuth) is created in-process ----------------
-using co_create_fn = HRESULT(WINAPI*)(REFCLSID, LPUNKNOWN, DWORD, REFIID, LPVOID*);
-inline co_create_fn g_co_create = nullptr;
-inline void WINAPI log_guid(const char* what, const GUID* g) {
-    if (!g_log) return;
-    g_log("dongle: %s {%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}", what,
-          static_cast<unsigned long>(g->Data1), g->Data2, g->Data3, g->Data4[0], g->Data4[1], g->Data4[2],
-          g->Data4[3], g->Data4[4], g->Data4[5], g->Data4[6], g->Data4[7]);
-}
-inline HRESULT WINAPI hook_co_create(REFCLSID clsid, LPUNKNOWN outer, DWORD ctx, REFIID iid, LPVOID* out) {
-    log_guid("CoCreateInstance clsid", &clsid);
-    log_guid("dongle: ... iid", &iid);
-    if (!g_co_create) return E_FAIL;
-    return g_co_create(clsid, outer, ctx, iid, out);
+inline CONFIGRET WINAPI hook_cm_sibling(PDEVINST out, DEVINST dev, ULONG flags) {
+    if (dev == kControllerNode) return CR_NO_SUCH_DEVNODE;
+    return g_cm_sibling ? g_cm_sibling(out, dev, flags) : CR_FAILURE;
 }
 
 }  // namespace rg_dongle

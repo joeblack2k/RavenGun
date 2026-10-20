@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// De beslislogica van de "stalldump" in rg-mfcam.dll (zie VIJFDE TAAK in rg_mfcam.cpp), zonder Windows-aanroepen, zodat
-// tests/test_stall_dump.cpp haar op de host kan toetsen.
+// The decision logic of the "stalldump" in rg-mfcam.dll (see FIFTH TASK in rg_mfcam.cpp), without Windows calls, so that
+// tests/test_stall_dump.cpp can test it on the host.
 //
-// Waarvoor: staat een spel stil (zwart beeld, geen logregels meer), dan wil je weten waar elke draad wacht. Met gdb kan dat, maar onder
-// Wine zonder framepointers geeft dat weinig. Deze DLL kan het in het proces zelf: op ingestelde tijdstippen elke draad even stilzetten,
-// zijn registers lezen en de stapel afzoeken naar terugkeeradressen in de exe. Een dword op de stapel telt alleen als terugkeeradres als
-// de bytes ervoor een x86-aanroep zijn (E8 rel32, FF 15 abs32, FF /2 in zijn korte vormen): dat filtert het gros van het toeval weg.
+// Purpose: if a game stalls (black screen, no more log lines), you want to know where each thread is waiting. That is possible with gdb, but under
+// Wine without frame pointers it gives little. This DLL can do it inside the process itself: at configured times it briefly suspends each thread,
+// reads its registers and searches the stack for return addresses in the exe. A dword on the stack only counts as a return address if
+// the bytes before it are an x86 call (E8 rel32, FF 15 abs32, FF /2 in its short forms): that filters out most of the coincidences.
 #pragma once
 
 #include <cstdint>
@@ -14,20 +14,20 @@
 
 namespace rg_stall {
 
-// `p` wijst naar het adres van de instructie NA de aanroep; `p[-1]` is de laatste byte van de aanroep. Het geheugen ervoor (6 bytes) moet
-// leesbaar zijn; de aanroeper controleert dat.
+// `p` points to the address of the instruction AFTER the call; `p[-1]` is the last byte of the call. The memory before it (6 bytes) must be
+// readable; the caller checks that.
 inline bool preceded_by_call(const uint8_t* p) {
     if (p[-5] == 0xE8) return true;                                     // call rel32
     if (p[-6] == 0xFF && p[-5] == 0x15) return true;                    // call [abs32]
     if (p[-6] == 0xFF && (p[-5] & 0xF8) == 0x90) return true;           // call [reg+disp32]
     if (p[-3] == 0xFF && (p[-2] & 0xF8) == 0x50) return true;           // call [reg+disp8]
     if (p[-2] == 0xFF && (p[-1] & 0xF8) == 0xD0) return true;           // call reg
-    if (p[-3] == 0xFF && p[-2] == 0x14) return true;                    // call [reg*scale+...]  (korte SIB-vorm)
+    if (p[-3] == 0xFF && p[-2] == 0x14) return true;                    // call [reg*scale+...]  (short SIB form)
     if (p[-2] == 0xFF && (p[-1] & 0xF8) == 0x10) return true;           // call [reg]
     return false;
 }
 
-// "30,60,90" -> {30, 60, 90} seconden (1..86400, stijgend niet vereist); rommel wordt overgeslagen.
+// "30,60,90" -> {30, 60, 90} seconds (1..86400, ascending not required); garbage is skipped.
 inline std::vector<unsigned> parse_times(const char* s) {
     std::vector<unsigned> out;
     if (!s) return out;

@@ -1,4 +1,4 @@
-// De logica van het eigen Banapass-kaartlezer-antwoord van rg-mfcam.dll (tools/rg-mfcam/bngrw_fake.h).
+// The logic of rg-mfcam.dll's own Banapass card reader reply (tools/rg-mfcam/bngrw_fake.h).
 #include <cstdio>
 
 #include "../tools/rg-mfcam/bngrw_fake.h"
@@ -17,20 +17,20 @@ static int g_failures = 0, g_checks = 0;
 
 int main() {
     Fake f;
-    // Voor Attach is er niets: aanvragen worden geweigerd, niets staat open.
+    // Before Attach there is nothing: requests are refused, nothing is open.
     CHECK(f.simple_request(0) == 0);
     CHECK(f.dev_reset(0) == 0);
     CHECK(f.wait_touch(0) == 0);
     CHECK(f.is_cmd_exec(0) == 0 && f.is_cmd_exec(1) == 0);
 
-    // Twee lezers, zoals het spel ze aanmaakt (lezer 0 = COM4, lezer 1 = COM2).
+    // Two readers, as the game creates them (reader 0 = COM4, reader 1 = COM2).
     CHECK(f.attach(0) == kAccepted);
     CHECK(f.attach(1) == kAccepted);
-    CHECK(f.attach(2) == 0 && f.attach(-1) == 0);   // een derde lezer bestaat niet
+    CHECK(f.attach(2) == 0 && f.attach(-1) == 0);   // a third reader does not exist
     CHECK(f.dev_reset(0) == kAccepted && f.dev_reset(1) == kAccepted);
     CHECK(f.simple_request(0) == kAccepted && f.simple_request(1) == kAccepted);   // led, beep, url
 
-    // ReqWaitTouch blijft open (IsCmdExec = 1) tot ReqCancel; per lezer onafhankelijk; twee tegelijk mag niet.
+    // ReqWaitTouch stays open (IsCmdExec = 1) until ReqCancel; independent per reader; two at once is not allowed.
     CHECK(f.wait_touch(0) == kAccepted);
     CHECK(f.is_cmd_exec(0) == 1 && f.is_cmd_exec(1) == 0);
     CHECK(f.wait_touch(0) == 0);
@@ -38,17 +38,17 @@ int main() {
     CHECK(f.is_cmd_exec(1) == 1);
     CHECK(f.cancel(0));
     CHECK(f.is_cmd_exec(0) == 0 && f.is_cmd_exec(1) == 1);
-    CHECK(!f.cancel(0));   // niets meer open
-    CHECK(f.wait_touch(0) == kAccepted);   // opnieuw kan
+    CHECK(!f.cancel(0));   // nothing open any more
+    CHECK(f.wait_touch(0) == kAccepted);   // can be started again
 
-    // Een reset haalt een openstaande aanvraag weg.
+    // A reset removes a pending request.
     CHECK(f.dev_reset(0) == kAccepted && f.is_cmd_exec(0) == 0);
 
-    // Fin zet alles terug.
+    // Fin resets everything.
     f.fin();
     CHECK(f.is_cmd_exec(1) == 0 && f.simple_request(0) == 0);
     CHECK(!Fake::valid(2) && Fake::valid(0) && Fake::valid(1));
 
-    std::printf("bngrw_fake: %d controles, %d mislukt\n", g_checks, g_failures);
+    std::printf("bngrw_fake: %d checks, %d failed\n", g_checks, g_failures);
     return g_failures ? 1 : 0;
 }

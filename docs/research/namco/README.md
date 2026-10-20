@@ -1,30 +1,30 @@
-# Namco- en ALLS-games zonder TeknoParrot-kern: Point Blank X, Mario Kart DX, Time Crisis 5, HOTD Scarlet Dawn
+# Namco and ALLS games without the TeknoParrot core: Point Blank X, Mario Kart DX, Time Crisis 5, HOTD Scarlet Dawn
 
-*Stand 2026-10-17 (tweede ronde: TC5 en HOTDSD hebben nu een kandidaat). Doel van de eigenaar: elke game start zonder de gesloten `TeknoParrot(64).dll` en zonder bestand uit
-`~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64`. Dit stuk gaat over de vier games die op de directe (Wine-)route
-nog de gesloten kern laden. **Niets hiervan is op de tv gemeten**: er is niets gestart (geen game, geen Wine); alles is statisch gelezen
-(objdump, strings, decompilatie van de Unity-assembly's, de open bronnen van TeknoParrotUI en OpenParrot) en gebouwd in de mingw-container.
-Kandidaat-configuraties staan in `docs/research/namco/<Game>.game.ini` en, met hun drop-ins, in `patches/<Game>/game.kandidaat.ini` en `patches/<Game>/dropin.kandidaat.d/`. **Tweede ronde (TC5 en HOTDSD): de volledige kandidaat (`game.ini`, `dropin/`, `data/`) staat in `docs/research/namco/patches/<Game>/`; controle zonder TeknoParrot met `tools/dev/namco-candidates-check.sh`.** De meegeleverde
-`patches/<Game>/game.ini` en `dropin/` zijn ongewijzigd, **behalve Mario Kart DX** (besluit eigenaar 2026-10-17: standaard zonder TeknoParrot,
-de gesloten kern via de optie Online play); de andere blijven op de gesloten kern tot de tv het tegendeel laat zien.**
+*Status 2026-10-17 (second round: TC5 and HOTDSD now have a candidate). The owner's goal: every game starts without the closed `TeknoParrot(64).dll` and without any file from
+`~/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64`. This document covers the four games that still load the closed core on the direct (Wine) route.
+**None of this was measured on the TV**: nothing was started (no game, no Wine); everything was read statically
+(objdump, strings, decompilation of the Unity assemblies, the open sources of TeknoParrotUI and OpenParrot) and built in the mingw container.
+Candidate configurations are in `docs/research/namco/<Game>.game.ini` and, with their drop-ins, in `patches/<Game>/game.kandidaat.ini` and `patches/<Game>/dropin.kandidaat.d/`. **Second round (TC5 and HOTDSD): the complete candidate (`game.ini`, `dropin/`, `data/`) is in `docs/research/namco/patches/<Game>/`; check without TeknoParrot with `tools/dev/namco-candidates-check.sh`.** The bundled
+`patches/<Game>/game.ini` and `dropin/` are unchanged, **except Mario Kart DX** (owner's decision 2026-10-17: default without TeknoParrot,
+the closed core via the Online play option); the others stay on the closed core until the TV shows otherwise.**
 
-## Overzicht
+## Overview
 
-| Game | Wat de kern deed | Onze vervanging | Stand |
+| Game | What the core did | Our replacement | Status |
 |---|---|---|---|
-| Point Blank X | de USIO-laag (`Plugins/bnusio.dll`: bord via WinUSB, vuurwapen via COM) naar het gedeelde geheugen leiden; schijfletters F:/G: | **`bnusio.dll` van ons** (`tools/rg-usio`, drop-in op de plaats van het echte bestand) + onze kern (generiek, schijfletter-omleiding patch 0004) | **klaar om te testen** |
-| Mario Kart DX | JVS: `COM3` -> pipe `TeknoParrot_JVS`; ALL.Net/AMAuthd (COM-server) beantwoorden en naar de TP-gemeenschapsserver wijzen; schijfletters; `teknoparrot.ini` | JVS-over-COM3 in `rg-mfcam.dll` + onze kern, **standaard** (offline). Optie "Online play" in Properties zet `[Loader] Core = teknoparrot` terug (online, vraagt TeknoParrot) | **standaard offline; crash na ~15 s is ShareK (niet IAuth), kandidaat: eigen ShareK-object in `rg-mfcam.dll`, zie "Mario Kart DX: de crash na ~15 s"** (`docs/research/namco/patches/MarioKartDX/`) |
-| Time Crisis 5 | WinUSB/SetupAPI-emulatie van het USIO-bord in het spelproces, de HASP-laag, aim/trekker | **`winusb.dll` van ons** (`tools/rg-winusb`, drop-in naast de exe) + onze kern + HASP-drop-in (bestond al) | **kandidaat klaar om te testen** (aim/trekker, pedalenbits en HASP gegokt) |
-| HOTD Scarlet Dawn | platformgegevens voor `amdaemon.exe` (register), schijfletters AMFS/D/Y, USB-IO-bord (HID) uit de besturingspipe, twee-exe-start | `platform.reg` + onze kern + **`rg-allsio.dll`** (`tools/rg-allsio`, HID-nabootsing in de daemon, preload) | **kandidaat klaar om te meten** (productstring-staart en antwoorden gegokt; schijfletters open) |
+| Point Blank X | route the USIO layer (`Plugins/bnusio.dll`: board via WinUSB, gun via COM) to shared memory; drive letters F:/G: | **our own `bnusio.dll`** (`tools/rg-usio`, drop-in in place of the real file) + our core (generic, drive-letter redirection patch 0004) | **ready to test** |
+| Mario Kart DX | JVS: `COM3` -> pipe `TeknoParrot_JVS`; answer ALL.Net/AMAuthd (COM server) and point it at the TP community server; drive letters; `teknoparrot.ini` | JVS-over-COM3 in `rg-mfcam.dll` + our core, **by default** (offline). The "Online play" option in Properties puts `[Loader] Core = teknoparrot` back (online, requires TeknoParrot) | **offline by default; crash after ~15 s is ShareK (not IAuth), candidate: own ShareK object in `rg-mfcam.dll`, see "Mario Kart DX: the crash after ~15 s"** (`docs/research/namco/patches/MarioKartDX/`) |
+| Time Crisis 5 | WinUSB/SetupAPI emulation of the USIO board in the game process, the HASP layer, aim/trigger | **our own `winusb.dll`** (`tools/rg-winusb`, drop-in next to the exe) + our core + HASP drop-in (already existed) | **candidate ready to test** (aim/trigger, pedal bits and HASP guessed) |
+| HOTD Scarlet Dawn | platform data for `amdaemon.exe` (registry), drive letters AMFS/D/Y, USB-IO board (HID) from the control pipe, two-exe start | `platform.reg` + our core + **`rg-allsio.dll`** (`tools/rg-allsio`, HID emulation in the daemon, preload) | **candidate ready to measure** (product-string tail and replies guessed; drive letters open) |
 
-## Wat een lege Wine-start van deze games mist (de gemeenschappelijke grondslag)
+## What an empty Wine start of these games lacks (the common foundation)
 
-* Onze OpenParrot-kern op de generieke route (`[Loader] Core = ravengun`, patch 0003) laadt elke game zonder per-game hooks. Wat hij wel voor
-  iedere game doet (patch 0004): `CreateFileA/W` en `CreateDirectoryA/W` op `<L>:\` of `<L>:/` worden `.\TeknoParrot\<L>\...` (cwd-relatief,
-  `C:` en `Z:` nooit). Daarmee is de schijfletterlaag van de gesloten kern gedekt voor Point Blank X (`F:`/`G:` voor `nbamsavdat.dll` en
-  `Setting.ini` `MAIN_PATH`/`BACKUP_PATH`) en Mario Kart (`G:/Contents`; de `./F...`-mappen staan al in de exe).
-* Per-game hooks horen in de drop-in van de game, niet in de kern (`docs/dropins.md`). De loader laadt **een** preload-DLL per Windows-game
-  (`TP_PRELOAD_DLL`); extra reparaties gaan dus in dezelfde DLL (zoals de pHResult-reparatie in `rg-mfcam.dll`).
+* Our OpenParrot core on the generic route (`[Loader] Core = ravengun`, patch 0003) loads every game without per-game hooks. What it does do for
+  every game (patch 0004): `CreateFileA/W` and `CreateDirectoryA/W` on `<L>:\` or `<L>:/` become `.\TeknoParrot\<L>\...` (cwd-relative,
+  never `C:` and `Z:`). That covers the closed core's drive-letter layer for Point Blank X (`F:`/`G:` for `nbamsavdat.dll` and
+  `Setting.ini` `MAIN_PATH`/`BACKUP_PATH`) and Mario Kart (`G:/Contents`; the `./F...` folders are already in the exe).
+* Per-game hooks belong in the game's drop-in, not in the core (`docs/dropins.md`). The loader loads **one** preload DLL per Windows game
+  (`TP_PRELOAD_DLL`); extra fixes therefore go into the same DLL (like the pHResult fix in `rg-mfcam.dll`).
 
 ---
 
@@ -64,193 +64,194 @@ anders `[Env] RG_USIO_FLIP_Y = 0`. (5) 5 minuten spelen. Bewijs van het laden: `
 
 ## Mario Kart Arcade GP DX 1.18 (EmulationProfile `NamcoMkdx`, 32-bit, D3D10/11)
 
-**Wat de kern deed (gemeten aan de exe, niet aan de kern).**
+**What the core did (measured on the exe, not on the core).**
 
-1. **JVS.** `CreateFileA("COM3", GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)` op `0x8ac1f2`, daarna
-   `GetCommState`/`SetCommState` (115200 8N1, `0x8ac2ab`), `SetCommTimeouts`, `SetupComm`, `PurgeComm`, `GetCommModemStatus` (sense-lijn).
-   De kern zet COM3 om naar `\\.\pipe\TeknoParrot_JVS` (zelfde gedrag als `amJvs.cpp` in de OpenParrot-bron, daar voor `hookPort = "COM3"`).
+1. **JVS.** `CreateFileA("COM3", GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)` at `0x8ac1f2`, then
+   `GetCommState`/`SetCommState` (115200 8N1, `0x8ac2ab`), `SetCommTimeouts`, `SetupComm`, `PurgeComm`, `GetCommModemStatus` (sense line).
+   The core turns COM3 into `\\.\pipe\TeknoParrot_JVS` (same behavior as `amJvs.cpp` in the OpenParrot source, there for `hookPort = "COM3"`).
 2. **ALL.Net.** `CoCreateInstance(CLSID {4603BB03-058D-43D9-B96F-639BE908C1ED}, NULL, CLSCTX_LOCAL_SERVER, IID {045A5150-D2B3-4590-A38B-
-   C1158678E1AC})` op `0x4010c0`: dat is de COM-server **`AMCUS/AMAuthd.exe`** (beide GUID's staan in `AMAuthd.exe`; de IID in het
-   proxy/stub-bestand `AMCUS/iauthdll.dll`, dat 32 methodes aangeeft = IUnknown + **29 eigen methodes**). Het spel leest er `auth_state`,
-   `daemon_state`, `daemon_error`, `last_auth_error`, de PowerOn-velden (`uri`, `host`, `place_id`, `country`, `region0`, `timezone`) en
-   het IP van het spel; mislukt `CoCreateInstance`, dan zet het spel het vlag-byte van het wikkelobject op 0 en gebruikt vaste waarden
-   (onder andere toestand 8 en -1, `0x461fc5`): dat is een bedoeld pad, geen crash. `AMAuthd` registreert zelf zijn klasse
-   (`CoRegisterClassObject`) en kent `authType` = `ALL.NET` | `OFFLINE` | `NBLINE` in `AMConfig.ini`.
-3. **De gemeenschapsserver.** `Network/ServerAddress`/`ServerPort`/`PlayerId`/`Gateway` komen alleen in `teknoparrot.ini`. In een
-   geheugenbeeld van de gesloten kern staat het online-protocol van TeknoParrot: ondertekende sessies (`TPAUTH`, `TPSK1`, `TPENC1`,
-   HMAC, "the server refused this cabinet", `[Network] OnlineID / OnlineSecret` uit het teknoparrot.com-account). Dat is een
-   eigen, geauthenticeerd protocol van een externe dienst.
-4. Overig: schijfletters (`G:/Contents`), 16 MiB-stapel (engine, `StackReserve`), `Polygon2D`-ViewLink en d3dx10-pHResult (al van ons).
+   C1158678E1AC})` at `0x4010c0`: that is the COM server **`AMCUS/AMAuthd.exe`** (both GUIDs are in `AMAuthd.exe`; the IID is in the
+   proxy/stub file `AMCUS/iauthdll.dll`, which declares 32 methods = IUnknown + **29 own methods**). The game reads `auth_state`,
+   `daemon_state`, `daemon_error`, `last_auth_error`, the PowerOn fields (`uri`, `host`, `place_id`, `country`, `region0`, `timezone`) and
+   the game's IP from it; if `CoCreateInstance` fails, the game sets the flag byte of the wrapper object to 0 and uses fixed values
+   (among others state 8 and -1, `0x461fc5`): that is an intended path, not a crash. `AMAuthd` registers its own class
+   (`CoRegisterClassObject`) and knows `authType` = `ALL.NET` | `OFFLINE` | `NBLINE` in `AMConfig.ini`.
+3. **The community server.** `Network/ServerAddress`/`ServerPort`/`PlayerId`/`Gateway` exist only in `teknoparrot.ini`. In a
+   memory image of the closed core is TeknoParrot's online protocol: signed sessions (`TPAUTH`, `TPSK1`, `TPENC1`,
+   HMAC, "the server refused this cabinet", `[Network] OnlineID / OnlineSecret` from the teknoparrot.com account). That is a
+   proprietary, authenticated protocol of an external service.
+4. Other: drive letters (`G:/Contents`), 16 MiB stack (engine, `StackReserve`), `Polygon2D` ViewLink and d3dx10 pHResult (already ours).
 
-**Vervanging.**
+**Replacement.**
 
-* JVS: `tools/rg-mfcam` kreeg een derde taak: met `RG_JVS_COMPORT=COM3` (in de drop-in) zet `rg-mfcam.dll` in de importtabel van de exe
-  `CreateFileA` (COM3 -> pipe, met wachten tot de brug de pipe heeft) en de zeven comm-aanroepen om (slagen op dat handvat);
-  `GetCommModemStatus` geeft 0x10, na adrestoekenning 0x30 (byte 0 van `TeknoParrot_JvsState`, door `rg-jvsbridge` gespiegeld).
-  Beslislogica in `tools/rg-mfcam/jvs_com.h`, getoetst in `tests/test_jvs_com.cpp`. Logboek: `rg-mfcam.log`.
-* Kern: `[Loader] Core = ravengun` (generiek).
-* **Online werkt zonder de gesloten kern niet**, en wij bouwen het niet na: (a) het TPAUTH-protocol is dat van TeknoParrot's dienst en vraagt
-  het account van de eigenaar; (b) een eigen `IAuth` (29 methodes, uitvoerstructuren die het spel veldgewijs leest) is zonder proef met het
-  echte spel niet betrouwbaar te maken; (c) (zie ook de crash-sectie hieronder: de eerste tv-crash was niet IAuth) `AMAuthd.exe` in `OFFLINE`-modus zou de eigen code van het spel gebruiken, maar vraagt een
-  tweede-exe-start met COM-registratie (`iauthdll.dll` `DllRegisterServer`, `LocalServer32`) en een `AMConfig.ini`-kopie met
-  `amdcfg-authType=OFFLINE`; of het spel die offline-auth accepteert is niet gemeten. De kandidaat start het spel dus **zonder**
-  `IAuth`: op het pad dat het spel zelf kent (vlag 0). Of het daarna tot de attract komt of na 2 minuten op de netwerkcontrole wacht
-  (`ALL.NetCheck_TIMEOUT`, na 7200 = `0x1c20` ticks) is de vraag voor de tv.
+* JVS: `tools/rg-mfcam` got a third task: with `RG_JVS_COMPORT=COM3` (in the drop-in) `rg-mfcam.dll` redirects, in the exe's import table,
+  `CreateFileA` (COM3 -> pipe, waiting until the bridge has the pipe) and the seven comm calls (they succeed on that handle);
+  `GetCommModemStatus` returns 0x10, after address assignment 0x30 (byte 0 of `TeknoParrot_JvsState`, mirrored by `rg-jvsbridge`).
+  Decision logic in `tools/rg-mfcam/jvs_com.h`, tested in `tests/test_jvs_com.cpp`. Log: `rg-mfcam.log`.
+* Core: `[Loader] Core = ravengun` (generic).
+* **Online does not work without the closed core**, and we do not rebuild it: (a) the TPAUTH protocol is that of TeknoParrot's service and requires
+  the owner's account; (b) our own `IAuth` (29 methods, output structures that the game reads field by field) cannot be made reliable without a trial with the
+  real game; (c) (see also the crash section below: the first TV crash was not IAuth) `AMAuthd.exe` in `OFFLINE` mode would use the game's own code, but requires a
+  second-exe start with COM registration (`iauthdll.dll` `DllRegisterServer`, `LocalServer32`) and an `AMConfig.ini` copy with
+  `amdcfg-authType=OFFLINE`; whether the game accepts that offline auth has not been measured. The candidate therefore starts the game **without**
+  `IAuth`: on the path the game itself knows (flag 0). Whether it then reaches the attract mode or waits at the network check after 2 minutes
+  (`ALL.NetCheck_TIMEOUT`, after 7200 = `0x1c20` ticks) is the question for the TV.
 
-### Mario Kart DX: de crash na ~15 s is ShareK, niet IAuth (statisch gemeten 2026-10-17)
+### Mario Kart DX: the crash after ~15 s is ShareK, not IAuth (measured statically 2026-10-17)
 
-**Wat de tv-meting (`WINEDEBUG=+seh`, `direct-MarioKartDX-20261017-151925.log`, regel 1970-1990) werkelijk zegt.** Het logboek is binair
-(`grep -a`). De regel `*ERR* ComError Code = 80040154` komt van de catch-afhandelaar op `0x47E8F8`, en die hoort bij de functie op
-`0x47E7D0` (`StartIpcClient` in `..\AppSystem\Network\ShareK\ShareKManager.cpp`; bronpad op `0x9b2bfc`), niet bij de wikkel van `AMAuthd`. De `CoCreateInstance` in die functie
-(`0x47E834`) vraagt **CLSID `{ccc44b2a-709a-33a8-a1b0-5dbe25b19c2c}`, IID `{c2116f7f-cf46-3c68-b187-9d0fe9f70ed0}`**, `CLSCTX` 0x17 (GUID's op
-`0x9b2bbc` / `0x9b2bac`). Dat zijn naam-gebaseerde GUID's (versie 3), zoals .NET ze voor een `ComVisible`-klasse zonder `[Guid]` afleidt; ze staan als
-bytes of tekst in geen enkel bestand van de spelmap behalve de exe (scan van de hele map, ook `ipccl.dll`, `ShareK/*`, `AMCUS/*`). Het zijn de COM-klasse van **ShareK**: `init_w10.ps1` (de echte opstartketen, UTF-16) doet
-`RegAsm.exe .\ipccl.dll` (de .NET-client) en start daarna `ShareK\ShareK.exe` via `sharek.ps1` in een lus; ShareK is de content-distributie tussen
-kasten (`NET_USE_SHAREK`, `NET_SHAREK_CHECK_MASTER_SLAVE_*` in `Data/System/Config/NetConfig.csv`). De registratie ontbreekt in onze prefix.
+**What the TV measurement (`WINEDEBUG=+seh`, `direct-MarioKartDX-20261017-151925.log`, lines 1970-1990) really says.** The log is binary
+(`grep -a`). The line `*ERR* ComError Code = 80040154` comes from the catch handler at `0x47E8F8`, and that belongs to the function at
+`0x47E7D0` (`StartIpcClient` in `..\AppSystem\Network\ShareK\ShareKManager.cpp`; source path at `0x9b2bfc`), not to the `AMAuthd` wrapper. The `CoCreateInstance` in that function
+(`0x47E834`) requests **CLSID `{ccc44b2a-709a-33a8-a1b0-5dbe25b19c2c}`, IID `{c2116f7f-cf46-3c68-b187-9d0fe9f70ed0}`**, `CLSCTX` 0x17 (GUIDs at
+`0x9b2bbc` / `0x9b2bac`). Those are name-based GUIDs (version 3), as .NET derives them for a `ComVisible` class without `[Guid]`; they appear
+as bytes or text in no file of the game folder except the exe (scan of the whole folder, including `ipccl.dll`, `ShareK/*`, `AMCUS/*`). They are the COM class of **ShareK**: `init_w10.ps1` (the real startup chain, UTF-16) does
+`RegAsm.exe .\ipccl.dll` (the .NET client) and then starts `ShareK\ShareK.exe` via `sharek.ps1` in a loop; ShareK is the content distribution between
+cabinets (`NET_USE_SHAREK`, `NET_SHAREK_CHECK_MASTER_SLAVE_*` in `Data/System/Config/NetConfig.csv`). The registration is missing in our prefix.
 
-| adres | wat |
+| address | what |
 |---|---|
-| `0x47E7D0` (`StartIpcClient`, `ret` op `0x47E8E3`) | roept `0x47DF90` (Init, leest `NetConfig.csv` opnieuw) en doet dan **altijd** `CoInitialize` + `CoCreateInstance` (`0x47E834`), ook als Init de vlag `M+0x394` net op 0 zette |
-| `0x47E269`, `0x47E29D` | Init: `_waccess_s(L"G:/Contents")` / `_mkdir("G:/Contents")` mislukt, log `Zipダウンロードパス生成失敗.ShareKは強制的に未使用.` (regel 1923 van het logboek) en vlag `M+0x394 = 0` |
-| `0x47E870` | `call [vtbl+0x1c]` (`StartIpcClient`, `[out] VARIANT_BOOL`), `<0` gooit `_com_error` (throw-info `0xA32708`) |
-| `0x47E8F8` | catch: logt `ComError Code = %08lx` (`0x47E92C`), laadt `M[0]` (de interface, hier nog 0) en doet `0x47E95E: mov ecx,[eax]` -> **toegangsfout** (`call [vtbl+0x20]` volgt) |
-| `0x481031` | herstart (`state == 2`): dezelfde `CoCreateInstance` (`0x48107F`) met dezelfde catch-fout (`0x48114E`) |
+| `0x47E7D0` (`StartIpcClient`, `ret` at `0x47E8E3`) | calls `0x47DF90` (Init, re-reads `NetConfig.csv`) and then **always** does `CoInitialize` + `CoCreateInstance` (`0x47E834`), even if Init just set the flag `M+0x394` to 0 |
+| `0x47E269`, `0x47E29D` | Init: `_waccess_s(L"G:/Contents")` / `_mkdir("G:/Contents")` fails, logs `Zipダウンロードパス生成失敗.ShareKは強制的に未使用.` (line 1923 of the log) and flag `M+0x394 = 0` |
+| `0x47E870` | `call [vtbl+0x1c]` (`StartIpcClient`, `[out] VARIANT_BOOL`), `<0` throws `_com_error` (throw info `0xA32708`) |
+| `0x47E8F8` | catch: logs `ComError Code = %08lx` (`0x47E92C`), loads `M[0]` (the interface, still 0 here) and does `0x47E95E: mov ecx,[eax]` -> **access violation** (`call [vtbl+0x20]` follows) |
+| `0x481031` | restart (`state == 2`): the same `CoCreateInstance` (`0x48107F`) with the same catch error (`0x48114E`) |
 
-**IAuth (AMAuthd) is wel een tweede, aparte vraag.** `CoCreateInstance(CLSID {4603BB03-...}, ctx 4 = LOCAL_SERVER, IID {045A5150-...})` zit in
-de wikkel-constructor `0x401000` (`0x4010C0`) en **vangt zijn eigen mislukking af**: `hr < 0` -> logt (`0x4010CC`, via `0x6095C0`), `CoUninitialize`,
-vlag-byte `[wikkel+0] = 0` (`0x4010D9`); geen uitzondering, geen crash. De wikkel hangt aan `ds:0xec29fc`; alle 151 plaatsen die hem gebruiken testen
-eerst `cmp BYTE [wikkel],0` en gebruiken dan vaste waarden (`0x461910`: toestand 8, `0x461f71`: -1). De toestandsmachine op `0x461f1a..0x462033` telt
-frames in `[esi+0x10]`; bij `0x1c20` (7200, 2 minuten) zet ze toestand 6 en logt alleen `* ALL.NetCheck_TIMEOUT:auth_state:%d daemon_state:%d
-daemon_error:%d last_auth_error:%d last_lib_error:%d` (`0x9b08a8`). Het spel gebruikt negen van de 29 methodes (vtable-offsets `0x24` (56 plaatsen),
-`0x28`, `0x30`, `0x34`, `0x38` (PowerOn-structuur van 0x8a2 bytes: `uri`, `host`, ... op `0x461a47..0x461c9b`, offsets `+0x78 +0x179 +0x27a +0x37a +0x47a
-+0x4fa +0x57a +0x59a +0x69a +0x79a`), `0x3c`, `0x4c`, `0x74`, `0x78`; geen volledige signaturen, alleen `this` + een uitvoerpointer is bewezen voor
-`0x24`/`0x28`/`0x38`). Het volledige IAuth-object is dus nodig voor een spel dat ALL.Net *volgt*, niet om op te starten.
+**IAuth (AMAuthd) is a second, separate question.** `CoCreateInstance(CLSID {4603BB03-...}, ctx 4 = LOCAL_SERVER, IID {045A5150-...})` is in
+the wrapper constructor `0x401000` (`0x4010C0`) and **catches its own failure**: `hr < 0` -> logs (`0x4010CC`, via `0x6095C0`), `CoUninitialize`,
+flag byte `[wrapper+0] = 0` (`0x4010D9`); no exception, no crash. The wrapper hangs off `ds:0xec29fc`; all 151 places that use it first test
+`cmp BYTE [wrapper],0` and then use fixed values (`0x461910`: state 8, `0x461f71`: -1). The state machine at `0x461f1a..0x462033` counts
+frames in `[esi+0x10]`; at `0x1c20` (7200, 2 minutes) it sets state 6 and only logs `* ALL.NetCheck_TIMEOUT:auth_state:%d daemon_state:%d
+daemon_error:%d last_auth_error:%d last_lib_error:%d` (`0x9b08a8`). The game uses nine of the 29 methods (vtable offsets `0x24` (56 places),
+`0x28`, `0x30`, `0x34`, `0x38` (PowerOn structure of 0x8a2 bytes: `uri`, `host`, ... at `0x461a47..0x461c9b`, offsets `+0x78 +0x179 +0x27a +0x37a +0x47a
++0x4fa +0x57a +0x59a +0x69a +0x79a`), `0x3c`, `0x4c`, `0x74`, `0x78`; no full signatures, only `this` + an output pointer is proven for
+`0x24`/`0x28`/`0x38`). The complete IAuth object is therefore needed for a game that *follows* ALL.Net, not to start up.
 
-**Gekozen weg (met bewijs).** Voor deze crash is geen van de twee IAuth-wegen nodig; de oorzaak is ShareK. Gekozen: **een eigen in-proces ShareK-object**
-in `rg-mfcam.dll` (VIERDE TAAK, `tools/rg-mfcam/sharek_fake.h` + `rg_mfcam.cpp`), omdat (1) de oorzaak en de plek bewezen zijn (tabel hierboven),
-(2) de interface volledig uit de aanroepplekken af te lezen is (36 gebruikte vtable-slots in `0x47C000..0x483400`, alle argumentgroottes: 8 bytes, zes
-methodes 20 bytes), (3) een in-proces object geen tweede exe, COM-registratie of .NET (Mono) in de prefix vraagt, en (4) het gedrag erachter door het
-spel zelf gedefinieerd is: status 2 (`0x47EEA5`, "ネットワーク未初期化により自動復旧待機") laat de tick op `0x47ECD0` elke keer het werk overslaan
-(`0x47EEE3`). `NET_USE_SHAREK = FALSE` in `NetConfig.csv` zou de aanroep ook overslaan (`0x47E807` test de vlag), maar een bestand in de view is niet per kern te kiezen (een
-drop-in of `ViewCopies` geldt ook voor Online play) en `[Patch] Kind = file` raakt alleen de lader/kern, geen spelbestand. Het is wel de terugval als het object tegenvalt.
+**Chosen route (with evidence).** For this crash neither of the two IAuth routes is needed; the cause is ShareK. Chosen: **an own in-process ShareK object**
+in `rg-mfcam.dll` (FOURTH TASK, `tools/rg-mfcam/sharek_fake.h` + `rg_mfcam.cpp`), because (1) the cause and the location are proven (table above),
+(2) the interface can be read entirely from the call sites (36 used vtable slots in `0x47C000..0x483400`, all argument sizes: 8 bytes, six
+methods 20 bytes), (3) an in-process object requires no second exe, COM registration or .NET (Mono) in the prefix, and (4) the behavior behind it is defined by the
+game itself: status 2 (`0x47EEA5`, "ネットワーク未初期化により自動復旧待機") makes the tick at `0x47ECD0` skip the work every time
+(`0x47EEE3`). `NET_USE_SHAREK = FALSE` in `NetConfig.csv` would also skip the call (`0x47E807` tests the flag), but a file in the view cannot be chosen per core (a
+drop-in or `ViewCopies` also applies to Online play) and `[Patch] Kind = file` only touches the loader/core, not a game file. It is, however, the fallback if the object disappoints.
 
-**Het object** (`sharek_fake.h`): `CoCreateInstance` in de importtabel (`ole32.dll`, IAT `0x943870`) omgezet; alleen voor die ene CLSID komt een eigen object,
-al het andere (ook IAuth) gaat naar de echte functie en wordt (eerste 16 aanroepen) gelogd. Slot 7 `StartIpcClient` -> `VARIANT_TRUE`; slot 33 (+0x84) herstartvraag
--> 0; slot 35 (+0x8c) status -> 2; alle andere gebruikte slots `S_OK` zonder te schrijven (de aanroeper zet hun uitvoer vooraf op 0: `mov [ebp-0x38],ebx`).
-`Release` telt nooit onder 1 (statisch object). Alleen aan met `RG_SHAREK_FAKE=1` (dropin.ini `Env`) **en** zonder `TeknoParrot.dll` in het proces.
+**The object** (`sharek_fake.h`): `CoCreateInstance` in the import table (`ole32.dll`, IAT `0x943870`) redirected; only for that one CLSID does an own object appear,
+everything else (including IAuth) goes to the real function and is logged (first 16 calls). Slot 7 `StartIpcClient` -> `VARIANT_TRUE`; slot 33 (+0x84) restart query
+-> 0; slot 35 (+0x8c) status -> 2; all other used slots `S_OK` without writing (the caller presets their output to 0: `mov [ebp-0x38],ebx`).
+`Release` never counts below 1 (static object). Only on with `RG_SHAREK_FAKE=1` (dropin.ini `Env`) **and** without `TeknoParrot.dll` in the process.
 
-**Getoetst (zonder het spel).** `tests/test_sharek_fake.cpp` (176 controles: GUID-bytes zoals in de exe, de slottabel, 8/20 bytes, alleen slots 7/33/35 schrijven).
-Daarnaast een wegwerpprogramma (`sk_probe.exe`, geen spel, wegwerp-prefix in de scratchpad, MinGW i686) dat `rg-mfcam.dll` met `RG_SHAREK_FAKE=1` laadt, via
-`CoCreateInstance` het object vraagt en elk gebruikt slot aanroept zoals het spel (stdcall, 8 of 20 bytes) met een `esp`-controle: **0 mislukt**, IAuth gaat naar de
-echte aanroep (`0x80040154`), `QueryInterface` weigert vreemde IID's. Dit bewijst de stapelbalans en de logica; niet dat het spel er verder mee komt.
+**Tested (without the game).** `tests/test_sharek_fake.cpp` (176 checks: GUID bytes as in the exe, the slot table, 8/20 bytes, only slots 7/33/35 write).
+In addition a throwaway program (`sk_probe.exe`, no game, throwaway prefix in the scratchpad, MinGW i686) that loads `rg-mfcam.dll` with `RG_SHAREK_FAKE=1`, asks for the object via
+`CoCreateInstance` and calls every used slot as the game does (stdcall, 8 or 20 bytes) with an `esp` check: **0 failed**, IAuth goes to the
+real call (`0x80040154`), `QueryInterface` refuses foreign IIDs. This proves the stack balance and the logic; not that the game gets further with it.
 
-**Online play (Core = teknoparrot) blijft ongemoeid.** (1) `game.ini` is ongewijzigd t.o.v. `patches/MarioKartDX/game.ini`; alleen `dropin.ini` kreeg
-`;RG_SHAREK_FAKE=1`; (2) de DLL zet de omleiding niet aan als `TeknoParrot.dll` of `TeknoParrot64.dll` in het proces staat (zelfde controle als de
-JVS-omleiding; logregel `ShareK-object uit: de TeknoParrot-kern is geladen`); (3) `--plan` met `[Loader] Core = teknoparrot` in de gebruikerslaag vraagt de kern uit de
-TeknoParrot-map zoals voorheen (`kern ontbreekt: /nonexistent/TeknoParrot/TeknoParrot.dll` met een map die niet bestaat). Niet gemeten: een echte Online
-play-run met deze DLL (de eigenaar speelt online; de TP-kern kent `CoCreateInstance` van ShareK/IAuth zelf, hoe is onbekend).
+**Online play (Core = teknoparrot) is left alone.** (1) `game.ini` is unchanged relative to `patches/MarioKartDX/game.ini`; only `dropin.ini` got
+`;RG_SHAREK_FAKE=1`; (2) the DLL does not enable the redirection if `TeknoParrot.dll` or `TeknoParrot64.dll` is in the process (same check as the
+JVS redirection; log line `ShareK-object uit: de TeknoParrot-kern is geladen`); (3) `--plan` with `[Loader] Core = teknoparrot` in the user layer requests the core from the
+TeknoParrot folder as before (`kern ontbreekt: /nonexistent/TeknoParrot/TeknoParrot.dll` with a folder that does not exist). Not measured: a real Online
+play run with this DLL (the owner plays online; the TP core knows ShareK/IAuth's `CoCreateInstance` itself, how is unknown).
 
-**AMAuthd zelf als tweede exe (weg b) — waarom niet, bewijs.** `AMAuthd.exe` (280 KB) importeert KERNEL32/USER32/ADVAPI32/ole32/WS2_32/IPHLPAPI (geen
-setupapi, geen dongle-DLL), maar: `SetSystemTime`-rechten (`AdjustTokenPrivileges`), de ALL.Net-client `alAbEx`, MUCHA-geheugens (`muchaut_*`, daemon
-`.\MuchaBin\muchacd.exe` op `tcp:0.0.0.0:8765`), en leest `WritableConfig.ini` (`serialID`, `netID`, `mode`) dat `PreprocessAmAuth.exe` schrijft uit
-`HKLM\SOFTWARE\NBGI` (`ContentsPartitionPath`) en het schijfserienummer (`init_w10.ps1`: `Get-Disk ... SerialNumber`). `init_w10.ps1` start ook
-`AMUpdater.exe -wait` (exitcode 1 = 60 s wachten). Dat zijn vijf losse onderdelen met schrijfacties in `AMCUS/` (NAS: schrijflaag) plus
-`regsvr32 iauthdll.dll` in de prefix; niets daarvan is statisch te bewijzen werkend, en `rg-direct` kent geen COM-registratie (`[Patch] registry`
-wordt niet toegepast). Weg (a) (eigen IAuth, dezelfde techniek als hierboven, negen methodes) is de volgende stap als de tv na 2 minuten op de
-ALL.Net-controle vastloopt; de uitvoerstructuren (PowerOn) zijn bekend uit `0x4619D0..0x461E49`, de waarden die het spel als "OK" accepteert niet gemeten.
+**AMAuthd itself as a second exe (route b) — why not, evidence.** `AMAuthd.exe` (280 KB) imports KERNEL32/USER32/ADVAPI32/ole32/WS2_32/IPHLPAPI (no
+setupapi, no dongle DLL), but: `SetSystemTime` rights (`AdjustTokenPrivileges`), the ALL.Net client `alAbEx`, MUCHA memories (`muchaut_*`, daemon
+`.\MuchaBin\muchacd.exe` on `tcp:0.0.0.0:8765`), and reads `WritableConfig.ini` (`serialID`, `netID`, `mode`) which `PreprocessAmAuth.exe` writes from
+`HKLM\SOFTWARE\NBGI` (`ContentsPartitionPath`) and the disk serial number (`init_w10.ps1`: `Get-Disk ... SerialNumber`). `init_w10.ps1` also starts
+`AMUpdater.exe -wait` (exit code 1 = wait 60 s). That is five separate components with write actions in `AMCUS/` (NAS: write layer) plus
+`regsvr32 iauthdll.dll` in the prefix; none of it can be proven to work statically, and `rg-direct` has no COM registration (`[Patch] registry`
+is not applied). Route (a) (own IAuth, same technique as above, nine methods) is the next step if the TV hangs at the
+ALL.Net check after 2 minutes; the output structures (PowerOn) are known from `0x4619D0..0x461E49`, the values the game accepts as "OK" have not been measured.
 
-**Niet bewezen.** (i) Dat het spel met het ShareK-object tot de attract komt: er kan een volgende blokkade zijn (de ALL.Net-timeout, E05-xx).
-(ii) De semantiek van de overige ShareK-slots; ze zijn `S_OK`/nul, wat de tick (status 2) nooit leest. (iii) `G:/Contents` aanmaken: het
-spel logt `Zip...生成失敗` zolang `_mkdir("G:/Contents")` mislukt (schijfletter G: in de prefix); met ShareK gedwongen "ongebruikt" is dat onschadelijk.
-(iv) Een volledige 5-minutenrun.
+**Not proven.** (i) That the game reaches the attract mode with the ShareK object: there may be a next blocker (the ALL.Net timeout, E05-xx).
+(ii) The semantics of the remaining ShareK slots; they are `S_OK`/zero, which the tick (status 2) never reads. (iii) Creating `G:/Contents`: the
+game logs `Zip...生成失敗` as long as `_mkdir("G:/Contents")` fails (drive letter G: in the prefix); with ShareK forced to "unused" that is harmless.
+(iv) A full 5-minute run.
 
-**Exact tv-testrecept (aan de coördinator; de bench is niet van deze sessie).**
-1. Activeren: `docs/research/namco/patches/MarioKartDX/dropin/{dropin.ini,rg-mfcam.dll}` naar `~/projects/ravengun-patches/patches/MarioKartDX/dropin/`
-   (de dll staat niet in git (`*.dll` is genegeerd) maar in de werkboom; opnieuw bouwen: `tools/dev/build-mfcam.sh --out docs/research/namco/patches/MarioKartDX/dropin`, reproduceerbaar, sha256 `3dca574ac7b1f6a97b53c1ec300c499308010c72f8f4de88271b2f7f9418b746`). Zorg dat de gebruikerslaag `~/.local/share/ravengun/patches/MarioKartDX/game.ini` voor deze run
-   **geen** `Core = teknoparrot` heeft (nu wel, voor het online spelen van de eigenaar; terugzetten daarna) en `[Wine] Debug = +seh` voor de spelmeldingen.
-2. Controle zonder TP: `RAVENGUN_TP_DIR=/nonexistent build/rg-direct --plan MarioKartDX --patches <map>` (alle patches + deze `MarioKartDX`) geeft `ok`, `core_source
-   ravengun`, `RG_SHAREK_FAKE=1`, geen pad in de TeknoParrot-map.
-3. Dubbelklik in de app. In `rg-mfcam.log` (view): `importtabel: ole32.dll!CoCreateInstance omgezet (eigen ShareK-object ...)`, `ShareK: CoCreateInstance({CCC44B2A-709A-33A8-
-   A1B0-5DBE25B19C2C}, ctx 0x17, {C2116F7F-...}) -> eigen object, hr 0x00000000`, `ShareK-object: slot 7 aangeroepen` (en 33, 35), en
-   `CoCreateInstance({4603BB03-...}, ctx 0x4, {045A5150-...}) -> hr 0x80040154 (echte aanroep)` (de IAuth, bedoeld pad).
-4. Spellogboek: **geen** `*ERR* ComError Code = 80040154` en geen `c0000005` op `0x0047E95E`; wel `Startup ShareK-Client.` en `ShareKステータス変化：ネットワーク未初期化...`.
-5. 5 minuten attract/spel kijken, ook voorbij 2 minuten (`ALL.NetCheck_TIMEOUT` staat dan in het spellogboek): wat toont de tv (netwerkfoutscherm, E05-xx)?
-   Bewijs van het laden: `/proc/<pid>/maps` bevat `rg-mfcam.dll` en **geen** `TeknoParrot.dll`.
-6. Faalt het daarna op ALL.Net: eerst `rg-mfcam.log` (de regel van de echte `CoCreateInstance` van IAuth), dan weg (a) voor IAuth bouwen.
+**Exact TV test recipe (for the coordinator; the bench does not belong to this session).**
+1. Activate: `docs/research/namco/patches/MarioKartDX/dropin/{dropin.ini,rg-mfcam.dll}` to `~/projects/ravengun-patches/patches/MarioKartDX/dropin/`
+   (the dll is not in git (`*.dll` is ignored) but is in the working tree; rebuild: `tools/dev/build-mfcam.sh --out docs/research/namco/patches/MarioKartDX/dropin`, reproducible, sha256 `3dca574ac7b1f6a97b53c1ec300c499308010c72f8f4de88271b2f7f9418b746`). Make sure the user layer `~/.local/share/ravengun/patches/MarioKartDX/game.ini` for this run
+   does **not** have `Core = teknoparrot` (it does now, for the owner's online play; restore it afterwards) and `[Wine] Debug = +seh` for the game messages.
+2. Check without TP: `RAVENGUN_TP_DIR=/nonexistent build/rg-direct --plan MarioKartDX --patches <folder>` (all patches + this `MarioKartDX`) gives `ok`, `core_source
+   ravengun`, `RG_SHAREK_FAKE=1`, no path in the TeknoParrot folder.
+3. Double-click in the app. In `rg-mfcam.log` (view): `importtabel: ole32.dll!CoCreateInstance omgezet (eigen ShareK-object ...)`, `ShareK: CoCreateInstance({CCC44B2A-709A-33A8-
+   A1B0-5DBE25B19C2C}, ctx 0x17, {C2116F7F-...}) -> eigen object, hr 0x00000000`, `ShareK-object: slot 7 aangeroepen` (and 33, 35), and
+   `CoCreateInstance({4603BB03-...}, ctx 0x4, {045A5150-...}) -> hr 0x80040154 (echte aanroep)` (the IAuth, intended path).
+4. Game log: **no** `*ERR* ComError Code = 80040154` and no `c0000005` at `0x0047E95E`; but `Startup ShareK-Client.` and `ShareKステータス変化：ネットワーク未初期化...`.
+5. Watch 5 minutes of attract/game, also past 2 minutes (`ALL.NetCheck_TIMEOUT` is then in the game log): what does the TV show (network error screen, E05-xx)?
+   Proof of loading: `/proc/<pid>/maps` contains `rg-mfcam.dll` and **no** `TeknoParrot.dll`.
+6. If it then fails on ALL.Net: first `rg-mfcam.log` (the line of the real `CoCreateInstance` of IAuth), then build route (a) for IAuth.
 
-### Mario Kart DX: de stalldump van 2026-10-18 07:42 gelezen (hoofdlus draait; schijfletter-herleiding aangevuld)
+### Mario Kart DX: the stall dump of 2026-10-18 07:42 read (main loop runs; drive-letter fixup extended)
 
-**Wat de dump zegt** (`rg-mfcam.log`, 20 s en 45 s, identiek):
+**What the dump says** (`rg-mfcam.log`, 20 s and 45 s, identical):
 
-* **Hoofddraad.** `EIP win32u.dll+0x11d38` (de syscall-stub; Wine geeft een in een syscall opgeschorte draad dit adres), op de stapel `0x83D7D6`, `0x77070A/0x77070F`.
-  `0x83D7D6` is de terugkeer na `call [0x943600]` = **`PeekMessageW`** in de berichtenlus van `0x83D630` (bij `0x83D7D4`; de lus daarna: `PeekMessageW(PM_REMOVE)`,
-  `TranslateMessage`, `DispatchMessageW`, anders `call 0x8451E0`); `0x77070A` is de aanroep van die lus vanuit de hoofdfunctie (`0x77070F` = terugkeer).
-  De hoofdthread wacht dus **niet** op een venster, bericht of gebeurtenis: hij draait de gewone lus, en `0x8451E0` (de scheduler) vindt kennelijk niets te doen
-  (een tweede dump gaf hetzelfde EIP en dezelfde ESP: de lus is vrijwel helemaal PeekMessage).
-* **Werkers wachten, niemand werkt.** 20 draden slapen in de werkerspool (`Sleep(30)` op `0x8527FB`), vier in `SleepEx`-pollinglussen (`0x607C1D`, `0x8040EC` (10 s), `0x5F88C7`, `0x5F534A`),
-  de invoerdraad (`0x5F5310`, `SleepEx(8)`, leest de JVS-invoer via `0x8AB990`) en audiodraden (`mmdevapi`): dat verklaart de geluidsstroom, niet het beeld.
-* **JVS is nooit geopend.** `COM3` staat hard in `0x8AC1B0`, aangeroepen via `0x8AB880` (alleen vanuit `0x6022D0`, een toestandsmachine die `[esi+0x3c] = 2` zet: de IO-controle van de
-  opstartcontroles). Geen `JVS: CreateFileA(COM3)` in `rg-mfcam.log` van enige run met onze kern: de opstartcontroles bereiken die stap niet. De invoerdraad draait wel; `ds:0xec2470` (0 = JVS niet open, 1 na het openen op `0x8AB8F8`) is niet gemeten.
-* **De camera-opstart (`0x84BEC0`) draait wel** (hij zit in `0x770770`, na `StartIpcClient`), maar `MFEnumDeviceSources` (`0x84BF5A`) wordt alleen aangeroepen als de camera in het testmenu aan staat.
-  Dat testmenu-bestand (`TestMode/testmode_*.bin`) wordt nooit gelezen (zie hieronder): de camera staat dus uit. Dat is de verklaring voor het ontbreken van de camera-regel, niet een blokkade.
-* **37,5 s na de init schrijft het spel een tweede `bookkeeping_*.bin.tmp`** (00:02:09 in de run van 00:01:31; 07:43:25 in die van 07:42:48) en daarna niets meer. Er gebeurt dus precies één ding op
-  ~37,5 s (bij ~190 lus-ticks per seconde 7200 ticks = de `0x1c20` van `ALL.NetCheck_TIMEOUT`, maar die regel staat niet in het spellogboek). Niet onderzocht wat het is.
+* **Main thread.** `EIP win32u.dll+0x11d38` (the syscall stub; Wine gives a thread suspended in a syscall this address), on the stack `0x83D7D6`, `0x77070A/0x77070F`.
+  `0x83D7D6` is the return after `call [0x943600]` = **`PeekMessageW`** in the message loop at `0x83D630` (at `0x83D7D4`; the loop after that: `PeekMessageW(PM_REMOVE)`,
+  `TranslateMessage`, `DispatchMessageW`, otherwise `call 0x8451E0`); `0x77070A` is the call of that loop from the main function (`0x77070F` = return).
+  The main thread therefore is **not** waiting for a window, message or event: it runs the ordinary loop, and `0x8451E0` (the scheduler) apparently finds nothing to do
+  (a second dump gave the same EIP and the same ESP: the loop is almost entirely PeekMessage).
+* **Workers wait, nobody works.** 20 threads sleep in the worker pool (`Sleep(30)` at `0x8527FB`), four in `SleepEx` polling loops (`0x607C1D`, `0x8040EC` (10 s), `0x5F88C7`, `0x5F534A`),
+  the input thread (`0x5F5310`, `SleepEx(8)`, reads the JVS input via `0x8AB990`) and audio threads (`mmdevapi`): that explains the sound stream, not the picture.
+* **JVS was never opened.** `COM3` is hard-coded at `0x8AC1B0`, called via `0x8AB880` (only from `0x6022D0`, a state machine that sets `[esi+0x3c] = 2`: the IO check of the
+  startup checks). No `JVS: CreateFileA(COM3)` in `rg-mfcam.log` of any run with our core: the startup checks do not reach that step. The input thread does run; `ds:0xec2470` (0 = JVS not open, 1 after opening at `0x8AB8F8`) was not measured.
+* **The camera startup (`0x84BEC0`) does run** (it is in `0x770770`, after `StartIpcClient`), but `MFEnumDeviceSources` (`0x84BF5A`) is only called if the camera is on in the test menu.
+  That test-menu file (`TestMode/testmode_*.bin`) is never read (see below): so the camera is off. That is the explanation for the missing camera line, not a blocker.
+* **37.5 s after the init the game writes a second `bookkeeping_*.bin.tmp`** (00:02:09 in the run of 00:01:31; 07:43:25 in that of 07:42:48) and then nothing more. So exactly one thing happens at
+  ~37.5 s (at ~190 loop ticks per second 7200 ticks = the `0x1c20` of `ALL.NetCheck_TIMEOUT`, but that line is not in the game log). Not investigated what it is.
 
-**Wat dit niet bewijst:** waarom het beeld zwart is. Een wachtende draad die iets blokkeert is er niet; de hoofdlus draait en de scheduler heeft geen werk. De eerste scène (opstartcontroles)
-komt niet op gang. Kandidaten, in volgorde van bewijs: (1) de instellingen/dongle-staat die elke start leeg is (hieronder, gemeten); (2) de ALL.Net-controle zonder IAuth (toestand 6 zou een `*ERR*` loggen: niet gezien);
-(3) iets in de TP-kern dat het spel anders aanbiedt (de TP-kern is gesloten, niet onderzoekbaar).
+**What this does not prove:** why the picture is black. There is no waiting thread that blocks something; the main loop runs and the scheduler has no work. The first scene (startup checks)
+does not get going. Candidates, in order of evidence: (1) the settings/dongle state that is empty on every start (below, measured);
+(2) the ALL.Net check without IAuth (state 6 would log an `*ERR*`: not seen);
+(3) something in the TP core that presents the game differently (the TP core is closed, not investigable).
 
-**Gebouwd: de schijfletter-herleiding aangevuld (ZESDE TAAK van `rg-mfcam.dll`, `drive_fix.h`).** Dezelfde regel als patch 0004 (`<L>:\` of `<L>:/` voor L niet C/Z naar `.\TeknoParrot\<L>\rest`) voor
-de ingangen die de kern mist en die het spel wel gebruikt: `MSVCR100.dll!rename/_wrename/remove/_wremove/_waccess_s` en `KERNEL32.dll!FindFirstFileA/W/GetFileAttributesW`. Aan met
-`RG_DRIVE_FIXUP=F` (nu in `dropin.ini`); alleen letter F: `G:/Contents` blijft zoals hij was (het spel zet ShareK uit). Uit zodra `TeknoParrot.dll` in het proces staat (Online play ongemoeid).
-Getoetst: `tests/test_drive_fix.cpp` (24 controles) en een wegwerpprogramma onder Wine (`rename("F:/system/x.bin.tmp","F:/system/x.bin")` met `msvcr100`, `FindFirstFileA/W`, `GetFileAttributesW`,
-`_waccess_s`, `remove`: alles landt in `.\TeknoParrot\F\system\`, `G:` niet; 0 mislukt). Niet getoetst: het spel zelf.
+**Built: the drive-letter fixup extended (SIXTH TASK of `rg-mfcam.dll`, `drive_fix.h`).** The same rule as patch 0004 (`<L>:\` or `<L>:/` for L not C/Z to `.\TeknoParrot\<L>\rest`) for
+the entry points that the core misses and that the game does use: `MSVCR100.dll!rename/_wrename/remove/_wremove/_waccess_s` and `KERNEL32.dll!FindFirstFileA/W/GetFileAttributesW`. On with
+`RG_DRIVE_FIXUP=F` (now in `dropin.ini`); only letter F: `G:/Contents` stays as it was (the game turns ShareK off). Off as soon as `TeknoParrot.dll` is in the process (Online play left alone).
+Tested: `tests/test_drive_fix.cpp` (24 checks) and a throwaway program under Wine (`rename("F:/system/x.bin.tmp","F:/system/x.bin")` with `msvcr100`, `FindFirstFileA/W`, `GetFileAttributesW`,
+`_waccess_s`, `remove`: everything lands in `.\TeknoParrot\F\system\`, `G:` does not; 0 failed). Not tested: the game itself.
 
-**Testrecept (aan de coördinator).**
-1. dll en `dropin.ini` uit `docs/research/namco/patches/MarioKartDX/dropin/` activeren (bouwen: `tools/dev/build-mfcam.sh --out docs/research/namco/patches/MarioKartDX/dropin`); daarna `RG_STALL_DUMP=20,45,90`
-   weer achter de `Env`-regel (of `--env`), `WINEDEBUG=-all,warn+seh`, `DXVK_HUD=fps` (of `frametimes`): een teller op de tv bewijst dat het spel `Present` aanroept.
-2. Eerste run: in `rg-mfcam.log` `schijfletter: rename(F:/system/... => ...)` en in `TeknoParrot/F/{system,TestMode,Bookkeeping,DongleData}` nu `.bin` zonder `.tmp` (de oude `.tmp`-resten mogen blijven of weg).
-3. Tweede run: de spelregels `ShareKSaveErrorInfo/ContentsInfo*/... load failed` moeten weg zijn (de bestanden worden nu gevonden en geladen). Verandert het beeld? Zo niet: de stalldump van die run.
-4. Optioneel, alleen als de eigenaar zijn oude instellingen wil terug (camera aan, free play): `cp FTestMode/testmode_*.bin TeknoParrot/F/TestMode/` en idem `FBookkeeping`, `FDongleData`, `Fsystem` naar hun
-   `TeknoParrot/F/`-map (view-data, geen NAS). Niet bewezen dat het spel dat nieuwste-bestand-eerst kiest; daarom niet automatisch.
-5. Zwart beeld blijft met `.bin`-bestanden en een fps-teller: dan is het volgende meetvoorstel de TP-basislijn (dezelfde `warn+seh`-run met de TP-kern; de volgorde van de `*INF*`-regels na `Startup ShareK-Client.`
-   en het eerste verschil is het antwoord), of een tweede stalldump-reeks (5, 10, 15, 30 s) om te zien of de `0x8451E0`-scheduler ooit werk vindt.
+**Test recipe (for the coordinator).**
+1. Activate the dll and `dropin.ini` from `docs/research/namco/patches/MarioKartDX/dropin/` (build: `tools/dev/build-mfcam.sh --out docs/research/namco/patches/MarioKartDX/dropin`); then `RG_STALL_DUMP=20,45,90`
+   again after the `Env` line (or `--env`), `WINEDEBUG=-all,warn+seh`, `DXVK_HUD=fps` (or `frametimes`): a counter on the TV proves that the game calls `Present`.
+2. First run: in `rg-mfcam.log` `schijfletter: rename(F:/system/... => ...)` and in `TeknoParrot/F/{system,TestMode,Bookkeeping,DongleData}` now `.bin` without `.tmp` (the old `.tmp` leftovers may stay or go).
+3. Second run: the game lines `ShareKSaveErrorInfo/ContentsInfo*/... load failed` must be gone (the files are now found and loaded). Does the picture change? If not: the stall dump of that run.
+4. Optional, only if the owner wants his old settings back (camera on, free play): `cp FTestMode/testmode_*.bin TeknoParrot/F/TestMode/` and likewise `FBookkeeping`, `FDongleData`, `Fsystem` to their
+   `TeknoParrot/F/` folder (view data, not NAS). Not proven that the game picks the newest file first; therefore not automatic.
+5. Black picture remains with `.bin` files and an fps counter: then the next measurement proposal is the TP baseline (the same `warn+seh` run with the TP core; the order of the `*INF*` lines after `Startup ShareK-Client.`
+   and the first difference is the answer), or a second series of stall dumps (5, 10, 15, 30 s) to see whether the `0x8451E0` scheduler ever finds work.
 
-### Mario Kart DX: de volgende stap in de opstartvolgorde is de Banapass-kaartlezer (statisch + 08:14-meting)
+### Mario Kart DX: the next step in the startup sequence is the Banapass card reader (static + 08:14 measurement)
 
-**Wat de 08:14-meting laat zien.** De schijfletter-herleiding werkt (45 `schijfletter:`-regels, de FindFirstFile-zoekopdrachten vinden de overgenomen TP-bestanden); ongeveer 31 s na de ShareK-init
-schrijft het spel een `bookkeeping_*.bin.tmp`, hernoemt die succesvol (`rename ... = 0`) en ruimt oude `bookkeeping*`-resten op. De hoofdlus is dezelfde (`PeekMessageW` in `0x83D630`), JVS blijft dicht.
-De `system/*.bin` die de coordinator zocht horen niet bij deze stap: de opstart schrijft alleen bookkeeping, dus het ontbreken daarvan zegt niets.
+**What the 08:14 measurement shows.** The drive-letter fixup works (45 `schijfletter:` lines, the FindFirstFile searches find the adopted TP files); about 31 s after the ShareK init
+the game writes a `bookkeeping_*.bin.tmp`, renames it successfully (`rename ... = 0`) and cleans up old `bookkeeping*` leftovers. The main loop is the same (`PeekMessageW` in `0x83D630`), JVS stays closed.
+The `system/*.bin` that the coordinator was looking for do not belong to this step: the startup writes only bookkeeping, so their absence says nothing.
 
-**Wat de opstartvolgorde bepaalt (statisch).** De enige code die `COM3` opent is `0x8AC1B0`, alleen bereikt via `0x8AB880` <- `0x6022D0` (toestand `[esi+0x3c] = 2` in de opstartcontroles op `0x6027D0..0x604xxx`, met `[esi]` = het
-systeemobject `ds:0xEC2A08`). In dezelfde familie (`0x601360..0x603300`) zit de **Banapass-kaartlezer-toestandsmachine**: `0x601550` met twaalf toestanden (`[lezer+0xF0]`, sprongtabel `0x601970`), die `bngrw.dll`
-aanroept: `BngRwInit` (`0x771C7D`, in de init), `BngRwAttach` (`0x601426`, `0x602D5B`, `0x603210`; lezer 0 = `COM4`, lezer 1 = `COM2`), `DevReset`, `SetLedPower`, `ReqLed`, `ReqBeep`, `ReqWaitTouch`, `ReqCancel`, `ReqSendUrlTo`, `IsCmdExec`.
-Elke aanvraag wacht op een callback (cdecl: lezer, resultaat, user) die het resultaatslot `{resultaat, lezer}` vult vanaf `{-1, 2}`; `-301` (`0xFFFFFED3`) of `-400` (`0xFFFFFE70`) is een fout die het spel met code `0x43/0x45`
-(`0x6095C0`) logt en de "lezer aanwezig"-vlaggen `[0xEC2A08]+0x194/0x195` op 0 zet. **Dit is een component die onder de TP-kern anders werkt dan onder onze kern** (TP vervangt hem, wij niet), en hij zit vlak voor de stap die we missen: de echte `bngrw.dll` (in de spelmap; strings `SetCommState`, `SetCommMask`, `PurgeComm`) opent `COM4`/`COM2`, die onder Wine niet bestaan; de gesloten TP-kern vervangt de bibliotheek (Banapass-emulatie, kaartknop =
-bit 0 van byte 8 van `TeknoParrot_JvsState`). Of het spel zonder lezer vastloopt of na een time-out (~30 s: de tweede bookkeeping-schrijfactie) naar een foutscherm gaat, is niet gemeten. **Niet bewezen** dat dit het zwarte beeld verklaart; wel
-dat het de eerste ontbrekende emulatie op het pad naar de IO-controle is, maar de volgorde van de opstartcontroles (kaartlezer eerst, IO daarna) is uit de code afgeleid en niet bewezen.
+**What determines the startup sequence (static).** The only code that opens `COM3` is `0x8AC1B0`, reached only via `0x8AB880` <- `0x6022D0` (state `[esi+0x3c] = 2` in the startup checks at `0x6027D0..0x604xxx`, with `[esi]` = the
+system object `ds:0xEC2A08`). In the same family (`0x601360..0x603300`) sits the **Banapass card-reader state machine**: `0x601550` with twelve states (`[reader+0xF0]`, jump table `0x601970`), which calls `bngrw.dll`:
+`BngRwInit` (`0x771C7D`, in the init), `BngRwAttach` (`0x601426`, `0x602D5B`, `0x603210`; reader 0 = `COM4`, reader 1 = `COM2`), `DevReset`, `SetLedPower`, `ReqLed`, `ReqBeep`, `ReqWaitTouch`, `ReqCancel`, `ReqSendUrlTo`, `IsCmdExec`.
+Every request waits for a callback (cdecl: reader, result, user) that fills the result slot `{result, reader}` starting from `{-1, 2}`; `-301` (`0xFFFFFED3`) or `-400` (`0xFFFFFE70`) is an error that the game logs with code `0x43/0x45`
+(`0x6095C0`) and sets the "reader present" flags `[0xEC2A08]+0x194/0x195` to 0. **This is a component that works differently under the TP core than under our core** (TP replaces it, we do not), and it sits right before the step we are missing: the real `bngrw.dll` (in the game folder; strings `SetCommState`, `SetCommMask`, `PurgeComm`) opens `COM4`/`COM2`, which do not exist under Wine; the closed TP core replaces the library (Banapass emulation, card button =
+bit 0 of byte 8 of `TeknoParrot_JvsState`). Whether the game without a reader hangs or goes to an error screen after a time-out (~30 s: the second bookkeeping write) has not been measured. **Not proven** that this explains the black picture; it is, however,
+the first missing emulation on the path to the IO check, but the order of the startup checks (card reader first, IO afterwards) was derived from the code and is not proven.
 
-**Gebouwd: ZEVENDE TAAK van `rg-mfcam.dll` (`bngrw_fake.h`, `rg_mfcam.cpp`).** `RG_BNGRW=trace` zet de elf `bngrw.dll`-importen om naar logger-omhulsels rond de echte functies (argumenten, uitkomst, en elke callback die de
-bibliotheek geeft, met het resultaat dat het spel te zien krijgt); `RG_BNGRW=fake` geeft zelf antwoord: twee lezers die er zijn en geen kaart hebben (Attach/DevReset/ReqLed/ReqBeep/ReqSendUrlTo slagen met callback-resultaat 0;
-ReqWaitTouch blijft open tot ReqCancel, `IsCmdExec` = 1 zolang). Uit met de TP-kern (`TeknoParrot.dll` geladen). Getoetst: `tests/test_bngrw_fake.cpp` (21 controles) en een wegwerpprogramma onder Wine tegen een stub-`bngrw.dll` met de
-echte exportnamen (`_BngRwAttach@24` enz.): beide modi, stapelcontrole na elke aanroep, 0 mislukt. Niet getoetst: het spel zelf. De terugkeerwaarde/het resultaat dat het spel na `ReqCancel` verwacht en wat het met een kaart wil
-is bewust niet nagebouwd (alleen "geen kaart").
+**Built: SEVENTH TASK of `rg-mfcam.dll` (`bngrw_fake.h`, `rg_mfcam.cpp`).** `RG_BNGRW=trace` turns the eleven `bngrw.dll` imports into logger wrappers around the real functions (arguments, outcome, and every callback the
+library gives, with the result the game gets to see); `RG_BNGRW=fake` answers by itself: two readers that are present and have no card (Attach/DevReset/ReqLed/ReqBeep/ReqSendUrlTo succeed with callback result 0;
+ReqWaitTouch stays open until ReqCancel, `IsCmdExec` = 1 meanwhile). Off with the TP core (`TeknoParrot.dll` loaded). Tested: `tests/test_bngrw_fake.cpp` (21 checks) and a throwaway program under Wine against a stub `bngrw.dll` with the
+real export names (`_BngRwAttach@24` etc.): both modes, stack check after every call, 0 failed. Not tested: the game itself. The return value/result the game expects after `ReqCancel` and what it wants to do with a card
+was deliberately not rebuilt (only "no card").
 
-**Testrecept 1 (eerst, onschadelijk): trace.** Dropin als nu (`RG_BNGRW=trace`), `WINEDEBUG=-all,warn+seh`, `RG_STALL_DUMP=20,45,90`. In `rg-mfcam.log` regels `bngrw: ...`: wat geeft de echte bibliotheek? `Attach(lezer 0, COM4,...) -> 1` en daarna een
-`callback Attach(lezer 0): a=0 b=0x...`? Een `b=0xfffffed3` of geen callback = de lezer ontbreekt en het spel wacht/faalt daar. Blijft `IsCmdExec(lezer N) -> 1` staan, dan wacht het spel erop.
-**Testrecept 2: fake.** `RG_BNGRW=fake` in de `Env`; kijk of `JVS: CreateFileA(COM3)` verschijnt (dan is de lezer de blokkade geweest) en of er beeld komt; zo niet: de nieuwe stalldump.
-**Testrecept 3: TP-basislijn (alleen als 1 en 2 niets geven).** Zelfde dropin, `Core = teknoparrot` (de eigenaar heeft TP), `WINEDEBUG=-all,warn+seh`, `RG_STALL_DUMP=10,20,30` (de stalldump werkt ook onder TP; ShareK/JVS/drive/bngrw staan
-dan uit). Kijk (a) in welke volgorde de `*INF*`-regels van het spel na `Startup ShareK-Client.` komen en op welke seconde de eerste daarna staat, (b) of de hoofdthread bij 10/20 s ook in `0x83D7D6` staat of al in een scène zit, (c) de tijd tot de camera-regel en de 500
-effect-aanroepen in `rg-mfcam.log`. Het eerste verschil in de `*INF*`-volgorde wijst de ontbrekende stap aan.
+**Test recipe 1 (first, harmless): trace.** Dropin as now (`RG_BNGRW=trace`), `WINEDEBUG=-all,warn+seh`, `RG_STALL_DUMP=20,45,90`. In `rg-mfcam.log` lines `bngrw: ...`: what does the real library give? `Attach(reader 0, COM4,...) -> 1` and then a
+`callback Attach(reader 0): a=0 b=0x...`? A `b=0xfffffed3` or no callback = the reader is missing and the game waits/fails there. If `IsCmdExec(reader N) -> 1` stays, the game is waiting for it.
+**Test recipe 2: fake.** `RG_BNGRW=fake` in the `Env`; see whether `JVS: CreateFileA(COM3)` appears (then the reader was the blocker) and whether a picture comes; if not: the new stall dump.
+**Test recipe 3: TP baseline (only if 1 and 2 give nothing).** Same dropin, `Core = teknoparrot` (the owner has TP), `WINEDEBUG=-all,warn+seh`, `RG_STALL_DUMP=10,20,30` (the stall dump also works under TP; ShareK/JVS/drive/bngrw are
+off then). Look at (a) in what order the game's `*INF*` lines come after `Startup ShareK-Client.` and at which second the first one after that is, (b) whether the main thread at 10/20 s is also in `0x83D7D6` or already in a scene, (c) the time to the camera line and the 500
+effect calls in `rg-mfcam.log`. The first difference in the `*INF*` order points to the missing step.
 
-### Mario Kart DX: de kaartlezer wordt niet bereikt; recept voor de TP-basislijn (08:38-meting)
+### Mario Kart DX: the card reader is not reached; recipe for the TP baseline (08:38 measurement)
 
-**Meting 08:38 (`RG_BNGRW=fake`).** `bngrw: Init (nep)` staat 2,4 s na het laden van de dll, 7 ms voor de ShareK-regel (`BngRwInit` zit in de init op `0x771C7D`, dus de init loopt tot en met ShareK door). Daarna **geen enkele** andere `bngrw:`-regel:
-de kaartlezer-toestandsmachine (`0x601550`) wordt dus niet aangeroepen, en de hoofdthread staat bij 20 s en 45 s onveranderd in `PeekMessageW` (`0x83D7D6`, stapel identiek aan die van 07:42). Dat maakt de kaartlezer **niet** de blokkade: hij is
-een stap die pas aan de beurt komt als iets eerder in de opstartvolgorde gebeurt. Wat dat is, staat niet in onze code (de TP-kern is gesloten) en is statisch niet af te lezen zonder te weten welke taak de scheduler (`0x8451E0`) hoort te krijgen.
-Daarom de TP-basislijn: dezelfde game, dezelfde dropin, met de gesloten kern.
+**Measurement 08:38 (`RG_BNGRW=fake`).** `bngrw: Init (nep)` appears 2.4 s after the dll loads, 7 ms before the ShareK line (`BngRwInit` is in the init at `0x771C7D`, so the init runs through to ShareK). After that **not a single** other `bngrw:` line:
+the card-reader state machine (`0x601550`) is therefore not called, and the main thread at 20 s and 45 s is unchanged in `PeekMessageW` (`0x83D7D6`, stack identical to that of 07:42). That makes the card reader **not** the blocker: it is
+a step that only comes up when something earlier in the startup sequence happens. What that is, is not in our code (the TP core is closed) and cannot be read statically without knowing which task the scheduler (`0x8451E0`) is supposed to get.
+Hence the TP baseline: the same game, the same dropin, with the closed core.
 
-**Recept (gebruikerslaag `~/.local/share/ravengun/patches/MarioKartDX/game.ini`, naast wat er al staat: `[Config] Network/PlayerId` en `[Loader] Core = teknoparrot`).** Voeg toe:
+**Recipe (user layer `~/.local/share/ravengun/patches/MarioKartDX/game.ini`, next to what is already there: `[Config] Network/PlayerId` and `[Loader] Core = teknoparrot`).** Add:
 
 ```ini
 [Wine]
@@ -260,125 +261,124 @@ Debug = -all,warn+seh
 RG_STALL_DUMP = 10,20,30,45
 ```
 
-* `Core = teknoparrot` (staat er al) is de basislijn; laat `RG_SHAREK_FAKE`, `RG_DRIVE_FIXUP`, `RG_BNGRW` en `RG_JVS_COMPORT` in de dropin staan: `rg-mfcam.dll` zet ze zelf uit zodra `TeknoParrot.dll` in het proces staat (logregels `... uit: de TeknoParrot-kern is geladen`). De stalldump draait wel.
-* Zet **niets anders** (geen `RG_BNGRW`, geen andere dropin-wijziging) en gebruik dezelfde dll (`0e3b6e5d...`) en dezelfde view; de TP-run moet precies de eigen run zijn met alleen de kern gewisseld.
-* Dubbelklik in de app, 50 s laten lopen, stoppen. De eigenaar speelt hier online: het spel mag verbinding maken.
-* Daarna de gebruikerslaag terugzetten (de twee regels `Debug` en `RG_STALL_DUMP` weg).
+* `Core = teknoparrot` (already there) is the baseline; leave `RG_SHAREK_FAKE`, `RG_DRIVE_FIXUP`, `RG_BNGRW` and `RG_JVS_COMPORT` in the dropin: `rg-mfcam.dll` turns them off itself as soon as `TeknoParrot.dll` is in the process (log lines `... uit: de TeknoParrot-kern is geladen`). The stall dump does run.
+* Set **nothing else** (no `RG_BNGRW`, no other dropin change) and use the same dll (`0e3b6e5d...`) and the same view; the TP run must be exactly the own run with only the core swapped.
+* Double-click in the app, let it run 50 s, stop. The owner plays online here: the game may connect.
+* Afterwards restore the user layer (remove the two lines `Debug` and `RG_STALL_DUMP`).
 
-**Wat te sturen** (twee runs: eigen kern zoals 08:38, en TP):
-1. De spelmeldingen in volgorde: `tools/dev/game-log-order.py <logboek-eigen> <logboek-TP>` (decodeert Shift-JIS, toont de gemeenschappelijke kop en het eerste verschil; zonder tweede argument alle meldingen van een run). Het eerste verschil is de eerste stap die onder TP wel gebeurt.
-2. `rg-mfcam.log` van de TP-run vanaf de laatste `rg-mfcam geladen`: de stalldumps bij 10/20/30/45 s (staat de hoofdthread nog in `0x83D7D6` of dieper in een scène?) en of `MFEnumDeviceSources`/de 500 `D3DX10CreateEffectFromFileA` verschijnen en op welke seconde.
-3. Of er beeld is op 10 s, 20 s en 30 s (en wat).
+**What to send** (two runs: own core as 08:38, and TP):
+1. The game messages in order: `tools/dev/game-log-order.py <log-own> <log-TP>` (decodes Shift-JIS, shows the common head and the first difference; without a second argument all messages of one run). The first difference is the first step that does happen under TP.
+2. `rg-mfcam.log` of the TP run from the last `rg-mfcam geladen`: the stall dumps at 10/20/30/45 s (is the main thread still in `0x83D7D6` or deeper in a scene?) and whether `MFEnumDeviceSources`/the 500 `D3DX10CreateEffectFromFileA` appear and at which second.
+3. Whether there is a picture at 10 s, 20 s and 30 s (and what).
 
-### Mario Kart DX: TP-basislijn gelezen (2026-10-18 10:46); eigen kern hangt in de eerste PeekMessageW
+### Mario Kart DX: TP baseline read (2026-10-18 10:46); own core hangs in the first PeekMessageW
 
-**Wat de TP-run laat zien** (`game-log-order.py`, stalldump 20/45 s):
-* **TP past de tekenreeksen van het spel aan, niet de API's.** Het spel logt zelf het pad dat het gebruikt: onder TP `./Fplaydata/1812/`, onder onze kern `F:/playdata/1812/` (de exe-constante staat op `0x9b2954`). Dus `F:/` wordt in het geheugen `./F`
-  (zelfde lengte). Daardoor liggen alle bestanden in de view-wortel (`FTestMode/`, `Fsystem/`, `Fplaydata/`, `GBookkeeping/` ...: de oude TP-bestanden) en gebruikt het spel overal hetzelfde pad (CreateFile, rename, FindFirstFile, ifstream, `_mkdir`).
-  In de exe staan als F:-/G:-tekenreeksen: `F:/system/` (`0x9b0c88`), `F:/income/` (`0x9b2284`), `F:/playdata/` (`0x9b2724`), `F:/playdata/1812/` (`0x9b2954`), `F:/` (`0x9b5340`, plus `Bookkeeping/...`), `F:/RecordRanking/` (`0x9f4250`), `G:/Contents`
-  (`0x9b2d04`) en breed `F:\income\Income_*.bin`, `F:/playdata/1812/`, `F:\playdata\*`, `G:/Contents...`; de `F:\workspace\...` zijn bronpaden (__FILE__) en blijven; `G:/ H:/ ... M:/` (`0xa11444`) is een stationlijst.
-* **Geen ShareK-regels onder TP** en de TP-run staat 20 s lang in `0x4B6E50` (de laadstappen van `0x4B7500`, bij stap 9, `fgetc` per byte door `ifstream`) binnen de init `0x770770`; bij 45 s draait de hoofdlus (scheduler `0x8451E0`, taak
-  `0x841C31`). De init duurt dus ~20 s ("NOW LOADING"), en daarna begint de lus.
-* **Onze kern staat bij 20 s én 45 s in de EERSTE `PeekMessageW`** (`0x83D7D4`, vóór de lus): `EIP win32u+0x11d38`, `ESP`/stapel identiek in alle dumps (07:42, 08:14, 08:38). Een lus met ticks zou verschillende plekken laten zien; dit is een
-  blokkerende syscall. Onze init was na ~10 s klaar (ShareK-regel 10 s na het laden van de dll; de TP-run zit na 20 s nog in de laadstappen, dus TP is trager: zie de laadstappen hieronder) en liep tegen een `PeekMessageW` die niet terugkeert.
-  Dat verklaart zwart (geen `Present`), JVS dicht en de ontbrekende `bngrw`-aanroepen: de lus start nooit.
+**What the TP run shows** (`game-log-order.py`, stall dump 20/45 s):
+* **TP changes the game's strings, not the APIs.** The game itself logs the path it uses: under TP `./Fplaydata/1812/`, under our core `F:/playdata/1812/` (the exe constant is at `0x9b2954`). So `F:/` becomes `./F` in memory
+  (same length). As a result all files are in the view root (`FTestMode/`, `Fsystem/`, `Fplaydata/`, `GBookkeeping/` ...: the old TP files) and the game uses the same path everywhere (CreateFile, rename, FindFirstFile, ifstream, `_mkdir`).
+  The exe contains these F:-/G: strings: `F:/system/` (`0x9b0c88`), `F:/income/` (`0x9b2284`), `F:/playdata/` (`0x9b2724`), `F:/playdata/1812/` (`0x9b2954`), `F:/` (`0x9b5340`, plus `Bookkeeping/...`), `F:/RecordRanking/` (`0x9f4250`), `G:/Contents`
+  (`0x9b2d04`) and wide `F:\income\Income_*.bin`, `F:/playdata/1812/`, `F:\playdata\*`, `G:/Contents...`; the `F:\workspace\...` are source paths (__FILE__) and stay; `G:/ H:/ ... M:/` (`0xa11444`) is a drive list.
+* **No ShareK lines under TP** and the TP run stays for 20 s in `0x4B6E50` (the load steps of `0x4B7500`, at step 9, `fgetc` per byte through `ifstream`) within the init `0x770770`; at 45 s the main loop runs (scheduler `0x8451E0`, task
+  `0x841C31`). So the init takes ~20 s ("NOW LOADING"), and the loop begins after that.
+* **Our core is in the FIRST `PeekMessageW` at 20 s and at 45 s** (`0x83D7D4`, before the loop): `EIP win32u+0x11d38`, `ESP`/stack identical in all dumps (07:42, 08:14, 08:38). A loop with ticks would show different places; this is a
+  blocking syscall. Our init was done after ~10 s (ShareK line 10 s after the dll loads; the TP run is still in the load steps after 20 s, so TP is slower: see the load steps below) and ran into a `PeekMessageW` that does not return.
+  That explains black (no `Present`), JVS closed and the missing `bngrw` calls: the loop never starts.
 
-**Gebouwd (ACHTSTE TAAK van `rg-mfcam.dll`, `drive_fix.h` `patch_strings`).**
-1. **Dezelfde schijfletter-aanpassing als TP** (`RG_DRIVE_FIXUP=F`): `patch_strings` zet `F:/` en `F:\` aan het begin van een tekenreeks (smal en breed, in de niet-uitvoerbare secties van de exe) om naar `./F` en `.\F`, behalve bronpaden
-   (`workspace`) en de stationlijst. `RG_DRIVE_STRINGS=0` zet dat uit. G blijft ongemoeid (ShareK blijft uit); de API-omleiding uit de vorige stap blijft als vangnet. Getoetst: `tests/test_drive_fix.cpp` (41 controles, met de echte gevallen) en een wegwerpprogramma onder Wine.
-2. **`RG_MSGTRACE=1`** (nu in `dropin.ini`): omhulsels om `PeekMessageW`, `DispatchMessageW`, `ShowWindow`, `SetWindowPos`, `CreateWindowExW`. `rg-mfcam.log` krijgt: de eerste vijf `PeekMessageW`-aanroepen met `binnen` en `terug met N na X ms`
-   (staat er `binnen` zonder `terug`, dan blokkeert de aanroep), de vensters van de draad bij de eerste aanroep (`zichtbaar`, `iconic`, afmetingen, voorgrond/actief/focus), `CreateWindowExW`/`ShowWindow`/`SetWindowPos` met de uitkomst, de eerste 40 berichten
-   en elke 5 s een samenvatting (alleen zolang de lus draait).
+**Built (EIGHTH TASK of `rg-mfcam.dll`, `drive_fix.h` `patch_strings`).**
+1. **The same drive-letter change as TP** (`RG_DRIVE_FIXUP=F`): `patch_strings` turns `F:/` and `F:\` at the start of a string (narrow and wide, in the non-executable sections of the exe) into `./F` and `.\F`, except source paths
+   (`workspace`) and the drive list. `RG_DRIVE_STRINGS=0` turns that off. G is left alone (ShareK stays off); the API redirection from the previous step stays as a safety net. Tested: `tests/test_drive_fix.cpp` (41 checks, with the real cases) and a throwaway program under Wine.
+2. **`RG_MSGTRACE=1`** (now in `dropin.ini`): wrappers around `PeekMessageW`, `DispatchMessageW`, `ShowWindow`, `SetWindowPos`, `CreateWindowExW`. `rg-mfcam.log` gets: the first five `PeekMessageW` calls with `binnen` and `terug met N na X ms`
+   (if there is a `binnen` without `terug`, the call blocks), the thread's windows at the first call (`zichtbaar`, `iconic`, dimensions, foreground/active/focus), `CreateWindowExW`/`ShowWindow`/`SetWindowPos` with the outcome, the first 40 messages
+   and every 5 s a summary (only while the loop runs).
 
-**Waarom de tv-run nu iets bewijst:** blijft `PeekMessageW #1: binnen` zonder `terug`, dan is dit een Wine/gamescope-probleem (venster nog niet klaar, of een wacht op de venstermanager) en niet de logica van het spel; dan is het volgende
-experiment de kern erbuiten houden (andere `gamescope`-vlaggen, `WINE_NO_...`) of de eerste `PeekMessageW` pas na een vertraging (zoals de ~20 s laadtijd van TP) laten lopen; keert hij terug en draait de lus, dan volgt uit de samenvatting wat de lus doet.
-**Niet getoetst:** het spel zelf, en of de ~20 s TP-laadtijd (die wij niet hebben) iets verbergt: onze init is korter dan die van TP (10 s tegen > 20 s); als de laadstappen bij ons zonder instellingen/bestanden minder werk doen, is dat een verschil dat met de TP-bestanden in de view-wortel (nu gevonden) kan verdwijnen.
+**Why the TV run now proves something:** if `PeekMessageW #1: binnen` stays without `terug`, this is a Wine/gamescope problem (window not ready yet, or a wait on the window manager) and not the game's logic; then the next
+experiment is to keep the core out of it (other `gamescope` flags, `WINE_NO_...`) or to let the first `PeekMessageW` run only after a delay (like TP's ~20 s load time); if it returns and the loop runs, the summary shows what the loop does.
+**Not tested:** the game itself, and whether TP's ~20 s load time (which we do not have) hides something: our init is shorter than TP's (10 s versus > 20 s); if the load steps do less work for us without settings/files, that is a difference that can disappear with the TP files in the view root (now found).
 
-**Testrecept.** `Core = ravengun` (haal `Core = teknoparrot` uit de gebruikerslaag), dropin + dll van deze commit, `[Wine] Debug = -all,warn+seh`, `[Env] RG_STALL_DUMP = 10,20,30,45`, `DXVK_HUD = fps`. Dubbelklik, 50 s. Lever (1) `game-log-order.py` van deze run
-tegen de TP-run (`...104617`): nu moet `./Fplaydata/1812/` gelijk zijn en het eerste verschil volgt; (2) de regels van `rg-mfcam.log` vanaf `berichtenlus volgen aan`: `PeekMessageW #1 binnen/terug`, de vensters, de samenvattingen; (3) de stalldumps; (4) beeld ja/nee.
+**Test recipe.** `Core = ravengun` (remove `Core = teknoparrot` from the user layer), dropin + dll of this commit, `[Wine] Debug = -all,warn+seh`, `[Env] RG_STALL_DUMP = 10,20,30,45`, `DXVK_HUD = fps`. Double-click, 50 s. Deliver (1) `game-log-order.py` of this run
+against the TP run (`...104617`): now `./Fplaydata/1812/` must be equal and the first difference follows; (2) the lines of `rg-mfcam.log` from `berichtenlus volgen aan`: `PeekMessageW #1 binnen/terug`, the windows, the summaries; (3) the stall dumps; (4) picture yes/no.
 
-### Mario Kart DX: de eerste PeekMessageW blokkeert echt (11:44-meting); diagnose en proeven
+### Mario Kart DX: the first PeekMessageW really blocks (11:44 measurement); diagnosis and trials
 
-**Bewezen (11:44, `RG_MSGTRACE=1`).** `PeekMessageW #1: binnen (hwnd 0, 0..0, vlaggen 0x0)` staat 6,1 s na `CreateWindowExW(ex 0x8 [TOPMOST], mkart3, stijl 0x90000000 [POPUP|VISIBLE], 1360x768) -> 0001006e` + `ShowWindow(.., 1)`
-(+2,4 s na het laden) en direct na het ShareK-object; **er komt nooit een `terug`**. Op dat moment is het venster `0001006e` zichtbaar, niet iconic, voorgrond = actief = focus (rect 0,0 1368x768), plus `Wine IME` en `IME` (1x1, onzichtbaar, van imm32).
-De aanroep is dus een blokkerende syscall in Wine (`win32u+0x11d38`), de hoofdthread wacht niet op logica van het spel; in alle dumps staan geen wndproc-frames van de exe boven de aanroep, dus een berichtafhandelaar van het spel zelf blokkeert niet.
-Andere draden: 20 werkers in `Sleep(30)` (`0x8527FB`), pollers (`SleepEx`), de invoerdraad, audio; geen draad in een SendMessage-wacht van het spel zelf zichtbaar (alleen exe-frames werden getoond).
+**Proven (11:44, `RG_MSGTRACE=1`).** `PeekMessageW #1: binnen (hwnd 0, 0..0, vlaggen 0x0)` appears 6.1 s after `CreateWindowExW(ex 0x8 [TOPMOST], mkart3, stijl 0x90000000 [POPUP|VISIBLE], 1360x768) -> 0001006e` + `ShowWindow(.., 1)`
+(+2.4 s after the load) and directly after the ShareK object; **a `terug` never comes**. At that moment the window `0001006e` is visible, not iconic, foreground = active = focus (rect 0,0 1368x768), plus `Wine IME` and `IME` (1x1, invisible, from imm32).
+The call is therefore a blocking syscall in Wine (`win32u+0x11d38`), the main thread is not waiting on game logic; in all dumps there are no wndproc frames of the exe above the call, so a message handler of the game itself does not block.
+Other threads: 20 workers in `Sleep(30)` (`0x8527FB`), pollers (`SleepEx`), the input thread, audio; no thread visible in a SendMessage wait of the game itself (only exe frames were shown).
 
-**Kandidaten waarom `NtUserPeekMessage` blokkeert** (nog niet te onderscheiden):
-1. een **laag-niveau hook** (WH_KEYBOARD_LL/WH_MOUSE_LL, bijvoorbeeld van `dinput8` of de DirectInput-haken van de kern, `HookIDirectInput8` staat in `OpenParrot.dll`): Wine roept zo'n hook aan *in* de PeekMessage van de installerende draad;
-   blokkeert de hookprocedure op een slot dat een andere draad vasthoudt, dan hangt PeekMessage zonder exe-frames;
-2. de **X11-driver** die in `PeekMessage` een roundtrip naar de X-server doet (gamescope/Xwayland) die niet antwoordt (venster net gemapt, 6 s later; TP komt er pas na ~25 s, na zijn lange laadstappen);
-3. een **cross-thread SendMessage** naar een venster van deze draad vanuit een draad die zelf wacht (bijvoorbeeld de camera of audio) of een **imm32/IME**-wissel.
+**Candidates for why `NtUserPeekMessage` blocks** (not yet distinguishable):
+1. a **low-level hook** (WH_KEYBOARD_LL/WH_MOUSE_LL, for example from `dinput8` or the core's DirectInput hooks, `HookIDirectInput8` is in `OpenParrot.dll`): Wine calls such a hook *inside* the PeekMessage of the installing thread;
+   if the hook procedure blocks on a lock that another thread holds, PeekMessage hangs without exe frames;
+2. the **X11 driver** doing a roundtrip to the X server (gamescope/Xwayland) in `PeekMessage` that does not answer (window just mapped, 6 s later; TP only gets there after ~25 s, after its long load steps);
+3. a **cross-thread SendMessage** to a window of this thread from a thread that is itself waiting (for example the camera or audio) or an **imm32/IME** switch.
 
-**Nieuw gereedschap.**
-* `tools/dev/proc-threads.py [NAAM]` (alleen lezen uit `/proc`): per draad van het spelproces `wchan`, toestand, cpu-ticks en, als `/proc/<pid>/task/<tid>/syscall` leesbaar is, de syscall met het bestand achter de fd. **Draai het midden in de hang** (bij 20-30 s).
-  `futex_do_wait` op alle draden zonder socket = een sloten-deadlock (kandidaat 1/3); een draad in `poll`/`recvmsg` op de X/Wayland-socket = kandidaat 2.
-* De stalldump toont nu per draad ook terugkeeradressen in **andere modules** (`(module) user32.dll+0x...`, `dinput8.dll`, `OpenParrot.dll`, `win32u.dll`, `kernelbase.dll`) naast de exe-adressen. Een hoofddraad met `dinput8`/`OpenParrot` boven `win32u` bevestigt kandidaat 1.
-* `RG_PEEK_DELAY_MS=N` en `RG_PEEK_SKIP_FIRST=1` (nu in `rg-mfcam.dll`; niet in `dropin.ini` aangezet): proeven die de aanroep uitstellen of overslaan.
+**New tooling.**
+* `tools/dev/proc-threads.py [NAME]` (read-only from `/proc`): per thread of the game process `wchan`, state, cpu ticks and, if `/proc/<pid>/task/<tid>/syscall` is readable, the syscall with the file behind the fd. **Run it in the middle of the hang** (at 20-30 s).
+  `futex_do_wait` on all threads without a socket = a lock deadlock (candidate 1/3); a thread in `poll`/`recvmsg` on the X/Wayland socket = candidate 2.
+* The stall dump now also shows, per thread, return addresses in **other modules** (`(module) user32.dll+0x...`, `dinput8.dll`, `OpenParrot.dll`, `win32u.dll`, `kernelbase.dll`) next to the exe addresses. A main thread with `dinput8`/`OpenParrot` above `win32u` confirms candidate 1.
+* `RG_PEEK_DELAY_MS=N` and `RG_PEEK_SKIP_FIRST=1` (now in `rg-mfcam.dll`; not enabled in `dropin.ini`): trials that delay or skip the call.
 
-**Testrecept (drie korte runs; steeds `Core = ravengun`, `RG_MSGTRACE=1`, `RG_STALL_DUMP = 10,20,30,45`, `WINEDEBUG = -all,warn+seh`).**
-1. **Diagnose** (geen proef-env): start, wacht tot 25 s en draai dan `tools/dev/proc-threads.py` (stuur de uitvoer), laat de run doorlopen tot na de dump van 30 s. Stuur het stalldump-blok van 20 s en 30 s uit `rg-mfcam.log` (hoofddraad plus alle draden met `(module)`-regels).
-2. **Race-proef**: `RG_PEEK_DELAY_MS = 25000` in `[Env]`. Komt er na 25 s een `terug` en een lus en beeld, dan was het een race tussen vensteropbouw en de eerste PeekMessageW (dan: een kleine vaste vertraging of wachten op een gebeurtenis in de dll als echte oplossing).
-3. **Overslaproef**: `RG_PEEK_SKIP_FIRST = 1`. Staat de volgende `PeekMessageW` (vlaggen 0x1) er dan ook binnen zonder terug, dan blokkeert elke PeekMessage van deze draad (kandidaat 1 of 2), niet alleen de eerste.
-4. Zonder gamescope: `[Display] Gamescope = false` (alleen zoals gemeten in run 1; scheidt kandidaat 2 van de rest).
+**Test recipe (three short runs; always `Core = ravengun`, `RG_MSGTRACE=1`, `RG_STALL_DUMP = 10,20,30,45`, `WINEDEBUG = -all,warn+seh`).**
+1. **Diagnosis** (no trial env): start, wait until 25 s and then run `tools/dev/proc-threads.py` (send the output), let the run continue until after the dump at 30 s. Send the stall-dump block of 20 s and 30 s from `rg-mfcam.log` (main thread plus all threads with `(module)` lines).
+2. **Race trial**: `RG_PEEK_DELAY_MS = 25000` in `[Env]`. If after 25 s a `terug` and a loop and picture come, it was a race between window construction and the first PeekMessageW (then: a small fixed delay or waiting for an event in the dll as the real fix).
+3. **Skip trial**: `RG_PEEK_SKIP_FIRST = 1`. If the next `PeekMessageW` (flags 0x1) is then also inside without returning, every PeekMessage of this thread blocks (candidate 1 or 2), not just the first.
+4. Without gamescope: `[Display] Gamescope = false` (only as measured in run 1; separates candidate 2 from the rest).
 
-### Mario Kart DX: oorzaak van het zwarte beeld is volledig scherm (DXUT), TP draait in een venster (statisch + logboeken 2026-10-18)
+### Mario Kart DX: the cause of the black picture is full screen (DXUT), TP runs in a window (static + logs 2026-10-18)
 
-**Bewezen.** (1) Het DXVK-logboek van de TP-run (`direct-MarioKartDX-20261018-104617.log`) heeft geen `Setting display mode` en de D3D10-swapchain presenteert
-1360x768 (`Presenter: Actual swapchain properties ... Buffer size: 1360x768`); alle vier de eigen runs (`...-120315/120437/120559/120720`) loggen twee keer
-`Setting display mode: 1368x768@60` en nooit een `Presenter`-regel. Het TP-profiel zet `Windowed=1` (`teknoparrot.ini` in de view); onze kern leest dat niet.
-(2) Het spel is DXUT (D3D10): `0x83D630` is `DXUTMainLoop` (eerste `PeekMessageW(PM_NOREMOVE)`, dan de `PM_REMOVE`-lus, anders `0x8451E0` =
-`DXUTRender3DEnvironment`), `0x86D2..` de DXUT-modusopsomming, `0x843D10` de `WH_KEYBOARD_LL`-hook van `DXUTAllowShortcutKeys` (alleen in volledig scherm).
-(3) Volledig scherm is een vaste standaard: de constructor `0x405740` van het instellingenobject (`ds:0xEC29C8`) zet `+0x28 = 1360`, `+0x2c = 768`,
-`+0x30 = 1` (`0x4057AD`); alleen `LAGUAGE_ID` komt uit `config.csv`. De byte gaat via `[0xEC29C0]+0xC` naar de DXUT-opdrachtregel (`0x770656`:
-`"-forceapi:10 -fullscreen -forcevsync:1 noerrormsgboxes -forcehal"`, anders `-windowed`) en naar `DXUTCreateDevice(bWindowed = byte != 1, 1360, 768)` (`0x846808`).
-(4) De hoofddraad blokkeert niet maar draait (proc-threads: `running`/`R`, 6-7 s cpu in 28 s) in de Unix-kant van `NtUserPeekMessage`.
-**Niet bewezen:** welk Wine-mechanisme in volledig scherm de lus vasthoudt (modewissel, LL-hook of iets anders); dat is zonder Wine-trace niet te zien.
+**Proven.** (1) The DXVK log of the TP run (`direct-MarioKartDX-20261018-104617.log`) has no `Setting display mode` and the D3D10 swapchain presents
+1360x768 (`Presenter: Actual swapchain properties ... Buffer size: 1360x768`); all four own runs (`...-120315/120437/120559/120720`) log twice
+`Setting display mode: 1368x768@60` and never a `Presenter` line. The TP profile sets `Windowed=1` (`teknoparrot.ini` in the view); our core does not read that.
+(2) The game is DXUT (D3D10): `0x83D630` is `DXUTMainLoop` (first `PeekMessageW(PM_NOREMOVE)`, then the `PM_REMOVE` loop, otherwise `0x8451E0` =
+`DXUTRender3DEnvironment`), `0x86D2..` the DXUT mode enumeration, `0x843D10` the `WH_KEYBOARD_LL` hook of `DXUTAllowShortcutKeys` (only in full screen).
+(3) Full screen is a fixed default: the constructor `0x405740` of the settings object (`ds:0xEC29C8`) sets `+0x28 = 1360`, `+0x2c = 768`,
+`+0x30 = 1` (`0x4057AD`); only `LAGUAGE_ID` comes from `config.csv`. The byte goes via `[0xEC29C0]+0xC` to the DXUT command line (`0x770656`:
+`"-forceapi:10 -fullscreen -forcevsync:1 noerrormsgboxes -forcehal"`, otherwise `-windowed`) and to `DXUTCreateDevice(bWindowed = byte != 1, 1360, 768)` (`0x846808`).
+(4) The main thread does not block but runs (proc-threads: `running`/`R`, 6-7 s cpu in 28 s) in the Unix side of `NtUserPeekMessage`.
+**Not proven:** which Wine mechanism holds the loop in full screen (mode switch, LL hook or something else); that cannot be seen without a Wine trace.
 
-**Gebouwd: NEGENDE TAAK van `rg-mfcam.dll` (`window_mode.h`).** `RG_WINDOWED=1` zoekt het patroon `mov [ebx+0x28],0x550; mov [ebx+0x2c],0x300; mov [ebx+0x30],1`
-in de code van de exe (precies een treffer, ook in het origineel op de NAS) en zet de imm32 op 0: het spel kiest dan zelf `-windowed`, zonder modewissel, zoals TP.
-Uit met de TeknoParrot-kern. Getoetst: `tests/test_window_mode.cpp` (12 controles). Niet getoetst: het spel zelf.
+**Built: NINTH TASK of `rg-mfcam.dll` (`window_mode.h`).** `RG_WINDOWED=1` looks for the pattern `mov [ebx+0x28],0x550; mov [ebx+0x2c],0x300; mov [ebx+0x30],1`
+in the exe's code (exactly one hit, also in the original on the NAS) and sets the imm32 to 0: the game then chooses `-windowed` itself, without a mode switch, like TP.
+Off with the TeknoParrot core. Tested: `tests/test_window_mode.cpp` (12 checks). Not tested: the game itself.
 
-**Testrecept.** Kandidaat zoals de 12:03-runs, plus `RG_WINDOWED=1` in de `Env` van `dropin.ini`. In `rg-mfcam.log`: `venstermodus aan: mov [ebx+0x30],1 -> 0 op VA 0x4057ad`;
-in het run-logboek **geen** `Setting display mode` en wel `Presenter: Actual swapchain properties` met `Buffer size: 1360x768`; `PeekMessageW #1: ... terug`; beeld (NOW LOADING).
+**Test recipe.** Candidate as the 12:03 runs, plus `RG_WINDOWED=1` in the `Env` of `dropin.ini`. In `rg-mfcam.log`: `venstermodus aan: mov [ebx+0x30],1 -> 0 op VA 0x4057ad`;
+in the run log **no** `Setting display mode` and yes `Presenter: Actual swapchain properties` with `Buffer size: 1360x768`; `PeekMessageW #1: ... terug`; picture (NOW LOADING).
 
-### Mario Kart DX: E22-12 "STR PCB 通信エラー" is het stuurbord op COM1 (statisch 2026-10-18, na de tv-run van 12:35)
+### Mario Kart DX: E22-12 "STR PCB 通信エラー" is the steering board on COM1 (static 2026-10-18, after the TV run of 12:35)
 
-**Tv 12:35 (venstermodus):** beeld, "NOW LOADING", daarna het rode kader E22-12 "STR PCB 通信エラー". In `rg-mfcam.log` geen `JVS: CreateFileA(COM3)`: de IO-controle wordt niet bereikt.
+**TV 12:35 (window mode):** picture, "NOW LOADING", then the red frame E22-12 "STR PCB 通信エラー". In `rg-mfcam.log` no `JVS: CreateFileA(COM3)`: the IO check is not reached.
 
-**Bewezen (objdump).** (1) Het STR-object (constructor `0x5F5F40`) heeft op `+0x188` een seriele verbinding met poortindex 1 en baudindex 2 (`0x5F5FD9`/`0x5F5FEA`); de seriele klasse
-(vtable `0xA11764`) opent `\\.\COM<n>` (tabel `0xA1166C`) met `FILE_FLAG_OVERLAPPED` (`0x853E1D`), `SetupComm(0x2000,0x2000)`, `GetCommState`, `BuildCommDCBA`
-(tabellen `0x98BC10..0x98BC7C`: `COM1: baud=19200 parity=N data=8 stop=1`), `SetCommState`, `PurgeComm(0xF)`; lezen/schrijven met `ReadFileEx`/`WriteFileEx` en
-`WaitForSingleObjectEx(INFINITE, alertable)`. Het bord hangt dus **niet** aan JVS. (2) De leesdraad (`0x5F57D0`) leest per ronde 3 bytes (`0x5F5D00`): `"C01"` zet
-`+0x49` (verbonden), `"C06"` wist hem, `"E00"` zet `+0x4A`; andere `E`-codes zijn fouten (`0x56..0x5B`, `0x5C..`, `"E20"` = `0x61`). Pas na de opstartcontrole
-(`+0x4B = 1`, `0x602EC4`) stuurt het spel eerst 10 bytes per ronde (`0x5F5C80`). (3) De opstartcontrole (`0x602DA6..0x602EE2`): wacht op `"E00"`, dan op `"C01"`;
-na `0x12C0` ticks zonder verbinding fout `0x61` (`0x602E39`), met de schermteksten `反力ＯＦＦ` en `ステアリングに手を触れないで下さい` (`0x9B5940`, `0x9B5950`). Daarna volgt de kaartlezer (`0x602E8C`).
-**Niet bewezen:** dat `0x61` op het scherm E22-12 heet (de koppeling foutnummer -> E-code is niet gevolgd); wel is `0x61` de enige fout die deze controle geeft.
+**Proven (objdump).** (1) The STR object (constructor `0x5F5F40`) has at `+0x188` a serial connection with port index 1 and baud index 2 (`0x5F5FD9`/`0x5F5FEA`); the serial class
+(vtable `0xA11764`) opens `\\.\COM<n>` (table `0xA1166C`) with `FILE_FLAG_OVERLAPPED` (`0x853E1D`), `SetupComm(0x2000,0x2000)`, `GetCommState`, `BuildCommDCBA`
+(tables `0x98BC10..0x98BC7C`: `COM1: baud=19200 parity=N data=8 stop=1`), `SetCommState`, `PurgeComm(0xF)`; reading/writing with `ReadFileEx`/`WriteFileEx` and
+`WaitForSingleObjectEx(INFINITE, alertable)`. The board is therefore **not** attached to JVS. (2) The read thread (`0x5F57D0`) reads 3 bytes per round (`0x5F5D00`): `"C01"` sets
+`+0x49` (connected), `"C06"` clears it, `"E00"` sets `+0x4A`; other `E` codes are errors (`0x56..0x5B`, `0x5C..`, `"E20"` = `0x61`). Only after the startup check
+(`+0x4B = 1`, `0x602EC4`) does the game first send 10 bytes per round (`0x5F5C80`). (3) The startup check (`0x602DA6..0x602EE2`): waits for `"E00"`, then for `"C01"`;
+after `0x12C0` ticks without a connection error `0x61` (`0x602E39`), with the screen texts `反力ＯＦＦ` and `ステアリングに手を触れないで下さい` (`0x9B5940`, `0x9B5950`). The card reader follows after that (`0x602E8C`).
+**Not proven:** that `0x61` is called E22-12 on screen (the link error number -> E code was not followed); `0x61` is, however, the only error this check gives.
 
-**Gebouwd: TIENDE TAAK van `rg-mfcam.dll` (`str_board.h`).** `RG_STR_COMPORT=COM1`: `CreateFileA("\\.\COM1")` geeft het clienteinde van een eigen pipe (overlapped, zoals het spel
-opent); een draad is het bord: `C01`, `E00`, dan `C01` uit zichzelf zolang het spel niets stuurt, daarna per 10 bytes een `C01`. De comm-aanroepen slagen op dat handvat
-(dezelfde omhulsels als JVS, nu een keer omgezet voor beide). Uit met de TeknoParrot-kern. Getoetst: `tests/test_str_board.cpp` (23 controles). Niet getoetst: het spel.
+**Built: TENTH TASK of `rg-mfcam.dll` (`str_board.h`).** `RG_STR_COMPORT=COM1`: `CreateFileA("\\.\COM1")` returns the client end of an own pipe (overlapped, the way the game
+opens it); a thread is the board: `C01`, `E00`, then `C01` by itself as long as the game sends nothing, afterwards a `C01` per 10 bytes. The comm calls succeed on that handle
+(the same wrappers as JVS, now converted once for both). Off with the TeknoParrot core. Tested: `tests/test_str_board.cpp` (23 checks). Not tested: the game.
 
-**De keuze in de app (eigenaar 2026-10-17: "Keuze in de app").** `patches/MarioKartDX/game.ini` heeft nu `[Loader] Core = ravengun` als
-standaard (zonder TeknoParrot, offline) en `options.json` een optie **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
-`[Loader] Core`; Dolphin-model: de app schrijft de keuze in de gebruikerslaag): `ravengun` (standaard) of `teknoparrot`. De tekst van de optie
-zegt dat online spelen TeknoParrot vraagt (de map `TeknoParrotUi-2.0.0.130-linux-x64` in de runtime van RavenGun). Kiest iemand `teknoparrot`
-zonder die map, dan weigert de start met "kern ontbreekt: ...TeknoParrot.dll" (gemeten met `rg-direct --plan` zonder map). Met de gesloten kern
-zet `rg-mfcam.dll` zijn eigen JVS-omleiding uit (`GetModuleHandle("TeknoParrot.dll")`), zodat de kern COM3 zelf doet zoals voor deze wijziging.
-`--plan` gemeten: standaard `core: ravengun`, `RG_JVS_COMPORT=COM3`; met de override `core: teknoparrot` (of de weigering als de map ontbreekt).
+**The choice in the app (owner 2026-10-17: "Choice in the app").** `patches/MarioKartDX/game.ini` now has `[Loader] Core = ravengun` as the
+default (without TeknoParrot, offline) and `options.json` an option **Online play** (`ravengun.core`, `launch_env` `RG_LOADER_CORE`, kEnvMap
+`[Loader] Core`; Dolphin model: the app writes the choice into the user layer): `ravengun` (default) or `teknoparrot`. The option's text
+says that playing online requires TeknoParrot (the folder `TeknoParrotUi-2.0.0.130-linux-x64` in RavenGun's runtime). If someone chooses `teknoparrot`
+without that folder, the start refuses with "kern ontbreekt: ...TeknoParrot.dll" (measured with `rg-direct --plan` without the folder). With the closed core
+`rg-mfcam.dll` turns off its own JVS redirection (`GetModuleHandle("TeknoParrot.dll")`), so that the core handles COM3 itself as before this change.
+`--plan` measured: by default `core: ravengun`, `RG_JVS_COMPORT=COM3`; with the override `core: teknoparrot` (or the refusal if the folder is missing).
 
-**Test op de tv.** (1) kandidaat activeren (alleen nodig als de standaard hierboven niet gewijzigd is; Mario Kart heeft ze nu als echte `game.ini`). (2) dubbelklik. (3) `rg-mfcam.log`: "JVS-omleiding
-aan: COM3 -> \\.\pipe\TeknoParrot_JVS", "JVS: CreateFileA(COM3) -> pipe ..., handvat ...", plus de bestaande camera- en d3dx10-regels.
-(4) `ravengunctl` toont JVS-verkeer; stuur/gas/Item werken zoals voor. (5) wat doet het spel met de ALL.Net-controle: attract binnen ~1 min,
-of netwerkfoutscherm? Bij een blokkade: eerst `Data/System/Config/NetConfig.csv` en `AMCUS/AMConfig.ini` bekijken (zie hieronder).
-(6) 5 minuten attract/spel, `/proc/<pid>/maps` zonder `TeknoParrot.dll`.
+**Test on the TV.** (1) activate the candidate (only needed if the default above is unchanged; Mario Kart now has them as the real `game.ini`). (2) double-click. (3) `rg-mfcam.log`: "JVS-omleiding
+aan: COM3 -> \\.\pipe\TeknoParrot_JVS", "JVS: CreateFileA(COM3) -> pipe ..., handvat ...", plus the existing camera and d3dx10 lines.
+(4) `ravengunctl` shows JVS traffic; steering/gas/Item work as before. (5) what does the game do with the ALL.Net check: attract within ~1 min,
+or network error screen? On a blocker: first look at `Data/System/Config/NetConfig.csv` and `AMCUS/AMConfig.ini` (see below).
+(6) 5 minutes of attract/game, `/proc/<pid>/maps` without `TeknoParrot.dll`.
 
-**Als de ALL.Net-controle blokkeert (volgende stappen, niet gedaan).** `Data/System/Config/NetConfig.csv` heeft schakelaars
-(`NET_USE_LAN`, `NET_USE_INTERNET`, `NET_IGNORE_ALLNET_MAINTENANCE`, `NET_DUMMY_SERIAL_NO`, `NET_SECURE_FLAG`; in de exe staan alleen
-`NET_GAMESERVER_ADDRESS`, `NET_IGNORE_ALLNET_MAINTENANCE`, `NET_USE_SHAREK`, `NET_INTERNET_PORT`, `NET_GROUP` als sleutelnamen, dus
-niet alle regels van dit bestand worden nog gelezen) en `DefaultConfig.csv` heeft `USE_MUCHA`. Dat zijn instellingen van het spel zelf,
-in de view te zetten met `ViewCopies` + een bestandspatch.
-
+**If the ALL.Net check blocks (next steps, not done).** `Data/System/Config/NetConfig.csv` has switches
+(`NET_USE_LAN`, `NET_USE_INTERNET`, `NET_IGNORE_ALLNET_MAINTENANCE`, `NET_DUMMY_SERIAL_NO`, `NET_SECURE_FLAG`; in the exe only
+`NET_GAMESERVER_ADDRESS`, `NET_IGNORE_ALLNET_MAINTENANCE`, `NET_USE_SHAREK`, `NET_INTERNET_PORT`, `NET_GROUP` appear as key names, so
+not all lines of this file are still read) and `DefaultConfig.csv` has `USE_MUCHA`. Those are settings of the game itself,
+to be set in the view with `ViewCopies` + a file patch.
 ---
 
 ## Time Crisis 5 (EmulationProfile `TimeCrisis5`, 64-bit UE3, Namco ES3X)
@@ -568,162 +568,162 @@ naast de runtime-lader staan was een eis van de gesloten kern.
 | `docs/research/namco/patches/TC5/`, `docs/research/namco/patches/HOTDSD/` | volledige kandidaten: `game.ini`, `dropin/` (met `dropin.ini`), HOTDSD ook `data/platform.reg`; de DLL's zijn door `.gitignore` uitgesloten en worden met de build-scripts gemaakt |
 | `tools/dev/namco-candidates-check.sh` | legt de kandidaten over de echte patches-map (tijdelijke kopie) en maakt een `rg-direct --plan` zonder TeknoParrot-map |
 
-### Vervolgmeting 2026-10-18/19: wat ShareK nodig heeft (en waar het beeld nog zwart blijft)
+### Follow-up measurement 2026-10-18/19: what ShareK needs (and where the picture stays black)
 
-De twee dingen die `init_w10.ps1` op de kast doet, zijn nu ook hier gemeten:
+The two things that `init_w10.ps1` does on the cabinet have now also been measured here:
 
-1. **`ShareK\ShareK.exe` eist echt .NET, geen mono.** Onder wine-mono valt hij meteen om:
-   `System.NullReferenceException at ShareK.Program.Main [0x0002d]` (ook los, met `ShareK.exe.config`
-   ernaast; vermoedelijk struikelt mono over `ConfigurationManager.AppSettings`). Met
-   `winetricks -q dotnet48` in de prefix **loopt hij wel** (blijft leven, herschrijft
-   `E:\WritableConfig.ini`, logt `ntsync: up and running`). Let op twee dingen: winetricks zet de
-   Windows-versie van de prefix op win7 (deze prefix stond op 6.3/win8.1 -- terugzetten met
-   `winetricks -q win81`, gemeten), en de installatie kost ~2 minuten en ~1 GB.
-2. **De COM-registratie ontbrak inderdaad.** `RegAsm.exe /codebase ipccl.dll` zegt "Types registered
-   successfully"; daarvoor stopte het spel meteen zodra onze fake-client uit stond, daarna loopt het
-   door (>70 s).
+1. **`ShareK\ShareK.exe` really requires .NET, not mono.** Under wine-mono it falls over immediately:
+   `System.NullReferenceException at ShareK.Program.Main [0x0002d]` (also standalone, with `ShareK.exe.config`
+   next to it; presumably mono stumbles over `ConfigurationManager.AppSettings`). With
+   `winetricks -q dotnet48` in the prefix **it does run** (stays alive, rewrites
+   `E:\WritableConfig.ini`, logs `ntsync: up and running`). Note two things: winetricks sets the
+   Windows version of the prefix to win7 (this prefix was on 6.3/win8.1 -- restore with
+   `winetricks -q win81`, measured), and the installation takes ~2 minutes and ~1 GB.
+2. **The COM registration was indeed missing.** `RegAsm.exe /codebase ipccl.dll` says "Types registered
+   successfully"; before that the game stopped immediately as soon as our fake client was off, afterwards it keeps
+   running (>70 s).
 
-Verder: de engine kan `ShareK\ShareK.exe` als tweede programma starten (`HasTwoExecutables`,
-`LaunchSecondExecutableFirst`, `[Identify] Path2`, `[Launch] SecondWait`), buiten gamescope en in
-dezelfde view, prefix en omgeving. Met de fake-client aan (`RG_SHAREK_FAKE=1`) blijft het spel
-wachten: die fake geeft op slot 7 (`StartIpcClient`) -1 terug en slot 35 (status) wordt nooit
-aangeroepen, dus de client komt nooit verder. **Het beeld blijft zwart**, ook met het echte .NET,
-de registratie, de echte client en de server ernaast: de volgende vraag is waar de client op wacht
-(luistert `ShareK.exe` wel op de poort/pijp die `ipccl.dll` zoekt? `ShareK` schrijft geen
-`ShareKLog.log`; `LogPath = E:/` in `ShareK.exe.config` is op de kast een schrijfbare schijf en
-`E:` is bij ons niet gemapt).
+Furthermore: the engine can start `ShareK\ShareK.exe` as a second program (`HasTwoExecutables`,
+`LaunchSecondExecutableFirst`, `[Identify] Path2`, `[Launch] SecondWait`), outside gamescope and in
+the same view, prefix and environment. With the fake client on (`RG_SHAREK_FAKE=1`) the game keeps
+waiting: that fake returns -1 on slot 7 (`StartIpcClient`) and slot 35 (status) is never
+called, so the client never gets any further. **The picture stays black**, even with the real .NET,
+the registration, the real client and the server next to it: the next question is what the client is waiting for
+(does `ShareK.exe` listen on the port/pipe that `ipccl.dll` looks for? `ShareK` writes no
+`ShareKLog.log`; `LogPath = E:/` in `ShareK.exe.config` is a writable drive on the cabinet and
+`E:` is not mapped for us).
 
-## ShareK IPC (Mario Kart Arcade GP DX): waar het spel blijft wachten (2026-10-19 03:45)
+## ShareK IPC (Mario Kart Arcade GP DX): where the game keeps waiting (2026-10-19 03:45)
 
-De eigen ShareK-client (`rg-mfcam.dll`, `tools/rg-mfcam/sharek_fake.h`) wordt **wel** gebruikt: het
-logboek laat `CoCreateInstance({CCC44B2A-709A-33A8-A1B0-5DBE25B19C2C}) -> eigen object` zien en
-daarna `ShareK-object: slot 7 aangeroepen` (`StartIpcClient`, antwoord VARIANT_TRUE).
+The own ShareK client (`rg-mfcam.dll`, `tools/rg-mfcam/sharek_fake.h`) **is** used: the
+log shows `CoCreateInstance({CCC44B2A-709A-33A8-A1B0-5DBE25B19C2C}) -> eigen object` and
+then `ShareK-object: slot 7 aangeroepen` (`StartIpcClient`, answer VARIANT_TRUE).
 
-**Maar slot 35 (de ShareK-status) wordt nooit aangeroepen** (nul keer in het hele logboek, over drie
-runs). De tick van het spel (`0x47ecd0`) vraagt de status pas als de client klaar is met opstarten,
-en dat punt wordt nooit bereikt. De conclusie die daaruit volgt: de client meldt de verbinding
-normaal **terug** aan het spel (een callback/event vanuit de client-DLL naar het spel), en die
-melding komt van ons lege object nooit. Daarom blijft het beeld zwart, ongeacht de statuswaarde.
+**But slot 35 (the ShareK status) is never called** (zero times in the entire log, over three
+runs). The game's tick (`0x47ecd0`) only asks for the status when the client has finished starting up,
+and that point is never reached. The conclusion that follows: the client normally reports the connection
+**back** to the game (a callback/event from the client DLL to the game), and that
+notification never comes from our empty object. That is why the picture stays black, regardless of the status value.
 
-Wat er nu wel is:
-* `RG_SHAREK_STATUS` in `tools/rg-mfcam/sharek_fake.h` kiest de status die slot 35 teruggeeft
-  (standaard **1** = "配信機能OFF": het spel ruimt de distributie een keer op en doet daarna gewoon
-  werk; 2 = "wacht op het netwerk" was de oude vaste waarde en laat de tick niets doen; 0 = gewoon
-  werk). Dit is een knop voor de volgende stap, geen oplossing: met de callback er niet is komt de
-  tick niet aan de status toe.
-* Gemeten met een run van 75 seconden: het spel draait door (geen crash), `rg-mfcam.log` toont de
-  CoCreateInstance en slot 7, en het beeld blijft zwart (`bench-captures/MarioKartDX/`).
+What exists now:
+* `RG_SHAREK_STATUS` in `tools/rg-mfcam/sharek_fake.h` chooses the status that slot 35 returns
+  (default **1** = "配信機能OFF": the game cleans up the distribution once and then simply does
+  work; 2 = "waiting for the network" was the old fixed value and makes the tick do nothing; 0 = normal
+  work). This is a knob for the next step, not a solution: with the callback not there, the
+  tick never gets to the status.
+* Measured with a run of 75 seconds: the game keeps running (no crash), `rg-mfcam.log` shows the
+  CoCreateInstance and slot 7, and the picture stays black (`bench-captures/MarioKartDX/`).
 
-**Volgende stap (precies):** uitzoeken welke callback het spel aan de client meegeeft. Kijk naar de
-argumenten van slot 7 (`0x47e892` in de exe: `StartIpcClient([out] VARIANT_BOOL*)`) en naar de
-gebruikte slots ernaast -- de client krijgt vrijwel zeker een interface-pointer van het spel (een
-event sink) die bij "verbonden" wordt aangeroepen. Zolang die niet nagemaakt wordt, blijft het spel
-op het zwarte beeld. Het alternatief blijft de echte `ShareK.exe` (met dotnet48 in de prefix, dat is
-gemeten) als tweede programma, maar dat brak de run af (docs/research/namco/README.md, ouder
-gedeelte) en vraagt de tweede-Programma-route van de engine.
+**Next step (precisely):** find out which callback the game hands to the client. Look at the
+arguments of slot 7 (`0x47e892` in the exe: `StartIpcClient([out] VARIANT_BOOL*)`) and at the
+used slots next to it -- the client almost certainly gets an interface pointer from the game (an
+event sink) that is called on "connected". As long as that is not imitated, the game stays
+on the black picture. The alternative remains the real `ShareK.exe` (with dotnet48 in the prefix, that is
+measured) as a second program, but that aborted the run (docs/research/namco/README.md, older
+part) and requires the engine's second-program route.
 
-## ShareK IPC, tweede meting: de poortwachter, de sampler en de AM-daemon (2026-10-19 04:20-05:05)
+## ShareK IPC, second measurement: the gatekeeper, the sampler and the AM daemon (2026-10-19 04:20-05:05)
 
-Vervolg op het zwarte beeld. Met een eigen meetdraad (de sampler van `rg-compat`,
-`RG_COMPAT_SAMPLE=<ms>`, geladen door `rg-mfcam.dll` omdat de preload-plaats al bezet is) is te zien
-waar het spel zit: de hoofdraad in `win32u+0x11d38` (de berichtenlus) en de logica-draden in
-`ntdll+0xd410` (een wacht). Het spel valt dus niet om en zit niet in een rare aanroep; het komt
-alleen niet verder.
+Continuation of the black picture. With an own measuring thread (the sampler of `rg-compat`,
+`RG_COMPAT_SAMPLE=<ms>`, loaded by `rg-mfcam.dll` because the preload slot is already taken) it is possible to see
+where the game sits: the main thread in `win32u+0x11d38` (the message loop) and the logic threads in
+`ntdll+0xd410` (a wait). So the game does not fall over and is not in some odd call; it just
+does not get any further.
 
-**De poortwachter.** De functie die de ShareK-status vraagt staat op `0x481490`:
+**The gatekeeper.** The function that asks for the ShareK status is at `0x481490`:
 
 ```
 0x481492  xor  %ebx,%ebx
-0x481494  cmp  %bl,0x394(%eax)     ; vlag in het eigen ShareK-object
-0x48149a  je   0x481567            ; vlag 0 -> de statusvraag wordt OVERGESLAGEN
-0x4814a0  cmp  %ebx,(%eax)         ; interface-pointer nul?
+0x481494  cmp  %bl,0x394(%eax)     ; flag in the own ShareK object
+0x48149a  je   0x481567            ; flag 0 -> the status query is SKIPPED
+0x4814a0  cmp  %ebx,(%eax)         ; interface pointer zero?
 0x4814a2  je   0x481567
 0x4814b7  mov  0x8c(%ecx),%eax     ; slot 35
-0x4814bd  call *%eax               ; de statusvraag die wij nooit zagen
+0x4814bd  call *%eax               ; the status query we never saw
 ```
 
-Met de geheugen-motor (die `rg-mfcam.dll` nu zelf laadt als `RAVENGUN_PATCHMEM_FILE` gezet is) is de
-eerste poortwachter opengezet (`MK_AGP3_FINAL.exe|0x8149a|0f84c7000000|909090909090`, in het geheugen
-gecontroleerd: `90 90 90 90 90 90`). Daarna blijkt de **tweede** voorwaarde te blokkeren: de
-interface-pointer in het object van het spel is nul, dus de statusvraag komt alsnog niet. Let op de
-valkuil die dat kostte: de motor zoekt de module bij **naam**, en dit spel heet `MK_AGP3_FINAL.exe`
-(niet `game.exe`, zoals Robin Hood); met de verkeerde naam past hij niets toe.
+With the memory engine (which `rg-mfcam.dll` now loads itself when `RAVENGUN_PATCHMEM_FILE` is set) the
+first gatekeeper was opened (`MK_AGP3_FINAL.exe|0x8149a|0f84c7000000|909090909090`, verified in memory:
+`90 90 90 90 90 90`). After that the **second** condition turns out to block: the
+interface pointer in the game's object is zero, so the status query still does not happen. Note the
+pitfall that cost: the engine looks up the module by **name**, and this game is called `MK_AGP3_FINAL.exe`
+(not `game.exe`, like Robin Hood); with the wrong name it applies nothing.
 
-**Wat niet hielp:** `[Launch] AmDaemon = true` (de AM-daemon van de engine, `amdaemon.cpp`) tegen het
-zwarte beeld. Gemeten: het spel draait, het beeld blijft zwart. Die regel staat daarom niet in het
-profiel.
+**What did not help:** `[Launch] AmDaemon = true` (the engine's AM daemon, `amdaemon.cpp`) against the
+black picture. Measured: the game runs, the picture stays black. That line is therefore not in the
+profile.
 
-**Wat er nu wel ligt** (allemaal uitgeschakeld in de drop-in, met de naam erbij om aan te zetten):
-* `tools/rg-mfcam/rg_mfcam.cpp` logt elke `QueryInterface` met zijn IID en heeft `RG_SHAREK_ANY_IID=1`
-  om onbekende IID's toch te beantwoorden (meten, niet de standaard);
-* de motor en de sampler worden door `rg-mfcam.dll` zelf geladen als `RAVENGUN_PATCHMEM_FILE`
-  respectievelijk `RG_COMPAT_SAMPLE` gezet is (de preload-plaats is van `rg-mfcam.dll`);
-* `patches/MarioKartDX/dropin/patchmem.txt` met de poortwachter-patch en de uitleg erbij.
+**What is there now** (all disabled in the drop-in, with the name to enable them):
+* `tools/rg-mfcam/rg_mfcam.cpp` logs every `QueryInterface` with its IID and has `RG_SHAREK_ANY_IID=1`
+  to answer unknown IIDs anyway (measuring, not the default);
+* the engine and the sampler are loaded by `rg-mfcam.dll` itself when `RAVENGUN_PATCHMEM_FILE`
+  or `RG_COMPAT_SAMPLE` respectively is set (the preload slot belongs to `rg-mfcam.dll`);
+* `patches/MarioKartDX/dropin/patchmem.txt` with the gatekeeper patch and the explanation.
 
-**Volgende stap:** uitzoeken waarom `obj+0` (de interface-pointer) nul blijft. Het spel zet die
-vermoedelijk pas als een andere stap slaagt -- dezelfde vraag als bij de callback: wie schrijft dat
-veld, en welke methode van onze nep-client hoort dat te doen? Zoek de schrijver met dezelfde
-byte-zoekmethode (`89 8? <disp32>` op `+0x0` in de buurt van het ShareK-init op `0x47e800`).
+**Next step:** find out why `obj+0` (the interface pointer) stays zero. The game presumably only sets it
+when another step succeeds -- the same question as with the callback: who writes that
+field, and which method of our fake client is supposed to do that? Find the writer with the same
+byte-search method (`89 8? <disp32>` on `+0x0` near the ShareK init at `0x47e800`).
 
-## ALL.Net: de IAuth-klasse van AMAuthd werkt nu (2026-10-19 05:20)
+## ALL.Net: the IAuth class of AMAuthd now works (2026-10-19 05:20)
 
-**De hobbel was registratie, niet de klasse.** Het spel vraagt bij het opstarten
+**The hurdle was registration, not the class.** At startup the game asks
 
 ```
 CoCreateInstance(CLSID {4603BB03-058D-43D9-B96F-639BE908C1ED}, NULL, CLSCTX_LOCAL_SERVER,
                  IID {045A5150-D2B3-4590-A38B-C1158678E1AC})        <- 0x4010c0
 ```
 
-en kreeg altijd `CLASS_E_CLASSNOTREG` (0x80040154). De klasse zit in `AMCUS/AMAuthd.exe` en wordt pas
-vindbaar als **`AMCUS/iauthdll.dll` geregistreerd is** (dat bestand is het proxy/stub-bestand met de
-IID; het heeft `DllRegisterServer`). Met
+and always got `CLASS_E_CLASSNOTREG` (0x80040154). The class is in `AMCUS/AMAuthd.exe` and only becomes
+findable when **`AMCUS/iauthdll.dll` is registered** (that file is the proxy/stub file with the
+IID; it has `DllRegisterServer`). With
 
 ```
-regsvr32 iauthdll.dll        (in de prefix van het spel, vanuit de map AMCUS)
+regsvr32 iauthdll.dll        (in the game's prefix, from the AMCUS folder)
 ```
 
-staan de sleutels in de prefix (`HKLM\Software\Classes\CLSID\{4603BB03-...}` met `LocalServer32` naar
-`AMAuthd.exe`) en daarna geeft dezelfde aanroep **`hr 0x00000000`** -- het spel krijgt dus een echte
-IAuth van AMAuthd, in plaats van niets.
+the keys are in the prefix (`HKLM\Software\Classes\CLSID\{4603BB03-...}` with `LocalServer32` pointing to
+`AMAuthd.exe`) and after that the same call gives **`hr 0x00000000`** -- so the game gets a real
+IAuth from AMAuthd, instead of nothing.
 
-Wat er verder voor nodig was, in deze volgorde (de kast doet hetzelfde in `init_w10.ps1`):
+What else was needed, in this order (the cabinet does the same in `init_w10.ps1`):
 
-1. `PreprocessAmAuth.exe -wait` -- schrijft `WritableConfig.ini` (zonder dat bestand klaagt AMAuthd
-   "ERROR: file not found: WritableConfig.ini" en doet hij niets);
-2. `AMCUS/AMAuthd.exe` starten (blijft draaien);
-3. `regsvr32 AMCUS/iauthdll.dll` -- de klasse registreren.
+1. `PreprocessAmAuth.exe -wait` -- writes `WritableConfig.ini` (without that file AMAuthd complains
+   "ERROR: file not found: WritableConfig.ini" and does nothing);
+2. start `AMCUS/AMAuthd.exe` (stays running);
+3. `regsvr32 AMCUS/iauthdll.dll` -- register the class.
 
-**Correctie op deze notitie (leiding, ronde 9):** `views/MarioKartDX/AMCUS` is een **symbolische
-koppeling naar de NAS**, dus die "kopie in de view" heeft het origineel op de NAS overschreven
-(ALL.NET -> OFFLINE). De leiding heeft het origineel teruggezet vanuit `/tmp/AMConfig.origineel.ini`
-(md5 e22e16ead82786c4b3d359943a4135b9, `amdcfg-authType=ALL.NET`) en houdt een reservekopie. Dit
-bestand wordt niet meer aangeraakt. Zulke mappen horen in de schrijflaag van de view, niet als
-koppeling naar de NAS; zie de nachtstand voor Jeroen.
+**Correction to this note (lead, round 9):** `views/MarioKartDX/AMCUS` is a **symbolic
+link to the NAS**, so that "copy in the view" overwrote the original on the NAS
+(ALL.NET -> OFFLINE). The lead restored the original from `/tmp/AMConfig.origineel.ini`
+(md5 e22e16ead82786c4b3d359943a4135b9, `amdcfg-authType=ALL.NET`) and keeps a backup. This
+file is not touched any more. Such folders belong in the view's write layer, not as a link
+to the NAS; see the night status for Jeroen.
 
-**Gemeten resultaat:** de aanroep op 0x4010c0 slaagt nu (hr 0), het spel loopt door, maar het beeld
-is nog steeds zwart. De authenticatie is dus een *noodzakelijke* stap die nu werkt, maar niet de
-laatste: de volgende vraag is wat het spel daarna met `auth_state` doet (het leest velden van de
-IAuth-uitvoer; de eerdere conclusie dat het spel de methode op slot 9 aanroept en daarna afsluit is
-**ingetrokken** (review 10): de proef gebruikte stdcall met een vaste ariteit die niet klopte, dus die
-conclusie is niet betrouwbaar). Met de echte AMAuthd blijft het draaien, dus de volgende meting is:
-welke van de 29 methodes roept het spel aan, en wat antwoordt de echte server daarop?
-(`AMCUS/AMConfig.ini` kent `amdcfg-authType` = `ALL.NET` | `OFFLINE` | `NBLINE`; op ALL.NET werkt de
-registratie, een OFFLINE-kopie is nog niet geprobeerd.)
+**Measured result:** the call at 0x4010c0 now succeeds (hr 0), the game keeps running, but the picture
+is still black. So authentication is a *necessary* step that now works, but not the
+last: the next question is what the game does with `auth_state` afterwards (it reads fields of the
+IAuth output; the earlier conclusion that the game calls the method on slot 9 and then shuts down is
+**retracted** (review 10): the trial used stdcall with a fixed arity that was wrong, so that
+conclusion is not reliable). With the real AMAuthd it keeps running, so the next measurement is:
+which of the 29 methods does the game call, and what does the real server answer to that?
+(`AMCUS/AMConfig.ini` knows `amdcfg-authType` = `ALL.NET` | `OFFLINE` | `NBLINE`; on ALL.NET the
+registration works, an OFFLINE copy has not been tried yet.)
 
-### IAuth: OFFLINE geprobeerd, en wat er nog te meten valt (2026-10-19 05:28)
+### IAuth: OFFLINE tried, and what is still to be measured (2026-10-19 05:28)
 
-`AMCUS/AMConfig.ini` kent `amdcfg-authType` = `ALL.NET` | `OFFLINE` | `NBLINE`. Een kopie in de view
-met `amdcfg-authType=OFFLINE` is geprobeerd: de IAuth-aanroep geeft nog
-steeds `hr 0` (de registratie werkt dus in beide standen) en het beeld blijft zwart. OFFLINE maakt
-voor deze hobbel dus geen verschil.
+`AMCUS/AMConfig.ini` knows `amdcfg-authType` = `ALL.NET` | `OFFLINE` | `NBLINE`. A copy in the view
+with `amdcfg-authType=OFFLINE` was tried: the IAuth call still gives
+`hr 0` (so the registration works in both modes) and the picture stays black. OFFLINE therefore makes
+no difference for this hurdle.
 
-**Methodeaanroepen loggen** vraagt een *doorgeefobject*: de game praat nu met de echte AMAuthd over
-COM, en die aanroepen zijn van buiten niet te zien. Onze eigen proef (lege object, elke methode S_OK)
-leek te laten zien welke methode het spel aanroept (slot 9, vtable+0x24) en dat het spel daarna netjes
-afsloot, maar die conclusie is **ingetrokken** (review 10): de proef gebruikte stdcall met een vaste
-ariteit die niet klopte, dus het afsluiten kan aan de proef zelf liggen en bewijst niets over het spel.
-Met de echte server blijft het draaien (zwart beeld). Een echte
-proxy moet de aanroepen doorgeven aan het originele object, en daarvoor zijn de *ariteiten* van de 32
-methodes nodig; die staan in het proxy/stub-bestand `AMCUS/iauthdll.dll`. Dat is de volgende stap:
-`iauthdll.dll` uitlezen (de stub-functies hebben elk hun eigen stapelgrootte), een proxy per methode
-maken die logt en doorgeeft, en dan zien wat de echte server per aanroep teruggeeft.
+**Logging method calls** requires a *pass-through object*: the game now talks to the real AMAuthd over
+COM, and those calls cannot be seen from outside. Our own trial (empty object, every method S_OK)
+seemed to show which method the game calls (slot 9, vtable+0x24) and that the game then shut down cleanly,
+but that conclusion was **retracted** (review 10): the trial used stdcall with a fixed
+arity that was wrong, so the shutdown may be due to the trial itself and proves nothing about the game.
+With the real server it keeps running (black picture). A real
+proxy must pass the calls on to the original object, and for that the *arities* of the 32
+methods are needed; they are in the proxy/stub file `AMCUS/iauthdll.dll`. That is the next step:
+read out `iauthdll.dll` (the stub functions each have their own stack size), make a proxy per method
+that logs and passes on, and then see what the real server returns per call.

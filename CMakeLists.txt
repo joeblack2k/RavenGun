@@ -585,27 +585,30 @@ if(RAVENGUN_BUILD_TESTS)
   # Het USB-IO-protocol van rg-allsio.dll (tools/rg-allsio/allsio_proto.h): productstring, rapporten, AllsUsbIo-pijp -> ingangsrapport.
   add_executable(ravengun_allsio_proto_tests tests/test_allsio_proto.cpp)
   add_test(NAME ravengun_allsio_proto_tests COMMAND ravengun_allsio_proto_tests)
-  # De JVS-omleiding van rg-mfcam.dll (tools/rg-mfcam/jvs_com.h): COM3 -> pipe, sense-lijn.
+  # The JVS redirection of rg-mfcam.dll (tools/rg-mfcam/jvs_com.h): COM3 -> pipe, sense line.
   add_executable(ravengun_jvs_com_tests tests/test_jvs_com.cpp)
   add_test(NAME ravengun_jvs_com_tests COMMAND ravengun_jvs_com_tests)
-  # Het eigen ShareK-object van rg-mfcam.dll (tools/rg-mfcam/sharek_fake.h): CLSID/IID, slottabel van Mario Kart DX.
+  # The own ShareK object of rg-mfcam.dll (tools/rg-mfcam/sharek_fake.h): CLSID/IID, slot table of Mario Kart DX.
   add_executable(ravengun_sharek_fake_tests tests/test_sharek_fake.cpp)
   add_test(NAME ravengun_sharek_fake_tests COMMAND ravengun_sharek_fake_tests)
-  # De stalldump van rg-mfcam.dll (tools/rg-mfcam/stall_dump.h): welke stapelwaarden op een terugkeeradres lijken.
+  # The stall dump of rg-mfcam.dll (tools/rg-mfcam/stall_dump.h): which stack values look like a return address.
   add_executable(ravengun_stall_dump_tests tests/test_stall_dump.cpp)
   add_test(NAME ravengun_stall_dump_tests COMMAND ravengun_stall_dump_tests)
-  # De aanvullende schijfletter-herleiding van rg-mfcam.dll (tools/rg-mfcam/drive_fix.h): rename/Find/Attributes voor F:.
+  # The supplementary drive-letter redirection of rg-mfcam.dll (tools/rg-mfcam/drive_fix.h): rename/Find/Attributes for F:.
   add_executable(ravengun_drive_fix_tests tests/test_drive_fix.cpp)
   add_test(NAME ravengun_drive_fix_tests COMMAND ravengun_drive_fix_tests)
-  # Het eigen Banapass-kaartlezer-antwoord van rg-mfcam.dll (tools/rg-mfcam/bngrw_fake.h).
+  # The own Banapass card reader reply of rg-mfcam.dll (tools/rg-mfcam/bngrw_fake.h).
   add_executable(ravengun_bngrw_fake_tests tests/test_bngrw_fake.cpp)
   add_test(NAME ravengun_bngrw_fake_tests COMMAND ravengun_bngrw_fake_tests)
-  # De venstermodus van rg-mfcam.dll (tools/rg-mfcam/window_mode.h): het patroon van de volledig-scherm-standaard van Mario Kart DX.
+  # The window mode of rg-mfcam.dll (tools/rg-mfcam/window_mode.h): the pattern of Mario Kart DX's fullscreen default.
   add_executable(ravengun_window_mode_tests tests/test_window_mode.cpp)
   add_test(NAME ravengun_window_mode_tests COMMAND ravengun_window_mode_tests)
-  # Het nagebootste STR-bord van rg-mfcam.dll (tools/rg-mfcam/str_board.h): status C01/E00 en een antwoord per opdracht van 10 bytes.
+  # The emulated STR board of rg-mfcam.dll (tools/rg-mfcam/str_board.h): status C01/E00 and one reply per 10-byte command.
   add_executable(ravengun_str_board_tests tests/test_str_board.cpp)
   add_test(NAME ravengun_str_board_tests COMMAND ravengun_str_board_tests)
+  # The content router's echo reply of rg-mfcam.dll (tools/rg-mfcam/content_router.h): address parser and ICMP reply buffer.
+  add_executable(ravengun_content_router_tests tests/test_content_router.cpp)
+  add_test(NAME ravengun_content_router_tests COMMAND ravengun_content_router_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)

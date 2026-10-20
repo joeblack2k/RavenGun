@@ -1,37 +1,37 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// De beslislogica van "een eigen ShareK-object" in rg-mfcam.dll (zie VIERDE TAAK in rg_mfcam.cpp), zonder Windows-aanroepen, zodat
-// tests/test_sharek_fake.cpp haar op de host kan toetsen.
+// The decision logic of "our own ShareK object" in rg-mfcam.dll (see FOURTH TASK in rg_mfcam.cpp), without Windows calls, so that
+// tests/test_sharek_fake.cpp can test it on the host.
 //
-// WAT HET SPEL DOET (gemeten aan MK_AGP3_FINAL.exe v1.18.16, objdump; adressen zonder ASLR, imagebase 0x400000)
-//   ShareKManager.cpp (0x47d9c6..0x482ced) is de client van "ShareK", het hulpprogramma dat bij de echte kast de content-distributie
-//   (updates tussen kasten, NET_USE_SHAREK in Data/System/Config/NetConfig.csv) doet. ShareK.exe is een .NET-programma; de client-kant
-//   is ipccl.dll (.NET, op de echte kast met RegAsm.exe geregistreerd: init_w10.ps1) en dat is een COM-klasse:
+// WHAT THE GAME DOES (measured on MK_AGP3_FINAL.exe v1.18.16, objdump; addresses without ASLR, image base 0x400000)
+//   ShareKManager.cpp (0x47d9c6..0x482ced) is the client of "ShareK", the helper program that on the real cabinet does the content distribution
+//   (updates between cabinets, NET_USE_SHAREK in Data/System/Config/NetConfig.csv). ShareK.exe is a .NET program; the client side
+//   is ipccl.dll (.NET, registered with RegAsm.exe on the real cabinet: init_w10.ps1) and that is a COM class:
 //       CoCreateInstance(CLSID {ccc44b2a-709a-33a8-a1b0-5dbe25b19c2c}, NULL, 0x17, IID {c2116f7f-cf46-3c68-b187-9d0fe9f70ed0}, &M->iface)
-//   op 0x47e834 (StartIpcClient) en 0x48107f (herstart na een fout). Beide GUID's zijn naam-gebaseerd (versie 3), zoals .NET ze voor een
-//   ComVisible-klasse zonder [Guid] afleidt; ze staan alleen in de exe, niet in ipccl.dll/ShareK.exe.
-//   De registratie ontbreekt in onze prefix: CoCreateInstance geeft 0x80040154 (REGDB_E_CLASSNOTREG), het spel gooit een _com_error,
-//   de catch-afhandelaar op 0x47e8f8 logt "*ERR* ComError Code = 80040154" en roept dan toch methode +0x20 aan op de nu lege interface
-//   (0x47e95e: mov eax,[eax] = 0; mov ecx,[eax] -> toegangsfout). Dit is dus NIET de IAuth van AMAuthd (CLSID 4603BB03..., 0x4010c0):
-//   de constructor van die wikkel vangt een mislukte CoCreateInstance zelf af (vlag-byte 0, 0x4010dd/0x4010d9).
+//   at 0x47e834 (StartIpcClient) and 0x48107f (restart after an error). Both GUIDs are name-based (version 3), as .NET derives them for a
+//   ComVisible class without [Guid]; they are only in the exe, not in ipccl.dll/ShareK.exe.
+//   The registration is missing in our prefix: CoCreateInstance returns 0x80040154 (REGDB_E_CLASSNOTREG), the game throws a _com_error,
+//   the catch handler at 0x47e8f8 logs "*ERR* ComError Code = 80040154" and then calls method +0x20 anyway on the now empty interface
+//   (0x47e95e: mov eax,[eax] = 0; mov ecx,[eax] -> access violation). So this is NOT the IAuth of AMAuthd (CLSID 4603BB03..., 0x4010c0):
+//   the constructor of that wrapper catches a failed CoCreateInstance itself (flag byte 0, 0x4010dd/0x4010d9).
 //
-// DE INTERFACE (IUnknown + IDispatch + .NET-methodes; de slotnummers zijn vtable-offset/4, gemeten aan elke aanroepplek)
-//   Alle methodes zijn stdcall en geven een HRESULT; het spel gooit een _com_error bij HRESULT < 0. Elke aanroep heeft this + een uitvoer-
-//   pointer of invoerwaarde (8 bytes argumenten), behalve de zes methodes met vier extra argumenten (20 bytes).
-//   Wat het spel uit de antwoorden leest:
+// THE INTERFACE (IUnknown + IDispatch + .NET methods; the slot numbers are vtable offset/4, measured at every call site)
+//   All methods are stdcall and return an HRESULT; the game throws a _com_error for HRESULT < 0. Each call has this + an output
+//   pointer or input value (8 bytes of arguments), except the six methods with four extra arguments (20 bytes).
+//   What the game reads from the replies:
 //     slot 7  (+0x1c)  StartIpcClient([out] VARIANT_BOOL*): WORD <> 0 = "Startup ShareK-Client." (0x47e892); 0 = "StartIpcClient() error"
-//     slot 8  (+0x20)  stop/afsluiten, uitkomst ongelezen; aangeroepen vlak voor Release (0x47e77f) en in de catch (0x47e965)
-//     slot 33 (+0x84)  ShareK-proces herstart? [out] WORD, 1 = ja: zet M+0x39b, daarna "ShareKプロセス再起動により再初期化" (0x47ed68)
-//     slot 35 (+0x8c)  ShareK-status [out] WORD, bewaard in M+0x3a8 (vorige waarde in +0x3aa); de tick op 0x47ecd0 vertaalt hem:
-//                        0 = onveranderd werk doen, 1 = "配信機能OFF" (eenmalig opruimen, daarna weer werk), 2 = "ネットワーク未初期化により
-//                        自動復旧待機" (0x47eea5): met status 2 slaat de tick het werk over (0x47eee3: cmp [+0x3a8],2 -> klaar), elke
-//                        tick; andere waarden = "未実装のShareKステータスコード"
-//   De overige gelezen uitkomsten (slot 9, 11, 27, 31, 41, 43, 55) worden door de aanroeper eerst op 0 gezet (mov [ebp-x],ebx) en door een
-//   leeg antwoord ongemoeid gelaten; 0 betekent daar "niets te doen".
+//     slot 8  (+0x20)  stop/shut down, result unread; called just before Release (0x47e77f) and in the catch (0x47e965)
+//     slot 33 (+0x84)  ShareK process restarted? [out] WORD, 1 = yes: sets M+0x39b, then "ShareKプロセス再起動により再初期化" (0x47ed68)
+//     slot 35 (+0x8c)  ShareK status [out] WORD, kept in M+0x3a8 (previous value in +0x3aa); the tick at 0x47ecd0 translates it:
+//                        0 = do work unchanged, 1 = "配信機能OFF" (clean up once, then work again), 2 = "ネットワーク未初期化により
+//                        自動復旧待機" (0x47eea5): with status 2 the tick skips the work (0x47eee3: cmp [+0x3a8],2 -> done), every
+//                        tick; other values = "未実装のShareKステータスコード"
+//   The other results that are read (slot 9, 11, 27, 31, 41, 43, 55) are first set to 0 by the caller (mov [ebp-x],ebx) and left
+//   untouched by an empty reply; 0 means "nothing to do" there.
 //
-// WAT HET EIGEN OBJECT DOET: een ShareK dat draait maar niets te verspreiden heeft. StartIpcClient slaagt (-1), de status is
-// standaard 1 (配信機能OFF: het spel ruimt de distributie een keer op en doet daarna gewoon werk) en met RG_SHAREK_STATUS te kiezen
-// (2 = wacht op het netwerk, dan doet de tick niets; 0 = gewoon werk), geen herstart gevraagd, en elke andere methode geeft S_OK
-// zonder iets te schrijven.
+// WHAT OUR OWN OBJECT DOES: a ShareK that is running but has nothing to distribute. StartIpcClient succeeds (-1), the status is
+// 1 by default (配信機能OFF: the game cleans up the distribution once and then simply works) and can be chosen with RG_SHAREK_STATUS
+// (2 = wait for the network, then the tick does nothing; 0 = simply work), no restart requested, and every other method returns S_OK
+// without writing anything.
 #pragma once
 
 #include <cstdint>
@@ -52,56 +52,56 @@ constexpr Guid kIid = {0xc2116f7fu, 0xcf46, 0x3c68, {0xb1, 0x87, 0x9d, 0x0f, 0xe
 constexpr Guid kIidUnknown = {0x00000000u, 0x0000, 0x0000, {0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
 constexpr Guid kIidDispatch = {0x00020400u, 0x0000, 0x0000, {0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
 
-// Voor welke CLSID's we een eigen object leveren. Alles anders (ook de IAuth van AMAuthd) gaat naar de echte CoCreateInstance.
+// For which CLSIDs we supply our own object. Everything else (including the IAuth of AMAuthd) goes to the real CoCreateInstance.
 inline bool wants_clsid(const Guid& clsid) { return same(clsid, kClsid); }
-// Welke interfaces ons object kent (QueryInterface).
+// Which interfaces our object knows (QueryInterface).
 inline bool knows_iid(const Guid& iid) { return same(iid, kIid) || same(iid, kIidUnknown) || same(iid, kIidDispatch); }
 
 enum class Kind : uint8_t {
-    Nop,      // S_OK, schrijft niets
+    Nop,      // S_OK, writes nothing
     Start,    // [out] WORD = -1 (VARIANT_TRUE)
-    Status,   // [out] WORD = de ShareK-status (zie status_keuze)
+    Status,   // [out] WORD = the ShareK status (see status_keuze)
     Restart,  // [out] WORD = 0
 };
 constexpr int16_t kStartOk = -1;     // VARIANT_TRUE
-// Status die het eigen object teruggeeft. 0 = gewoon werk, 1 = "配信機能OFF" (het spel ruimt de
-// distributie een keer op en doet daarna gewoon werk), 2 = "wacht op het netwerk" (de tick van het
-// spel doet dan niets, vandaar het zwarte beeld). Met RG_SHAREK_STATUS is dit te kiezen; de
-// standaard is 1, want een losse kast heeft niets te verspreiden maar moet wel doorlopen. Alleen 0,
-// 1 en 2 zijn geldig: iets anders (of iets niet-numerieks) valt terug op de standaard, zodat een
-// typefout in de omgeving het spel niet op een onbekende statuscode laat lopen.
-// De tekst uit de omgeving omzetten. Alleen 0, 1 en 2 zijn geldig; al het andere (leeg,
-// niet-numeriek, buiten bereik) valt terug op de standaard. Los van het lezen, zodat de proef dit
-// zonder proces-start kan controleren.
-inline int16_t status_uit_tekst(const char* v, int16_t standaard = 1) {
+// Status that our own object returns. 0 = simply work, 1 = "配信機能OFF" (the game cleans up the
+// distribution once and then simply works), 2 = "wait for the network" (the game's tick
+// then does nothing, hence the black screen). This can be chosen with RG_SHAREK_STATUS; the
+// default is 1, because a standalone cabinet has nothing to distribute but must keep running. Only 0,
+// 1 and 2 are valid: anything else (or anything non-numeric) falls back to the default, so that a
+// typo in the environment does not make the game run on an unknown status code.
+// Convert the text from the environment. Only 0, 1 and 2 are valid; everything else (empty,
+// non-numeric, out of range) falls back to the default. Separate from the reading, so that the test can check this
+// without starting a process.
+inline int16_t status_from_text(const char* v, int16_t fallback = 1) {
     if (v && *v) {
-        char* eind = nullptr;
-        const long w = std::strtol(v, &eind, 10);
-        if (eind && *eind == '\0' && w >= 0 && w <= 2) return static_cast<int16_t>(w);
+        char* end = nullptr;
+        const long w = std::strtol(v, &end, 10);
+        if (end && *end == '\0' && w >= 0 && w <= 2) return static_cast<int16_t>(w);
     }
-    return standaard;
+    return fallback;
 }
 
 inline int16_t status_keuze() {
-    static int gekozen = -1;   /* een keer lezen en onthouden; de tick vraagt dit vaak */
-    if (gekozen < 0) gekozen = status_uit_tekst(std::getenv("RG_SHAREK_STATUS"));
-    return static_cast<int16_t>(gekozen);
+    static int chosen = -1;   /* read once and remember; the tick asks for this often */
+    if (chosen < 0) chosen = status_from_text(std::getenv("RG_SHAREK_STATUS"));
+    return static_cast<int16_t>(chosen);
 }
 constexpr int16_t kRestartNo = 0;
 
 struct Slot {
-    int index;       // vtable-offset / 4
-    int arg_bytes;   // stdcall: this + argumenten, door de aangeroepene opgeruimd
+    int index;       // vtable offset / 4
+    int arg_bytes;   // stdcall: this + arguments, cleaned up by the callee
     Kind kind;
-    const char* use; // waar het spel hem aanroept (adres van de aanroep)
+    const char* use; // where the game calls it (address of the call)
 };
 
-// Elke vtable-aanroep in ShareKManager.cpp (0x47c000..0x483400), gevonden met een scanner op "mov r,[r+off] ... call r".
+// Every vtable call in ShareKManager.cpp (0x47c000..0x483400), found with a scanner for "mov r,[r+off] ... call r".
 constexpr Slot kSlots[] = {
     {7, 8, Kind::Start, "StartIpcClient 0x47e86b, 0x4810b6"},
-    {8, 8, Kind::Nop, "afsluiten 0x47e77f, 0x47e965, 0x4811bb, 0x48131c"},
-    {9, 8, Kind::Nop, "0x4802eb: uitkomst op 0 gezet; 3 = actie"},
-    {10, 8, Kind::Nop, "0x4802ff (invoer 1)"},
+    {8, 8, Kind::Nop, "shutdown 0x47e77f, 0x47e965, 0x4811bb, 0x48131c"},
+    {9, 8, Kind::Nop, "0x4802eb: result set to 0; 3 = action"},
+    {10, 8, Kind::Nop, "0x4802ff (input 1)"},
     {11, 8, Kind::Nop, "0x480298"},
     {14, 20, Kind::Nop, "0x480828"},
     {15, 20, Kind::Nop, "0x480998"},
@@ -117,7 +117,7 @@ constexpr Slot kSlots[] = {
     {30, 8, Kind::Nop, "0x481eef"},
     {31, 8, Kind::Nop, "0x482007"},
     {32, 8, Kind::Nop, "0x482130"},
-    {33, 8, Kind::Restart, "herstartvraag 0x48128e"},
+    {33, 8, Kind::Restart, "restart query 0x48128e"},
     {34, 8, Kind::Nop, "0x481398"},
     {35, 8, Kind::Status, "status 0x4814b7"},
     {38, 8, Kind::Nop, "0x482247"},
@@ -136,7 +136,7 @@ constexpr Slot kSlots[] = {
     {58, 8, Kind::Nop, "0x482af7"},
 };
 constexpr int kSlotCount = static_cast<int>(sizeof kSlots / sizeof kSlots[0]);
-constexpr int kVtableSize = 64;   // ruim boven het hoogste gebruikte slot (58)
+constexpr int kVtableSize = 64;   // well above the highest slot in use (58)
 
 constexpr const Slot* find_slot(int index) {
     for (int i = 0; i < kSlotCount; ++i)
@@ -144,7 +144,7 @@ constexpr const Slot* find_slot(int index) {
     return nullptr;
 }
 
-// Het antwoord van een slot als waarde voor zijn [out] WORD; geeft false als het slot niets schrijft.
+// The reply of a slot as a value for its [out] WORD; returns false if the slot writes nothing.
 inline bool out_word(Kind k, int16_t& v) {
     switch (k) {
         case Kind::Start: v = kStartOk; return true;

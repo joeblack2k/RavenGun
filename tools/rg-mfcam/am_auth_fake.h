@@ -24,6 +24,16 @@
 //                    0x401A2D: 0 = no data, 1 = use a constant, other = the four doubles.
 //   slot 10 (+0x28)  0x08 argument bytes (this + pointer to a network-info block)   0x803D00
 //                    The game only looks at the HRESULT; 0 is "no error".
+// The slots the game calls later (attract mode and the network code), measured at the call sites
+// 2026-10-20:
+//   slot 14 (+0x38)  0x08 argument bytes (this + the game's server-name buffer)      0x461A05
+//                    Offline (no IAuth) the game keeps its own buffer, so ours leaves it untouched.
+//   slot 23 (+0x5C)  0x08 argument bytes (this + a dword, 0)                         0x803938
+//                    Called when the status block's +0x24 is above 0; it only has to succeed.
+//   slots 12, 13, 15, 29, 30 (+0x30, +0x34, +0x3C, +0x74, +0x78)  0x04 argument bytes (this only)
+//                    0x4617C9, 0x4617B5, 0x4621A9, 0x768E9C, 0x7634AD / 0x80640F.
+// Every slot must pop exactly its argument bytes (stdcall): a stub with one dword too few leaves the
+// caller's stack off by four, and the game falls over later (slot 23: ~4 minutes into attract mode).
 //
 // THE STATUS BLOCK (what the game reads, from the accessors around 0x4015C0 and the real AMAuthd
 // implementation at 0x40ACB0):
@@ -129,7 +139,7 @@ inline int auth_state_from_text(const char* v, int fallback = kAuthStateDefault)
     }
     return fallback;
 }
-inline int auth_keuze() {
+inline int auth_choice() {
     static int chosen = -1;   /* read once; the boot check asks often */
     if (chosen < 0) chosen = auth_state_from_text(std::getenv("RG_AMAUTH_STATE"));
     return chosen;
@@ -142,7 +152,7 @@ inline int auth_keuze() {
 // (MK_AGP3_FINAL.exe 0x401AB0, state 3) only leaves its wait loop when it finds 0x0F there, and the
 // boot check waits on that client before it draws the remaining items. Without it the auth client
 // stays in state 3 forever and the check screen keeps its items blank.
-inline void fill_status(unsigned char* block, int auth_state = auth_keuze()) {
+inline void fill_status(unsigned char* block, int auth_state = auth_choice()) {
     if (!block) return;
     std::memset(block, 0, kStatusSize);
     const uint32_t state = static_cast<uint32_t>(auth_state);

@@ -1,5 +1,5 @@
-// De beslislogica van de JVS-omleiding in rg-mfcam.dll (tools/rg-mfcam/jvs_com.h): welke bestandsnaam voor de JVS-poort telt en welke
-// sense-lijn het spel te zien krijgt. De waarden zijn die van Mario Kart Arcade GP DX (CreateFileA("COM3")) en van de OpenParrot-bron.
+// The decision logic of the JVS redirection in rg-mfcam.dll (tools/rg-mfcam/jvs_com.h): which file name counts as the JVS port and which
+// sense line the game gets to see. The values are those of Mario Kart Arcade GP DX (CreateFileA("COM3")) and of the OpenParrot source.
 #include <cstdio>
 
 #include "../tools/rg-mfcam/jvs_com.h"
@@ -17,25 +17,25 @@ static int g_failures = 0, g_checks = 0;
     } while (0)
 
 int main() {
-    // Beide schrijfwijzen van Windows, hoofdletters maken niet uit.
+    // Both Windows spellings; case does not matter.
     CHECK(port_matches("COM3", "COM3"));
     CHECK(port_matches("com3", "COM3"));
     CHECK(port_matches("\\\\.\\COM3", "COM3"));
     CHECK(port_matches("\\\\.\\com3", "Com3"));
-    // Andere poorten blijven van het spel (kaartlezer, ticket): ook COM30 en COM13 horen er niet bij.
+    // Other ports stay with the game (card reader, ticket): COM30 and COM13 do not match either.
     CHECK(!port_matches("COM1", "COM3"));
     CHECK(!port_matches("COM30", "COM3"));
     CHECK(!port_matches("COM13", "COM3"));
     CHECK(!port_matches("COM", "COM3"));
     CHECK(!port_matches("\\\\.\\pipe\\TeknoParrot_JVS", "COM3"));
     CHECK(!port_matches("F:\\Fsystem\\x.bin", "COM3"));
-    // Leeg of ontbrekend = uit.
+    // Empty or missing = off.
     CHECK(!port_matches("COM3", ""));
     CHECK(!port_matches("COM3", nullptr));
     CHECK(!port_matches(nullptr, "COM3"));
-    // Sense-lijn: zonder adres alleen CTS, met adres CTS+DSR.
+    // Sense line: without an address only CTS, with an address CTS+DSR.
     CHECK(modem_status(false) == 0x10u);
     CHECK(modem_status(true) == 0x30u);
-    std::printf("jvs_com: %d controles, %d mislukt\n", g_checks, g_failures);
+    std::printf("jvs_com: %d checks, %d failed\n", g_checks, g_failures);
     return g_failures ? 1 : 0;
 }

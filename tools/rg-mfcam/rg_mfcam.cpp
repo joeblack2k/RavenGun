@@ -1,115 +1,126 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// rg-mfcam.dll: een Media Foundation-camera voor een Windows-spel onder Wine, gevoed door de daemon van RavenGun.
+// rg-mfcam.dll: a Media Foundation camera for a Windows game under Wine, fed by the RavenGun daemon.
 //
-// WAAROM
-//   Mario Kart Arcade GP DX maakt een spelersfoto met de camera van de kast. Het spel zoekt die camera via Media Foundation:
-//   MF.dll!MFEnumDeviceSources met MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE = VIDCAP, daarna MFCreateSourceReaderFromMediaSource
-//   (MFReadWrite.dll) met een IMFSourceReaderCallback (gemeten: de importtabel van MK_AGP3_FINAL.exe). Wine (proton-11.0-2) kent
-//   geen videocamera's in Media Foundation: MFEnumDeviceSources geeft bij VIDCAP `*count = 0` en S_OK (gemeten: de code van
-//   mf.dll, i386), en MFCreateDeviceSource is een stub. Het spel ziet dus nooit een camera, wat er ook aan /dev/video hangt.
+// WHY
+//   Mario Kart Arcade GP DX takes a player photo with the cabinet's camera. The game finds that camera through Media Foundation:
+//   MF.dll!MFEnumDeviceSources with MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE = VIDCAP, then MFCreateSourceReaderFromMediaSource
+//   (MFReadWrite.dll) with an IMFSourceReaderCallback (measured: the import table of MK_AGP3_FINAL.exe). Wine (proton-11.0-2) has
+//   no video cameras in Media Foundation: MFEnumDeviceSources returns `*count = 0` and S_OK for VIDCAP (measured: the code of
+//   mf.dll, i386), and MFCreateDeviceSource is a stub. So the game never sees a camera, whatever is attached at /dev/video.
 //
-// WAT
-//   Bij het laden (de OpenParrot-lader laadt deze DLL via TP_PRELOAD_DLL in het spelproces, na de kern en voordat het spel verder
-//   gaat; docs/dropins.md) zet deze DLL de invoer MFEnumDeviceSources in de importtabel van het spel om naar een eigen versie. Die
-//   geeft voor VIDCAP een camera ("RavenGun camera") als het camerabestand van de daemon er is (src/ravengun/vision/
-//   camera_feed_format.h, standaard Z:\dev\shm\ravengun_Camera), en roept anders de oorspronkelijke functie aan (dan blijft alles
-//   zoals het was). De camera is een eigen IMFMediaSource met een stroom: YUY2 in de afmetingen van het bestand, en daarnaast NV12
-//   en RGB32 (hier omgezet), 30 beelden per seconde, live. Elk verzoek om een beeld (RequestSample) krijgt het nieuwste beeld uit het
-//   bestand. De daemon blijft de enige eigenaar van het apparaat.
+// WHAT
+//   On load (the OpenParrot loader loads this DLL via TP_PRELOAD_DLL into the game process, after the core and before the game
+//   continues; docs/dropins.md) this DLL redirects the import MFEnumDeviceSources in the game's import table to a version of its own. For VIDCAP
+//   that version returns a camera ("RavenGun camera") if the daemon's camera file exists (src/ravengun/vision/
+//   camera_feed_format.h, default Z:\dev\shm\ravengun_Camera), and otherwise calls the original function (then everything stays
+//   as it was). The camera is an IMFMediaSource of our own with one stream: YUY2 in the dimensions of the file, and also NV12
+//   and RGB32 (converted here), 30 frames per second, live. Each request for a frame (RequestSample) gets the newest frame from the
+//   file. The daemon remains the only owner of the device.
 //
-// LOGBOEK
-//   rg-mfcam.log naast deze DLL (in de view van de game): het laden, de omzetting van de importtabel, elke vraag van het spel
-//   (MFEnumDeviceSources, het formaat dat het kiest, start/stop) en het aantal geleverde beelden. Zonder dat logboek is de DLL niet
-//   geladen.
+// LOG
+//   rg-mfcam.log next to this DLL (in the game's view): the loading, the redirection of the import table, every question from the game
+//   (MFEnumDeviceSources, the format it chooses, start/stop) and the number of frames delivered. Without that log the DLL has not
+//   been loaded.
 //
-// TWEEDE TAAK: pHResult van d3dx10
-//   De lader neemt maar een preload-DLL per spel, dus deze DLL repareert ook iets van Wine dat Mario Kart laat vallen. Het spel
-//   laadt zijn effecten met D3DX10CreateEffectFromFileA(..., pump = NULL, &effect, &errors, &hr) en kijkt daarna ALLEEN naar `hr`
-//   (0x838AE9 in MK_AGP3_FINAL.exe: `hr < 0` geeft NULL, en 0x76C8C0 leest dan zonder controle door die NULL). Windows zet `*pHResult`
-//   ook zonder pump; Wine (proton-11.0-2) laat hem ongemoeid (gemeten met een proefprogramma: de waarde bleef 0xDEADBEEF). Dan
-//   beslist wat er toevallig op de stapel stond, en het spel viel na ~3 minuten attract bij "AttractGameDemo Unload" (TireTrace_Nml.cfx).
-//   De omzetting hier: de vier d3dx10-functies met een pHResult roepen het origineel aan en zetten daarna `*pHResult` op de uitkomst
-//   als er geen pump is (wat Windows ook doet).
+// SECOND TASK: pHResult of d3dx10
+//   The loader takes only one preload DLL per game, so this DLL also repairs something in Wine that Mario Kart trips over. The game
+//   loads its effects with D3DX10CreateEffectFromFileA(..., pump = NULL, &effect, &errors, &hr) and then looks ONLY at `hr`
+//   (0x838AE9 in MK_AGP3_FINAL.exe: `hr < 0` gives NULL, and 0x76C8C0 then reads through that NULL without a check). Windows sets `*pHResult`
+//   even without a pump; Wine (proton-11.0-2) leaves it untouched (measured with a test program: the value stayed 0xDEADBEEF). Then
+//   whatever happened to be on the stack decides, and the game crashed after ~3 minutes of attract at "AttractGameDemo Unload" (TireTrace_Nml.cfx).
+//   The redirection here: the four d3dx10 functions with a pHResult call the original and then set `*pHResult` to the result
+//   if there is no pump (which is what Windows does too).
 //
-// DERDE TAAK: JVS over COM3 naar de pipe (zonder de gesloten TeknoParrot-kern)
-//   Mario Kart opent zijn JVS-bord als `COM3` (CreateFileA op 0x8ac1f2, daarna SetCommState/SetCommTimeouts/SetupComm/PurgeComm en
-//   GetCommModemStatus als sense-lijn). Onder Wine is er geen COM3; de eigen brug (third_party/rg-jvsbridge) maakt \\.\pipe\TeknoParrot_JVS en
-//   de daemon is het bord erachter. Vroeger zette de gesloten kern COM3 om naar die pipe; hier doet deze DLL dat: CreateFileA op de
-//   ingestelde poort geeft een handvat op de pipe, en de comm-aanroepen op dat handvat slagen zonder iets te doen. GetCommModemStatus geeft
-//   de sense-lijn (0x10, na de adrestoekenning 0x30) uit byte 0 van het gedeelde geheugen TeknoParrot_JvsState. Alleen aan als
-//   RG_JVS_COMPORT gezet is (dropin.ini, Env). De beslislogica staat in jvs_com.h en is getoetst (tests/test_jvs_com.cpp).
+// THIRD TASK: JVS over COM3 to the pipe (without the closed TeknoParrot core)
+//   Mario Kart opens its JVS board as `COM3` (CreateFileA at 0x8ac1f2, then SetCommState/SetCommTimeouts/SetupComm/PurgeComm and
+//   GetCommModemStatus as the sense line). Under Wine there is no COM3; our own bridge (third_party/rg-jvsbridge) creates \\.\pipe\TeknoParrot_JVS and
+//   the daemon is the board behind it. The closed core used to redirect COM3 to that pipe; this DLL does that now: CreateFileA on the
+//   configured port returns a handle on the pipe, and the comm calls on that handle succeed without doing anything. GetCommModemStatus returns
+//   the sense line (0x10, after the address assignment 0x30) from byte 0 of the shared memory TeknoParrot_JvsState. Only on if
+//   RG_JVS_COMPORT is set (dropin.ini, Env). The decision logic is in jvs_com.h and is tested (tests/test_jvs_com.cpp).
 //
-// VIERDE TAAK: een eigen ShareK-object voor CoCreateInstance (zonder de gesloten TeknoParrot-kern)
-//   Mario Kart start bij het opstarten de ShareK-client (ShareKManager.cpp, content-distributie tussen kasten): CoCreateInstance van de
-//   .NET-COM-klasse {ccc44b2a-709a-33a8-a1b0-5dbe25b19c2c} (ipccl.dll, op de echte kast met RegAsm geregistreerd) op 0x47e834. Die
-//   registratie bestaat in onze prefix niet: 0x80040154, een _com_error, en de catch-afhandelaar op 0x47e8f8 roept dan toch een methode
-//   aan op de lege interface (toegangsfout op 0x47e95e na ~15 s). Met RG_SHAREK_FAKE=1 zet deze DLL ole32!CoCreateInstance in de
-//   importtabel van het spel om; voor die ene CLSID komt een eigen in-proces object terug dat zegt "ShareK draait maar wacht op het
-//   netwerk" (status 2: de tick van het spel doet dan niets). Elke andere klasse, ook de IAuth van AMAuthd, gaat ongewijzigd naar de echte
-//   CoCreateInstance. Met de TeknoParrot-kern in het proces blijft dit uit (die beantwoordt het zelf). Logica en uitleg: sharek_fake.h.
+// FOURTH TASK: an own ShareK object for CoCreateInstance (without the closed TeknoParrot core)
+//   At startup Mario Kart starts the ShareK client (ShareKManager.cpp, content distribution between cabinets): CoCreateInstance of the
+//   .NET COM class {ccc44b2a-709a-33a8-a1b0-5dbe25b19c2c} (ipccl.dll, registered with RegAsm on the real cabinet) at 0x47e834. That
+//   registration does not exist in our prefix: 0x80040154, a _com_error, and the catch handler at 0x47e8f8 then calls a method anyway
+//   on the empty interface (access violation at 0x47e95e after ~15 s). With RG_SHAREK_FAKE=1 this DLL redirects ole32!CoCreateInstance in the
+//   game's import table; for that one CLSID an own in-process object comes back that says "ShareK is running but waiting for the
+//   network" (status 2: the game's tick then does nothing). Every other class, including the IAuth of AMAuthd, goes unchanged to the real
+//   CoCreateInstance. With the TeknoParrot core in the process this stays off (it answers that itself). Logic and explanation: sharek_fake.h.
 //
-// VIJFDE TAAK: de stalldump (waar wacht het spel?)
-//   Met RG_STALL_DUMP=30,60,90 (seconden na het laden van deze DLL) zet een eigen draad op die tijdstippen elke andere draad van het proces
-//   even stil, leest EIP/ESP/EBP en zoekt de stapel af naar terugkeeradressen in de exe (alleen waarden waar een x86-aanroep aan voorafgaat,
-//   stall_dump.h). Alles in rg-mfcam.log, adressen als exe+RVA en als het VA dat objdump voor de exe toont. Voor een zwart beeld waar het
-//   spel niets meer logt; zonder gdb, en zonder dat het spel iets merkt (de draden draaien na de dump gewoon door).
+// FIFTH TASK: the stalldump (where is the game waiting?)
+//   With RG_STALL_DUMP=30,60,90 (seconds after this DLL is loaded) a thread of our own briefly suspends every other thread of the process at those times,
+//   reads EIP/ESP/EBP and searches the stack for return addresses in the exe (only values preceded by an x86 call,
+//   stall_dump.h). Everything goes to rg-mfcam.log, addresses as exe+RVA and as the VA that objdump shows for the exe. For a black screen where the
+//   game logs nothing anymore; without gdb, and without the game noticing (the threads simply keep running after the dump).
 //
-// ZESDE TAAK: schijfletter-herleiding voor wat patch 0004 van de kern mist
-//   De eigen kern herleidt `F:/x` naar `.\TeknoParrot\F\x`, maar alleen voor CreateFile en CreateDirectory. Mario Kart hernoemt zijn
-//   `F:/system/<naam>.bin.tmp` met de CRT (`rename`) naar `<naam>.bin`, zoekt met FindFirstFileA/W en controleert met GetFileAttributesW en
-//   `_waccess_s`: die gaan er niet doorheen, dus elke start begint met lege instellingen (gemeten: alleen *.bin.tmp in de view). Met
-//   RG_DRIVE_FIXUP=F zet deze DLL die ingangen in de importtabel van het spel om naar dezelfde regel (drive_fix.h). Alleen de genoemde letters;
-//   G: blijft met rust (het spel zet ShareK dan uit, gewenst). Uit met de TeknoParrot-kern in het proces (die doet het op zijn eigen manier).
+// SIXTH TASK: drive letter redirection for what patch 0004 of the core misses
+//   Our own core redirects `F:/x` to `.\TeknoParrot\F\x`, but only for CreateFile and CreateDirectory. Mario Kart renames its
+//   `F:/system/<name>.bin.tmp` with the CRT (`rename`) to `<name>.bin`, searches with FindFirstFileA/W and checks with GetFileAttributesW and
+//   `_waccess_s`: those do not go through it, so every start begins with empty settings (measured: only *.bin.tmp in the view). With
+//   RG_DRIVE_FIXUP=F this DLL redirects those entries in the game's import table to the same rule (drive_fix.h). Only the letters named;
+//   G: is left alone (the game then turns ShareK off, which is wanted). Off with the TeknoParrot core in the process (it does it its own way).
 //
-// ZEVENDE TAAK: de Banapass-kaartlezer (bngrw.dll) volgen of nabootsen
-//   Het spel importeert bngrw.dll uit de spelmap (de echte bibliotheek, die COM4/COM2 opent) en stuurt twee lezers aan in de opstartcontroles,
-//   vlak voor de IO-controle die COM3 opent. De gesloten TeknoParrot-kern vervangt die functies; onze kern niet. Met RG_BNGRW=trace zet deze DLL
-//   de elf importen van bngrw.dll om naar logger-omhulsels rond de echte functies (argumenten, uitkomst en elke callback van de bibliotheek); met
-//   RG_BNGRW=fake geeft hij zelf antwoord: twee lezers zonder kaart (bngrw_fake.h). Uit met de TeknoParrot-kern.
+// SEVENTH TASK: follow or emulate the Banapass card reader (bngrw.dll)
+//   The game imports bngrw.dll from the game folder (the real library, which opens COM4/COM2) and drives two readers in the startup checks,
+//   just before the IO check that opens COM3. The closed TeknoParrot core replaces those functions; our core does not. With RG_BNGRW=trace this DLL redirects
+//   the eleven imports of bngrw.dll to logger wrappers around the real functions (arguments, result and every callback from the library); with
+//   RG_BNGRW=fake it answers itself: two readers without a card (bngrw_fake.h). Off with the TeknoParrot core.
 //
-// ACHTSTE TAAK: de berichtenlus en de vensters van het spel volgen, en de F:/-tekenreeksen zoals TeknoParrot aanpassen
-//   RG_MSGTRACE=1 zet PeekMessageW, DispatchMessageW, ShowWindow, SetWindowPos en CreateWindowExW van het spel om naar logger-omhulsels: de eerste vijf
-//   PeekMessageW-aanroepen (binnen en terug, met de duur), de vensters van de draad bij de eerste aanroep (zichtbaar, voorgrond, afmetingen), de eerste 40
-//   berichten, trage aanroepen (>= 200 ms) en elke 5 s een samenvatting van de lus. Een PeekMessageW die nooit terugkeert staat als "binnen" zonder "terug".
-//   De TP-kern past de tekenreeksen van het spel zelf aan (`F:/playdata/` wordt `./Fplaydata/`, zelfde lengte; het spel logt dat zelf); met RG_DRIVE_FIXUP doen
-//   we dat nu ook (drive_fix.h, patch_strings), voor de genoemde letters, in de niet-uitvoerbare secties van de exe. RG_DRIVE_STRINGS=0 laat dat weg.
+// EIGHTH TASK: follow the game's message loop and windows, and patch the F:/ strings like TeknoParrot
+//   RG_MSGTRACE=1 redirects the game's PeekMessageW, DispatchMessageW, ShowWindow, SetWindowPos and CreateWindowExW to logger wrappers: the first five
+//   PeekMessageW calls (entered and returned, with the duration), the windows of the thread at the first call (visible, foreground, dimensions), the first 40
+//   messages, slow calls (>= 200 ms) and a summary of the loop every 5 s. A PeekMessageW that never returns shows up as "entered" without "returned".
+//   The TP core patches the game's own strings (`F:/playdata/` becomes `./Fplaydata/`, same length; the game logs that itself); with RG_DRIVE_FIXUP we
+//   now do that too (drive_fix.h, patch_strings), for the letters named, in the non-executable sections of the exe. RG_DRIVE_STRINGS=0 leaves that out.
 //
-// NEGENDE TAAK: venstermodus zoals TeknoParrot (Windowed=1)
-//   Het spel is DXUT (D3D10) en zet zelf volledig scherm als standaard: `mov [ebx+0x30],1` op 0x4057AD (constructor 0x405740 van het
-//   instellingenobject), wat "-fullscreen" voor DXUT (0x770656) en DXUTCreateDevice(bWindowed = 0) (0x846808) geeft. Onder onze kern doet DXVK dan een
-//   exclusieve modewissel ("Setting display mode: 1368x768@60", twee keer, alle proefruns van 2026-10-18 12:03-12:07) en keert de eerste PeekMessageW
-//   (0x83D7D4, DXUTMainLoop) niet meer terug: zwart beeld. Onder TeknoParrot (profiel Windowed=1) staat die regel er niet en presenteert de swapchain
-//   1360x768 in een venster (run 10:46). Met RG_WINDOWED=1 zet deze DLL die imm32 op 0 (patroon in window_mode.h, precies een treffer vereist), zodat het
-//   spel zelf "-windowed" kiest. Uit met de TeknoParrot-kern. Logboek: "venstermodus aan: ...".
+// NINTH TASK: window mode like TeknoParrot (Windowed=1)
+//   The game is DXUT (D3D10) and sets full screen as the default itself: `mov [ebx+0x30],1` at 0x4057AD (constructor 0x405740 of the
+//   settings object), which gives "-fullscreen" for DXUT (0x770656) and DXUTCreateDevice(bWindowed = 0) (0x846808). Under our core DXVK then does an
+//   exclusive mode switch ("Setting display mode: 1368x768@60", twice, all test runs of 2026-10-18 12:03-12:07) and the first PeekMessageW
+//   (0x83D7D4, DXUTMainLoop) no longer returns: black screen. Under TeknoParrot (profile Windowed=1) that line is not there and the swapchain presents
+//   1360x768 in a window (run 10:46). With RG_WINDOWED=1 this DLL sets that imm32 to 0 (pattern in window_mode.h, exactly one hit required), so that the
+//   game picks "-windowed" itself. Off with the TeknoParrot core. Log: "window mode on: ...".
 //
-// TIENDE TAAK: het STR-bord (stuur en krachtterugkoppeling) op COM1 nabootsen (zonder de gesloten TeknoParrot-kern)
-//   Na het venster stopt het spel op E22-12 "STR PCB 通信エラー" (tv 2026-10-18 12:35). Het STR-bord hangt niet aan JVS maar aan \\.\COM1, 19200 8N1
-//   (overlapped, ReadFileEx/WriteFileEx); het meldt zijn status in drie bytes ("C01" verbonden, "E00" geen fout) en het spel geeft E22-12 als na 4800
-//   ticks geen "C01" kwam (0x602E39). Met RG_STR_COMPORT=COM1 geeft CreateFileA voor die poort het clienteinde van een eigen pipe; een draad in deze DLL
-//   is het bord (str_board.h): status "C01", "E00", dan "C01", en per opdracht van 10 bytes een "C01". De comm-aanroepen slagen op dat handvat (zoals bij
-//   JVS). Uit met de TeknoParrot-kern. Logboek: "STR-bord: ...".
+// TENTH TASK: emulate the STR board (steering and force feedback) on COM1 (without the closed TeknoParrot core)
+//   After the window the game stops at E22-12 "STR PCB 通信エラー" (tv 2026-10-18 12:35). The STR board is not on JVS but on \\.\COM1, 19200 8N1
+//   (overlapped, ReadFileEx/WriteFileEx); it reports its status in three bytes ("C01" connected, "E00" no error) and the game gives E22-12 if after 4800
+//   ticks no "C01" came (0x602E39). With RG_STR_COMPORT=COM1 CreateFileA for that port returns the client end of a pipe of our own; a thread in this DLL
+//   is the board (str_board.h): status "C01", "E00", then "C01", and a "C01" per command of 10 bytes. The comm calls succeed on that handle (as with
+//   JVS). Off with the TeknoParrot core. Log: "STR board: ...".
 //
-// OMGEVING
-//   RG_STR_COMPORT=COM1  het STR-bord nabootsen (TIENDE TAAK)
-//   RG_WINDOWED=1        het spel venstergewijs laten starten (NEGENDE TAAK)
-//   RG_MSGTRACE=1       de berichtenlus en vensters volgen
-//   RG_PEEK_DELAY_MS=N   (proef) de eerste PeekMessageW van het spel N ms uitstellen, bv. 25000 (TP doet er ~25 s over voor zijn eerste lus)
-//   RG_PEEK_SKIP_FIRST=1 (proef) de eerste PeekMessageW(PM_NOREMOVE) van het spel (0x83D7D4, maakt alleen de berichtenwachtrij) niet uitvoeren
-//   RG_DRIVE_STRINGS=0   bij RG_DRIVE_FIXUP de tekenreeksen niet aanpassen (alleen de API-omleiding)
-//   RG_BNGRW=trace|fake  de kaartlezer volgen of nabootsen; leeg = uit
-//   RG_DRIVE_FIXUP=F  de schijfletters (zonder C en Z) waarvoor de aanvullende herleiding aan staat; leeg = uit
-//   RG_STALL_DUMP=30,60  de stalldump aan (seconden); leeg = uit
+// ELEVENTH TASK: the content router answers its ping (without the closed TeknoParrot core)
+//   A real cabinet sits behind a store content router at 192.168.112.254. The game pings it with IcmpSendEcho at boot (0x71C8A0, error
+//   "E05-01" without a reply) and again from its local network monitor (0x71BB70, "E05-05 ローカルネットワークエラー" after ten failed rounds,
+//   ~2 min after the start). With RG_CONTENT_ROUTER=192.168.112.254 this DLL redirects IPHLPAPI!IcmpSendEcho in the game's import table
+//   and answers echo requests to that one address like a router on the same switch; every other address goes to the real function
+//   (content_router.h). Off with the TeknoParrot core. Log: "content router: ...".
+//
+// ENVIRONMENT
+//   RG_CONTENT_ROUTER=a.b.c.d  answer the game's pings to its content router at that address (ELEVENTH TASK)
+//   RG_STR_COMPORT=COM1  emulate the STR board (TENTH TASK)
+//   RG_WINDOWED=1        let the game start windowed (NINTH TASK)
+//   RG_MSGTRACE=1       follow the message loop and windows
+//   RG_PEEK_DELAY_MS=N   (experiment) delay the game's first PeekMessageW by N ms, e.g. 25000 (TP takes ~25 s for its first loop)
+//   RG_PEEK_SKIP_FIRST=1 (experiment) do not execute the game's first PeekMessageW(PM_NOREMOVE) (0x83D7D4, only creates the message queue)
+//   RG_DRIVE_STRINGS=0   with RG_DRIVE_FIXUP, do not patch the strings (only the API redirection)
+//   RG_BNGRW=trace|fake  follow or emulate the card reader; empty = off
+//   RG_DRIVE_FIXUP=F  the drive letters (without C and Z) for which the additional redirection is on; empty = off
+//   RG_STALL_DUMP=30,60  the stalldump on (seconds); empty = off
+//   RG_IMAGE_DUMP=40,90  write the loaded exe image to rg-image-<secs>s.bin (seconds); empty = off
 //   RG_SHAREK_FAKE=1  the in-process ShareK object (dropin.ini, Env); empty or 0 = off
 //   RG_AMAUTH_FAKE=1  the in-process AMAuthd IAuth object (dropin.ini, Env); empty or 0 = off
 //   RG_AMAUTH_STATE=3..8  the auth state our IAuth reports (default 8: offline cabinet)
-//   RG_MFCAM_SOURCE  Windows-pad van het camerabestand (standaard Z:\dev\shm\ravengun_Camera)
-//   RG_MFCAM_FPS     beelden per seconde naar het spel (standaard 30, 1..60)
-//   RG_MFCAM_OFF=1   niets doen (alleen een regel in het logboek)
-//   RG_D3DX10_HRFIX=0  de pHResult-reparatie niet aanzetten
-//   RG_JVS_COMPORT    de COM-poort die het spel voor JVS opent (bv. COM3); leeg = JVS-omleiding uit
-//   RG_JVS_PIPE       de pipe van de brug (standaard \\.\pipe\TeknoParrot_JVS)
+//   RG_DONGLE=fake|trace  answer (or only log) the USB tree walk for the dongle (usb_dongle.h); empty = off
+//   RG_DONGLE_USB=vvvv:pppp, RG_DONGLE_SERIAL=...  the dongle the fake presents
+//   RG_MFCAM_SOURCE  Windows path of the camera file (default Z:\dev\shm\ravengun_Camera)
+//   RG_MFCAM_FPS     frames per second to the game (default 30, 1..60)
+//   RG_MFCAM_OFF=1   do nothing (only a line in the log)
+//   RG_D3DX10_HRFIX=0  do not turn on the pHResult repair
+//   RG_JVS_COMPORT    the COM port the game opens for JVS (e.g. COM3); empty = JVS redirection off
+//   RG_JVS_PIPE       the bridge's pipe (default \\.\pipe\TeknoParrot_JVS)
 //
-// Clean-room: alleen de openbare Media Foundation-interfaces en wat we zelf aan het spel en aan Wine gemeten hebben.
+// Clean-room: only the public Media Foundation interfaces and what we measured ourselves on the game and on Wine.
 #define WIN32_LEAN_AND_MEAN
 #ifndef WINVER
 #define WINVER 0x0601
@@ -142,9 +153,10 @@
 #include "bngrw_fake.h"
 #include "window_mode.h"
 #include "str_board.h"
-#include "dongle_trace.h"
+#include "usb_dongle.h"
+#include "content_router.h"
 
-// --- GUID's die niet in elke MinGW-importbibliotheek staan (eigen namen, dezelfde waarden als in mfidl.h / mfapi.h) -------------
+// --- GUIDs that are not in every MinGW import library (our own names, same values as in mfidl.h / mfapi.h) -------------
 DEFINE_GUID(RG_DEVSOURCE_SOURCE_TYPE, 0xc60ac5fe, 0x252a, 0x478f, 0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3);
 DEFINE_GUID(RG_DEVSOURCE_VIDCAP_GUID, 0x8ac3587a, 0x4ae7, 0x42d8, 0x99, 0xe0, 0x0a, 0x60, 0x13, 0xee, 0xf9, 0x0f);
 DEFINE_GUID(RG_DEVSOURCE_FRIENDLY_NAME, 0x60d0e559, 0x52f8, 0x4fa2, 0xbb, 0xce, 0xac, 0xdb, 0x34, 0xa8, 0xec, 0x01);
@@ -157,7 +169,7 @@ DEFINE_GUID(RG_FMT_RGB32, 0x00000016, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x
 
 namespace {
 
-// --- logboek -------------------------------------------------------------------------------------------------------------------------
+// --- log -------------------------------------------------------------------------------------------------------------------------
 CRITICAL_SECTION g_log_cs;
 wchar_t g_log_path[MAX_PATH];
 HMODULE g_self = nullptr;
@@ -190,18 +202,18 @@ const char* fmt_name(const GUID& g) {
     return "?";
 }
 
-// --- instellingen ---------------------------------------------------------------------------------------------------------------------
+// --- settings ---------------------------------------------------------------------------------------------------------------------
 wchar_t g_source[MAX_PATH] = RG_CAMFEED_PATH_WINE;
 int g_fps = 30;
 
-// --- het camerabestand lezen ----------------------------------------------------------------------------------------------------------
-// Leest kop en beeld met de seqlock van camera_feed_format.h. true = `head` en `frame` zijn een heel beeld.
+// --- reading the camera file ----------------------------------------------------------------------------------------------------------
+// Reads header and frame with the seqlock from camera_feed_format.h. true = `head` and `frame` are one whole frame.
 bool read_feed(rg_camfeed_header& head, std::vector<BYTE>& frame) {
     HANDLE h = CreateFileW(g_source, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
                            FILE_ATTRIBUTE_NORMAL, nullptr);
     if (h == INVALID_HANDLE_VALUE) return false;
     bool ok = false;
-    for (int poging = 0; poging < 4 && !ok; ++poging) {
+    for (int attempt = 0; attempt < 4 && !ok; ++attempt) {
         DWORD got = 0;
         rg_camfeed_header hd;
         SetFilePointer(h, 0, nullptr, FILE_BEGIN);
@@ -222,7 +234,7 @@ bool read_feed(rg_camfeed_header& head, std::vector<BYTE>& frame) {
     return ok;
 }
 
-// Alleen de kop (voor MFEnumDeviceSources): is er een camera, en welke afmetingen.
+// Only the header (for MFEnumDeviceSources): is there a camera, and what dimensions.
 bool feed_present(uint32_t& w, uint32_t& h) {
     rg_camfeed_header hd;
     std::vector<BYTE> f;
@@ -232,7 +244,7 @@ bool feed_present(uint32_t& w, uint32_t& h) {
     return true;
 }
 
-// --- omzetten -------------------------------------------------------------------------------------------------------------------------
+// --- conversion -------------------------------------------------------------------------------------------------------------------------
 inline BYTE clamp8(int v) { return static_cast<BYTE>(v < 0 ? 0 : v > 255 ? 255 : v); }
 
 void yuy2_to_nv12(const BYTE* src, uint32_t stride, uint32_t w, uint32_t h, BYTE* dst) {
@@ -253,7 +265,7 @@ void yuy2_to_nv12(const BYTE* src, uint32_t stride, uint32_t w, uint32_t h, BYTE
 }
 
 void yuy2_to_rgb32(const BYTE* src, uint32_t stride, uint32_t w, uint32_t h, BYTE* dst) {
-    // BT.601, beperkt bereik; RGB32 is in Media Foundation van boven naar onder met een positieve stride (B, G, R, X).
+    // BT.601, limited range; RGB32 in Media Foundation is top to bottom with a positive stride (B, G, R, X).
     for (uint32_t r = 0; r < h; ++r) {
         const BYTE* s = src + static_cast<size_t>(r) * stride;
         BYTE* d = dst + static_cast<size_t>(r) * w * 4;
@@ -304,7 +316,7 @@ LONGLONG now_100ns() {
 
 class CamSource;
 
-// --- de stroom ------------------------------------------------------------------------------------------------------------------------
+// --- the stream ------------------------------------------------------------------------------------------------------------------------
 class CamStream final : public IMFMediaStream {
 public:
     CamStream(CamSource* src, IMFStreamDescriptor* sd) : src_(src), sd_(sd) {
@@ -360,7 +372,7 @@ public:
         return hr;
     }
 
-    // Voor de bron.
+    // For the source.
     void start(const GUID& fmt, uint32_t w, uint32_t h, LONGLONG t0) {
         EnterCriticalSection(&cs_);
         fmt_ = fmt; w_ = w; h_ = h; t0_ = t0;
@@ -393,7 +405,7 @@ public:
         SetEvent(wake_);
         if (w) { WaitForSingleObject(w, 2000); CloseHandle(w); }
         if (queue_) { queue_->Shutdown(); queue_->Release(); queue_ = nullptr; }
-        rg_log("stroom dicht: %lu beelden geleverd, %lu keer zonder nieuw beeld", static_cast<unsigned long>(delivered_),
+        rg_log("stream closed: %lu frames delivered, %lu times without a new frame", static_cast<unsigned long>(delivered_),
                static_cast<unsigned long>(stale_));
     }
     void detach_source() { src_ = nullptr; }
@@ -455,7 +467,7 @@ private:
                     else if (fmt == RG_FMT_RGB32) yuy2_to_rgb32(raw.data(), head->stride, w, h, p);
                     else for (uint32_t r = 0; r < h; ++r) std::memcpy(p + static_cast<size_t>(r) * w * 2, raw.data() + static_cast<size_t>(r) * head->stride, w * 2);
                 } else {
-                    // Geen beeld (of een andere vorm dan afgesproken): grijs, zodat het spel een geldig beeld krijgt.
+                    // No frame (or a different shape than agreed): gray, so that the game gets a valid frame.
                     if (fmt == RG_FMT_NV12) std::memset(p, 0x80, n);
                     else if (fmt == RG_FMT_RGB32) std::memset(p, 0x80, n);
                     else for (DWORD i = 0; i + 1 < n; i += 2) { p[i] = 0x80; p[i + 1] = 0x80; }
@@ -476,9 +488,9 @@ private:
         if (SUCCEEDED(hr)) {
             ++delivered_;
             if (delivered_ == 1 || delivered_ % 900 == 0)
-                rg_log("beeld %lu geleverd (%s %ux%u%s)", static_cast<unsigned long>(delivered_), fmt_name(fmt), w, h, head ? "" : ", grijs: nog geen beeld van de daemon");
+                rg_log("frame %lu delivered (%s %ux%u%s)", static_cast<unsigned long>(delivered_), fmt_name(fmt), w, h, head ? "" : ", gray: no frame from the daemon yet");
         } else {
-            rg_log("FOUT: beeld leveren mislukt (hr=0x%08lx)", static_cast<unsigned long>(hr));
+            rg_log("ERROR: delivering frame failed (hr=0x%08lx)", static_cast<unsigned long>(hr));
         }
         if (s) s->Release();
         if (b) b->Release();
@@ -499,7 +511,7 @@ private:
     unsigned long delivered_ = 0, stale_ = 0;
 };
 
-// --- de bron --------------------------------------------------------------------------------------------------------------------------
+// --- the source --------------------------------------------------------------------------------------------------------------------------
 class CamSource final : public IMFMediaSource {
 public:
     CamSource(uint32_t w, uint32_t h) : w_(w), h_(h) { InitializeCriticalSection(&cs_); }
@@ -561,8 +573,8 @@ public:
         if (shutdown_) return MF_E_SHUTDOWN;
         if (!pd) return E_INVALIDARG;
         if (tf && *tf != GUID_NULL) return MF_E_UNSUPPORTED_TIME_FORMAT;
-        (void)pos;   // live: altijd vanaf nu
-        // Het formaat dat het spel (of de source reader) koos: de huidige vorm van de stroom in deze presentatiebeschrijving.
+        (void)pos;   // live: always from now
+        // The format that the game (or the source reader) chose: the current shape of the stream in this presentation descriptor.
         GUID fmt = RG_FMT_YUY2;
         uint32_t w = w_, h = h_;
         BOOL selected = FALSE;
@@ -580,8 +592,8 @@ public:
             if (th) th->Release();
             sd->Release();
         }
-        if (w != w_ || h != h_) { rg_log("let op: gevraagd %ux%u, het beeld is %ux%u; grijze beelden", w, h, w_, h_); }
-        rg_log("Start: %s %ux%u, stroom %s", fmt_name(fmt), w, h, selected ? "gekozen" : "NIET gekozen");
+        if (w != w_ || h != h_) { rg_log("note: requested %ux%u, the frame is %ux%u; gray frames", w, h, w_, h_); }
+        rg_log("Start: %s %ux%u, stroom %s", fmt_name(fmt), w, h, selected ? "selected" : "NOT selected");
         EnterCriticalSection(&cs_);
         const bool first = !stream_announced_;
         stream_announced_ = true;
@@ -604,7 +616,7 @@ public:
         stream_->stop();
         return QueueEvent(MESourceStopped, GUID_NULL, S_OK, nullptr);
     }
-    STDMETHODIMP Pause() override { return shutdown_ ? MF_E_SHUTDOWN : MF_E_INVALID_STATE_TRANSITION; }   // live: geen pauze
+    STDMETHODIMP Pause() override { return shutdown_ ? MF_E_SHUTDOWN : MF_E_INVALID_STATE_TRANSITION; }   // live: no pause
     STDMETHODIMP Shutdown() override {
         if (shutdown_) return MF_E_SHUTDOWN;
         shutdown_ = true;
@@ -641,8 +653,8 @@ STDMETHODIMP CamStream::GetMediaSource(IMFMediaSource** out) {
     return S_OK;
 }
 
-// --- de activator (wat MFEnumDeviceSources teruggeeft) ---------------------------------------------------------------------------------
-// IMFActivate is een IMFAttributes; die delen gaan naar een gewone attribuutopslag van mfplat.
+// --- the activator (what MFEnumDeviceSources returns) ---------------------------------------------------------------------------------
+// IMFActivate is an IMFAttributes; those parts go to a plain attribute store from mfplat.
 #define RG_FWD(sig, call) STDMETHODIMP sig override { return attrs_->call; }
 class CamActivate final : public IMFActivate {
 public:
@@ -709,12 +721,12 @@ public:
             CamSource* s = new CamSource(w_, h_);
             const HRESULT hr = s->init();
             if (FAILED(hr)) {
-                rg_log("FOUT: camera aanmaken mislukt (hr=0x%08lx)", static_cast<unsigned long>(hr));
+                rg_log("ERROR: creating camera failed (hr=0x%08lx)", static_cast<unsigned long>(hr));
                 s->Release();
                 return hr;
             }
             source_ = s;
-            rg_log("ActivateObject: camera %ux%u aangemaakt (YUY2, NV12, RGB32 @ %d fps)", w_, h_, g_fps);
+            rg_log("ActivateObject: camera %ux%u created (YUY2, NV12, RGB32 @ %d fps)", w_, h_, g_fps);
         }
         return source_->QueryInterface(riid, ppv);
     }
@@ -756,7 +768,7 @@ HRESULT WINAPI rg_MFEnumDeviceSources(IMFAttributes* attrs, IMFActivate*** sourc
         if (FAILED(hr) || !arr) {
             a->Release();
             if (arr) CoTaskMemFree(arr);
-            rg_log("MFEnumDeviceSources #%ld: FOUT bij het aanmaken (hr=0x%08lx); door naar het origineel", static_cast<long>(n),
+            rg_log("MFEnumDeviceSources #%ld: ERROR while creating (hr=0x%08lx); passing on to the original", static_cast<long>(n),
                    static_cast<unsigned long>(hr));
         } else {
             arr[0] = a;
@@ -768,14 +780,14 @@ HRESULT WINAPI rg_MFEnumDeviceSources(IMFAttributes* attrs, IMFActivate*** sourc
     }
     const HRESULT hr = g_orig_enum ? g_orig_enum(attrs, sources, count) : E_NOTIMPL;
     if (n <= 3 || n % 100 == 0)
-        rg_log("MFEnumDeviceSources #%ld (%s): %s; origineel: hr=0x%08lx, %u apparaten", static_cast<long>(n), vidcap ? "VIDCAP" : "ander type",
-               vidcap ? "geen camerabestand van de daemon" : "niet onze zaak", static_cast<unsigned long>(hr),
+        rg_log("MFEnumDeviceSources #%ld (%s): %s; original: hr=0x%08lx, %u devices", static_cast<long>(n), vidcap ? "VIDCAP" : "other type",
+               vidcap ? "no camera file from the daemon" : "not our business", static_cast<unsigned long>(hr),
                (SUCCEEDED(hr) && count) ? *count : 0u);
     return hr;
 }
 
-// --- de importtabel van het spel -------------------------------------------------------------------------------------------------------
-// Zet in de importtabel van `mod` de invoer `dll!func` om naar `repl`; geeft het oude adres (of nullptr als hij er niet is).
+// --- the game's import table -------------------------------------------------------------------------------------------------------
+// Redirects the entry `dll!func` in the import table of `mod` to `repl`; returns the old address (or nullptr if it is not there).
 void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
     auto* base = reinterpret_cast<BYTE*>(mod);
     auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
@@ -808,82 +820,59 @@ void* patch_iat(HMODULE mod, const char* dll, const char* func, void* repl) {
     return nullptr;
 }
 
-// --- de USB-dongel (zie dongle_trace.h; schakelaar RG_DONGLE) -------------------------------------------------
-// Het spel zoekt zijn dongel via SetupAPI en praat er daarna mee via DeviceIoControl. In de
-// TP-vergelijking zijn er geen apparaat-handvatten te zien: de TP-kern beantwoordt dit in het proces.
-// Met RG_DONGLE=trace loggen we alleen wat het spel vraagt; met RG_DONGLE=fake antwoorden we zelf.
-void setup_dongle_trace() {
+// --- the USB dongle (usb_dongle.h; switch RG_DONGLE) ---------------------------------------------------------
+// The game finds its dongle by walking the USB tree (SetupAPI, CM_* and USB ioctls on the host controller
+// and its root hub). RG_DONGLE=trace only logs the calls; RG_DONGLE=fake answers the walk with one
+// device described by RG_DONGLE_USB / RG_DONGLE_SERIAL (and optionally RG_DONGLE_MANUFACTURER /
+// RG_DONGLE_PRODUCT). Off with the TeknoParrot core in the process (that answers the dongle itself).
+void setup_dongle() {
     char v[16];
-    if (GetEnvironmentVariableA("RG_DONGLE", v, sizeof v) == 0 || !v[0]) return;   // uit
+    if (GetEnvironmentVariableA("RG_DONGLE", v, sizeof v) == 0 || !v[0]) return;   // off
+    if (GetModuleHandleA("TeknoParrot.dll")) {
+        rg_log("dongle: off, the TeknoParrot core is loaded");
+        return;
+    }
     rg_dongle::g_log = &rg_log;
     rg_dongle::g_fake = lstrcmpiA(v, "fake") == 0;
-    AddVectoredExceptionHandler(1, reinterpret_cast<PVECTORED_EXCEPTION_HANDLER>(&rg_dongle::hook_vectored));
-    rg_dongle::g_chain = lstrcmpiA(v, "chain") == 0;
-    rg_dongle::g_cm_fake = rg_dongle::g_fake;
-    rg_log("dongle: on (%s), tracing SetupAPI and DeviceIoControl", v);
+    if (rg_dongle::g_fake && !rg_dongle::load_device()) {
+        rg_log("dongle: RG_DONGLE=fake without a valid RG_DONGLE_USB=vvvv:pppp; only tracing");
+        rg_dongle::g_fake = false;
+    }
+    if (rg_dongle::g_fake)
+        rg_log("dongle: on (fake): USB device %04x:%04x, serial \"%ls\"", rg_dongle::g_vid, rg_dongle::g_pid, rg_dongle::g_serial);
+    else
+        rg_log("dongle: on (%s): logging the USB tree walk", v);
     HMODULE self = GetModuleHandleW(nullptr);
-    auto koppel = [self](const char* dll, const char* fn, void* repl, void** oud) {
+    auto hook = [self](const char* dll, const char* fn, void* repl, void** old_fn) {
         void* old = patch_iat(self, dll, fn, repl);
-        if (old) {
-            *oud = old;
-            rg_log("dongle: import table %s!%s redirected", dll, fn);
-        } else {
-            rg_log("dongle: import table %s!%s NOT found", dll, fn);
-        }
+        if (old) *old_fn = old;
+        else rg_log("dongle: import table %s!%s NOT found", dll, fn);
     };
-    koppel("KERNEL32.dll", "DeviceIoControl", reinterpret_cast<void*>(&rg_dongle::hook_device_io_control),
-           reinterpret_cast<void**>(&rg_dongle::g_device_io_control));
-    koppel("KERNEL32.dll", "CreateFileW", reinterpret_cast<void*>(&rg_dongle::hook_create_file_w),
-           reinterpret_cast<void**>(&rg_dongle::g_create_file_w));
-    koppel("KERNEL32.dll", "ExitProcess", reinterpret_cast<void*>(&rg_dongle::hook_exit_process),
-           reinterpret_cast<void**>(&rg_dongle::g_exit_process));
-    koppel("msvcr100.dll", "exit", reinterpret_cast<void*>(&rg_dongle::hook_crt_exit),
-           reinterpret_cast<void**>(&rg_dongle::g_crt_exit));
-    koppel("KERNEL32.dll", "TerminateProcess", reinterpret_cast<void*>(&rg_dongle::hook_terminate_process),
-           reinterpret_cast<void**>(&rg_dongle::g_terminate_process));
-    koppel("ole32.dll", "CoCreateInstance", reinterpret_cast<void*>(&rg_dongle::hook_co_create),
-           reinterpret_cast<void**>(&rg_dongle::g_co_create));
-    koppel("setupapi.dll", "CM_Locate_DevNodeW", reinterpret_cast<void*>(&rg_dongle::hook_cm_locate),
-           reinterpret_cast<void**>(&rg_dongle::g_cm_locate));
-    koppel("setupapi.dll", "CM_Get_DevNode_Registry_PropertyW", reinterpret_cast<void*>(&rg_dongle::hook_cm_prop),
-           reinterpret_cast<void**>(&rg_dongle::g_cm_prop));
-    koppel("setupapi.dll", "CM_Get_Child", reinterpret_cast<void*>(&rg_dongle::hook_cm_child),
-           reinterpret_cast<void**>(&rg_dongle::g_cm_child));
-    koppel("setupapi.dll", "CM_Get_Parent", reinterpret_cast<void*>(&rg_dongle::hook_cm_parent),
-           reinterpret_cast<void**>(&rg_dongle::g_cm_parent));
-    koppel("setupapi.dll", "CM_Get_Sibling", reinterpret_cast<void*>(&rg_dongle::hook_cm_sibling),
-           reinterpret_cast<void**>(&rg_dongle::g_cm_sibling));
-    koppel("KERNEL32.dll", "ExitThread", reinterpret_cast<void*>(&rg_dongle::hook_exit_thread),
-           reinterpret_cast<void**>(&rg_dongle::g_exit_thread));
-    // Inline hooks on ntdll: a direct terminate does not go through any import table.
-    if (HMODULE nt = GetModuleHandleA("ntdll.dll")) {
-        rg_dongle::g_nt_target = reinterpret_cast<void*>(GetProcAddress(nt, "NtTerminateProcess"));
-        rg_log("dongle: ntdll NtTerminateProcess inline hook %s",
-               rg_dongle::install_inline(rg_dongle::g_nt_target, reinterpret_cast<void*>(&rg_dongle::hook_nt_terminate),
-                                         rg_dongle::g_nt_saved) ? "ok" : "failed");
-        rg_dongle::g_rl_target = reinterpret_cast<void*>(GetProcAddress(nt, "RtlExitUserProcess"));
-        rg_log("dongle: ntdll RtlExitUserProcess inline hook %s",
-               rg_dongle::install_inline(rg_dongle::g_rl_target, reinterpret_cast<void*>(&rg_dongle::hook_rtl_exit_user),
-                                         rg_dongle::g_rl_saved) ? "ok" : "failed");
-    }
-    // The C runtime exits through its own import table, so hook that one too.
-    if (HMODULE crt = GetModuleHandleA("msvcr100.dll")) {
-        void* old_exit = patch_iat(crt, "KERNEL32.dll", "ExitProcess",
-                                   reinterpret_cast<void*>(&rg_dongle::hook_exit_process));
-        if (old_exit) rg_dongle::g_exit_process = reinterpret_cast<rg_dongle::exit_process_fn>(old_exit);
-        rg_log("dongle: msvcr100 ExitProcess hook %s", old_exit ? "ok" : "NOT found");
-    }
-    koppel("setupapi.dll", "SetupDiGetClassDevsW", reinterpret_cast<void*>(&rg_dongle::hook_get_class_devs),
-           reinterpret_cast<void**>(&rg_dongle::g_get_class_devs));
-    koppel("setupapi.dll", "SetupDiEnumDeviceInterfaces", reinterpret_cast<void*>(&rg_dongle::hook_enum_device_interfaces),
-           reinterpret_cast<void**>(&rg_dongle::g_enum_interfaces));
-    koppel("setupapi.dll", "SetupDiGetDeviceInterfaceDetailW", reinterpret_cast<void*>(&rg_dongle::hook_get_device_interface_detail_w),
-           reinterpret_cast<void**>(&rg_dongle::g_get_detail));
+    hook("KERNEL32.dll", "CreateFileW", reinterpret_cast<void*>(&rg_dongle::hook_create_file_w),
+         reinterpret_cast<void**>(&rg_dongle::g_create_file_w));
+    hook("KERNEL32.dll", "DeviceIoControl", reinterpret_cast<void*>(&rg_dongle::hook_device_io_control),
+         reinterpret_cast<void**>(&rg_dongle::g_device_io_control));
+    hook("setupapi.dll", "SetupDiGetClassDevsW", reinterpret_cast<void*>(&rg_dongle::hook_get_class_devs),
+         reinterpret_cast<void**>(&rg_dongle::g_get_class_devs));
+    hook("setupapi.dll", "SetupDiEnumDeviceInterfaces", reinterpret_cast<void*>(&rg_dongle::hook_enum_interfaces),
+         reinterpret_cast<void**>(&rg_dongle::g_enum_interfaces));
+    hook("setupapi.dll", "SetupDiGetDeviceInterfaceDetailW", reinterpret_cast<void*>(&rg_dongle::hook_get_detail),
+         reinterpret_cast<void**>(&rg_dongle::g_get_detail));
+    hook("setupapi.dll", "CM_Locate_DevNodeW", reinterpret_cast<void*>(&rg_dongle::hook_cm_locate),
+         reinterpret_cast<void**>(&rg_dongle::g_cm_locate));
+    hook("setupapi.dll", "CM_Get_DevNode_Registry_PropertyW", reinterpret_cast<void*>(&rg_dongle::hook_cm_prop),
+         reinterpret_cast<void**>(&rg_dongle::g_cm_prop));
+    hook("setupapi.dll", "CM_Get_Child", reinterpret_cast<void*>(&rg_dongle::hook_cm_child),
+         reinterpret_cast<void**>(&rg_dongle::g_cm_child));
+    hook("setupapi.dll", "CM_Get_Parent", reinterpret_cast<void*>(&rg_dongle::hook_cm_parent),
+         reinterpret_cast<void**>(&rg_dongle::g_cm_parent));
+    hook("setupapi.dll", "CM_Get_Sibling", reinterpret_cast<void*>(&rg_dongle::hook_cm_sibling),
+         reinterpret_cast<void**>(&rg_dongle::g_cm_sibling));
 }
 
-// --- d3dx10: pHResult zoals Windows (zie TWEEDE TAAK bovenaan) ---------------------------------------------------------------------------
-// Alleen de argumenten die we aanraken hebben een type; de rest gaat ongezien door. Een schildwacht in *pHResult laat in het logboek zien
-// of het origineel hem zelf zette (dan is de reparatie overbodig) of ongemoeid liet.
+// --- d3dx10: pHResult like Windows (see SECOND TASK at the top) ---------------------------------------------------------------------------
+// Only the arguments we touch have a type; the rest passes through unseen. A sentinel in *pHResult shows in the log
+// whether the original set it itself (then the repair is unnecessary) or left it untouched.
 constexpr HRESULT kHrSentinel = static_cast<HRESULT>(0x5247A11Bu);
 using FxFileAFn = HRESULT(WINAPI*)(const char*, const void*, void*, const char*, UINT, UINT, void*, void*, void*, void**, void**, HRESULT*);
 using FxFileWFn = HRESULT(WINAPI*)(const wchar_t*, const void*, void*, const char*, UINT, UINT, void*, void*, void*, void**, void**, HRESULT*);
@@ -900,9 +889,9 @@ void hr_fix(const char* fn, HRESULT hr, void* pump, HRESULT* phr) {
     if (*phr == kHrSentinel) {
         *phr = hr;
         const LONG n = InterlockedIncrement(&g_hr_fixed);
-        if (n <= 3 || n % 500 == 0) rg_log("d3dx10: %s liet pHResult ongemoeid; nu 0x%08lx (%ld keer)", fn, static_cast<unsigned long>(hr), static_cast<long>(n));
+        if (n <= 3 || n % 500 == 0) rg_log("d3dx10: %s left pHResult untouched; now 0x%08lx (%ld times)", fn, static_cast<unsigned long>(hr), static_cast<long>(n));
     } else if (InterlockedIncrement(&g_hr_set_by_orig) <= 3) {
-        rg_log("d3dx10: %s zette pHResult zelf (0x%08lx)", fn, static_cast<unsigned long>(*phr));
+        rg_log("d3dx10: %s set pHResult itself (0x%08lx)", fn, static_cast<unsigned long>(*phr));
     }
 }
 
@@ -935,13 +924,13 @@ template <typename Fn>
 void hook_d3dx10(const char* func, Fn repl, Fn& orig) {
     void* old = patch_iat(GetModuleHandleW(nullptr), "d3dx10_43.dll", func, reinterpret_cast<void*>(repl));
     if (old) orig = reinterpret_cast<Fn>(old);
-    rg_log("importtabel: d3dx10_43.dll!%s %s", func, old ? "omgezet (pHResult zoals Windows)" : "niet in het spel");
+    rg_log("import table: d3dx10_43.dll!%s %s", func, old ? "redirected (pHResult like Windows)" : "not in the game");
 }
 
 void setup_d3dx10_hrfix() {
     wchar_t buf[8];
     if (GetEnvironmentVariableW(L"RG_D3DX10_HRFIX", buf, 8) > 0 && buf[0] == L'0') {
-        rg_log("RG_D3DX10_HRFIX=0: pHResult van d3dx10 niet gerepareerd");
+        rg_log("RG_D3DX10_HRFIX=0: d3dx10 pHResult not repaired");
         return;
     }
     hook_d3dx10("D3DX10CreateEffectFromFileA", &rg_FxFileA, g_fx_a);
@@ -950,7 +939,7 @@ void setup_d3dx10_hrfix() {
     hook_d3dx10("D3DX10CreateShaderResourceViewFromMemory", &rg_SrvMem, g_srv_mem);
 }
 
-// --- JVS over COM3 naar de pipe (zie DERDE TAAK bovenaan) ---------------------------------------------------------------------------------
+// --- JVS over COM3 to the pipe (see THIRD TASK at the top) ---------------------------------------------------------------------------------
 char g_jvs_port[32];
 char g_jvs_pipe[128] = "\\\\.\\pipe\\TeknoParrot_JVS";
 volatile HANDLE g_jvs_handle = INVALID_HANDLE_VALUE;
@@ -976,7 +965,7 @@ GetCommModemStatusFn g_get_modem_status = nullptr;
 
 bool is_jvs(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_jvs_handle; }
 
-// Het nagebootste STR-bord (TIENDE TAAK); de functies staan verderop.
+// The emulated STR board (TENTH TASK); the functions are further down.
 char g_str_port[32];
 volatile HANDLE g_str_handle = INVALID_HANDLE_VALUE;
 bool is_str(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_str_handle; }
@@ -986,7 +975,7 @@ HANDLE str_open(LPCSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD flags
 HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
     if (g_str_port[0] && rg_jvscom::port_matches(name, g_str_port)) return str_open(name, access, sa, flags);
     if (!g_jvs_port[0] || !rg_jvscom::port_matches(name, g_jvs_port)) return g_create_file_a(name, access, share, sa, disp, flags, tmpl);
-    // De brug maakt de pipe pas als het spel hem nodig heeft of net daarvoor: even wachten tot hij er is (maximaal ~5 s).
+    // The bridge only creates the pipe when the game needs it or just before: wait briefly until it is there (at most ~5 s).
     HANDLE h = INVALID_HANDLE_VALUE;
     for (int i = 0; i < 50; ++i) {
         h = g_create_file_a(g_jvs_pipe, access, share, sa, OPEN_EXISTING, flags, nullptr);
@@ -997,12 +986,12 @@ HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_
     }
     if (h == INVALID_HANDLE_VALUE) {
         const DWORD e = GetLastError();
-        rg_log("JVS: CreateFileA(%s) -> pipe %s NIET te openen (fout %lu)", name, g_jvs_pipe, static_cast<unsigned long>(e));
+        rg_log("JVS: CreateFileA(%s) -> pipe %s could NOT be opened (error %lu)", name, g_jvs_pipe, static_cast<unsigned long>(e));
         SetLastError(e);
         return INVALID_HANDLE_VALUE;
     }
     g_jvs_handle = h;
-    rg_log("JVS: CreateFileA(%s) -> pipe %s, handvat %p", name, g_jvs_pipe, h);
+    rg_log("JVS: CreateFileA(%s) -> pipe %s, handle %p", name, g_jvs_pipe, h);
     return h;
 }
 BOOL WINAPI rg_SetCommState(HANDLE h, LPDCB d) { return is_fake_com(h) ? TRUE : g_set_comm_state(h, d); }
@@ -1013,7 +1002,7 @@ BOOL WINAPI rg_SetupComm(HANDLE h, DWORD i, DWORD o) { return is_fake_com(h) ? T
 BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD f) { return is_fake_com(h) ? TRUE : g_purge_comm(h, f); }
 BOOL WINAPI rg_GetCommModemStatus(HANDLE h, LPDWORD status) {
     if (is_str(h)) {
-        if (status) *status = 0x30;   // CTS en DSR: het bord is er
+        if (status) *status = 0x30;   // CTS and DSR: the board is there
         return TRUE;
     }
     if (!is_jvs(h)) return g_get_modem_status(h, status);
@@ -1030,11 +1019,11 @@ template <typename Fn>
 void hook_kernel32(const char* func, Fn repl, Fn& orig) {
     void* old = patch_iat(GetModuleHandleW(nullptr), "KERNEL32.dll", func, reinterpret_cast<void*>(repl));
     if (old) orig = reinterpret_cast<Fn>(old);
-    rg_log("importtabel: KERNEL32.dll!%s %s", func, old ? "omgezet (COM-omleiding)" : "niet in het spel");
+    rg_log("import table: KERNEL32.dll!%s %s", func, old ? "redirected (COM redirection)" : "not in the game");
 }
 
-// CreateFileA en de comm-aanroepen een keer omzetten, voor de JVS-omleiding en het STR-bord samen (twee keer omzetten zou de omhulsels op
-// zichzelf laten wijzen).
+// Redirect CreateFileA and the comm calls once, for the JVS redirection and the STR board together (redirecting twice would make the wrappers point at
+// themselves).
 void hook_comm_once() {
     static bool done = false;
     if (done) return;
@@ -1047,28 +1036,28 @@ void hook_comm_once() {
     hook_kernel32("SetupComm", &rg_SetupComm, g_setup_comm);
     hook_kernel32("PurgeComm", &rg_PurgeComm, g_purge_comm);
     hook_kernel32("GetCommModemStatus", &rg_GetCommModemStatus, g_get_modem_status);
-    if (!g_create_file_a) rg_log("COM: CreateFileA staat niet in de importtabel van het spel; de omleiding kan niets vangen");
+    if (!g_create_file_a) rg_log("COM: CreateFileA is not in the game's import table; the redirection cannot catch anything");
 }
 
 void setup_jvs_com() {
     char port[32];
-    if (GetEnvironmentVariableA("RG_JVS_COMPORT", port, sizeof port) == 0 || !port[0]) return;   // uit
-    // Met de gesloten TeknoParrot-kern in het proces (de game kiest Core = teknoparrot voor online spelen) haakt die kern COM3 zelf; twee
-    // omleidingen over elkaar helpen niet, dus dan blijft deze uit.
+    if (GetEnvironmentVariableA("RG_JVS_COMPORT", port, sizeof port) == 0 || !port[0]) return;   // off
+    // With the closed TeknoParrot core in the process (the game picks Core = teknoparrot for online play) that core hooks COM3 itself; two
+    // redirections on top of each other do not help, so then this one stays off.
     if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
-        rg_log("JVS-omleiding uit: de TeknoParrot-kern is geladen en doet COM3 zelf");
+        rg_log("JVS redirection off: the TeknoParrot core is loaded and handles COM3 itself");
         return;
     }
     std::snprintf(g_jvs_port, sizeof g_jvs_port, "%s", port);
     char pipe[128];
     if (GetEnvironmentVariableA("RG_JVS_PIPE", pipe, sizeof pipe) > 0 && pipe[0]) std::snprintf(g_jvs_pipe, sizeof g_jvs_pipe, "%s", pipe);
-    rg_log("JVS-omleiding aan: %s -> %s", g_jvs_port, g_jvs_pipe);
+    rg_log("JVS redirection on: %s -> %s", g_jvs_port, g_jvs_pipe);
     hook_comm_once();
 }
 
-// --- het nagebootste STR-bord op COM1 (zie TIENDE TAAK bovenaan; logica in str_board.h) ------------------------------------------------------
-// Het spel krijgt het clienteinde van een eigen pipe (overlapped, zoals het de COM-poort opent); een draad in deze DLL is het bord aan het
-// servereinde. Sluit het spel het handvat (opnieuw verbinden), dan eindigt die draad en maakt de volgende CreateFileA een nieuw paar.
+// --- the emulated STR board on COM1 (see TENTH TASK at the top; logic in str_board.h) ------------------------------------------------------
+// The game gets the client end of a pipe of our own (overlapped, the way it opens the COM port); a thread in this DLL is the board at the
+// server end. If the game closes the handle (to reconnect), that thread ends and the next CreateFileA makes a new pair.
 LONG g_str_serial = 0;
 
 bool str_write(HANDLE pipe, HANDLE ev, const char* data) {
@@ -1100,25 +1089,25 @@ DWORD WINAPI str_board_thread(LPVOID arg) {
             ov = OVERLAPPED{};
             ov.hEvent = rd_ev;
             ResetEvent(rd_ev);
-            if (!ReadFile(pipe, buf, sizeof buf, nullptr, &ov) && GetLastError() != ERROR_IO_PENDING) break;   // gesloten
+            if (!ReadFile(pipe, buf, sizeof buf, nullptr, &ov) && GetLastError() != ERROR_IO_PENDING) break;   // closed
             pending = true;
         }
         const DWORD w = WaitForSingleObject(rd_ev, 20);
         if (w == WAIT_OBJECT_0) {
             pending = false;
             DWORD got = 0;
-            if (!GetOverlappedResult(pipe, &ov, &got, FALSE)) break;   // het spel heeft het handvat gesloten
+            if (!GetOverlappedResult(pipe, &ov, &got, FALSE)) break;   // the game has closed the handle
             if (logged < 5) {
                 char hex[16 * 3 + 1] = {};
                 for (DWORD i = 0; i < got && i < 16; ++i) std::snprintf(hex + 3 * i, 4, "%02x ", buf[i]);
-                rg_log("STR-bord: opdracht van het spel (%lu bytes): %s", static_cast<unsigned long>(got), hex);
+                rg_log("STR board: command from the game (%lu bytes): %s", static_cast<unsigned long>(got), hex);
                 ++logged;
             }
             const unsigned due = board.on_bytes(got);
             for (unsigned i = 0; i < due && ok; ++i) ok = str_write(pipe, wr_ev, rg_strpcb::Board::reply());
         } else if (w == WAIT_TIMEOUT) {
             if (const char* st = board.idle_status()) {
-                if (board.status_sent <= 3) rg_log("STR-bord: status %s gestuurd", st);
+                if (board.status_sent <= 3) rg_log("STR board: status %s sent", st);
                 ok = str_write(pipe, wr_ev, st);
             }
         } else {
@@ -1126,21 +1115,21 @@ DWORD WINAPI str_board_thread(LPVOID arg) {
         }
         if (GetTickCount() - last_summary >= 10000) {
             last_summary = GetTickCount();
-            rg_log("STR-bord: %u statusmeldingen, %lu opdrachtbytes, %lu antwoorden", board.status_sent,
+            rg_log("STR board: %u status reports, %lu command bytes, %lu replies", board.status_sent,
                    static_cast<unsigned long>(board.rx_bytes), static_cast<unsigned long>(board.replies));
         }
     }
-    rg_log("STR-bord: verbinding dicht (%u statusmeldingen, %lu opdrachtbytes, %lu antwoorden)", board.status_sent,
+    rg_log("STR board: connection closed (%u status reports, %lu command bytes, %lu replies)", board.status_sent,
            static_cast<unsigned long>(board.rx_bytes), static_cast<unsigned long>(board.replies));
     if (pending) {
         CancelIoEx(pipe, &ov);
         DWORD got = 0;
-        GetOverlappedResult(pipe, &ov, &got, TRUE);   // de geannuleerde lezing afwachten voor buf en ov van de stapel gaan
+        GetOverlappedResult(pipe, &ov, &got, TRUE);   // wait for the cancelled read before buf and ov go off the stack
     }
     CloseHandle(pipe);
     CloseHandle(rd_ev);
     CloseHandle(wr_ev);
-    // Het spel heeft het clienteinde gesloten: dat handvatnummer kan straks iets anders zijn (bv. het JVS-handvat), dus niet meer als STR herkennen.
+    // The game has closed the client end: that handle number may soon be something else (e.g. the JVS handle), so stop recognizing it as STR.
     InterlockedCompareExchangePointer(reinterpret_cast<PVOID volatile*>(&g_str_handle), INVALID_HANDLE_VALUE, pair->client);
     delete pair;
     return 0;
@@ -1153,46 +1142,90 @@ HANDLE str_open(LPCSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD flags
     HANDLE server = CreateNamedPipeA(pipe_name, PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
                                      PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 0x2000, 0x2000, 0, nullptr);
     if (server == INVALID_HANDLE_VALUE) {
-        rg_log("STR-bord: CreateNamedPipe mislukt (fout %lu)", static_cast<unsigned long>(GetLastError()));
+        rg_log("STR board: CreateNamedPipe failed (error %lu)", static_cast<unsigned long>(GetLastError()));
         SetLastError(ERROR_FILE_NOT_FOUND);
         return INVALID_HANDLE_VALUE;
     }
     HANDLE client = g_create_file_a(pipe_name, access, 0, sa, OPEN_EXISTING, flags, nullptr);
     if (client == INVALID_HANDLE_VALUE) {
-        rg_log("STR-bord: clienteinde niet te openen (fout %lu)", static_cast<unsigned long>(GetLastError()));
+        rg_log("STR board: client end could not be opened (error %lu)", static_cast<unsigned long>(GetLastError()));
         CloseHandle(server);
         SetLastError(ERROR_FILE_NOT_FOUND);
         return INVALID_HANDLE_VALUE;
     }
     OVERLAPPED ov = {};
     ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!ConnectNamedPipe(server, &ov) && GetLastError() == ERROR_IO_PENDING) WaitForSingleObject(ov.hEvent, 1000);   // de client is er al
+    if (!ConnectNamedPipe(server, &ov) && GetLastError() == ERROR_IO_PENDING) WaitForSingleObject(ov.hEvent, 1000);   // the client is already there
     CloseHandle(ov.hEvent);
     g_str_handle = client;
     HANDLE t = CreateThread(nullptr, 0, &str_board_thread, new StrPair{server, client}, 0, nullptr);
     if (t) CloseHandle(t);
-    rg_log("STR-bord: CreateFileA(%s, vlaggen 0x%lx) -> eigen bord (pipe %s), handvat %p", name, static_cast<unsigned long>(flags), pipe_name, client);
+    rg_log("STR board: CreateFileA(%s, flags 0x%lx) -> own board (pipe %s), handle %p", name, static_cast<unsigned long>(flags), pipe_name, client);
     return client;
 }
 
 void setup_str_board() {
     char port[32];
-    if (GetEnvironmentVariableA("RG_STR_COMPORT", port, sizeof port) == 0 || !port[0]) return;   // uit
+    if (GetEnvironmentVariableA("RG_STR_COMPORT", port, sizeof port) == 0 || !port[0]) return;   // off
     if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
-        rg_log("STR-bord uit: de TeknoParrot-kern is geladen (die beantwoordt het stuurbord zelf)");
+        rg_log("STR board off: the TeknoParrot core is loaded (it answers the steering board itself)");
         return;
     }
     std::snprintf(g_str_port, sizeof g_str_port, "%s", port);
-    rg_log("STR-bord aan: %s (19200 8N1) wordt een eigen bord dat C01/E00 meldt", g_str_port);
+    rg_log("STR board on: %s (19200 8N1) becomes a board of our own that reports C01/E00", g_str_port);
     hook_comm_once();
 }
 
-// --- een eigen ShareK-object (zie VIERDE TAAK bovenaan; logica en adressen in sharek_fake.h) -------------------------------------------------
+// --- the content router's echo reply (see ELEVENTH TASK at the top; logic in content_router.h) ---------------------------------------
+using IcmpSendEchoFn = DWORD(WINAPI*)(HANDLE, ULONG, LPVOID, WORD, PVOID, LPVOID, DWORD, DWORD);
+IcmpSendEchoFn g_icmp_send_echo = nullptr;
+uint32_t g_router_addr = 0;
+volatile LONG g_router_echoes = 0;
+
+// Same eight stdcall arguments as IPHLPAPI!IcmpSendEcho; only the router's address is answered here.
+DWORD WINAPI rg_IcmpSendEcho(HANDLE icmp, ULONG dest, LPVOID data, WORD size, PVOID options, LPVOID reply, DWORD reply_size,
+                             DWORD timeout) {
+    if (dest != g_router_addr)
+        return g_icmp_send_echo ? g_icmp_send_echo(icmp, dest, data, size, options, reply, reply_size, timeout) : 0;
+    const auto data_ptr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(reply) + rg_router::kEchoReplySize);
+    const unsigned n = rg_router::fill_echo_reply(static_cast<uint8_t*>(reply), reply_size, dest, data, size, data_ptr);
+    if (!n) {
+        SetLastError(11001);   // IP_BUF_TOO_SMALL
+        rg_log("content router: echo of %u bytes does not fit a reply buffer of %lu bytes", static_cast<unsigned>(size),
+               static_cast<unsigned long>(reply_size));
+        return 0;
+    }
+    const LONG count = InterlockedIncrement(&g_router_echoes);
+    if (count <= 3 || count % 100 == 0) rg_log("content router: echo %ld answered (%u bytes)", static_cast<long>(count), static_cast<unsigned>(size));
+    return n;
+}
+
+void setup_content_router() {
+    char v[32];
+    if (GetEnvironmentVariableA("RG_CONTENT_ROUTER", v, sizeof v) == 0 || !v[0]) return;   // off
+    if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
+        rg_log("content router: off, the TeknoParrot core is loaded");
+        return;
+    }
+    if (!rg_router::parse_ipv4(v, &g_router_addr)) {
+        rg_log("content router: RG_CONTENT_ROUTER=%s is not an IPv4 address; off", v);
+        return;
+    }
+    void* old = patch_iat(GetModuleHandleW(nullptr), "IPHLPAPI.DLL", "IcmpSendEcho", reinterpret_cast<void*>(&rg_IcmpSendEcho));
+    if (!old) {
+        rg_log("content router: import table IPHLPAPI.DLL!IcmpSendEcho NOT found; off");
+        return;
+    }
+    g_icmp_send_echo = reinterpret_cast<IcmpSendEchoFn>(old);
+    rg_log("content router: on, echo requests to %s are answered", v);
+}
+
+// --- an own ShareK object (see FOURTH TASK at the top; logic and addresses in sharek_fake.h) -------------------------------------------------
 struct SharekObject {
     const void* const* vtbl;
     volatile LONG ref;
 };
-static_assert(sizeof(GUID) == sizeof(rg_sharek::Guid), "GUID en rg_sharek::Guid moeten dezelfde indeling hebben");
+static_assert(sizeof(GUID) == sizeof(rg_sharek::Guid), "GUID and rg_sharek::Guid must have the same layout");
 const rg_sharek::Guid& as_guid(const GUID& g) { return *reinterpret_cast<const rg_sharek::Guid*>(&g); }
 
 void guid_text(const GUID& g, char* out, size_t n) {
@@ -1203,41 +1236,41 @@ void guid_text(const GUID& g, char* out, size_t n) {
 void* g_sharek_vtbl[rg_sharek::kVtableSize];
 SharekObject g_sharek = {nullptr, 1};
 volatile LONG g_sharek_seen[rg_sharek::kVtableSize];
-volatile LONG g_qi_bekend = 0;
-volatile LONG g_qi_onbekend = 0;
+volatile LONG g_qi_known = 0;
+volatile LONG g_qi_unknown = 0;
 
-// Het eerste gebruik van elk slot in het logboek: zo staat er na een tv-run welke methodes het spel werkelijk aanriep.
-void sk_note_van(int slot, void* beller) {
+// The first use of each slot in the log: this way, after a tv run, it shows which methods the game really called.
+void sk_note_from(int slot, void* caller) {
     if (slot >= 0 && slot < rg_sharek::kVtableSize && InterlockedExchange(&g_sharek_seen[slot], 1) == 0)
-        rg_log("ShareK-object: slot %d aangeroepen (beller %p)", slot, beller);
+        rg_log("ShareK object: slot %d called (caller %p)", slot, caller);
 }
-void sk_note(int slot) { sk_note_van(slot, nullptr); }
+void sk_note(int slot) { sk_note_from(slot, nullptr); }
 
 HRESULT STDMETHODCALLTYPE sk_query_interface(SharekObject* self, REFIID riid, void** ppv) {
     if (!ppv) return E_POINTER;
-    char tekst[48];
-    guid_text(riid, tekst, sizeof tekst);
-    const bool bekend = rg_sharek::knows_iid(as_guid(riid));
-    static const bool alles = [] {
+    char text[48];
+    guid_text(riid, text, sizeof text);
+    const bool known = rg_sharek::knows_iid(as_guid(riid));
+    static const bool accept_any = [] {
         char any[8];
         return GetEnvironmentVariableA("RG_SHAREK_ANY_IID", any, sizeof any) != 0 && any[0] == '1';
     }();
-    if (!bekend && !alles) {
-        /* Onbekende IID's zijn zeldzaam; die loggen we altijd. Bekende IID's maar een paar keer,
-         * anders schrijft elke aanroep een regel (het spel vraagt dit vaak). */
-        if (InterlockedIncrement(&g_qi_onbekend) <= 8)
-            rg_log("ShareK-object: QueryInterface(%s) -> E_NOINTERFACE (onbekend)", tekst);
+    if (!known && !accept_any) {
+        /* Unknown IIDs are rare; we always log those. Known IIDs only a few times,
+         * otherwise every call writes a line (the game asks for this often). */
+        if (InterlockedIncrement(&g_qi_unknown) <= 8)
+            rg_log("ShareK object: QueryInterface(%s) -> E_NOINTERFACE (unknown)", text);
         *ppv = nullptr;
         return E_NOINTERFACE;
     }
-    if (InterlockedIncrement(&g_qi_bekend) <= 8)
-        rg_log("ShareK-object: QueryInterface(%s) -> hetzelfde object%s", tekst, bekend ? "" : " (onbekend, RG_SHAREK_ANY_IID)");
+    if (InterlockedIncrement(&g_qi_known) <= 8)
+        rg_log("ShareK object: QueryInterface(%s) -> same object%s", text, known ? "" : " (unknown, RG_SHAREK_ANY_IID)");
     *ppv = self;
     InterlockedIncrement(&self->ref);
     return S_OK;
 }
 ULONG STDMETHODCALLTYPE sk_add_ref(SharekObject* self) { return static_cast<ULONG>(InterlockedIncrement(&self->ref)); }
-// Het object is statisch en blijft bestaan; Release telt alleen af (nooit onder 1: het spel maakt na een herstart gewoon een nieuwe).
+// The object is static and stays alive; Release only counts down (never below 1: after a restart the game simply creates a new one).
 ULONG STDMETHODCALLTYPE sk_release(SharekObject* self) {
     const LONG r = InterlockedDecrement(&self->ref);
     if (r < 1) {
@@ -1246,7 +1279,7 @@ ULONG STDMETHODCALLTYPE sk_release(SharekObject* self) {
     }
     return static_cast<ULONG>(r);
 }
-// IDispatch (slot 3..6): het spel gebruikt alleen de vtable-methodes; late binding bieden we niet aan.
+// IDispatch (slot 3..6): the game only uses the vtable methods; we do not offer late binding.
 HRESULT STDMETHODCALLTYPE sk_get_type_info_count(SharekObject*, UINT* n) {
     if (n) *n = 0;
     return S_OK;
@@ -1257,12 +1290,12 @@ HRESULT STDMETHODCALLTYPE sk_invoke(SharekObject*, DISPID, REFIID, LCID, WORD, v
 
 template <int N>
 HRESULT STDMETHODCALLTYPE sk_nop8(SharekObject*, void*) {
-    sk_note_van(N, __builtin_return_address(0));
+    sk_note_from(N, __builtin_return_address(0));
     return S_OK;
 }
 template <int N>
 HRESULT STDMETHODCALLTYPE sk_nop20(SharekObject*, void*, void*, void*, void*) {
-    sk_note_van(N, __builtin_return_address(0));
+    sk_note_from(N, __builtin_return_address(0));
     return S_OK;
 }
 template <int N, rg_sharek::Kind K>
@@ -1277,7 +1310,7 @@ template <int N>
 void sk_install(void** vt) {
     constexpr const rg_sharek::Slot* s = rg_sharek::find_slot(N);
     if constexpr (s == nullptr) {
-        vt[N] = reinterpret_cast<void*>(&sk_nop8<N>);   // ongebruikt slot: nooit aangeroepen door het spel
+        vt[N] = reinterpret_cast<void*>(&sk_nop8<N>);   // unused slot: never called by the game
     } else if constexpr (s->arg_bytes == 20) {
         vt[N] = reinterpret_cast<void*>(&sk_nop20<N>);
     } else if constexpr (s->kind == rg_sharek::Kind::Nop) {
@@ -1320,10 +1353,10 @@ struct AmAuthObject { const void* const* vtbl; volatile LONG ref; };
 AmAuthObject g_am_auth;
 void* g_am_auth_vtbl[rg_amauth::kVtableSize];
 
-HRESULT STDMETHODCALLTYPE am_query(void* zelf, const void* riid, void** ppv) {
+HRESULT STDMETHODCALLTYPE am_query(void* self, const void* riid, void** ppv) {
     if (!ppv) return E_POINTER;
     (void)riid;
-    *ppv = zelf;
+    *ppv = self;
     InterlockedIncrement(&g_am_auth.ref);
     rg_log("AMAuth: QueryInterface -> the same object");
     return S_OK;
@@ -1437,7 +1470,7 @@ HRESULT STDMETHODCALLTYPE am_slot5(void*, int a, int b) {
 }
 // Slot 9: interface pointer + a status block (see am_auth_fake.h). stdcall ret 0x08.
 HRESULT STDMETHODCALLTYPE am_slot9(void*, void* block) {
-    const int state = rg_amauth::auth_keuze();
+    const int state = rg_amauth::auth_choice();
     if (block) rg_amauth::fill_status(static_cast<unsigned char*>(block), state);
     am_dump_check_state();
     // Temporary probes (RG_AMAUTH_POKE): 1 = force the holder request state to 6 ("auth done");
@@ -1506,9 +1539,23 @@ HRESULT STDMETHODCALLTYPE am_slot19(void*, void* out) {
     if (out) *static_cast<uint32_t*>(out) = kind;
     return S_OK;
 }
-// Anything else: the boot check has not called it. A no-argument stub (stdcall ret 4). If the game
-// ever calls an unmeasured slot, the log shows it and the stack would tell us the argument count;
-// the table then gets extended from the call site.
+// Slot 14: interface pointer + the game's server-name buffer (0x461A00). Offline the game keeps its own
+// contents of that buffer (0x4619F0), so it is left untouched here. stdcall ret 0x08.
+HRESULT STDMETHODCALLTYPE am_slot14(void*, void*) {
+    am_note(14, "server name", __builtin_return_address(0));
+    return S_OK;
+}
+// Slot 23: interface pointer + one dword (0x803935, the game passes 0 once the status block reports a
+// pending update detail). There is no update offline; it only has to succeed. stdcall ret 0x08.
+// (Measured 2026-10-20: with the one-argument stub below the game's stack was off by four bytes here
+// and the game exited ~4 minutes into attract mode.)
+HRESULT STDMETHODCALLTYPE am_slot23(void*, DWORD) {
+    am_note(23, "update request", __builtin_return_address(0));
+    return S_OK;
+}
+// Anything else: a stub with only the interface pointer (stdcall ret 4). The game calls slots 12, 13, 15,
+// 29 and 30 that way (am_auth_fake.h lists the call sites). If it ever calls a slot not in that list, the
+// log shows it; the table then gets extended from the call site with the right argument count.
 HRESULT STDMETHODCALLTYPE am_unused(void*) {
     static volatile LONG once = 0;
     if (InterlockedExchange(&once, 1) == 0)
@@ -1528,7 +1575,9 @@ void setup_am_auth() {
     g_am_auth_vtbl[5] = reinterpret_cast<void*>(&am_slot5);
     g_am_auth_vtbl[9] = reinterpret_cast<void*>(&am_slot9);
     g_am_auth_vtbl[10] = reinterpret_cast<void*>(&am_slot10);
+    g_am_auth_vtbl[14] = reinterpret_cast<void*>(&am_slot14);
     g_am_auth_vtbl[19] = reinterpret_cast<void*>(&am_slot19);
+    g_am_auth_vtbl[23] = reinterpret_cast<void*>(&am_slot23);
     g_am_auth.vtbl = g_am_auth_vtbl;
     g_am_auth.ref = 1;
 }
@@ -1557,19 +1606,19 @@ HRESULT WINAPI rg_CoCreateInstance(REFCLSID clsid, LPUNKNOWN outer, DWORD ctx, R
         guid_text(clsid, c, sizeof c);
         guid_text(riid, i, sizeof i);
         if (outer) {
-            rg_log("ShareK: CoCreateInstance(%s) met aggregatie geweigerd", c);
+            rg_log("ShareK: CoCreateInstance(%s) with aggregation refused", c);
             return CLASS_E_NOAGGREGATION;
         }
         HRESULT hr = sk_query_interface(&g_sharek, riid, ppv);
-        rg_log("ShareK: CoCreateInstance(%s, ctx 0x%lx, %s) -> eigen object, hr 0x%08lx", c, static_cast<unsigned long>(ctx), i, static_cast<unsigned long>(hr));
+        rg_log("ShareK: CoCreateInstance(%s, ctx 0x%lx, %s) -> own object, hr 0x%08lx", c, static_cast<unsigned long>(ctx), i, static_cast<unsigned long>(hr));
         return hr;
     }
     HRESULT hr = g_co_create_instance(clsid, outer, ctx, riid, ppv);
-    // Welke andere klassen vraagt het spel? (De IAuth van AMAuthd, {4603BB03-...}, hoort hier met zijn echte uitkomst te staan.)
+    // Which other classes does the game ask for? (The IAuth of AMAuthd, {4603BB03-...}, should appear here with its real result.)
     if (InterlockedIncrement(&g_co_seen) <= 16) {
         guid_text(clsid, c, sizeof c);
         guid_text(riid, i, sizeof i);
-        rg_log("CoCreateInstance(%s, ctx 0x%lx, %s) -> hr 0x%08lx (echte aanroep)", c, static_cast<unsigned long>(ctx), i, static_cast<unsigned long>(hr));
+        rg_log("CoCreateInstance(%s, ctx 0x%lx, %s) -> hr 0x%08lx (real call)", c, static_cast<unsigned long>(ctx), i, static_cast<unsigned long>(hr));
     }
     return hr;
 }
@@ -1605,30 +1654,36 @@ void setup_odbg() {
     rg_log("ODBG: OutputDebugString hooked (A %s, W %s), IsDebuggerPresent -> true (%s)", old_a ? "yes" : "no",
            old_w ? "yes" : "no", old_d ? "hooked" : "not found");
 }
-// Het meetinstrument van rg-compat (docs/rg-compat.md, RG_COMPAT_SAMPLE=<ms>): een draad die de
-// andere draden bemonstert en de heetste plekken als module+RVA wegschrijft. Mario Kart heeft maar
-// een preload (deze DLL), dus laden we rg-compat.dll hier zelf. Zonder RG_COMPAT_SAMPLE gebeurt er
-// niets en is het bestand ook niet nodig.
-// De geheugen-motor (memory/src, docs/memory-engine.md) ook hier: Mario Kart heeft maar een preload
-// (deze DLL), dus laden we ravengun-patchmem32.dll zelf als RAVENGUN_PATCHMEM_FILE gezet is. De
-// motor doet dan zijn eigen synchrone ronde op de hoofdmodule en leest zijn patchlijst.
-void setup_geheugen_motor() {
+// The measuring instrument of rg-compat (docs/rg-compat.md, RG_COMPAT_SAMPLE=<ms>): a thread that
+// samples the other threads and writes the hottest spots as module+RVA. Mario Kart has only
+// one preload (this DLL), so we load rg-compat.dll here ourselves. Without RG_COMPAT_SAMPLE nothing
+// happens and the file is not needed either.
+// The memory engine (memory/src, docs/memory-engine.md) here too: Mario Kart has only one preload
+// (this DLL), so we load ravengun-patchmem32.dll ourselves if RAVENGUN_PATCHMEM_FILE is set. The
+// engine then does its own synchronous round on the main module and reads its patch list.
+void setup_memory_engine() {
     char v[MAX_PATH];
     if (GetEnvironmentVariableA("RAVENGUN_PATCHMEM_FILE", v, sizeof v) == 0) return;
+    // The patches are for our own route (offline cabinet). The closed TeknoParrot core (Core = teknoparrot,
+    // online play) patches the game its own way and needs the network paths these patches switch off.
+    if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
+        rg_log("memory engine: off, the TeknoParrot core is loaded");
+        return;
+    }
     HMODULE m = LoadLibraryA("ravengun-patchmem32.dll");
-    rg_log("geheugen-motor: ravengun-patchmem32.dll %s (lijst %s)", m ? "geladen" : "NIET geladen", v);
+    rg_log("memory engine: ravengun-patchmem32.dll %s (list %s)", m ? "loaded" : "NOT loaded", v);
 }
 
-void setup_meetdraad() {
+void setup_sampler_thread() {
     char v[8];
     if (GetEnvironmentVariableA("RG_COMPAT_SAMPLE", v, sizeof v) == 0) return;
     HMODULE m = LoadLibraryA("rg-compat.dll");
-    rg_log("meetdraad: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "geladen" : "NIET geladen", v);
+    rg_log("sampler thread: rg-compat.dll %s (RG_COMPAT_SAMPLE=%s)", m ? "loaded" : "NOT loaded", v);
 }
 
-DWORD WINAPI laad_hulp_dlls(LPVOID) {
-    setup_geheugen_motor();
-    setup_meetdraad();
+DWORD WINAPI load_helper_dlls(LPVOID) {
+    setup_memory_engine();
+    setup_sampler_thread();
     return 0;
 }
 
@@ -1654,7 +1709,7 @@ void setup_sharek_fake() {
     }
 }
 
-// --- aanvullende schijfletter-herleiding (zie ZESDE TAAK bovenaan; logica in drive_fix.h) ------------------------------------------------------
+// --- additional drive letter redirection (see SIXTH TASK at the top; logic in drive_fix.h) ------------------------------------------------------
 char g_drive_letters[28];
 volatile LONG g_drive_logged = 0;
 
@@ -1664,7 +1719,7 @@ std::string to_utf8(const wchar_t* w) {
     return n > 0 ? std::string(b) : std::string("?");
 }
 void drive_note(const char* what, const std::string& from, const std::string& to, long result) {
-    if (InterlockedIncrement(&g_drive_logged) <= 40) rg_log("schijfletter: %s(%s) -> %s = %ld", what, from.c_str(), to.c_str(), result);
+    if (InterlockedIncrement(&g_drive_logged) <= 40) rg_log("drive letter: %s(%s) -> %s = %ld", what, from.c_str(), to.c_str(), result);
 }
 
 using RenameFn = int(__cdecl*)(const char*, const char*);
@@ -1684,7 +1739,7 @@ FindFirstAFn g_find_first_a = nullptr;
 FindFirstWFn g_find_first_w = nullptr;
 GetAttrWFn g_get_attr_w = nullptr;
 
-// Geeft het herleide pad (in `buf`) of het oorspronkelijke.
+// Returns the redirected path (in `buf`) or the original.
 const char* fix_a(const char* in, char* buf, size_t n) { return rg_drivefix::redirect<char>(in, g_drive_letters, buf, n) ? buf : in; }
 const wchar_t* fix_w(const wchar_t* in, wchar_t* buf, size_t n) { return rg_drivefix::redirect<wchar_t>(in, g_drive_letters, buf, n) ? buf : in; }
 
@@ -1749,20 +1804,20 @@ template <typename Fn>
 void hook_import(const char* dll, const char* func, void* repl, Fn& orig) {
     void* old = patch_iat(GetModuleHandleW(nullptr), dll, func, repl);
     if (old) orig = reinterpret_cast<Fn>(old);
-    rg_log("importtabel: %s!%s %s", dll, func, old ? "omgezet" : "niet in het spel");
+    rg_log("import table: %s!%s %s", dll, func, old ? "redirected" : "not in the game");
 }
 
 void patch_drive_strings();
 
 void setup_drive_fix() {
     char v[28];
-    if (GetEnvironmentVariableA("RG_DRIVE_FIXUP", v, sizeof v) == 0 || !v[0]) return;   // uit
+    if (GetEnvironmentVariableA("RG_DRIVE_FIXUP", v, sizeof v) == 0 || !v[0]) return;   // off
     if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
-        rg_log("schijfletter-herleiding uit: de TeknoParrot-kern is geladen");
+        rg_log("drive letter redirection off: the TeknoParrot core is loaded");
         return;
     }
     std::snprintf(g_drive_letters, sizeof g_drive_letters, "%s", v);
-    rg_log("schijfletter-herleiding aan voor: %s", g_drive_letters);
+    rg_log("drive letter redirection on for: %s", g_drive_letters);
     char ds[8];
     if (!(GetEnvironmentVariableA("RG_DRIVE_STRINGS", ds, sizeof ds) > 0 && ds[0] == '0')) patch_drive_strings();
     hook_import("MSVCR100.dll", "rename", reinterpret_cast<void*>(&rg_rename), g_rename);
@@ -1775,7 +1830,7 @@ void setup_drive_fix() {
     hook_import("KERNEL32.dll", "GetFileAttributesW", reinterpret_cast<void*>(&rg_GetFileAttributesW), g_get_attr_w);
 }
 
-// --- de Banapass-kaartlezer (zie ZEVENDE TAAK bovenaan; logica in bngrw_fake.h) ----------------------------------------------------------------
+// --- the Banapass card reader (see SEVENTH TASK at the top; logic in bngrw_fake.h) ----------------------------------------------------------------
 bool g_bng_fake = false;
 rg_bngrw::Fake g_bng;
 CRITICAL_SECTION g_bng_cs;
@@ -1783,7 +1838,7 @@ volatile LONG g_bng_logged = 0;
 
 #define BNG_LOG(...) do { if (InterlockedIncrement(&g_bng_logged) <= 400) rg_log(__VA_ARGS__); } while (0)
 
-// De callbacks van de bibliotheek zijn cdecl: (lezer, resultaat, user) of, bij ReqWaitTouch, (lezer, resultaat, kaart, user).
+// The library's callbacks are cdecl: (reader, result, user) or, for ReqWaitTouch, (reader, result, card, user).
 using BngCb3 = void(__cdecl*)(int, int, void*);
 using BngCb4 = void(__cdecl*)(int, int, void*, void*);
 struct BngThunk {
@@ -1794,16 +1849,16 @@ struct BngThunk {
 };
 void __cdecl bng_thunk3(int a, int b, void* t_) {
     auto* t = static_cast<BngThunk*>(t_);
-    BNG_LOG("bngrw: callback %s(lezer %d): a=%d b=0x%x", t->what, t->reader, a, static_cast<unsigned>(b));
+    BNG_LOG("bngrw: callback %s(reader %d): a=%d b=0x%x", t->what, t->reader, a, static_cast<unsigned>(b));
     reinterpret_cast<BngCb3>(t->cb)(a, b, t->user);
 }
 void __cdecl bng_thunk4(int a, int b, void* c, void* t_) {
     auto* t = static_cast<BngThunk*>(t_);
-    BNG_LOG("bngrw: callback %s(lezer %d): a=%d b=0x%x kaart=%p", t->what, t->reader, a, static_cast<unsigned>(b), c);
+    BNG_LOG("bngrw: callback %s(reader %d): a=%d b=0x%x card=%p", t->what, t->reader, a, static_cast<unsigned>(b), c);
     reinterpret_cast<BngCb4>(t->cb)(a, b, c, t->user);
 }
 BngThunk* bng_thunk(void* cb, void* user, int reader, const char* what) {
-    return new BngThunk{cb, user, reader, what};   // klein, bewust niet vrijgegeven: de bibliotheek kan de callback later nog aanroepen
+    return new BngThunk{cb, user, reader, what};   // small, deliberately not freed: the library may still call the callback later
 }
 
 using BngInitFn = int(__stdcall*)();
@@ -1828,14 +1883,14 @@ BngWaitTouchFn g_bng_wait_touch = nullptr;
 BngCancelFn g_bng_cancel = nullptr;
 BngSendUrlFn g_bng_send_url = nullptr;
 
-// Nep: roep de callback meteen met resultaat 0 aan.
+// Fake: call the callback immediately with result 0.
 void bng_done(void* cb, void* user, int reader) {
     if (cb) reinterpret_cast<BngCb3>(cb)(reader, rg_bngrw::kResultOk, user);
 }
 
 int __stdcall rg_BngRwInit() {
     if (g_bng_fake) {
-        BNG_LOG("bngrw: Init (nep)");
+        BNG_LOG("bngrw: Init (fake)");
         return 0;
     }
     const int r = g_bng_init();
@@ -1847,7 +1902,7 @@ int __stdcall rg_BngRwFin() {
         EnterCriticalSection(&g_bng_cs);
         g_bng.fin();
         LeaveCriticalSection(&g_bng_cs);
-        BNG_LOG("bngrw: Fin (nep)");
+        BNG_LOG("bngrw: Fin (fake)");
         return 0;
     }
     const int r = g_bng_fin();
@@ -1859,13 +1914,13 @@ int __stdcall rg_BngRwAttach(int reader, const char* port, int a3, int a4, void*
         EnterCriticalSection(&g_bng_cs);
         const int r = g_bng.attach(reader);
         LeaveCriticalSection(&g_bng_cs);
-        BNG_LOG("bngrw: Attach(lezer %d, %s, %d, 0x%x) -> %d (nep)", reader, port ? port : "?", a3, a4, r);
+        BNG_LOG("bngrw: Attach(reader %d, %s, %d, 0x%x) -> %d (fake)", reader, port ? port : "?", a3, a4, r);
         if (r == rg_bngrw::kAccepted) bng_done(cb, user, reader);
         return r;
     }
     BngThunk* t = bng_thunk(cb, user, reader, "Attach");
     const int r = g_bng_attach(reader, port, a3, a4, cb ? reinterpret_cast<void*>(&bng_thunk3) : nullptr, t);
-    BNG_LOG("bngrw: Attach(lezer %d, %s, %d, 0x%x) -> %d", reader, port ? port : "?", a3, a4, r);
+    BNG_LOG("bngrw: Attach(reader %d, %s, %d, 0x%x) -> %d", reader, port ? port : "?", a3, a4, r);
     return r;
 }
 int __stdcall rg_BngRwIsCmdExec(int reader) {
@@ -1876,13 +1931,13 @@ int __stdcall rg_BngRwIsCmdExec(int reader) {
         return r;
     }
     const int r = g_bng_is_exec(reader);
-    static LONG last[4] = {-2, -2, -2, -2};   // alleen veranderingen loggen: het spel vraagt dit elke tik
-    if (reader >= 0 && reader < 4 && InterlockedExchange(&last[reader], r) != r) BNG_LOG("bngrw: IsCmdExec(lezer %d) -> %d", reader, r);
+    static LONG last[4] = {-2, -2, -2, -2};   // only log changes: the game asks for this every tick
+    if (reader >= 0 && reader < 4 && InterlockedExchange(&last[reader], r) != r) BNG_LOG("bngrw: IsCmdExec(reader %d) -> %d", reader, r);
     return r;
 }
 int __stdcall rg_BngRwSetLedPower(int a, int b, int c) {
     if (g_bng_fake) {
-        BNG_LOG("bngrw: SetLedPower(%d, %d, %d) (nep)", a, b, c);
+        BNG_LOG("bngrw: SetLedPower(%d, %d, %d) (fake)", a, b, c);
         return 0;
     }
     const int r = g_bng_led_power(a, b, c);
@@ -1894,13 +1949,13 @@ int __stdcall rg_BngRwDevReset(int reader, void* cb, void* user) {
         EnterCriticalSection(&g_bng_cs);
         const int r = g_bng.dev_reset(reader);
         LeaveCriticalSection(&g_bng_cs);
-        BNG_LOG("bngrw: DevReset(lezer %d) -> %d (nep)", reader, r);
+        BNG_LOG("bngrw: DevReset(reader %d) -> %d (fake)", reader, r);
         if (r == rg_bngrw::kAccepted) bng_done(cb, user, reader);
         return r;
     }
     BngThunk* t = bng_thunk(cb, user, reader, "DevReset");
     const int r = g_bng_dev_reset(reader, cb ? reinterpret_cast<void*>(&bng_thunk3) : nullptr, t);
-    BNG_LOG("bngrw: DevReset(lezer %d) -> %d", reader, r);
+    BNG_LOG("bngrw: DevReset(reader %d) -> %d", reader, r);
     return r;
 }
 int bng_req4(const char* name, BngReq4Fn real, int reader, int v, void* cb, void* user) {
@@ -1908,13 +1963,13 @@ int bng_req4(const char* name, BngReq4Fn real, int reader, int v, void* cb, void
         EnterCriticalSection(&g_bng_cs);
         const int r = g_bng.simple_request(reader);
         LeaveCriticalSection(&g_bng_cs);
-        BNG_LOG("bngrw: %s(lezer %d, %d) -> %d (nep)", name, reader, v, r);
+        BNG_LOG("bngrw: %s(reader %d, %d) -> %d (fake)", name, reader, v, r);
         if (r == rg_bngrw::kAccepted) bng_done(cb, user, reader);
         return r;
     }
     BngThunk* t = bng_thunk(cb, user, reader, name);
     const int r = real(reader, v, cb ? reinterpret_cast<void*>(&bng_thunk3) : nullptr, t);
-    BNG_LOG("bngrw: %s(lezer %d, %d) -> %d", name, reader, v, r);
+    BNG_LOG("bngrw: %s(reader %d, %d) -> %d", name, reader, v, r);
     return r;
 }
 int __stdcall rg_BngRwReqLed(int reader, int v, void* cb, void* user) { return bng_req4("ReqLed", g_bng_req_led, reader, v, cb, user); }
@@ -1924,12 +1979,12 @@ int __stdcall rg_BngRwReqWaitTouch(int reader, int timeout, int mode, void* cb, 
         EnterCriticalSection(&g_bng_cs);
         const int r = g_bng.wait_touch(reader);
         LeaveCriticalSection(&g_bng_cs);
-        BNG_LOG("bngrw: ReqWaitTouch(lezer %d, %d, 0x%x) -> %d (nep, geen kaart)", reader, timeout, mode, r);
+        BNG_LOG("bngrw: ReqWaitTouch(reader %d, %d, 0x%x) -> %d (fake, no card)", reader, timeout, mode, r);
         return r;
     }
     BngThunk* t = bng_thunk(cb, user, reader, "WaitTouch");
     const int r = g_bng_wait_touch(reader, timeout, mode, cb ? reinterpret_cast<void*>(&bng_thunk4) : nullptr, t);
-    BNG_LOG("bngrw: ReqWaitTouch(lezer %d, %d, 0x%x) -> %d", reader, timeout, mode, r);
+    BNG_LOG("bngrw: ReqWaitTouch(reader %d, %d, 0x%x) -> %d", reader, timeout, mode, r);
     return r;
 }
 int __stdcall rg_BngRwReqCancel(int reader) {
@@ -1937,11 +1992,11 @@ int __stdcall rg_BngRwReqCancel(int reader) {
         EnterCriticalSection(&g_bng_cs);
         const bool was = g_bng.cancel(reader);
         LeaveCriticalSection(&g_bng_cs);
-        BNG_LOG("bngrw: ReqCancel(lezer %d) -> %d (nep)", reader, was ? 1 : 0);
+        BNG_LOG("bngrw: ReqCancel(reader %d) -> %d (fake)", reader, was ? 1 : 0);
         return rg_bngrw::kAccepted;
     }
     const int r = g_bng_cancel(reader);
-    BNG_LOG("bngrw: ReqCancel(lezer %d) -> %d", reader, r);
+    BNG_LOG("bngrw: ReqCancel(reader %d) -> %d", reader, r);
     return r;
 }
 int __stdcall rg_BngRwReqSendUrlTo(int reader, int a2, int a3, void* a4, void* a5, const char* url, void* cb, void* user) {
@@ -1949,13 +2004,13 @@ int __stdcall rg_BngRwReqSendUrlTo(int reader, int a2, int a3, void* a4, void* a
         EnterCriticalSection(&g_bng_cs);
         const int r = g_bng.simple_request(reader);
         LeaveCriticalSection(&g_bng_cs);
-        BNG_LOG("bngrw: ReqSendUrlTo(lezer %d, %s) -> %d (nep)", reader, url ? url : "?", r);
+        BNG_LOG("bngrw: ReqSendUrlTo(reader %d, %s) -> %d (fake)", reader, url ? url : "?", r);
         if (r == rg_bngrw::kAccepted) bng_done(cb, user, reader);
         return r;
     }
     BngThunk* t = bng_thunk(cb, user, reader, "SendUrlTo");
     const int r = g_bng_send_url(reader, a2, a3, a4, a5, url, cb ? reinterpret_cast<void*>(&bng_thunk3) : nullptr, t);
-    BNG_LOG("bngrw: ReqSendUrlTo(lezer %d, %s) -> %d", reader, url ? url : "?", r);
+    BNG_LOG("bngrw: ReqSendUrlTo(reader %d, %s) -> %d", reader, url ? url : "?", r);
     return r;
 }
 
@@ -1963,23 +2018,23 @@ template <typename Fn>
 void hook_bng(const char* name, void* repl, Fn& orig) {
     void* old = patch_iat(GetModuleHandleW(nullptr), "bngrw.dll", name, repl);
     if (old) orig = reinterpret_cast<Fn>(old);
-    rg_log("importtabel: bngrw.dll!%s %s", name, old ? "omgezet (kaartlezer)" : "niet in het spel");
+    rg_log("import table: bngrw.dll!%s %s", name, old ? "redirected (card reader)" : "not in the game");
 }
 
 void setup_bngrw() {
     char v[16];
-    if (GetEnvironmentVariableA("RG_BNGRW", v, sizeof v) == 0 || !v[0]) return;   // uit
+    if (GetEnvironmentVariableA("RG_BNGRW", v, sizeof v) == 0 || !v[0]) return;   // off
     if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
-        rg_log("kaartlezer-omhulsel uit: de TeknoParrot-kern is geladen");
+        rg_log("card reader wrapper off: the TeknoParrot core is loaded");
         return;
     }
     g_bng_fake = std::strcmp(v, "fake") == 0;
     if (!g_bng_fake && std::strcmp(v, "trace") != 0) {
-        rg_log("RG_BNGRW=%s onbekend (kies trace of fake); uit", v);
+        rg_log("RG_BNGRW=%s unknown (choose trace or fake); off", v);
         return;
     }
     InitializeCriticalSection(&g_bng_cs);
-    rg_log("kaartlezer: %s", g_bng_fake ? "eigen antwoord (twee lezers zonder kaart)" : "de echte bngrw.dll volgen");
+    rg_log("card reader: %s", g_bng_fake ? "own reply (two readers without a card)" : "following the real bngrw.dll");
     hook_bng("_BngRwInit@0", reinterpret_cast<void*>(&rg_BngRwInit), g_bng_init);
     hook_bng("_BngRwFin@0", reinterpret_cast<void*>(&rg_BngRwFin), g_bng_fin);
     hook_bng("_BngRwAttach@24", reinterpret_cast<void*>(&rg_BngRwAttach), g_bng_attach);
@@ -1993,13 +2048,13 @@ void setup_bngrw() {
     hook_bng("_BngRwReqSendUrlTo@32", reinterpret_cast<void*>(&rg_BngRwReqSendUrlTo), g_bng_send_url);
 }
 
-// --- berichtenlus en vensters volgen (zie ACHTSTE TAAK bovenaan) -----------------------------------------------------------------------------------
+// --- following the message loop and windows (see EIGHTH TASK at the top) -----------------------------------------------------------------------------------
 volatile LONG g_peek_n = 0, g_peek_msgs = 0, g_disp_n = 0;
 volatile LONG g_peek_slow = 0;
 DWORD g_peek_max_ms = 0;
 DWORD g_peek_last_sum = 0;
-DWORD g_peek_delay_ms = 0;       // RG_PEEK_DELAY_MS: de eerste PeekMessageW zoveel ms uitstellen (proef: een race met het venster?)
-bool g_peek_skip_first = false;  // RG_PEEK_SKIP_FIRST=1: de eerste PeekMessageW (PM_NOREMOVE) niet uitvoeren (proef)
+DWORD g_peek_delay_ms = 0;       // RG_PEEK_DELAY_MS: delay the first PeekMessageW by this many ms (experiment: a race with the window?)
+bool g_peek_skip_first = false;  // RG_PEEK_SKIP_FIRST=1: do not execute the first PeekMessageW (PM_NOREMOVE) (experiment)
 
 using PeekMessageWFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
 using DispatchMessageWFn = LRESULT(WINAPI*)(const MSG*);
@@ -2017,46 +2072,46 @@ BOOL CALLBACK enum_thread_window(HWND h, LPARAM) {
     GetClassNameW(h, cls, 79);
     RECT r = {};
     GetWindowRect(h, &r);
-    rg_log("  venster %p klasse %s zichtbaar %d iconic %d rect %ld,%ld %ldx%ld", h, to_utf8(cls).c_str(), IsWindowVisible(h) ? 1 : 0, IsIconic(h) ? 1 : 0,
+    rg_log("  window %p class %s visible %d iconic %d rect %ld,%ld %ldx%ld", h, to_utf8(cls).c_str(), IsWindowVisible(h) ? 1 : 0, IsIconic(h) ? 1 : 0,
            static_cast<long>(r.left), static_cast<long>(r.top), static_cast<long>(r.right - r.left), static_cast<long>(r.bottom - r.top));
     return TRUE;
 }
 
 void window_state(const char* why) {
-    rg_log("vensters van deze draad (%s): voorgrond %p, actief %p, focus %p", why, GetForegroundWindow(), GetActiveWindow(), GetFocus());
+    rg_log("windows of this thread (%s): foreground %p, active %p, focus %p", why, GetForegroundWindow(), GetActiveWindow(), GetFocus());
     EnumThreadWindows(GetCurrentThreadId(), enum_thread_window, 0);
 }
 
 BOOL WINAPI rg_PeekMessageW(LPMSG m, HWND h, UINT a, UINT b, UINT f) {
     const LONG n = InterlockedIncrement(&g_peek_n);
     if (n <= 5) {
-        rg_log("PeekMessageW #%ld: binnen (hwnd %p, %u..%u, vlaggen 0x%x)", static_cast<long>(n), h, a, b, f);
-        if (n == 1) window_state("eerste PeekMessageW");
+        rg_log("PeekMessageW #%ld: entered (hwnd %p, %u..%u, flags 0x%x)", static_cast<long>(n), h, a, b, f);
+        if (n == 1) window_state("first PeekMessageW");
     }
     if (n == 1 && g_peek_delay_ms) {
-        rg_log("PeekMessageW #1: %lu ms uitgesteld (RG_PEEK_DELAY_MS)", static_cast<unsigned long>(g_peek_delay_ms));
+        rg_log("PeekMessageW #1: delayed %lu ms (RG_PEEK_DELAY_MS)", static_cast<unsigned long>(g_peek_delay_ms));
         Sleep(g_peek_delay_ms);
     }
-    if (n == 1 && g_peek_skip_first && f == 0) {   // de eerste PeekMessageW(PM_NOREMOVE) van het spel (0x83D7D4) maakt alleen de berichtenwachtrij; msg blijft leeg
-        rg_log("PeekMessageW #1 overgeslagen (RG_PEEK_SKIP_FIRST): FALSE zonder de echte aanroep");
+    if (n == 1 && g_peek_skip_first && f == 0) {   // the game's first PeekMessageW(PM_NOREMOVE) (0x83D7D4) only creates the message queue; msg stays empty
+        rg_log("PeekMessageW #1 skipped (RG_PEEK_SKIP_FIRST): FALSE without the real call");
         if (m) std::memset(m, 0, sizeof *m);
         return FALSE;
     }
     const DWORD t0 = GetTickCount();
     const BOOL r = g_peek_w(m, h, a, b, f);
     const DWORD dt = GetTickCount() - t0;
-    if (n <= 5) rg_log("PeekMessageW #%ld: terug met %d na %lu ms", static_cast<long>(n), r ? 1 : 0, static_cast<unsigned long>(dt));
-    if (dt >= 200 && InterlockedIncrement(&g_peek_slow) <= 20) rg_log("PeekMessageW #%ld duurde %lu ms", static_cast<long>(n), static_cast<unsigned long>(dt));
+    if (n <= 5) rg_log("PeekMessageW #%ld: returned %d after %lu ms", static_cast<long>(n), r ? 1 : 0, static_cast<unsigned long>(dt));
+    if (dt >= 200 && InterlockedIncrement(&g_peek_slow) <= 20) rg_log("PeekMessageW #%ld took %lu ms", static_cast<long>(n), static_cast<unsigned long>(dt));
     if (dt > g_peek_max_ms) g_peek_max_ms = dt;
     if (r) {
         const LONG k = InterlockedIncrement(&g_peek_msgs);
-        if (k <= 40 && m) rg_log("bericht #%ld: hwnd %p msg 0x%04x wParam 0x%lx lParam 0x%lx", static_cast<long>(k), m->hwnd, m->message, static_cast<unsigned long>(m->wParam),
+        if (k <= 40 && m) rg_log("message #%ld: hwnd %p msg 0x%04x wParam 0x%lx lParam 0x%lx", static_cast<long>(k), m->hwnd, m->message, static_cast<unsigned long>(m->wParam),
                                  static_cast<unsigned long>(m->lParam));
     }
     const DWORD now = GetTickCount();
-    if (now - g_peek_last_sum >= 5000) {   // elke 5 s een samenvatting (alleen als de lus draait: bij een hang komt hij niet)
+    if (now - g_peek_last_sum >= 5000) {   // a summary every 5 s (only if the loop is running: it does not come during a hang)
         g_peek_last_sum = now;
-        rg_log("berichtenlus: %ld aanroepen, %ld berichten, langste aanroep %lu ms", static_cast<long>(g_peek_n), static_cast<long>(g_peek_msgs), static_cast<unsigned long>(g_peek_max_ms));
+        rg_log("message loop: %ld calls, %ld messages, longest call %lu ms", static_cast<long>(g_peek_n), static_cast<long>(g_peek_msgs), static_cast<unsigned long>(g_peek_max_ms));
     }
     return r;
 }
@@ -2078,18 +2133,18 @@ BOOL WINAPI rg_SetWindowPos(HWND h, HWND after, int x, int y, int cx, int cy, UI
 }
 HWND WINAPI rg_CreateWindowExW(DWORD ex, LPCWSTR cls, LPCWSTR name, DWORD style, int x, int y, int w, int hh, HWND parent, HMENU menu, HINSTANCE inst, LPVOID p) {
     HWND h = g_create_window_ex_w(ex, cls, name, style, x, y, w, hh, parent, menu, inst, p);
-    rg_log("CreateWindowExW(ex 0x%lx, %s, %s, stijl 0x%lx, %d,%d %dx%d) -> %p", static_cast<unsigned long>(ex), (reinterpret_cast<uintptr_t>(cls) > 0xFFFF) ? to_utf8(cls).c_str() : "(atoom)",
+    rg_log("CreateWindowExW(ex 0x%lx, %s, %s, style 0x%lx, %d,%d %dx%d) -> %p", static_cast<unsigned long>(ex), (reinterpret_cast<uintptr_t>(cls) > 0xFFFF) ? to_utf8(cls).c_str() : "(atom)",
            name ? to_utf8(name).c_str() : "", static_cast<unsigned long>(style), x, y, w, hh, h);
     return h;
 }
 
 void setup_msg_trace() {
     char v[8];
-    if (GetEnvironmentVariableA("RG_MSGTRACE", v, sizeof v) == 0 || v[0] != '1') return;   // uit
+    if (GetEnvironmentVariableA("RG_MSGTRACE", v, sizeof v) == 0 || v[0] != '1') return;   // off
     char pv[16];
     if (GetEnvironmentVariableA("RG_PEEK_DELAY_MS", pv, sizeof pv) > 0) g_peek_delay_ms = static_cast<DWORD>(std::strtoul(pv, nullptr, 10));
     if (GetEnvironmentVariableA("RG_PEEK_SKIP_FIRST", pv, sizeof pv) > 0 && pv[0] == '1') g_peek_skip_first = true;
-    rg_log("berichtenlus volgen aan (uitstel %lu ms, eerste overslaan %d)", static_cast<unsigned long>(g_peek_delay_ms), g_peek_skip_first ? 1 : 0);
+    rg_log("message loop tracing on (delay %lu ms, skip first %d)", static_cast<unsigned long>(g_peek_delay_ms), g_peek_skip_first ? 1 : 0);
     hook_import("USER32.dll", "PeekMessageW", reinterpret_cast<void*>(&rg_PeekMessageW), g_peek_w);
     hook_import("USER32.dll", "DispatchMessageW", reinterpret_cast<void*>(&rg_DispatchMessageW), g_dispatch_w);
     hook_import("USER32.dll", "ShowWindow", reinterpret_cast<void*>(&rg_ShowWindow), g_show_window);
@@ -2097,14 +2152,14 @@ void setup_msg_trace() {
     hook_import("USER32.dll", "CreateWindowExW", reinterpret_cast<void*>(&rg_CreateWindowExW), g_create_window_ex_w);
 }
 
-// TeknoParrot-stijl: de F:/-tekenreeksen van het spel zelf aanpassen (drive_fix.h, patch_strings) in de gegevenssecties van de exe.
+// TeknoParrot style: patch the game's own F:/ strings (drive_fix.h, patch_strings) in the data sections of the exe.
 void patch_drive_strings() {
     auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
     auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(exe + reinterpret_cast<IMAGE_DOS_HEADER*>(exe)->e_lfanew);
     auto* sec = IMAGE_FIRST_SECTION(nt);
     size_t total_n = 0, total_w = 0;
     for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i) {
-        if (sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) continue;   // geen code
+        if (sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) continue;   // not code
         BYTE* start = exe + sec[i].VirtualAddress;
         const DWORD size = sec[i].Misc.VirtualSize;
         DWORD old = 0;
@@ -2114,39 +2169,39 @@ void patch_drive_strings() {
         VirtualProtect(start, size, old, &old);
         char name[9] = {};
         std::memcpy(name, sec[i].Name, 8);
-        rg_log("schijfletter: tekenreeksen in %s: %lu smal, %lu breed aangepast (<L>:/ -> ./<L>, zoals TeknoParrot)", name, static_cast<unsigned long>(n), static_cast<unsigned long>(w));
+        rg_log("drive letter: strings in %s: %lu narrow, %lu wide patched (<L>:/ -> ./<L>, like TeknoParrot)", name, static_cast<unsigned long>(n), static_cast<unsigned long>(w));
         total_n += n;
         total_w += w;
     }
-    rg_log("schijfletter: %lu smalle en %lu brede tekenreeksen aangepast", static_cast<unsigned long>(total_n), static_cast<unsigned long>(total_w));
+    rg_log("drive letter: %lu narrow and %lu wide strings patched", static_cast<unsigned long>(total_n), static_cast<unsigned long>(total_w));
 }
 
-// --- venstermodus zoals TeknoParrot Windowed=1 (zie NEGENDE TAAK bovenaan) ----------------------------------------------------------------
+// --- window mode like TeknoParrot Windowed=1 (see NINTH TASK at the top) ----------------------------------------------------------------
 void setup_windowed() {
     char v[8];
-    if (GetEnvironmentVariableA("RG_WINDOWED", v, sizeof v) == 0 || v[0] != '1') return;   // uit
+    if (GetEnvironmentVariableA("RG_WINDOWED", v, sizeof v) == 0 || v[0] != '1') return;   // off
     if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
-        rg_log("venstermodus uit: de TeknoParrot-kern is geladen (die doet Windowed=1 zelf)");
+        rg_log("window mode off: the TeknoParrot core is loaded (it does Windowed=1 itself)");
         return;
     }
     auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
     auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(exe + reinterpret_cast<IMAGE_DOS_HEADER*>(exe)->e_lfanew);
     auto* sec = IMAGE_FIRST_SECTION(nt);
     for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i) {
-        if (!(sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;   // alleen code
+        if (!(sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;   // code only
         BYTE* start = exe + sec[i].VirtualAddress;
         const DWORD size = sec[i].Misc.VirtualSize;
         size_t first = 0;
         const size_t hits = rg_winmode::find_pattern(start, size, first);
         if (hits == 0) continue;
         if (hits != 1) {
-            rg_log("venstermodus: patroon %lu keer gevonden, niets aangepast (verwacht precies 1)", static_cast<unsigned long>(hits));
+            rg_log("window mode: pattern found %lu times, nothing patched (exactly 1 expected)", static_cast<unsigned long>(hits));
             return;
         }
         BYTE* imm = start + first + rg_winmode::kImmOffset;
         DWORD old = 0;
         if (!VirtualProtect(imm, 4, PAGE_EXECUTE_READWRITE, &old)) {
-            rg_log("venstermodus: VirtualProtect mislukt (fout %lu), niets aangepast", static_cast<unsigned long>(GetLastError()));
+            rg_log("window mode: VirtualProtect failed (error %lu), nothing patched", static_cast<unsigned long>(GetLastError()));
             return;
         }
         const DWORD zero = 0;
@@ -2154,15 +2209,15 @@ void setup_windowed() {
         VirtualProtect(imm, 4, old, &old);
         FlushInstructionCache(GetCurrentProcess(), imm, 4);
         const DWORD at = static_cast<DWORD>(nt->OptionalHeader.ImageBase + (imm - 3 - exe));
-        rg_log("venstermodus aan: mov [ebx+0x30],1 -> 0 op VA 0x%lx (DXUT krijgt -windowed, geen modewissel; zoals TeknoParrot Windowed=1)",
+        rg_log("window mode on: mov [ebx+0x30],1 -> 0 at VA 0x%lx (DXUT gets -windowed, no mode switch; like TeknoParrot Windowed=1)",
                static_cast<unsigned long>(at));
         return;
     }
-    rg_log("venstermodus: patroon niet gevonden in de exe, niets aangepast (andere versie van het spel?)");
+    rg_log("window mode: pattern not found in the exe, nothing patched (other version of the game?)");
 }
 
-// --- de stalldump (zie VIJFDE TAAK bovenaan) -------------------------------------------------------------------------------------------------
-// Waar ligt `a`? In de exe: "exe+0xRVA (VA 0x...)", anders "module+0xoffset".
+// --- the stalldump (see FIFTH TASK at the top) -------------------------------------------------------------------------------------------------
+// Where is `a`? In the exe: "exe+0xRVA (VA 0x...)", otherwise "module+0xoffset".
 void where_text(DWORD a, char* out, size_t n) {
     auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
     auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(exe + reinterpret_cast<IMAGE_DOS_HEADER*>(exe)->e_lfanew);
@@ -2188,14 +2243,14 @@ bool read_self(DWORD addr, void* buf, SIZE_T n) {
 }
 
 void stall_dump_once(unsigned secs) {
-    rg_log("stalldump na %u s:", secs);
+    rg_log("stalldump after %u s:", secs);
     auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
     auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(exe + reinterpret_cast<IMAGE_DOS_HEADER*>(exe)->e_lfanew);
     const DWORD base = reinterpret_cast<DWORD>(exe), size = nt->OptionalHeader.SizeOfImage;
     const DWORD pid = GetCurrentProcessId(), me = GetCurrentThreadId();
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
     if (snap == INVALID_HANDLE_VALUE) {
-        rg_log("  geen threadlijst (fout %lu)", static_cast<unsigned long>(GetLastError()));
+        rg_log("  no thread list (error %lu)", static_cast<unsigned long>(GetLastError()));
         return;
     }
     THREADENTRY32 te = {};
@@ -2206,11 +2261,11 @@ void stall_dump_once(unsigned secs) {
         ++threads;
         HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, te.th32ThreadID);
         if (!h) {
-            rg_log("  thread %lu: niet te openen (fout %lu)", static_cast<unsigned long>(te.th32ThreadID), static_cast<unsigned long>(GetLastError()));
+            rg_log("  thread %lu: could not be opened (error %lu)", static_cast<unsigned long>(te.th32ThreadID), static_cast<unsigned long>(GetLastError()));
             continue;
         }
         if (SuspendThread(h) == static_cast<DWORD>(-1)) {
-            rg_log("  thread %lu: SuspendThread mislukt (fout %lu)", static_cast<unsigned long>(te.th32ThreadID), static_cast<unsigned long>(GetLastError()));
+            rg_log("  thread %lu: SuspendThread failed (error %lu)", static_cast<unsigned long>(te.th32ThreadID), static_cast<unsigned long>(GetLastError()));
             CloseHandle(h);
             continue;
         }
@@ -2221,9 +2276,9 @@ void stall_dump_once(unsigned secs) {
             where_text(c.Eip, w, sizeof w);
             rg_log("  thread %lu: EIP %s, ESP 0x%lx, EBP 0x%lx", static_cast<unsigned long>(te.th32ThreadID), w, static_cast<unsigned long>(c.Esp),
                    static_cast<unsigned long>(c.Ebp));
-            // De stapel (ESP..+4 KiB): waarden in de exe waar een aanroep aan voorafgaat. Hoogstens 14 per draad.
+            // The stack (ESP..+4 KiB): values in the exe that are preceded by a call. At most 14 per thread.
             BYTE stack[4096];
-            // In stukken van 32 bytes: dicht bij de top van de stapel zou een enkele grote lezing mislukken.
+            // In pieces of 32 bytes: close to the top of the stack a single large read would fail.
             SIZE_T got = 0;
             while (got + 32 <= sizeof stack && read_self(c.Esp + static_cast<DWORD>(got), stack + got, 32)) got += 32;
             if (got >= 4) {
@@ -2234,7 +2289,7 @@ void stall_dump_once(unsigned secs) {
                     const bool in_exe = v >= base + 8 && v < base + size;
                     if (in_exe ? shown >= 14 : shown_other >= 16) continue;
                     if (!in_exe) {
-                        // andere modules (user32, win32u, winex11-brug, dinput8, d3d11, ...): alleen echte code in een geladen image
+                        // other modules (user32, win32u, winex11 bridge, dinput8, d3d11, ...): only real code in a loaded image
                         if (v < 0x10000 || v >= 0x7ff00000) continue;
                         MEMORY_BASIC_INFORMATION mbi = {};
                         if (!VirtualQuery(reinterpret_cast<LPCVOID>(static_cast<uintptr_t>(v)), &mbi, sizeof mbi) || mbi.Type != MEM_IMAGE) continue;
@@ -2242,20 +2297,20 @@ void stall_dump_once(unsigned secs) {
                     }
                     BYTE before[8];
                     if (!read_self(v - 8, before, 8)) continue;
-                    if (!rg_stall::preceded_by_call(before + 8)) continue;   // leest p[-6]..p[-1]: de 8 bytes vlak voor v
+                    if (!rg_stall::preceded_by_call(before + 8)) continue;   // reads p[-6]..p[-1]: the 8 bytes just before v
                     where_text(v, w, sizeof w);
                     rg_log("      [ESP+0x%lx] %s%s", static_cast<unsigned long>(o), in_exe ? "" : "(module) ", w);
                     if (in_exe) ++shown; else ++shown_other;
                 }
             }
         } else {
-            rg_log("  thread %lu: GetThreadContext mislukt (fout %lu)", static_cast<unsigned long>(te.th32ThreadID), static_cast<unsigned long>(GetLastError()));
+            rg_log("  thread %lu: GetThreadContext failed (error %lu)", static_cast<unsigned long>(te.th32ThreadID), static_cast<unsigned long>(GetLastError()));
         }
         ResumeThread(h);
         CloseHandle(h);
     }
     CloseHandle(snap);
-    rg_log("  %d draden bekeken", threads);
+    rg_log("  %d threads inspected", threads);
 }
 
 DWORD WINAPI stall_thread(LPVOID) {
@@ -2278,12 +2333,81 @@ void setup_stall_dump() {
     if (GetEnvironmentVariableA("RG_STALL_DUMP", spec, sizeof spec) == 0 || !spec[0]) return;
     HANDLE t = CreateThread(nullptr, 0, &stall_thread, nullptr, 0, nullptr);
     if (t) CloseHandle(t);
-    rg_log("stalldump aan: %s s na het laden", spec);
+    rg_log("stalldump on: %s s after load", spec);
+}
+
+// --- image dump (RG_IMAGE_DUMP=40,90) -----------------------------------------------------------
+// Writes the game's whole loaded image (SizeOfImage bytes from the image base) to
+// rg-image-<secs>s.bin next to the log, plus every loaded module with its base and size in the log.
+// Diffing that file against the exe on disk shows exactly which code bytes and import slots were
+// changed at runtime (by our own drop-ins, or by another core in a comparison run). Unreadable pages
+// are written as zeros and listed in the log. Off unless RG_IMAGE_DUMP is set.
+void image_dump_once(unsigned secs) {
+    auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(exe + reinterpret_cast<IMAGE_DOS_HEADER*>(exe)->e_lfanew);
+    const SIZE_T size = nt->OptionalHeader.SizeOfImage;
+    wchar_t path[MAX_PATH];
+    lstrcpynW(path, g_log_path, MAX_PATH);
+    wchar_t* slash = wcsrchr(path, L'\\');
+    wchar_t name[64];
+    wsprintfW(name, L"rg-image-%us.bin", secs);
+    if (slash) lstrcpynW(slash + 1, name, static_cast<int>(MAX_PATH - (slash + 1 - path)));
+    else lstrcpynW(path, name, MAX_PATH);
+    HANDLE f = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f == INVALID_HANDLE_VALUE) {
+        rg_log("image dump at %u s: cannot create file (error %lu)", secs, static_cast<unsigned long>(GetLastError()));
+        return;
+    }
+    static BYTE page[0x1000];
+    unsigned unreadable = 0;
+    for (SIZE_T off = 0; off < size; off += sizeof page) {
+        const SIZE_T n = size - off < sizeof page ? size - off : sizeof page;
+        SIZE_T got = 0;
+        if (!ReadProcessMemory(GetCurrentProcess(), exe + off, page, n, &got) || got != n) {
+            std::memset(page, 0, n);
+            ++unreadable;
+        }
+        DWORD wrote = 0;
+        WriteFile(f, page, static_cast<DWORD>(n), &wrote, nullptr);
+    }
+    CloseHandle(f);
+    rg_log("image dump at %u s: base %p, %lu bytes, %u unreadable pages", secs, static_cast<void*>(exe),
+           static_cast<unsigned long>(size), unreadable);
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, GetCurrentProcessId());
+    if (snap == INVALID_HANDLE_VALUE) return;
+    MODULEENTRY32W me = {};
+    me.dwSize = sizeof me;
+    for (BOOL ok = Module32FirstW(snap, &me); ok; ok = Module32NextW(snap, &me)) {
+        char mod[MAX_PATH] = {};
+        WideCharToMultiByte(CP_UTF8, 0, me.szModule, -1, mod, MAX_PATH, nullptr, nullptr);
+        rg_log("  module %p %08lx %s", static_cast<void*>(me.modBaseAddr), static_cast<unsigned long>(me.modBaseSize), mod);
+    }
+    CloseHandle(snap);
+}
+
+DWORD WINAPI image_dump_thread(LPVOID) {
+    char spec[128];
+    if (GetEnvironmentVariableA("RG_IMAGE_DUMP", spec, sizeof spec) == 0) return 0;
+    const DWORD t0 = GetTickCount();
+    for (unsigned secs : rg_stall::parse_times(spec)) {
+        const DWORD due = secs * 1000u;
+        while (GetTickCount() - t0 < due) Sleep(500);
+        image_dump_once(secs);
+    }
+    return 0;
+}
+
+void setup_image_dump() {
+    char spec[128];
+    if (GetEnvironmentVariableA("RG_IMAGE_DUMP", spec, sizeof spec) == 0 || !spec[0]) return;
+    HANDLE t = CreateThread(nullptr, 0, &image_dump_thread, nullptr, 0, nullptr);
+    if (t) CloseHandle(t);
+    rg_log("image dump on: %s s after load", spec);
 }
 
 void setup() {
     InitializeCriticalSection(&g_log_cs);
-    // Logboek naast deze DLL.
+    // Log next to this DLL.
     wchar_t self[MAX_PATH] = {};
     GetModuleFileNameW(g_self, self, MAX_PATH);
     lstrcpynW(g_log_path, self, MAX_PATH);
@@ -2300,38 +2424,40 @@ void setup() {
     GetModuleFileNameA(nullptr, exe, MAX_PATH);
     char src8[MAX_PATH] = {};
     WideCharToMultiByte(CP_UTF8, 0, g_source, -1, src8, MAX_PATH, nullptr, nullptr);
-    rg_log("rg-mfcam geladen in %s (camerabestand %s, %d fps)", exe, src8, g_fps);
-    setup_d3dx10_hrfix();   // los van de camera: ook met RG_MFCAM_OFF=1
-    setup_jvs_com();        // idem: alleen met RG_JVS_COMPORT
-    setup_str_board();      // idem: alleen met RG_STR_COMPORT
-    setup_dongle_trace();   // idem: alleen met RG_DONGLE
-    // Deze twee laden allebei een DLL en mogen daarom NIET in DllMain (loader-lock): in een draad,
-    // net als de stalldump hierboven.
+    rg_log("rg-mfcam loaded in %s (camera file %s, %d fps)", exe, src8, g_fps);
+    setup_d3dx10_hrfix();   // independent of the camera: also with RG_MFCAM_OFF=1
+    setup_jvs_com();        // likewise: only with RG_JVS_COMPORT
+    setup_str_board();      // likewise: only with RG_STR_COMPORT
+    setup_dongle();         // likewise: only with RG_DONGLE
+    setup_content_router(); // likewise: only with RG_CONTENT_ROUTER
+    // These two both load a DLL and therefore must NOT run in DllMain (loader lock): in a thread,
+    // like the stalldump above.
     {
-        HANDLE t = CreateThread(nullptr, 0, &laad_hulp_dlls, nullptr, 0, nullptr);
+        HANDLE t = CreateThread(nullptr, 0, &load_helper_dlls, nullptr, 0, nullptr);
         if (t) CloseHandle(t);
     }
-    setup_sharek_fake();    // idem: alleen met RG_SHAREK_FAKE=1
-    setup_odbg();           // idem: alleen met RG_ODBG=1
-    setup_stall_dump();     // idem: alleen met RG_STALL_DUMP
-    setup_drive_fix();      // idem: alleen met RG_DRIVE_FIXUP
-    setup_bngrw();          // idem: alleen met RG_BNGRW
-    setup_msg_trace();      // idem: alleen met RG_MSGTRACE=1
-    setup_windowed();       // idem: alleen met RG_WINDOWED=1
+    setup_sharek_fake();    // likewise: only with RG_SHAREK_FAKE=1
+    setup_odbg();           // likewise: only with RG_ODBG=1
+    setup_stall_dump();     // likewise: only with RG_STALL_DUMP
+    setup_image_dump();     // only with RG_IMAGE_DUMP
+    setup_drive_fix();      // likewise: only with RG_DRIVE_FIXUP
+    setup_bngrw();          // likewise: only with RG_BNGRW
+    setup_msg_trace();      // likewise: only with RG_MSGTRACE=1
+    setup_windowed();       // likewise: only with RG_WINDOWED=1
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
-        rg_log("RG_MFCAM_OFF=1: niets omgezet");
+        rg_log("RG_MFCAM_OFF=1: nothing redirected");
         return;
     }
     void* old = patch_iat(GetModuleHandleW(nullptr), "MF.dll", "MFEnumDeviceSources", reinterpret_cast<void*>(&rg_MFEnumDeviceSources));
     if (old) {
         g_orig_enum = reinterpret_cast<EnumFn>(old);
-        rg_log("importtabel: MF.dll!MFEnumDeviceSources omgezet (oud adres %p)", old);
+        rg_log("import table: MF.dll!MFEnumDeviceSources redirected (old address %p)", old);
     } else {
-        rg_log("importtabel: MF.dll!MFEnumDeviceSources NIET gevonden in het spel; geen camera");
+        rg_log("import table: MF.dll!MFEnumDeviceSources NOT found in the game; no camera");
     }
     uint32_t w = 0, h = 0;
-    if (feed_present(w, h)) rg_log("camerabestand nu: %ux%u met beeld", w, h);
-    else rg_log("camerabestand nu: er is (nog) geen beeld (de daemon zet het aan voor een game met [Camera] Use = game)");
+    if (feed_present(w, h)) rg_log("camera file now: %ux%u with frame", w, h);
+    else rg_log("camera file now: there is no frame (yet) (the daemon turns it on for a game with [Camera] Use = game)");
 }
 
 }  // namespace
@@ -2345,7 +2471,7 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
     return TRUE;
 }
 
-// Voor een proef zonder spel (een klein programma onder Wine dat deze DLL laadt): dezelfde functie als het spel na de omzetting krijgt.
+// For an experiment without the game (a small program under Wine that loads this DLL): the same function the game gets after the redirection.
 extern "C" __declspec(dllexport) HRESULT WINAPI RgMfcamEnumDeviceSources(IMFAttributes* a, IMFActivate*** s, UINT32* c) {
     return rg_MFEnumDeviceSources(a, s, c);
 }

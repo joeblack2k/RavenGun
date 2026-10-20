@@ -1,0 +1,19 @@
+Windows Registry Editor Version 5.00
+
+; Mario Kart Arcade GP DX: keep Wine's HID bus (winebus.sys, in winedevice.exe) off the host's /dev/hidraw* devices. The game
+; needs none of them: its controls come over the JVS pipe and its dongle is answered in the process. Without this value
+; winedevice.exe opens every hidraw device, including the Steam Controller's; the kernel driver (hid-steam) then treats Wine
+; as the Steam client and removes its gamepad device, so RavenGun loses the pad as soon as the game starts (measured
+; 2026-10-20). Two ways in, both closed here:
+;   DisableHidraw  the udev bus's own hidraw devices. PROTON_DISABLE_HIDRAW is not enough: it only covers devices that report
+;                  themselves as a gamepad or joystick, and the Steam Controller's receiver interfaces are vendor-defined.
+;                  With this value alone the keyboards and the PS Move were left alone, but four of the Steam Controller's
+;                  hidraw devices were still held (measured).
+;   Enable SDL     the SDL bus, whose HID driver for Steam controllers opened those four. Off, Wine sees pads through evdev only,
+;                  which does not take the gamepad away from the kernel driver.
+; The game has its own prefix ([Wine] PrefixMode = Isolated), so no other game sees these values. Imported by rg-direct
+; ([Launch] Registry, docs/registry.md).
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\winebus]
+"DisableHidraw"=dword:00000001
+"Enable SDL"=dword:00000000
