@@ -1398,6 +1398,12 @@ void am_dump_check_state() {
            allnet ? static_cast<long>(read(allnet + 0x2c)) : -1L, allnet ? static_cast<long>(read(allnet + 0x30)) : -1L);
     rg_log("AMAuth dump: holder18=%ld holder20=%ld",
            holder ? static_cast<long>(read(holder + 0x18)) : -1L, holder ? static_cast<long>(read(holder + 0x20)) : -1L);
+    static volatile LONG once = 0;
+    if (InterlockedExchange(&once, 1) == 0) {
+        const auto* patch = reinterpret_cast<const unsigned char*>(base + (0x802fd2 - 0x400000));
+        rg_log("AMAuth dump: bytes at 0x802fd2: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+               patch[0], patch[1], patch[2], patch[3], patch[4], patch[5], patch[6], patch[7], patch[8], patch[9], patch[10]);
+    }
     const uint32_t im = read(0xec29f4);
     const uint32_t im10 = im ? read(im + 0x10) : 0;
     rg_log("AMAuth dump: inputmgr=%08lx obj=%08lx i80=%08lx i84=%08lx i88=%08lx (testbit=%lu)",
@@ -1406,6 +1412,15 @@ void am_dump_check_state() {
            im10 ? static_cast<unsigned long>(read(im10 + 0x84)) : 0UL,
            im10 ? static_cast<unsigned long>(read(im10 + 0x88)) : 0UL,
            im10 ? ((read(im10 + 0x80) >> 4) & 1u) : 0UL);
+    const uint32_t scene = read(0xec2a08);
+    rg_log("AMAuth dump: scene=%08lx s3c=%ld s40=%lu s94=%lu s95=%lu s9c=%ld sa0=%lu sa1=%lu",
+           static_cast<unsigned long>(scene), scene ? static_cast<long>(read(scene + 0x3c)) : -1L,
+           scene ? static_cast<unsigned long>(read(scene + 0x40)) : 0UL,
+           scene ? static_cast<unsigned long>(read(scene + 0x94)) : 0UL,
+           scene ? static_cast<unsigned long>(read(scene + 0x95)) : 0UL,
+           scene ? static_cast<long>(read(scene + 0x9c)) : -1L,
+           scene ? static_cast<unsigned long>(read(scene + 0xa0)) : 0UL,
+           scene ? static_cast<unsigned long>(read(scene + 0xa1)) : 0UL);
     const uint32_t sys = read(0xec29c8);
     const uint32_t e4 = read(0xec2a04);
     rg_log("AMAuth dump: sys=%08lx s34=%lu s35=%lu gate2a04=%08lx cdc=%lu cd8=%lu db0=%lu",

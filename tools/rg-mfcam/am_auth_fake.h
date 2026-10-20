@@ -112,7 +112,7 @@ constexpr int kDaemonResultOffset = 0xC0; // 0x0F = the daemon finished the requ
 constexpr uint32_t kDaemonResultDone = 0x0F;
 constexpr int kDaemonReachedOffset = 0xA0;
 // The real daemon maps its internal result onto these states; the game accepts 3..8 as connected.
-constexpr int kAuthStateMin = 3;
+constexpr int kAuthStateMin = 2;
 constexpr int kAuthStateMax = 8;
 constexpr int kAuthStateDefault = 8;
 // 0x462830 (IsAuthOk) wants exactly 8 in the mode field; 0x401270 accepts auth type 8 or 15.
@@ -153,6 +153,11 @@ inline void fill_status(unsigned char* block, int auth_state = auth_keuze()) {
     std::memcpy(block + kAuthTypeOffset, &type, sizeof type);
     const uint32_t result = kDaemonResultDone;
     std::memcpy(block + kDaemonResultOffset, &result, sizeof result);
+    // 0x4012F0 (the update/server predicate) wants +0x20 == 2 and +0x24 > 0.
+    const uint32_t phase = 2;
+    std::memcpy(block + 0x20, &phase, sizeof phase);
+    const uint32_t detail = 1;
+    std::memcpy(block + 0x24, &detail, sizeof detail);
 }
 
 }  // namespace rg_amauth
