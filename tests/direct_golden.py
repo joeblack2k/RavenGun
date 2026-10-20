@@ -239,11 +239,6 @@ def fixture(tmp, patches, profiles, gs):
                 write(os.path.join(mod, "tree-sha256"), (g.get("Mod english", "TreeSha256", "") or "") + "\n")
                 write(os.path.join(mod, "files", "files.csv"), "target,file,offset\nData/voorbeeld.pac,voorbeeld.bin,replace\n")
                 write(os.path.join(mod, "files", "voorbeeld.bin"), "x")
-                dxvk = os.path.join(tmp, "dxvk-" + name)
-                for arch in ("x32", "x64"):
-                    for dll in ("d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"):
-                        write(os.path.join(dxvk, arch, dll), "x")
-                extra.append((name, "\n[Env]\nRAVENGUN_DXVK = %s\n" % dxvk))
         # Een tweede exe (HasTwoExecutables): [Identify] Path2, relatief aan dezelfde gamemap als Path.
         path2 = (g.get("Identify", "Path2", "") or "").replace("\\", "/").strip("/")
         if path2 and name not in ("TC5", "Rampage"):
@@ -251,6 +246,17 @@ def fixture(tmp, patches, profiles, gs):
         if g.get("Identify", "Sha256", ""):
             # De echte exe is er niet (sha256): het pad komt als override van de gebruiker ([Game] GamePath), zoals de app dat zet.
             extra.append((name, "\n[Game]\nGamePath = %s\n" % os.path.join(views if name == "Rampage" or not in_gamemap(name) else games, name, path)))
+    for name in profiles:
+        g = gs.load_game(name)
+        # [Launch] Dxvk: een nep-DXVK per game via [Env] RAVENGUN_DXVK in de gebruikerslaag (een gedeelde nep-DXVK zou de plannen
+        # van andere games veranderen). De DLL's komen naast de exe van het spel en, bij twee exe's in verschillende mappen, ook
+        # naast de tweede exe (HOTD: Scarlet Dawn: amdaemon.exe).
+        if (g.get("Launch", "Dxvk", "") or "").strip().lower() in ("true", "1", "on"):
+            dxvk = os.path.join(tmp, "dxvk-" + name)
+            for arch in ("x32", "x64"):
+                for dll in ("d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"):
+                    write(os.path.join(dxvk, arch, dll), "x")
+            extra.append((name, "\n[Env]\nRAVENGUN_DXVK = %s\n" % dxvk))
     for name in profiles:
         if name in FORCE_DIRECT:
             extra.append((name, "\n[Launch]\nMode = direct\n"))

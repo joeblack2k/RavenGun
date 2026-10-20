@@ -496,7 +496,7 @@ DropinResult dropin_plan(DirectPlan& pl, const DirectPaths& p) {
     DropinResult r;
     std::vector<DropinSpec> specs = dropin_specs(pl.profile, p, r.errors);
     // [Launch] Dxvk: de DLL's van DXVK als drop-ins (een eigen drop-in met dezelfde naam in dropin/ wint).
-    if (!pl.dxvk_dir.empty())
+    if (!pl.dxvk_dir.empty()) {
         for (const char* d : kDxvkDlls) {
             if (std::any_of(specs.begin(), specs.end(), [&](const DropinSpec& s) { return lower(s.name) == d; })) continue;
             DropinSpec s;
@@ -507,6 +507,40 @@ DropinResult dropin_plan(DirectPlan& pl, const DirectPaths& p) {
             s.src = pjoin(pl.dxvk_dir, d);
             specs.push_back(std::move(s));
         }
+        // A game with two exe's whose second exe lives in another folder (HOTD: Scarlet Dawn: amdaemon.exe in AMDaemon/) gets the same
+        // DLLs next to that exe too. The override (d3d9,d3d11,dxgi = native) holds for the whole run, and our loader loads the core in
+        // BOTH processes; that core imports d3d9.dll. Without the files next to the second exe it stops with "err:module:import_dll
+        // Library d3d9.dll ... not found" and the run is aborted before the game starts (measured 2026-10-20).
+        std::vector<std::string> extra_dirs;
+        const std::string base_dir = dirname(pl.game);
+        for (const DirectStart& st : pl.starts) {
+            if (st.exe.empty()) continue;
+            const std::string d = dirname(st.exe);
+            if (d.empty() || abspath(d) == abspath(base_dir)) continue;
+            if (std::find(extra_dirs.begin(), extra_dirs.end(), d) != extra_dirs.end()) continue;
+            extra_dirs.push_back(d);
+        }
+        for (const std::string& d : extra_dirs) {
+            std::error_code ec;
+            const std::string rel = std::filesystem::relative(d, base_dir, ec).generic_string();
+            if (ec || rel.empty() || rel.starts_with("/")) {
+                pl.dropin_lines.push_back("dxvk: " + d + " is geen map binnen de view van de game; daar komen geen DXVK-DLL's");
+                continue;
+            }
+            for (const char* n : kDxvkDlls) {
+                const bool bestaat = std::any_of(specs.begin(), specs.end(), [&](const DropinSpec& s) {
+                    return lower(s.name) == n && normpath(pjoin(base_dir, s.to)) == normpath(d);
+                });
+                if (bestaat) continue;
+                DropinSpec s;
+                s.name = n;
+                s.to = rel;
+                s.ini = "[Launch] Dxvk";
+                s.src = pjoin(pl.dxvk_dir, n);
+                specs.push_back(std::move(s));
+            }
+        }
+    }
     // [Launch] BepInEx: de doorstop (winhttp.dll, n,b), doorstop_config.ini en BepInEx/core/ als drop-ins naast de exe; de plugin zelf is
     // een gewone drop-in van de game (To = BepInEx/plugins). Een eigen drop-in met dezelfde naam wint.
     if (!pl.bepinex_dir.empty()) {

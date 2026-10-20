@@ -561,7 +561,7 @@ naast de runtime-lader staan was een eis van de gesloten kern.
 | `tools/rg-mfcam/jvs_com.h`, `rg_mfcam.cpp` | JVS-over-COM-logica (getoetst) en de derde taak van `rg-mfcam.dll` |
 | `tools/dev/build-mfcam.sh` | kopieert nu ook `jvs_com.h` |
 | `tests/test_usio_model.cpp`, `tests/test_jvs_com.cpp` | ctest `ravengun_usio_model_tests`, `ravengun_jvs_com_tests` |
-| `patches/PointBlankX/`: `game.kandidaat.ini`, `dropin.kandidaat.d/`; `patches/MarioKartDX/` (nu de echte `game.ini`, `dropin/`, `options.json`); `patches/HOTDSD/game.kandidaat.ini` + `data/platform.reg` | kandidaat-`game.ini` + drop-ins (ravengun-patches, ongecommit) |
+| `patches/PointBlankX/`: `game.kandidaat.ini`, `dropin.kandidaat.d/`; `patches/MarioKartDX/` (nu de echte `game.ini`, `dropin/`, `options.json`); `patches/HOTDSD/` (since 2026-10-20 the shipped profile itself: `game.ini`, `dropin/`, `data/platform.reg`; its separate `game.kandidaat.ini` is gone) | kandidaat-`game.ini` + drop-ins (ravengun-patches, ongecommit) |
 | `docs/research/namco/PointBlankX.game.ini`, `MarioKartDX.game.ini`, `HOTDSD.game.ini` | dezelfde `game.ini` in deze repo |
 | `tools/rg-winusb/usio_board.h`, `rg_winusb.cpp`, `tools/dev/build-winusb.sh`, `tests/test_usio_board.cpp` | TC5: USIO-registerbeeld + 6-byte-protocol (getoetst) en `winusb.dll` (x64) |
 | `tools/rg-allsio/allsio_proto.h`, `rg_allsio.cpp`, `tools/dev/build-allsio.sh`, `tests/test_allsio_proto.cpp` | HOTDSD: ALLS USB-IO-protocol (getoetst) en `rg-allsio.dll` (x64, preload) |

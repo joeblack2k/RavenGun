@@ -1264,6 +1264,33 @@ int main() {
         write(root / "elders/amdaemon.exe", "MZ");
         write(tuser, "[Game]\nGamePath2 = " + (root / "elders/amdaemon.exe").string() + "\n");
         CHECK(plan_direct("Twee", p, o, pl, why) == Verdict::Fallback && contains(why, "ligt buiten de view"));
+        // [Launch] Dxvk met twee exe's in verschillende mappen: de DLL's komen naast BEIDE exe's (de override d3d9=n geldt voor de hele
+        // run en onze lader laadt de kern in beide processen; die kern importeert d3d9.dll). Gemeten 2026-10-20 bij HOTD: Scarlet Dawn:
+        // zonder de DLL's naast amdaemon.exe stopte die met "err:module:import_dll Library d3d9.dll ... not found" en brak de run af.
+        {
+            const fs::path eigen = root / "dxvk-twee";
+            for (const char* d : {"d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"}) write(eigen / "x64" / d, "dxvk-");
+            write(eigen / "version", "dxvk 9.9 (proef)\n");
+            DirectOptions od = o;
+            od.base_env["RAVENGUN_DXVK"] = eigen.string();
+            write(tuser, "[Launch]\nDxvk = true\n");
+            DirectPlan dpl;
+            std::string dw;
+            CHECK(plan_direct("Twee", p, od, dpl, dw) == Verdict::Ok);
+            auto heef = [&](const fs::path& dir, const char* naam) {
+                return std::any_of(dpl.dropin_files.begin(), dpl.dropin_files.end(), [&](const DropinFile& f) {
+                    return f.name == naam && f.dest == (dir / naam).string();
+                });
+            };
+            for (const char* d : {"d3d8.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"}) {
+                CHECK(heef(tview / "App/bin", d) && heef(tview / "App/daemon", d));
+                CHECK(std::count_if(dpl.dropin_files.begin(), dpl.dropin_files.end(), [&](const DropinFile& f) { return f.name == d; }) == 2);
+            }
+            // De override staat er een keer in, niet twee keer.
+            const std::string ov = dpl.env.count("WINEDLLOVERRIDES") ? dpl.env.at("WINEDLLOVERRIDES") : std::string();
+            CHECK(ov.find("d3d9=n") != std::string::npos && ov.find("d3d9=n") + 6 == ov.rfind("d3d9=n") + std::string("d3d9=n").size());
+            fs::remove_all(eigen);
+        }
         fs::remove(tuser);
     }
 

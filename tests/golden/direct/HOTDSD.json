@@ -47,11 +47,63 @@
     [
      "@PATCHES@/HOTDSD/dropin/config.json",
      "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/config.json"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d8.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d8.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d9.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d9.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d10core.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d10core.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d11.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d11.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/dxgi.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/dxgi.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d8.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d8.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d9.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d9.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d10core.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d10core.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d11.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d11.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/dxgi.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/dxgi.dll"
     ]
    ],
    "dropin_lines": [
     "rg-allsio.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/rg-allsio.dll",
     "config.json -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/config.json",
+    "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d8.dll",
+    "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d9.dll",
+    "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d10core.dll",
+    "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d11.dll",
+    "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/dxgi.dll",
+    "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d8.dll",
+    "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d9.dll",
+    "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d10core.dll",
+    "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d11.dll",
+    "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/dxgi.dll",
+    "WINEDLLOVERRIDES += d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
+    "dxvk: @TMP@/dxvk-HOTDSD/x64 uit @TMP@/dxvk-HOTDSD",
     "preload: rg-allsio.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\rg-allsio.dll (de OpenParrot-lader (OpenParrotLoader64.exe) laadt deze DLL na de kern in het spelproces)"
    ],
    "dropin_materialise": [],
@@ -62,6 +114,7 @@
     "OPENSSL_ia32cap": ":~0x20000000",
     "PATH": "/usr/bin:/bin",
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_DXVK": "@TMP@/dxvk-HOTDSD",
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
@@ -77,6 +130,7 @@
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\rg-allsio.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
@@ -109,6 +163,7 @@
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/rg-allsio.dll",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\rg-allsio.dll",
     "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],
@@ -222,11 +277,63 @@
     [
      "@PATCHES@/HOTDSD/dropin/config.json",
      "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/config.json"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d8.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d8.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d9.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d9.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d10core.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d10core.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d11.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d11.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/dxgi.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/dxgi.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d8.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d8.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d9.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d9.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d10core.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d10core.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/d3d11.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d11.dll"
+    ],
+    [
+     "@TMP@/dxvk-HOTDSD/x64/dxgi.dll",
+     "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/dxgi.dll"
     ]
    ],
    "dropin_lines": [
     "rg-allsio.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/rg-allsio.dll",
     "config.json -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/config.json",
+    "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d8.dll",
+    "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d9.dll",
+    "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d10core.dll",
+    "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/d3d11.dll",
+    "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/dxgi.dll",
+    "d3d8.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d8.dll",
+    "d3d9.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d9.dll",
+    "d3d10core.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d10core.dll",
+    "d3d11.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/d3d11.dll",
+    "dxgi.dll -> @TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/AMDaemon/dxgi.dll",
+    "WINEDLLOVERRIDES += d3d8=n, d3d9=n, d3d10core=n, d3d11=n, dxgi=n",
+    "dxvk: @TMP@/dxvk-HOTDSD/x64 uit @TMP@/dxvk-HOTDSD",
     "preload: rg-allsio.dll -> TP_PRELOAD_DLL=Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\rg-allsio.dll (de OpenParrot-lader (OpenParrotLoader64.exe) laadt deze DLL na de kern in het spelproces)"
    ],
    "dropin_materialise": [],
@@ -237,6 +344,7 @@
     "OPENSSL_ia32cap": ":~0x20000000",
     "PATH": "/usr/bin:/bin",
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RAVENGUN_DXVK": "@TMP@/dxvk-HOTDSD",
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
@@ -252,6 +360,7 @@
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\rg-allsio.dll",
     "WAYLAND_DISPLAY": "wayland-0",
     "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine",
     "XDG_CONFIG_HOME": "@TMP@/home/.config",
     "XDG_DATA_HOME": "@TMP@/home/.local/share",
@@ -284,6 +393,7 @@
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/HOTDSD/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/rg-allsio.dll",
     "TP_PRELOAD_DLL": "Z:@TMP@\\home\\.local\\share\\ravengun\\runtime\\views\\HOTDSD\\App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\rg-allsio.dll",
     "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d8=n;d3d9=n;d3d10core=n;d3d11=n;dxgi=n",
     "WINEPREFIX": "@TMP@/home/.local/share/ravengun/prefixes/shared/wine"
    },
    "patch_lines": [],

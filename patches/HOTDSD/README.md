@@ -1,102 +1,95 @@
 # House of the Dead: Scarlet Dawn (HOTDSD)
 
-Instellingen: `game.ini`. Bevindingen en meetgeschiedenis: `findings/HOTDScarletDawn.md` op de NAS
-naast de games, niet in deze repo. **Let op de naam:** dat bestand heet `HOTDScarletDawn.md`, niet
-`HOTDSD.md`; daarom staat er (nog) geen `Findings`-sleutel in `game.ini`.
+Settings: `game.ini`. Findings and measurement history: `findings/HOTDScarletDawn.md` on the NAS next to
+the games, not in this repo (that file is named `HOTDScarletDawn.md`, not `HOTDSD.md`, which is why the
+`Findings` key points at that name).
 
-## Wat deze game is
+## What this game is
 
 | | |
 |---|---|
-| Naam | House of the Dead: Scarlet Dawn |
-| Fabrikant | Sega (platform SEGA ALLS; `findings/HOTDScarletDawn.md` noemt "Sega ALLS") |
-| Jaar | 2018 |
-| Platform | Sega ALLS, Unreal Engine 4.18, 64-bits |
-| Genre | Shooter (lightgun) |
-| Lader | `Type = TeknoParrot`, `EmulationProfile = ALLSHOTDSD` → `OpenParrotLoader64.exe` + `TeknoParrot64.dll` |
-| Profiel | `GameProfiles/HOTDSD.xml`, revisie 21 |
-| Programma's | **twee**: `amdaemon.exe` eerst, dan `Hodzero-Win64-Shipping.exe` |
+| Name | House of the Dead: Scarlet Dawn |
+| Manufacturer | Sega (SEGA ALLS platform) |
+| Year | 2018 |
+| Platform | Sega ALLS, Unreal Engine 4.18, 64-bit |
+| Genre | Shooter (light gun) |
+| Programs | **two**: `amdaemon.exe` first, then `Hodzero-Win64-Shipping.exe` |
+| Profile | `GameProfiles/HOTDSD.xml`, revision 21 |
 
-Naam, jaar, platform en genre komen uit `Metadata/HOTDSD.json`; de UE4-versie en de 64-bits kern uit
-de kop van `findings/HOTDScarletDawn.md`. De laderfamilie komt uit `docs/loskoppelen-per-game.md`
-(rij 8) van de loader-repo.
+`game.ini` fixes the two exe's the way the profile has them: `Executable = Hodzero-Win64-Shipping.exe`,
+`Executable2 = amdaemon.exe`, `HasTwoExecutables = true` and `LaunchSecondExecutableFirst = true`: first
+`amdaemon.exe`, a 5 second wait (`DAEMON_WAIT_SECONDS` from `StartApp.bat`), then the game.
 
-`game.ini` legt de twee exe's vast zoals het profiel ze heeft: `Executable = Hodzero-Win64-Shipping.exe`,
-`Executable2 = amdaemon.exe`, `HasTwoExecutables = true` en `LaunchSecondExecutableFirst = true`. De
-volgorde en de wachttijd staan als open punt in het bestand zelf: eerst `amdaemon.exe`, 5 seconden
-wachten (`DAEMON_WAIT_SECONDS` uit `StartApp.bat`), dan de game.
+## The route this profile ships: no TeknoParrot
 
-## Stand van de start
+`[Launch] Mode = direct`; the engine (`rg-direct`) starts both exe's itself. There is no TeknoParrot core,
+no TeknoParrotUi, no start script and no wrapper script in the launch path.
 
-**Niet in `patches/STARTTEST.md`.** Dat bestand dekt de 33 games met een vindbaar pad; deze hoort bij
-de drie die niet te plannen zijn. `python3 scripts/launch-direct.py HOTDSD --plan` stopt met **rc=4**
-omdat `launch-direct.py` geen profielen met twee exe's start ("profielen met twee exe's worden niet
-direct gestart").
+* **Plain Wine** with the shared prefix (`[Wine] Prefix = shared`), exactly like MarioKartDX. The engine
+  sets `WINEPREFIX`; the old `[Wine] Runner = wrapper` (`scripts/wine-prefix.sh`) is gone.
+* **Our own core**: `[Loader] Core = ravengun` loads RavenGun's OpenParrot64 in both processes.
+  `[Loader] RemoteThread = off` keeps `TP_REMOTETHREAD` unset, which is the loader's default
+  entry-point trampoline route ("Have fun :)"): the only one that lets the core attach under Wine. The
+  remote-thread injection needs TeknoParrotUi and fails under Wine ("Failed to find kernel32.dll in target
+  process").
+* **DXVK** (`[Launch] Dxvk = true`): UE4 renders through Direct3D 11 and wined3d cannot even create a
+  context for it in this prefix (`err:d3d:wined3d_caps_gl_ctx_create Failed to find a suitable pixel
+  format`, measured 2026-10-20). The DXVK DLLs land next to both exe's in the view, because the
+  `d3d9,d3d11,dxgi = native` override holds for the whole run and our core imports `d3d9.dll` in both
+  processes (without them amdaemon.exe stopped with `err:module:import_dll Library d3d9.dll ... not
+  found`).
+* **Gamescope** (`[Display] Gamescope = true`): full screen on the TV. `[Display] GamescopeBackend`
+  (`headless` for a measurement while the TV is in use) is honoured.
 
-**De speelbare route is TeknoParrotUi**, en die is gemeten: `[Launch] Mode = tpui`. De `[Status]` van
-`game.ini` staat op `playable` met de meting erbij — attract met "FREE PLAY", start (toets 1),
-Mode Select, itemkeuze, laden (ongeveer 1,5 minuut), de eerste ronde, trekker en subtrekker werken;
-vizier gemeten op hoeken en midden. Speler 2, de echte Move-knoppen en het testmenu zijn niet getest.
+## What amdaemon needs from us
 
-Twee dingen die in `game.ini` staan omdat ze nodig zijn:
+* The platform identity in the registry: `HKLM\System\SEGA\SystemProperty\Static` (`PlatformId`, exactly
+  four characters). `data/platform.reg` holds synthetic values in the format the daemon validates; no
+  dongle data, keys or game files are in this repo.
+* The Sega ALLS USB-IO board, which amdaemon looks up as a HID device: `dropin/rg-allsio.dll` (source
+  `tools/rg-allsio`, build `tools/dev/build-allsio.sh`) fakes it in the daemon process and feeds it from
+  the AllsUsbIo control pipe of our daemon.
+* The gun sensor on COM1 inside the game process (`RG_ALLSIO_GUN_SENSOR=1`) and the local Unreal gun mode
+  (`RG_ALLSIO_GUN_CONFIG=1`).
+* `dropin/config.json`: the AMDaemon configuration (a USB-IO node with coin input, 8 start switches and the
+  unique-IO feature the game expects, plus the input table with start, gun select, gun special, test and
+  service). It goes into `AMDaemon/` in the view, which is why this game needs a view of the whole game
+  folder (root `App/.../WindowsNoEditor`), not just the folder of the exe.
 
-* `[Env] RG_UNSET_REMOTETHREAD = 1` met `[Wine] Runner = wrapper`: TeknoParrotUi zet onder Wine zelf
-  `TP_REMOTETHREAD` (de remote-thread-route) en daar faalt de injectie ("Failed to find kernel32.dll
-  in target process"); de wrapper haalt de variabele weg, zodat de lader zijn standaardroute neemt
-  (entry-point-trampoline, "Have fun :)"). Zonder die route haakt de kern niet aan.
-* `[Wine] Prefix = shared`, de gedeelde prefix.
+Input: `[Input] Route = tp-shm` with `Layout = HOTDSDPipe` for aim and the triggers, and
+`ControlPipe = AllsUsbIo` for START, sub-trigger (grenade), controller select, test and coin through the
+64-byte ALLS USB-IO report. Free play is on (`General/FreePlay = 1`).
 
-## Dongle en patches
+## Dongle and patches
 
-**Geen dongle in de zin van een USB-sleutel.** `findings/WAT-ELK-SPEL-NODIG-HEEFT.md` (Johan,
-TeknoParrot-team) is expliciet: Scarlet Dawn staat in de lijst van games **zonder** HASP-bestand, en
-wat deze game nodig heeft is `amdaemon.exe` — Sega's AM Daemon — die **vóór** de game moet draaien.
-De open vervanging daarvoor is `minime` uit de SegaTools. `docs/loskoppelen-per-game.md` (rij 8)
-groepeert deze game daarom onder het dongle-soort **`twee-exe (amdaemon)`**.
+**No dongle in the sense of a USB key.** `findings/WAT-ELK-SPEL-NODIG-HEEFT.md` (Johan, TeknoParrot team)
+is explicit: Scarlet Dawn is in the list of games **without** a HASP file, and what this game needs is
+`amdaemon.exe` -- Sega's AM Daemon -- running **before** the game. `docs/loskoppelen-per-game.md` (row 8)
+therefore groups this game under the dongle kind `two-exe (amdaemon)`.
 
-Er is **geen `dongle.json`**. In `patches/STAND.md` staat deze game dan ook bij "dongle verwacht maar
-nog geen `dongle.json`" (`stand-gen.py` heeft `amdaemon` in zijn `EXPECTED_DONGLE`-lijst). Er is geen
-`dropin/` en geen `patches.ini`.
+There is no `dongle.json` and there is no `[Dongle]` section; the loader no longer knows dongles
+(`docs/geen-dongle-in-de-loader.md`). What stands in for the cabinet hardware is the drop-in above.
 
-Wat de eigenaar hiermee besloten heeft (ronde 23, verwerkt in `findings/HOTDScarletDawn.md`): de
-dongle-laag is **niet overgenomen**, en de route via TeknoParrotUi blijft de speelbare route. Er is
-dus geen drop-in nodig zolang die route loopt.
+## State (2026-10-20)
 
-Er is geen `[Dongle]`-sectie en die hoort er ook niet te komen: de loader kent geen dongles meer
-(`docs/geen-dongle-in-de-loader.md`).
+Measured headless, without the TeknoParrot folder: amdaemon.exe starts (`Ver.2437`, `setup Game Mode` then
+`Advertise`) and stays up, the game process starts with our core and both drop-ins, initialises Direct3D 11
+through DXVK and polls the emulated ALLS board continuously (more than 280,000 input reports read in one
+run).
 
-## Wat er nog ontbreekt
+**Not working yet: the picture.** In that run no window appears in gamescope, so attract mode has not been
+seen and coin, Start, trigger, reload, grenade and aim are unmeasured. `[Status] Status = untested` for that
+reason; the `Note`/`NoteEN` keys in `game.ini` say the same.
 
-1. **`dongle.json` van het soort `amdaemon`** — of de expliciete vastlegging dat deze game geen
-   dongle heeft en alleen de startketen nodig heeft. Nu ontbreekt het bestand en telt de kaart het als
-   een gat.
-2. **Een directe start met twee exe's.** `launch-direct.py` weigert dat nu (rc=4). De proef is gedaan
-   (beide loaders, tweede exe 3 s vooraf, `RG_EXTRA_PIPES=TeknoParrotPipe`) maar weer teruggedraaid:
-   de game startte tot de attract, **zonder invoer** — start en test komen in deze route alleen via de
-   `TeknoParrotPipe` van TeknoParrotUi. Dat staat in `findings/HOTDScarletDawn.md`.
-3. **Een startmeting in `patches/STARTTEST.md`** — die is er niet, juist omdat de start niet te plannen is.
-4. **De `Findings`-sleutel.** Het bevindingenbestand bestaat wel, maar heet anders dan de game; wie de
-   sleutel wil zetten moet hem op `findings/HOTDScarletDawn.md` richten.
-5. **README** — dit bestand; in `patches/STAND.md` stond deze game tot deze ronde zonder README.
-
-## Wat niet is vastgesteld
-
-* **Of `minime` AM Daemon hier echt kan vervangen.** Dat is de aanbeveling uit
-  `findings/WAT-ELK-SPEL-NODIG-HEEFT.md`, maar het is niet gemeten; in de gemeten route draait de
-  echte `amdaemon.exe` mee.
-* **Speler 2, de echte Move-knoppen, het testmenu en langere sessies** (`findings/HOTDScarletDawn.md`,
-  kopje "Open").
-* **Het ene verdwenen spelproces** ongeveer 70 s na de itemkeuze; `AMDaemon/config.json` heeft
-  `error.auto_reset = true`, dus een herstart na een fout is gewoon gedrag, maar de oorzaak van dat
-  ene geval is niet gevonden.
-
-## Verifiëren
+## Verify (without TeknoParrot)
 
 ```sh
-cd ~/projects/ravengun-patches
-python3 patches/stand-gen.py                       # de tabel en de tellingen in patches/STAND.md
-
-cd ~/projects/ravengun
-python3 tools/verify-all.py HOTDSD                 # verwacht: plan mislukt, rc=4
-python3 scripts/launch-direct.py HOTDSD --plan
+ravengunctl game status        # nothing may be running that you did not start
+ravengunctl game start HOTDSD
 ```
+
+With the TV free this runs full screen through gamescope. While the TV is in use, the measurement recipe
+is: `[Display] GamescopeBackend = headless` plus `[Env] VK_LOADER_LAYERS_DISABLE =
+VK_LAYER_FROG_gamescope_wsi_x86_64` (the gamescope WSI layer cannot get its Wayland objects from a
+headless gamescope, and DXVK then fails to create its swap chain), screenshots with
+`GAMESCOPE_WAYLAND_DISPLAY=gamescope-N gamescopectl screenshot <file>`. Remove both keys afterwards.
