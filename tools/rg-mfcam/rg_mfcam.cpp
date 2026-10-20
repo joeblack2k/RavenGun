@@ -99,7 +99,9 @@
 //   RG_BNGRW=trace|fake  de kaartlezer volgen of nabootsen; leeg = uit
 //   RG_DRIVE_FIXUP=F  de schijfletters (zonder C en Z) waarvoor de aanvullende herleiding aan staat; leeg = uit
 //   RG_STALL_DUMP=30,60  de stalldump aan (seconden); leeg = uit
-//   RG_SHAREK_FAKE=1  het eigen ShareK-object aan (dropin.ini, Env); leeg of 0 = uit
+//   RG_SHAREK_FAKE=1  the in-process ShareK object (dropin.ini, Env); empty or 0 = off
+//   RG_AMAUTH_FAKE=1  the in-process AMAuthd IAuth object (dropin.ini, Env); empty or 0 = off
+//   RG_AMAUTH_STATE=3..8  the auth state our IAuth reports (default 8: offline cabinet)
 //   RG_MFCAM_SOURCE  Windows-pad van het camerabestand (standaard Z:\dev\shm\ravengun_Camera)
 //   RG_MFCAM_FPS     beelden per seconde naar het spel (standaard 30, 1..60)
 //   RG_MFCAM_OFF=1   niets doen (alleen een regel in het logboek)
@@ -134,6 +136,7 @@
 #include "../../src/ravengun/vision/camera_feed_format.h"
 #include "jvs_com.h"
 #include "sharek_fake.h"
+#include "am_auth_fake.h"
 #include "stall_dump.h"
 #include "drive_fix.h"
 #include "bngrw_fake.h"
@@ -1307,28 +1310,22 @@ void sk_build() {
     g_sharek.vtbl = reinterpret_cast<const void* const*>(g_sharek_vtbl);
 }
 
-// --- AMAuthd IAuth: een leeg object als proef ------------------------------------------------
-// De game vraagt CoCreateInstance({4603BB03-058D-43D9-B96F-639BE908C1ED}, IID {045A5150-...}) en
-// krijgt CLASS_E_CLASSNOTREG (0x80040154): de Namco ALL.Net-authenticatie (AMAuthd) is er niet. Als
-// proef geven we een leeg object terug waarvan elke methode S_OK zegt; de aanroeper zet zijn eigen
-// uitvoerparameters al op nul. Geen echte authenticatie, alleen genoeg om te meten.
-volatile LONG g_am_seen[48];
+// --- AMAuthd IAuth: an in-process object for the ALL.Net authentication step --------------------
+// The game asks CoCreateInstance(CLSID {4603BB03-...}, IID {045A5150-...}) and gets
+// CLASS_E_CLASSNOTREG without AMAuthd. This object answers instead: it reports an authenticated
+// cabinet with no online connection (see am_auth_fake.h for the measured interface and the status
+// block). Every call is logged with its slot and caller, so the boot check stays observable.
+volatile LONG g_am_seen[rg_amauth::kVtableSize];
 struct AmAuthObject { const void* const* vtbl; volatile LONG ref; };
 AmAuthObject g_am_auth;
-void* g_am_auth_vtbl[48];
+void* g_am_auth_vtbl[rg_amauth::kVtableSize];
 
-bool am_auth_clsid(const void* g) {
-    /* 4603BB03-058D-43D9-B96F-639BE908C1ED (AMAuthd IAuth), als bytes zodat elk GUID-type past. */
-    static const unsigned char kClsid[16] = {0x03, 0xbb, 0x03, 0x46, 0x8d, 0x05, 0xd9, 0x43,
-                                             0xb9, 0x6f, 0x63, 0x9b, 0xe9, 0x08, 0xc1, 0xed};
-    return g && std::memcmp(g, kClsid, 16) == 0;
-}
 HRESULT STDMETHODCALLTYPE am_query(void* zelf, const void* riid, void** ppv) {
     if (!ppv) return E_POINTER;
     (void)riid;
     *ppv = zelf;
     InterlockedIncrement(&g_am_auth.ref);
-    rg_log("AMAuth: QueryInterface -> hetzelfde object");
+    rg_log("AMAuth: QueryInterface -> the same object");
     return S_OK;
 }
 ULONG STDMETHODCALLTYPE am_addref(void*) { return static_cast<ULONG>(InterlockedIncrement(&g_am_auth.ref)); }
@@ -1337,44 +1334,186 @@ ULONG STDMETHODCALLTYPE am_release(void*) {
     if (r < 1) { InterlockedExchange(&g_am_auth.ref, 1); return 0; }
     return static_cast<ULONG>(r);
 }
-template <int N>
-HRESULT STDMETHODCALLTYPE am_nop(void*) {
-    if (InterlockedExchange(&g_am_seen[N], 1) == 0)
-        rg_log("AMAuth-object: slot %d aangeroepen (beller %p)", N, __builtin_return_address(0));
+void am_note(int slot, const char* what, void* caller) {
+    if (slot >= 0 && slot < rg_amauth::kVtableSize && InterlockedExchange(&g_am_seen[slot], 1) == 0)
+        rg_log("AMAuth-object: slot %d %s called (caller %p)", slot, what, caller);
+}
+// Temporary bench probe: dump the game's clBootCheck object so we can see which item still waits.
+// Only with RG_AMAUTH_DUMP=1; the addresses come from the disassembly (image base 0x400000).
+void am_dump_check_state() {
+    static volatile LONG n = 0;
+    static const bool on = [] {
+        char v[8];
+        return GetEnvironmentVariableA("RG_AMAUTH_DUMP", v, sizeof v) != 0 && v[0] == '1';
+    }();
+    if (!on) return;
+    if (InterlockedIncrement(&n) % 500 != 1) return;
+    const auto base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+    if (!base) return;
+    const auto read = [base](uintptr_t va) -> uint32_t {
+        return *reinterpret_cast<const uint32_t*>(base + (va - 0x400000));
+    };
+    const uint32_t check = read(0xec2a10);   // the check object pointer (global)
+    const uint32_t holder = read(0xec29fc);
+    const uint32_t g1 = read(0xeaee58);
+    const uint32_t g2 = read(0xec2a00);
+    const uint32_t g4 = read(0xec2a0c);
+    rg_log("AMAuth dump: holder=%08lx net=%08lx(net3c=%ld net34=%lu net35=%lu) state=%08lx(st9=%lu s18=%ld s1c=%ld s20=%ld s24=%ld s2c=%ld)",
+           static_cast<unsigned long>(holder), static_cast<unsigned long>(g1),
+           g1 ? static_cast<long>(read(g1 + 0x3c)) : -1L, g1 ? static_cast<unsigned long>(read(g1 + 0x34)) : 0UL,
+           g1 ? static_cast<unsigned long>(read(g1 + 0x35)) : 0UL, static_cast<unsigned long>(g2),
+           g2 ? static_cast<unsigned long>(read(g2 + 9)) : 0UL, g2 ? static_cast<long>(read(g2 + 0x18)) : -1L,
+           g2 ? static_cast<long>(read(g2 + 0x1c)) : -1L, g2 ? static_cast<long>(read(g2 + 0x20)) : -1L,
+           g2 ? static_cast<long>(read(g2 + 0x24)) : -1L, g2 ? static_cast<long>(read(g2 + 0x2c)) : -1L);
+    rg_log("AMAuth dump: chk=%08lx state=%lu sub=%lu c1640=%lu 4c=%ld 50=%ld 54=%ld 5e=%lu b98=%ld b9c=%ld bb4=%ld ui=%08lx db0=%lu cdc=%lu",
+           static_cast<unsigned long>(check), check ? static_cast<unsigned long>(read(check)) : 0UL,
+           check ? static_cast<unsigned long>(read(check + 4)) : 0UL, check ? static_cast<unsigned long>(read(check + 0x1640)) : 0UL,
+           check ? static_cast<long>(read(check + 0x4c)) : -1L, check ? static_cast<long>(read(check + 0x50)) : -1L,
+           check ? static_cast<long>(read(check + 0x54)) : -1L, check ? static_cast<unsigned long>(read(check + 0x5e)) : 0UL,
+           check ? static_cast<long>(read(check + 0xb98)) : -1L, check ? static_cast<long>(read(check + 0xb9c)) : -1L,
+           check ? static_cast<long>(read(check + 0xbb4)) : -1L, static_cast<unsigned long>(g4),
+           g4 ? static_cast<unsigned long>(read(g4 + 0xdb0)) : 0UL, g4 ? static_cast<unsigned long>(read(g4 + 0xcdc)) : 0UL);
+    if (check) {
+        char rec[200]; size_t o = 0;
+        for (int i = 0; i < 14 && o + 16 < sizeof rec; ++i)
+            o += static_cast<size_t>(std::snprintf(rec + o, sizeof rec - o, " [%ld,%lu]",
+                     static_cast<long>(read(check + 0x1430 + 0x1c * i)), static_cast<unsigned long>(read(check + 0x1434 + 0x1c * i))));
+        rg_log("AMAuth dump: bootcheck records%s", rec);
+    }
+    const uint32_t allnet = read(0xec2a00);   // the ALL.Net check state machine object
+    // 0xec2a0c points at the static "network/auth manager" instance (0xf48 bytes, ctor 0x463ac0).
+    const uint32_t netmgr = read(0xec2a0c);
+    rg_log("AMAuth dump: netmgr=%08lx s60=%ld s64=%ld s70=%ld s98=%ld s9c=%ld sb98=%ld sb9c=%ld sbb4=%ld sdb0=%lu sdb6=%lu sdc8=%ld sdcc=%ld sf3c=%lu",
+           static_cast<unsigned long>(netmgr), netmgr ? static_cast<long>(read(netmgr + 0x60)) : -1L,
+           netmgr ? static_cast<long>(read(netmgr + 0x64)) : -1L, netmgr ? static_cast<long>(read(netmgr + 0x70)) : -1L,
+           netmgr ? static_cast<long>(read(netmgr + 0x98)) : -1L, netmgr ? static_cast<long>(read(netmgr + 0x9c)) : -1L,
+           netmgr ? static_cast<long>(read(netmgr + 0xb98)) : -1L, netmgr ? static_cast<long>(read(netmgr + 0xb9c)) : -1L,
+           netmgr ? static_cast<long>(read(netmgr + 0xbb4)) : -1L, netmgr ? static_cast<unsigned long>(read(netmgr + 0xdb0)) : 0UL,
+           netmgr ? static_cast<unsigned long>(read(netmgr + 0xdb6)) : 0UL, netmgr ? static_cast<long>(read(netmgr + 0xdc8)) : -1L,
+           netmgr ? static_cast<long>(read(netmgr + 0xdcc)) : -1L, netmgr ? static_cast<unsigned long>(read(netmgr + 0xf3c)) : 0UL);
+    rg_log("AMAuth dump: allnet=%08lx state=%lu c10=%lu s18=%ld s1c=%ld s20=%ld s2c=%ld s30=%ld",
+           static_cast<unsigned long>(allnet), allnet ? static_cast<unsigned long>(read(allnet)) : 0UL,
+           allnet ? static_cast<unsigned long>(read(allnet + 0x10)) : 0UL, allnet ? static_cast<long>(read(allnet + 0x18)) : -1L,
+           allnet ? static_cast<long>(read(allnet + 0x1c)) : -1L, allnet ? static_cast<long>(read(allnet + 0x20)) : -1L,
+           allnet ? static_cast<long>(read(allnet + 0x2c)) : -1L, allnet ? static_cast<long>(read(allnet + 0x30)) : -1L);
+    rg_log("AMAuth dump: holder18=%ld holder20=%ld",
+           holder ? static_cast<long>(read(holder + 0x18)) : -1L, holder ? static_cast<long>(read(holder + 0x20)) : -1L);
+    const uint32_t im = read(0xec29f4);
+    const uint32_t im10 = im ? read(im + 0x10) : 0;
+    rg_log("AMAuth dump: inputmgr=%08lx obj=%08lx i80=%08lx i84=%08lx i88=%08lx (testbit=%lu)",
+           static_cast<unsigned long>(im), static_cast<unsigned long>(im10),
+           im10 ? static_cast<unsigned long>(read(im10 + 0x80)) : 0UL,
+           im10 ? static_cast<unsigned long>(read(im10 + 0x84)) : 0UL,
+           im10 ? static_cast<unsigned long>(read(im10 + 0x88)) : 0UL,
+           im10 ? ((read(im10 + 0x80) >> 4) & 1u) : 0UL);
+    const uint32_t sys = read(0xec29c8);
+    const uint32_t e4 = read(0xec2a04);
+    rg_log("AMAuth dump: sys=%08lx s34=%lu s35=%lu gate2a04=%08lx cdc=%lu cd8=%lu db0=%lu",
+           static_cast<unsigned long>(sys), sys ? static_cast<unsigned long>(read(sys + 0x34)) : 0UL,
+           sys ? static_cast<unsigned long>(read(sys + 0x35)) : 0UL, static_cast<unsigned long>(e4),
+           e4 ? static_cast<unsigned long>(read(e4 + 0xcdc)) : 0UL, e4 ? static_cast<unsigned long>(read(e4 + 0xcd8)) : 0UL,
+           e4 ? static_cast<unsigned long>(read(e4 + 0xdb0)) : 0UL);
+}
+// Slot 5: interface pointer + two dwords (measured 0x8B2735: push 0; push -1). stdcall ret 0x0C.
+HRESULT STDMETHODCALLTYPE am_slot5(void*, int a, int b) {
+    am_note(5, "init", __builtin_return_address(0));
+    rg_log("AMAuth-object: slot 5 init(%d, %d) -> S_OK", a, b);
     return S_OK;
 }
-// Slot 5 (vtable +0x14) is the one the game calls right after creating the object, with three
-// arguments (0x8B2735: push esi; push -1; push 0; push this). A stdcall method with no arguments
-// would leave those twelve bytes on the stack, so it gets its own signature.
-HRESULT STDMETHODCALLTYPE am_slot5(void* zelf, int a, int b, int c) {
-    (void)zelf;
-    if (InterlockedExchange(&g_am_seen[5], 1) == 0)
-        rg_log("AMAuth-object: slot 5(%d, %d, %d) aangeroepen (beller %p)", a, b, c, __builtin_return_address(0));
+// Slot 9: interface pointer + a status block (see am_auth_fake.h). stdcall ret 0x08.
+HRESULT STDMETHODCALLTYPE am_slot9(void*, void* block) {
+    const int state = rg_amauth::auth_keuze();
+    if (block) rg_amauth::fill_status(static_cast<unsigned char*>(block), state);
+    am_dump_check_state();
+    // Temporary probes (RG_AMAUTH_POKE): 1 = force the holder request state to 6 ("auth done");
+    // 2 = also mark the boot check object as finished (state 5, substate 7). Only to prove where the
+    // boot sequence waits; not product behaviour.
+    static const char poke = [] {
+        char v[8];
+        return GetEnvironmentVariableA("RG_AMAUTH_POKE", v, sizeof v) ? v[0] : '0';
+    }();
+    static volatile LONG poke_done = 0;
+    if ((poke == '1' || poke == '2') && poke_done == 0) {
+        const auto base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+        auto* holder = reinterpret_cast<uint32_t*>(base + (0xec29fc - 0x400000));
+        const uint32_t h = holder[0];
+        auto* checkp = reinterpret_cast<uint32_t*>(base + (0xec2a10 - 0x400000));
+        const uint32_t c = poke == '2' ? checkp[0] : 1;
+        if (h && c) {
+            InterlockedExchange(&poke_done, 1);
+            auto* s = reinterpret_cast<uint32_t*>(h + 0x20);
+            if (*s != 6) { rg_log("AMAuth poke: holder state %lu -> 6", static_cast<unsigned long>(*s)); *s = 6; }
+            if (poke == '2' && c != 1) {
+                auto* st = reinterpret_cast<uint32_t*>(c);
+                if (st[0] != 5 || st[1] != 7) {
+                    rg_log("AMAuth poke: boot check state %lu/%lu -> 5/7", static_cast<unsigned long>(st[0]), static_cast<unsigned long>(st[1]));
+                    st[0] = 5; st[1] = 7;
+                }
+            }
+        }
+    }
+    if (InterlockedExchange(&g_am_seen[9], 1) == 0) {
+        rg_log("AMAuth-object: slot 9 status called (caller %p), auth state %d, block %p",
+               __builtin_return_address(0), state, block);
+        if (block) {
+            const unsigned char* b = static_cast<const unsigned char*>(block);
+            rg_log("AMAuth-object: status block +0x00=%08lx +0x04=%08lx +0x08=%08lx +0x0c=%08lx +0x10=%08lx +0x18=%08lx +0x1c=%08lx",
+                   static_cast<unsigned long>(*reinterpret_cast<const uint32_t*>(b + 0x00)),
+                   static_cast<unsigned long>(*reinterpret_cast<const uint32_t*>(b + 0x04)),
+                   static_cast<unsigned long>(*reinterpret_cast<const uint32_t*>(b + 0x08)),
+                   static_cast<unsigned long>(*reinterpret_cast<const uint32_t*>(b + 0x0c)),
+                   static_cast<unsigned long>(*reinterpret_cast<const uint32_t*>(b + 0x10)),
+                   static_cast<unsigned long>(*reinterpret_cast<const uint32_t*>(b + 0x18)),
+                   static_cast<unsigned long>(*reinterpret_cast<const uint32_t*>(b + 0x1c)));
+        }
+    }
     return S_OK;
 }
-// Slot 9 (vtable +0x24) is called at 0x4018D8 with one out-parameter (caller reads it back and
-// compares it against -14..-1), so it needs its own signature too.
-HRESULT STDMETHODCALLTYPE am_slot9(void* zelf, int* out) {
-    (void)zelf;
-    if (out) *out = 0;
-    if (InterlockedExchange(&g_am_seen[9], 1) == 0)
-        rg_log("AMAuth-object: slot 9(out) aangeroepen (beller %p)", __builtin_return_address(0));
+// Slot 10: interface pointer + a network-info block. The game only reads the HRESULT. stdcall ret 0x08.
+HRESULT STDMETHODCALLTYPE am_slot10(void*, void* out) {
+    am_note(10, "network info", __builtin_return_address(0));
+    if (out) *static_cast<uint32_t*>(out) = 0;
     return S_OK;
 }
-template <int N>
-struct AmFill { static void run(void** vt) { AmFill<N - 1>::run(vt); vt[N] = reinterpret_cast<void*>(&am_nop<N>); } };
-template <> struct AmFill<2> { static void run(void**) {} };
+// Slot 19: interface pointer + a 4-byte status / four doubles. 0 means "no data" to the caller
+// (0x401A2F skips the block). stdcall ret 0x08.
+HRESULT STDMETHODCALLTYPE am_slot19(void*, void* out) {
+    am_note(19, "auth info", __builtin_return_address(0));
+    // The block the game reads is 0x40 bytes; its first dword selects the variant (0 = no info,
+    // 1 = fixed ping, 2..4 = measured hop/round-trip values). Bench knob: RG_AMAUTH_NET.
+    static const uint32_t kind = [] {
+        char v[8];
+        if (GetEnvironmentVariableA("RG_AMAUTH_NET", v, sizeof v) == 0) return 0u;
+        return static_cast<uint32_t>(std::strtoul(v, nullptr, 10));
+    }();
+    // The game reads only the first dword of the block before it has data; keep the write to four
+    // bytes (the caller's block is 0x3C bytes, so clearing more would trip its stack cookie).
+    if (out) *static_cast<uint32_t*>(out) = kind;
+    return S_OK;
+}
+// Anything else: the boot check has not called it. A no-argument stub (stdcall ret 4). If the game
+// ever calls an unmeasured slot, the log shows it and the stack would tell us the argument count;
+// the table then gets extended from the call site.
+HRESULT STDMETHODCALLTYPE am_unused(void*) {
+    static volatile LONG once = 0;
+    if (InterlockedExchange(&once, 1) == 0)
+        rg_log("AMAuth-object: an unmeasured vtable slot was called (caller %p); add it to am_auth_fake.h",
+               __builtin_return_address(0));
+    return S_OK;
+}
 
 void setup_am_auth() {
-    static bool gedaan = false;
-    if (gedaan) return;
-    gedaan = true;
+    static bool done = false;
+    if (done) return;
+    done = true;
+    for (int i = 0; i < rg_amauth::kVtableSize; ++i) g_am_auth_vtbl[i] = reinterpret_cast<void*>(&am_unused);
     g_am_auth_vtbl[0] = reinterpret_cast<void*>(&am_query);
     g_am_auth_vtbl[1] = reinterpret_cast<void*>(&am_addref);
     g_am_auth_vtbl[2] = reinterpret_cast<void*>(&am_release);
-    AmFill<47>::run(g_am_auth_vtbl);
     g_am_auth_vtbl[5] = reinterpret_cast<void*>(&am_slot5);
     g_am_auth_vtbl[9] = reinterpret_cast<void*>(&am_slot9);
+    g_am_auth_vtbl[10] = reinterpret_cast<void*>(&am_slot10);
+    g_am_auth_vtbl[19] = reinterpret_cast<void*>(&am_slot19);
     g_am_auth.vtbl = g_am_auth_vtbl;
     g_am_auth.ref = 1;
 }
@@ -1385,13 +1524,18 @@ volatile LONG g_co_seen = 0;
 
 HRESULT WINAPI rg_CoCreateInstance(REFCLSID clsid, LPUNKNOWN outer, DWORD ctx, REFIID riid, LPVOID* ppv) {
     char c[48], i[48];
-    char am_proef[8];
-    const bool am_aan = GetEnvironmentVariableA("RG_AMAUTH_PROBE", am_proef, sizeof am_proef) != 0 && am_proef[0] == '1';
-    if (am_aan && am_auth_clsid(&clsid)) {
+    char am_on[8];
+    const bool am_enabled = GetEnvironmentVariableA("RG_AMAUTH_FAKE", am_on, sizeof am_on) != 0 && am_on[0] == '1';
+    if (am_enabled && rg_amauth::wants_clsid_bytes(&clsid)) {
         guid_text(riid, i, sizeof i);
+        if (outer) {
+            rg_log("AMAuth: CoCreateInstance with aggregation refused");
+            return CLASS_E_NOAGGREGATION;
+        }
         setup_am_auth();
         HRESULT hr = am_query(&g_am_auth, &riid, ppv);
-        rg_log("AMAuth: CoCreateInstance(%s) -> eigen leeg object, hr 0x%08lx", i, static_cast<unsigned long>(hr));
+        rg_log("AMAuth: CoCreateInstance(%s, ctx 0x%lx) -> own object, hr 0x%08lx", i,
+               static_cast<unsigned long>(ctx), static_cast<unsigned long>(hr));
         return hr;
     }
     if (rg_sharek::wants_clsid(as_guid(clsid))) {
@@ -1415,6 +1559,37 @@ HRESULT WINAPI rg_CoCreateInstance(REFCLSID clsid, LPUNKNOWN outer, DWORD ctx, R
     return hr;
 }
 
+// --- bench probe: follow the game's OutputDebugString (RG_ODBG=1) --------------------------------
+// The boot check logs its state with OutputDebugString ("ALL.NetCheck_Step1/2/3..."); Wine would
+// drop that on the floor. With RG_ODBG=1 it lands in rg-mfcam.log, so the check stays observable.
+std::string to_utf8(const wchar_t* w);
+using OutputDebugStringAFn = void(WINAPI*)(LPCSTR);
+using OutputDebugStringWFn = void(WINAPI*)(LPCWSTR);
+OutputDebugStringAFn g_odbg_a = nullptr;
+OutputDebugStringWFn g_odbg_w = nullptr;
+volatile LONG g_odbg_count = 0;
+
+void WINAPI rg_OutputDebugStringA(LPCSTR s) {
+    if (s && InterlockedIncrement(&g_odbg_count) <= 2000) rg_log("ODBG: %s", s);
+    if (g_odbg_a) g_odbg_a(s);
+}
+void WINAPI rg_OutputDebugStringW(LPCWSTR s) {
+    if (s && InterlockedIncrement(&g_odbg_count) <= 2000) rg_log("ODBG: %s", to_utf8(s).c_str());
+    if (g_odbg_w) g_odbg_w(s);
+}
+BOOL WINAPI rg_IsDebuggerPresent() { return TRUE; }   // the game logs only when a debugger is attached
+void setup_odbg() {
+    char v[8];
+    if (GetEnvironmentVariableA("RG_ODBG", v, sizeof v) == 0 || v[0] != '1') return;
+    HMODULE game = GetModuleHandleW(nullptr);
+    void* old_a = patch_iat(game, "KERNEL32.dll", "OutputDebugStringA", reinterpret_cast<void*>(&rg_OutputDebugStringA));
+    void* old_w = patch_iat(game, "KERNEL32.dll", "OutputDebugStringW", reinterpret_cast<void*>(&rg_OutputDebugStringW));
+    void* old_d = patch_iat(game, "KERNEL32.dll", "IsDebuggerPresent", reinterpret_cast<void*>(&rg_IsDebuggerPresent));
+    if (old_a) g_odbg_a = reinterpret_cast<OutputDebugStringAFn>(old_a);
+    if (old_w) g_odbg_w = reinterpret_cast<OutputDebugStringWFn>(old_w);
+    rg_log("ODBG: OutputDebugString hooked (A %s, W %s), IsDebuggerPresent -> true (%s)", old_a ? "yes" : "no",
+           old_w ? "yes" : "no", old_d ? "hooked" : "not found");
+}
 // Het meetinstrument van rg-compat (docs/rg-compat.md, RG_COMPAT_SAMPLE=<ms>): een draad die de
 // andere draden bemonstert en de heetste plekken als module+RVA wegschrijft. Mario Kart heeft maar
 // een preload (deze DLL), dus laden we rg-compat.dll hier zelf. Zonder RG_COMPAT_SAMPLE gebeurt er
@@ -1443,20 +1618,24 @@ DWORD WINAPI laad_hulp_dlls(LPVOID) {
 }
 
 void setup_sharek_fake() {
-    char v[8];
-    if (GetEnvironmentVariableA("RG_SHAREK_FAKE", v, sizeof v) == 0 || v[0] != '1') return;   // uit
-    // De gesloten TeknoParrot-kern beantwoordt dit zelf (Core = teknoparrot, online spelen): daar blijft alles zoals het was.
+    char sk[8], am[8];
+    const bool sharek_on = GetEnvironmentVariableA("RG_SHAREK_FAKE", sk, sizeof sk) != 0 && sk[0] == '1';
+    const bool am_on = GetEnvironmentVariableA("RG_AMAUTH_FAKE", am, sizeof am) != 0 && am[0] == '1';
+    if (!sharek_on && !am_on) return;   // both off
+    // The closed TeknoParrot core answers these classes itself (Core = teknoparrot, online play):
+    // there everything stays as it was.
     if (GetModuleHandleA("TeknoParrot.dll") || GetModuleHandleA("TeknoParrot64.dll")) {
-        rg_log("ShareK-object uit: de TeknoParrot-kern is geladen");
+        rg_log("CoCreateInstance objects off: the TeknoParrot core is loaded");
         return;
     }
-    sk_build();
+    if (sharek_on) sk_build();
     void* old = patch_iat(GetModuleHandleW(nullptr), "ole32.dll", "CoCreateInstance", reinterpret_cast<void*>(&rg_CoCreateInstance));
     if (old) {
         g_co_create_instance = reinterpret_cast<CoCreateInstanceFn>(old);
-        rg_log("importtabel: ole32.dll!CoCreateInstance omgezet (eigen ShareK-object, oud adres %p)", old);
+        rg_log("import table: ole32.dll!CoCreateInstance redirected (ShareK %s, AMAuth %s, old address %p)",
+               sharek_on ? "on" : "off", am_on ? "on" : "off", old);
     } else {
-        rg_log("importtabel: ole32.dll!CoCreateInstance NIET gevonden in het spel; geen eigen ShareK-object");
+        rg_log("import table: ole32.dll!CoCreateInstance NOT found in the game; no in-process objects");
     }
 }
 
@@ -2118,6 +2297,7 @@ void setup() {
         if (t) CloseHandle(t);
     }
     setup_sharek_fake();    // idem: alleen met RG_SHAREK_FAKE=1
+    setup_odbg();           // idem: alleen met RG_ODBG=1
     setup_stall_dump();     // idem: alleen met RG_STALL_DUMP
     setup_drive_fix();      // idem: alleen met RG_DRIVE_FIXUP
     setup_bngrw();          // idem: alleen met RG_BNGRW
