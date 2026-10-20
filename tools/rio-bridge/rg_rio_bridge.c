@@ -474,11 +474,19 @@ static intptr_t usb_lees(intptr_t dev, intptr_t buf, intptr_t len, intptr_t d, i
 static intptr_t usb_schrijf(intptr_t dev, intptr_t buf, intptr_t len, intptr_t d, intptr_t e) {
     if (dev != (intptr_t)nep_dev) return echt(HAAK_SCHRIJF)(dev, buf, len, d, e);
     uint32_t n = atomic_fetch_add(&n_schrijf, 1);
-    if (log_on && n < 12 && len > 0) {
+    /* The first 12 writes, and afterwards every write that differs from the previous one (at most 400 lines): the outputs the
+       game drives while playing (lamps, gun feedback) show up in the log without flooding it. */
+    static uint8_t vorige[64]; static int gelogd;
+    if (log_on && len > 0) {
         uint8_t k[64] = {0}; memcpy(k, (void *)buf, (size_t)(len < 64 ? len : 64)); xrtea(k, -1);
-        char b[200]; int o = snprintf(b, sizeof b, "usb: de game stuurt (%d bytes%s):", (int)len, U.zonder ? "" : ", ontsleuteld");
-        for (int i = 0; i < 24 && o < 190; i++) o += snprintf(b + o, sizeof b - o, " %02x", k[i]);
-        meld(b);
+        int veranderd = memcmp(k, vorige, sizeof k) != 0;
+        if (n < 12 || (veranderd && gelogd < 400)) {
+            if (n >= 12) gelogd++;
+            char b[200]; int o = snprintf(b, sizeof b, "usb: de game stuurt (%d bytes%s):", (int)len, U.zonder ? "" : ", ontsleuteld");
+            for (int i = 0; i < 24 && o < 190; i++) o += snprintf(b + o, sizeof b - o, " %02x", k[i]);
+            meld(b);
+        }
+        memcpy(vorige, k, sizeof k);
     }
     return 0;
 }

@@ -26,6 +26,42 @@
     {
       "src": "@patches/GhostBusters/private/ravengun-haspopup-responses",
       "dst": "/pm/ravengun-haspopup-responses"
+    },
+    {
+      "src": "@patches/GhostBusters/data/adj/playerCost/freeplay.0.txt",
+      "dst": "/pm/g6/ghostb/pmuser/adj/save/playerCost/freeplay.0.txt"
+    },
+    {
+      "src": "@patches/GhostBusters/data/adj/playerCost/freeplay.1.txt",
+      "dst": "/pm/g6/ghostb/pmuser/adj/save/playerCost/freeplay.1.txt"
+    },
+    {
+      "src": "@patches/GhostBusters/data/adj/playerCost/freeplay.2.txt",
+      "dst": "/pm/g6/ghostb/pmuser/adj/save/playerCost/freeplay.2.txt"
+    },
+    {
+      "src": "@patches/GhostBusters/data/aud/mountedGun0Calibration.0.xml",
+      "dst": "/pm/g6/ghostb/pmuser/aud/save/mountedGun0Calibration.0.xml"
+    },
+    {
+      "src": "@patches/GhostBusters/data/aud/mountedGun0Calibration.1.xml",
+      "dst": "/pm/g6/ghostb/pmuser/aud/save/mountedGun0Calibration.1.xml"
+    },
+    {
+      "src": "@patches/GhostBusters/data/aud/mountedGun0Calibration.2.xml",
+      "dst": "/pm/g6/ghostb/pmuser/aud/save/mountedGun0Calibration.2.xml"
+    },
+    {
+      "src": "@patches/GhostBusters/data/aud/mountedGun1Calibration.0.xml",
+      "dst": "/pm/g6/ghostb/pmuser/aud/save/mountedGun1Calibration.0.xml"
+    },
+    {
+      "src": "@patches/GhostBusters/data/aud/mountedGun1Calibration.1.xml",
+      "dst": "/pm/g6/ghostb/pmuser/aud/save/mountedGun1Calibration.1.xml"
+    },
+    {
+      "src": "@patches/GhostBusters/data/aud/mountedGun1Calibration.2.xml",
+      "dst": "/pm/g6/ghostb/pmuser/aud/save/mountedGun1Calibration.2.xml"
     }
   ],
   "libs": [
@@ -61,7 +97,7 @@
   ],
   "res": "1920x1080",
   "route": "tp-shm",
-  "note": "2026-10-17: native attract bewezen 22:59:59-23:05:02, zelfde PID 2548930, screenshots /tmp/rg-ghostbusters-proof-minute-1.png t/m -5.png. Log native-GhostBusters-20261017-225623.log. Lokale referentieantwoorden in schrijflaag, niet meegeleverd. DIAG (toets 0) slaat beide geweerkalibraties over. CHECK LEFT/RIGHT BALL SHOOTER blijft; geweerbediening en herstart zonder TP-runtime nog niet bewezen.",
+  "note": "2026-10-17: native attract proven 22:59:59-23:05:02 (same PID 2548930, screenshots minute 1 to 5). The HASP answers are local reference answers kept in the write layer, not shipped. TEST (the DIAG button) skips both gun calibrations at boot unless the calibration is seeded (see seed below). 2026-10-20: switch ids and aim measured on the headless bench (rio-invoer.ini); play with the PS Move not yet confirmed by the owner.",
   "extra_ro": [
     "/dev/shm/ravengun_JvsState"
   ]

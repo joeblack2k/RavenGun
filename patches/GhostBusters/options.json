@@ -8,7 +8,7 @@
       "key": "adj.freeplay",
       "name_en": "Free play",
       "type": "bool",
-      "default": false,
+      "default": true,
       "target": {
         "kind": "game_config_file",
         "path": "g6/ghostb/pmuser/adj/save/playerCost/freeplay.{0,1,2}.txt",
@@ -17,7 +17,7 @@
         "key": "freeplay",
         "edit_outside_game": true
       },
-      "description_en": "Free play: no credits needed to start a game. Saved in the game's own settings in its local write layer (native route; the NAS is not touched); takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
+      "description_en": "Free play: no credits needed to start a game. RavenGun seeds this to ON on the first start (data/adj/playerCost in the write layer; the game's own settings, the NAS is not touched), so Start or the trigger alone starts a game. Takes effect at the next start. The game's operator menu (TEST) changes the same setting.",
       "source": [
         "gamemap:g6/ghostb/data/prod/adj/game/defs/playerCost/freeplay.txt",
         "elf strings: freeplay, playerCost"
