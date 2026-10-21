@@ -925,7 +925,7 @@ static void rg_patch_start(void) {
 
 static void *w7_orig[W7_MAX];
 __attribute__((used)) static void *w7_cont[W7_MAX];
-static const int w7_map2[16] = {4, 12, 20, 22, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static const int w7_map2[16] = {4, 12, 20, 22, 14, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 17};
 static int w7_answer;
 __attribute__((used)) static int w7_busy[W7_MAX];
 static void *w7_last_obj[W7_MAX];
@@ -986,8 +986,11 @@ __attribute__((used)) static void w7_on_call(int idx, void *regs) {
     w7_arg(a5, sizeof a5, st[5], w7_base, w7_size);
     const char *vt = idx < 16 ? "dongle" : "record";
     const DWORD off = (DWORD)(idx < 16 ? idx * 4 : w7_map2[idx - 16] * 4);
-    d2_line("%s[+0x%02x] arg1=%s arg2=%s arg3=%s arg4=%s arg5=%s ecx=%p", vt, off, a1, a2, a3, a4, a5,
-            (void *)r[6]);
+    static unsigned long telling[W7_MAX];
+    const unsigned long n = ++telling[idx];
+    if (n <= 30 || (n % 200) == 0)
+        d2_line("%s[+0x%02x] arg1=%s arg2=%s arg3=%s arg4=%s arg5=%s ecx=%p (nr %lu)", vt, off, a1, a2, a3, a4,
+                a5, (void *)r[6], n);
     w7_last_obj[idx] = (void *)st[1];
     w7_last_st[idx] = (DWORD *)st;
 }
@@ -1200,7 +1203,7 @@ static void w7_start(void) {
         void **vt2 = (void **)((BYTE *)image + rva2);
         d2_line("wrap: record-vtable %p (+0x%lx), antwoordstand %s", (void *)vt2, rva2,
                 w7_answer ? "slaat de leesmethoden over" : "alleen meten");
-        for (int k = 0; k < 5; ++k) {
+        for (int k = 0; k < 16; ++k) {
             const int idx = 16 + k;
             const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 14 || w7_map2[k] == 20 || w7_map2[k] == 22);
             DWORD old = 0;
