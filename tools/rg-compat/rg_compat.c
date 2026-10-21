@@ -332,6 +332,18 @@ static void d2_line(const char *fmt, ...) {
     fflush(d2_log);
 }
 
+
+static int d2_has_hid(const char *s) {
+    if (!s) return 0;
+    for (; *s; ++s) {
+        const char *p = "vid_0471";
+        int i = 0;
+        while (p[i] && s[i] && (s[i] == p[i] || s[i] == p[i] - 32)) ++i;
+        if (!p[i]) return 1;
+    }
+    return 0;
+}
+
 static int d2_has_token2(const char *s) {
     if (!s) return 0;
     for (; *s; ++s) {
@@ -364,7 +376,7 @@ static void d2_hex(const char *label, const void *buf, DWORD len) {
 
 static HANDLE WINAPI rg_d2_CreateFileA(LPCSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD share, DWORD disp,
                                        HANDLE tmpl) {
-    if (d2_has_token2(name)) {
+    if (d2_has_token2(name) || d2_has_hid(name)) {
         d2_line("CreateFileA(%s, access=0x%08lx, share=%lu) -> nephandvat", name, (unsigned long)access,
                 (unsigned long)share);
         SetLastError(ERROR_SUCCESS);
@@ -418,16 +430,21 @@ static BOOL WINAPI rg_d2_CloseHandle(HANDLE h) {
     return real_d2_close(h);
 }
 
-/* SetupAPI: laat zien welke apparaatklasse het spel opzoekt voordat het \\.\ITOKEN2 opent. */
-typedef HDEVINFO(WINAPI *d2_setupdi_getclassdevs_a_fn)(const GUID *, PCSTR, HWND, DWORD);
-typedef BOOL(WINAPI *d2_setupdi_enum_device_interfaces_fn)(HDEVINFO, PSP_DEVINFO_DATA, const GUID *, DWORD,
-                                                           PSP_DEVICE_INTERFACE_DATA);
-typedef BOOL(WINAPI *d2_setupdi_get_device_interface_detail_a_fn)(HDEVINFO, PSP_DEVICE_INTERFACE_DATA,
-                                                                  PSP_DEVICE_INTERFACE_DETAIL_DATA_A, DWORD,
-                                                                  PDWORD, PSP_DEVINFO_DATA);
-static d2_setupdi_getclassdevs_a_fn real_d2_getclassdevs;
-static d2_setupdi_enum_device_interfaces_fn real_d2_enumif;
-static d2_setupdi_get_device_interface_detail_a_fn real_d2_ifdetail;
+/* SetupAPI: één synthetisch apparaat, zodat de dongle van After Dark gevonden wordt, en een regel per vraag.
+ * Het spel importeert alleen GetClassDevsA, EnumDeviceInfo, GetDeviceRegistryPropertyA en DestroyDeviceInfoList:
+ * het zoekt een apparaat-INSTANTIE en leest daar registry-eigenschappen van (daar zit de VID/PID- en recordkeuze).
+ * Deze haak antwoordt met één apparaat en schrijft op welke eigenschap het spel vraagt, zodat de waarden uit de
+ * vragen van het spel zelf komen en niet gegokt worden. */
+#define RG_D2_DEVSET ((HDEVINFO)(ULONG_PTR)0xD0D61003u)
+
+typedef HDEVINFO(WINAPI *d2_getclassdevs_fn)(const GUID *, PCSTR, HWND, DWORD);
+typedef BOOL(WINAPI *d2_enumdevinfo_fn)(HDEVINFO, DWORD, PSP_DEVINFO_DATA);
+typedef BOOL(WINAPI *d2_getprop_fn)(HDEVINFO, PSP_DEVINFO_DATA, DWORD, PDWORD, PBYTE, DWORD, PDWORD);
+typedef BOOL(WINAPI *d2_destroyset_fn)(HDEVINFO);
+static d2_getclassdevs_fn real_d2_getclassdevs;
+static d2_enumdevinfo_fn real_d2_enumdevinfo;
+static d2_getprop_fn real_d2_getprop;
+static d2_destroyset_fn real_d2_destroyset;
 
 static void d2_guid(const char *label, const GUID *g) {
     if (!g) {
@@ -439,30 +456,79 @@ static void d2_guid(const char *label, const GUID *g) {
             g->Data4[7]);
 }
 
+/* De eigenschappen die een HID-dongle normaal heeft. De waarden zijn synthetisch maar passen bij de vorm die
+ * het spel vraagt (VID/PID van het bord dat in zijn eigen code genoemd wordt). */
+static const char kD2_hwid[] = "HID\\VID_0471&PID_485E&REV_0100\0HID_DEVICE\0\0";
+static const char kD2_desc[] = "USB HID Token";
+static const char kD2_class[] = "HIDClass";
+
 static HDEVINFO WINAPI rg_d2_SetupDiGetClassDevsA(const GUID *cls, PCSTR enumerator, HWND parent, DWORD flags) {
-    HDEVINFO h = real_d2_getclassdevs(cls, enumerator, parent, flags);
-    d2_line("SetupDiGetClassDevsA(enumerator=%s, flags=0x%08lx) -> %p", enumerator ? enumerator : "(geen)",
-            (unsigned long)flags, (void *)h);
+    HDEVINFO echt = real_d2_getclassdevs ? real_d2_getclassdevs(cls, enumerator, parent, flags) : NULL;
+    d2_line("SetupDiGetClassDevsA(enumerator=%s, flags=0x%08lx) echt=%p -> synthetische set", 
+            enumerator ? enumerator : "(geen)", (unsigned long)flags, (void *)echt);
     d2_guid("   klasse: ", cls);
-    return h;
+    if (echt) real_d2_destroyset(echt);   /* de echte set wordt niet gebruikt */
+    SetLastError(ERROR_SUCCESS);
+    return RG_D2_DEVSET;
 }
 
-static BOOL WINAPI rg_d2_SetupDiEnumDeviceInterfaces(HDEVINFO set, PSP_DEVINFO_DATA info, const GUID *iface,
-                                                     DWORD index, PSP_DEVICE_INTERFACE_DATA data) {
-    BOOL ok = real_d2_enumif(set, info, iface, index, data);
-    d2_line("SetupDiEnumDeviceInterfaces(index=%lu) -> %d", (unsigned long)index, ok);
-    d2_guid("   interface: ", iface);
-    return ok;
+static BOOL WINAPI rg_d2_SetupDiEnumDeviceInfo(HDEVINFO set, DWORD index, PSP_DEVINFO_DATA data) {
+    if (set != RG_D2_DEVSET) return real_d2_enumdevinfo(set, index, data);
+    if (index != 0) {
+        d2_line("SetupDiEnumDeviceInfo(index=%lu) -> nee (einde)", (unsigned long)index);
+        SetLastError(ERROR_NO_MORE_ITEMS);
+        return FALSE;
+    }
+    if (data) {
+        data->cbSize = sizeof(SP_DEVINFO_DATA);
+        memset(&data->ClassGuid, 0, sizeof data->ClassGuid);
+        data->DevInst = 1;
+        data->Reserved = 0;
+    }
+    d2_line("SetupDiEnumDeviceInfo(index=0) -> een synthetisch apparaat");
+    return TRUE;
 }
 
-static BOOL WINAPI rg_d2_SetupDiGetDeviceInterfaceDetailA(HDEVINFO set, PSP_DEVICE_INTERFACE_DATA data,
-                                                          PSP_DEVICE_INTERFACE_DETAIL_DATA_A detail, DWORD size,
-                                                          PDWORD needed, PSP_DEVINFO_DATA info) {
-    BOOL ok = real_d2_ifdetail(set, data, detail, size, needed, info);
-    d2_line("SetupDiGetDeviceInterfaceDetailA(maat=%lu) -> %d%s%s", (unsigned long)size, ok,
-            (ok && detail && detail->cbSize >= sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A)) ? "  pad: " : "",
-            (ok && detail && detail->cbSize >= sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A)) ? detail->DevicePath : "");
-    return ok;
+static BOOL WINAPI rg_d2_SetupDiGetDeviceRegistryPropertyA(HDEVINFO set, PSP_DEVINFO_DATA data, DWORD prop,
+                                                           PDWORD type, PBYTE buf, DWORD size, PDWORD needed) {
+    if (set != RG_D2_DEVSET) return real_d2_getprop(set, data, prop, type, buf, size, needed);
+    const void *value = NULL;
+    DWORD value_len = 0, value_type = REG_SZ;
+    switch (prop) {
+        case SPDRP_HARDWAREID: value = kD2_hwid; value_len = (DWORD)sizeof kD2_hwid; value_type = REG_MULTI_SZ; break;
+        case SPDRP_DEVICEDESC:
+        case SPDRP_FRIENDLYNAME: value = kD2_desc; value_len = (DWORD)sizeof kD2_desc; break;
+        case SPDRP_CLASS: value = kD2_class; value_len = (DWORD)sizeof kD2_class; break;
+        default: break;
+    }
+    d2_line("SetupDiGetDeviceRegistryPropertyA(prop=0x%08lx \"%s\", maat=%lu)", (unsigned long)prop,
+            prop == SPDRP_HARDWAREID ? "HARDWAREID"
+            : prop == SPDRP_DEVICEDESC ? "DEVICEDESC"
+            : prop == SPDRP_FRIENDLYNAME ? "FRIENDLYNAME"
+            : prop == SPDRP_CLASS ? "CLASS"
+            : "?",
+            (unsigned long)size);
+    if (!value) {
+        SetLastError(ERROR_INVALID_DATA);
+        return FALSE;   /* onbekende eigenschap: het spel leert niets, maar gaat wel verder */
+    }
+    if (needed) *needed = value_len;
+    if (type) *type = value_type;
+    if (!buf || size < value_len) {
+        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+        return FALSE;
+    }
+    memcpy(buf, value, value_len);
+    d2_line("   antwoord: %s", (const char *)value);
+    return TRUE;
+}
+
+static BOOL WINAPI rg_d2_SetupDiDestroyDeviceInfoList(HDEVINFO set) {
+    if (set == RG_D2_DEVSET) {
+        d2_line("SetupDiDestroyDeviceInfoList(synthetische set)");
+        return TRUE;
+    }
+    return real_d2_destroyset(set);
 }
 
 static void dongle2_start(HMODULE exe) {
@@ -478,17 +544,17 @@ static void dongle2_start(HMODULE exe) {
     real_d2_read = (d2_read_fn)patch_import(exe, "kernel32.dll", "ReadFile", (void *)rg_d2_ReadFile);
     real_d2_write = (d2_write_fn)patch_import(exe, "kernel32.dll", "WriteFile", (void *)rg_d2_WriteFile);
     real_d2_close = (d2_close_fn)patch_import(exe, "kernel32.dll", "CloseHandle", (void *)rg_d2_CloseHandle);
-    real_d2_getclassdevs = (d2_setupdi_getclassdevs_a_fn)patch_import(exe, "setupapi.dll",
-                                                                "SetupDiGetClassDevsA",
-                                                                (void *)rg_d2_SetupDiGetClassDevsA);
-    real_d2_enumif = (d2_setupdi_enum_device_interfaces_fn)patch_import(exe, "setupapi.dll",
-                                                                      "SetupDiEnumDeviceInterfaces",
-                                                                      (void *)rg_d2_SetupDiEnumDeviceInterfaces);
-    real_d2_ifdetail = (d2_setupdi_get_device_interface_detail_a_fn)patch_import(exe, "setupapi.dll",
-                                                                                "SetupDiGetDeviceInterfaceDetailA",
-                                                                                (void *)rg_d2_SetupDiGetDeviceInterfaceDetailA);
-    d2_line("setupapi-haken: GetClassDevs=%d EnumDeviceInterfaces=%d GetDeviceInterfaceDetail=%d",
-            real_d2_getclassdevs != NULL, real_d2_enumif != NULL, real_d2_ifdetail != NULL);
+    real_d2_getclassdevs = (d2_getclassdevs_fn)patch_import(exe, "setupapi.dll", "SetupDiGetClassDevsA",
+                                                              (void *)rg_d2_SetupDiGetClassDevsA);
+    real_d2_enumdevinfo = (d2_enumdevinfo_fn)patch_import(exe, "setupapi.dll", "SetupDiEnumDeviceInfo",
+                                                            (void *)rg_d2_SetupDiEnumDeviceInfo);
+    real_d2_getprop = (d2_getprop_fn)patch_import(exe, "setupapi.dll", "SetupDiGetDeviceRegistryPropertyA",
+                                                       (void *)rg_d2_SetupDiGetDeviceRegistryPropertyA);
+    real_d2_destroyset = (d2_destroyset_fn)patch_import(exe, "setupapi.dll", "SetupDiDestroyDeviceInfoList",
+                                                          (void *)rg_d2_SetupDiDestroyDeviceInfoList);
+    d2_line("setupapi-haken: GetClassDevs=%d EnumDeviceInfo=%d GetProperty=%d DestroyList=%d",
+            real_d2_getclassdevs != NULL, real_d2_enumdevinfo != NULL, real_d2_getprop != NULL,
+            real_d2_destroyset != NULL);
     d2_line("haken: CreateFileA=%d CreateFileW=%d DeviceIoControl=%d ReadFile=%d WriteFile=%d CloseHandle=%d",
             real_d2_create_a != NULL, real_d2_create_w != NULL, real_d2_ioctl != NULL, real_d2_read != NULL,
             real_d2_write != NULL, real_d2_close != NULL);
