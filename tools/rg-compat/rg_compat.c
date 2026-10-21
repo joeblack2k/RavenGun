@@ -1527,6 +1527,66 @@ static void tableprobe_start(HMODULE exe) {
 #define HK_MAX 4
 __attribute__((used)) static BYTE *hk_tramp[HK_MAX];
 static DWORD hk_rva[HK_MAX];
+static int hk_verify = -1;
+
+/* After Dark's "UserBB Dongle" building block (Create 0x40c4d0, Do 0x40c2f0) declares its pin "Verify"
+ * name-only and never writes it: the Do only checks that pin's flag, reads its eight byte inputs, compares
+ * the dongle's answer with a transform of those bytes and sets the "Succeeded"/"Failed" flags. The scene
+ * reads "Verify" itself (its enum is 8=Software;262144=Managed;4=Hardware), so with RG_DONGLE2_BLOCK_VERIFY=<n>
+ * this hook puts n into the block's first parameter of the list at behaviour+0x24 (begin/end, the same list
+ * 0x447810 indexes) at every Do entry, through the parameter's own SetValue (vtable+0x4c, value pointer and
+ * size, measured from 0x44a0a0) and after reading the old value with vtable+0x48 (0x449e77). */
+static int hk_leesbaar(const void *p, size_t n) {
+    MEMORY_BASIC_INFORMATION mbi;
+    if (!p || (ULONG_PTR)p < 0x10000) return 0;
+    if (VirtualQuery(p, &mbi, sizeof mbi) != sizeof mbi) return 0;
+    if (mbi.State != MEM_COMMIT) return 0;
+    if (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) return 0;
+    if ((ULONG_PTR)p + n < (ULONG_PTR)p) return 0;
+    if ((ULONG_PTR)p + n > (ULONG_PTR)mbi.BaseAddress + mbi.RegionSize) return 0;
+    return 1;
+}
+
+typedef void(__thiscall *hk_setvalue_fn)(void *zelf, const void *waarde, DWORD maat);
+
+static void hk_block_verify(const DWORD *p, DWORD waarde) {
+    static unsigned long n;
+    const unsigned long teller = ++n;
+    if (!hk_leesbaar((const void *)p[1], 4)) {
+        if (teller <= 3) d2_line("blok: arg1 %p onleesbaar", (void *)p[1]);
+        return;
+    }
+    void *const beh = *(void **)p[1];
+    if (!hk_leesbaar(beh, 0x30) || !hk_leesbaar((BYTE *)beh + 0x24, 8)) {
+        if (teller <= 3) d2_line("blok: gedrag %p onleesbaar", beh);
+        return;
+    }
+    void **const begin = *(void ***)((BYTE *)beh + 0x24);
+    void **const einde = *(void ***)((BYTE *)beh + 0x28);
+    if (!hk_leesbaar(begin, sizeof(void *)) || (ULONG_PTR)einde < (ULONG_PTR)begin) {
+        if (teller <= 3) d2_line("blok: lijst %p..%p onbruikbaar", (void *)begin, (void *)einde);
+        return;
+    }
+    const unsigned long aantal = (unsigned long)(einde - begin);
+    if (aantal > 0x40) {
+        if (teller <= 3) d2_line("blok: lijst heeft %lu leden", aantal);
+        return;
+    }
+    void *const param = begin[0];
+    if (!param || !hk_leesbaar(param, 0x20)) {
+        if (teller <= 3) d2_line("blok: eerste parameter %p onleesbaar", param);
+        return;
+    }
+    void **const vt = *(void ***)param;
+    if (!hk_leesbaar(vt, 0x50)) return;
+    const DWORD oud = 0;
+    DWORD gelezen = oud;
+    if (vt[0x48 / 4]) ((hk_setvalue_fn)vt[0x48 / 4])(param, &gelezen, 4);
+    if (vt[0x4c / 4]) ((hk_setvalue_fn)vt[0x4c / 4])(param, &waarde, 4);
+    if (teller <= 30 || (teller % 500) == 0)
+        d2_line("blok: Verify-parameter %p (lijst %lu leden, gedrag %p) was %lu -> %lu (nr %lu)", param, aantal,
+                beh, (unsigned long)gelezen, (unsigned long)waarde, teller);
+}
 
 __attribute__((used)) static void hk_log(int idx, const DWORD *p) {
     if (idx < 0 || idx >= HK_MAX) return;
@@ -1541,6 +1601,7 @@ __attribute__((used)) static void hk_log(int idx, const DWORD *p) {
         d2_line("haak[%d] +0x%lx vrager %08lx arg %s | %s | %s | %s (nr %lu)", idx, (unsigned long)hk_rva[idx],
                 (unsigned long)p[0], a1, a2, a3, a4, n);
     }
+    if (hk_verify >= 0 && hk_rva[idx] == 0xC2F0) hk_block_verify(p, (DWORD)hk_verify);
 }
 
 #define HK_STUB(n)                                                                                             \
@@ -1569,6 +1630,9 @@ static void hook_start(HMODULE exe) {
     char txt[128];
     const DWORD n = GetEnvironmentVariableA("RG_COMPAT_HOOK", txt, sizeof txt);
     if (n == 0 || n >= sizeof txt) return;
+    char vb[16];
+    if (GetEnvironmentVariableA("RG_DONGLE2_BLOCK_VERIFY", vb, sizeof vb) > 0) hk_verify = atoi(vb);
+    if (hk_verify >= 0) d2_line("haak: Verify van het dongle-blok wordt op %d gezet", hk_verify);
     int idx = 0;
     for (char *p = txt; *p && idx < HK_MAX;) {
         const DWORD rva = (DWORD)strtoul(p, &p, 0);
