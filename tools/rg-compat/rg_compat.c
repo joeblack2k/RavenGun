@@ -1206,7 +1206,7 @@ static void w7_start(void) {
                 w7_answer ? "slaat de leesmethoden over" : "alleen meten");
         for (int k = 0; k < 16; ++k) {
             const int idx = 16 + k;
-            const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 14);
+            const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 14 || w7_map2[k] == 20 || w7_map2[k] == 22);
             DWORD old = 0;
             if (overslaan) {
                 void *stub = NULL;
@@ -1517,6 +1517,82 @@ static void tableprobe_start(HMODULE exe) {
     (void)exe;
 }
 
+/* ------------------------------- 12. RG_COMPAT_HOOK (functie-entry volgen) */
+
+/* Sommige functies worden alleen via een functiewijzer aangeroepen (de Virtools UserBB's van After Dark),
+ * dus een calltrace op een aanroepsite bestaat daar niet. Deze haak zet op de entry van zo een functie een
+ * sprong naar een stubje dat de vrager en de eerste vier stapelargumenten schrijft en daarna de eerste
+ * zes verplaatste bytes uitvoert en terugsprong. RG_COMPAT_HOOK=<rva>,<rva>,... (maximaal 4). */
+
+#define HK_MAX 4
+__attribute__((used)) static BYTE *hk_tramp[HK_MAX];
+static DWORD hk_rva[HK_MAX];
+
+__attribute__((used)) static void hk_log(int idx, const DWORD *p) {
+    if (idx < 0 || idx >= HK_MAX) return;
+    static unsigned long telling[HK_MAX];
+    const unsigned long n = ++telling[idx];
+    if (n <= 60 || (n % 500) == 0)
+        d2_line("haak[%d] +0x%lx vrager %08lx arg %08lx %08lx %08lx %08lx (nr %lu)", idx,
+                (unsigned long)hk_rva[idx], (unsigned long)p[0], (unsigned long)p[1], (unsigned long)p[2],
+                (unsigned long)p[3], (unsigned long)p[4], n);
+}
+
+#define HK_STUB(n)                                                                                             \
+    __attribute__((naked, used)) static void hk_stub_##n(void) {                                               \
+        __asm__ volatile("pushal\n\t"                                                                          \
+                         "pushfl\n\t"                                                                          \
+                         "leal 36(%esp), %eax\n\t"                                                             \
+                         "push %eax\n\t"                                                                       \
+                         "push $" #n "\n\t"                                                                    \
+                         "call _hk_log\n\t"                                                                    \
+                         "add $8, %esp\n\t"                                                                    \
+                         "popfl\n\t"                                                                           \
+                         "popal\n\t"                                                                           \
+                         "movl _hk_tramp+" #n "*4, %eax\n\t"                                                   \
+                         "jmp *%eax\n\t");                                                                     \
+    }
+HK_STUB(0)
+HK_STUB(1)
+HK_STUB(2)
+HK_STUB(3)
+
+static void *const hk_stubs[HK_MAX] = {(void *)hk_stub_0, (void *)hk_stub_1, (void *)hk_stub_2,
+                                       (void *)hk_stub_3};
+
+static void hook_start(HMODULE exe) {
+    char txt[128];
+    const DWORD n = GetEnvironmentVariableA("RG_COMPAT_HOOK", txt, sizeof txt);
+    if (n == 0 || n >= sizeof txt) return;
+    int idx = 0;
+    for (char *p = txt; *p && idx < HK_MAX;) {
+        const DWORD rva = (DWORD)strtoul(p, &p, 0);
+        BYTE *doel = (BYTE *)exe + rva;
+        BYTE *tramp = (BYTE *)VirtualAlloc(NULL, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        if (!tramp) {
+            d2_line("haak: geen geheugen voor +0x%lx", (unsigned long)rva);
+            break;
+        }
+        DWORD oud = 0;
+        if (!VirtualProtect(doel, 6, PAGE_EXECUTE_READWRITE, &oud)) {
+            d2_line("haak: +0x%lx niet schrijfbaar", (unsigned long)rva);
+            break;
+        }
+        memcpy(tramp, doel, 6);
+        tramp[6] = 0xe9;
+        *(int *)(tramp + 7) = (int)((doel + 6) - (tramp + 11));
+        doel[0] = 0xe9;
+        *(int *)(doel + 1) = (int)((BYTE *)hk_stubs[idx] - (doel + 5));
+        doel[5] = 0x90;
+        VirtualProtect(doel, 6, oud, &oud);
+        hk_tramp[idx] = tramp;
+        hk_rva[idx] = rva;
+        d2_line("haak: +0x%lx -> stub %d (trampoline %p)", (unsigned long)rva, idx, tramp);
+        ++idx;
+        if (*p == ',') ++p;
+    }
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -1535,6 +1611,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         exitlog_start(exe);
         iatfix_start(exe);
         tableprobe_start(exe);
+        hook_start(exe);
     }
     return TRUE;
 }
