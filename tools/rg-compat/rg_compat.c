@@ -1596,6 +1596,40 @@ static void hk_block_verify(const DWORD *p, DWORD waarde) {
                 (unsigned long)(vlaggen_voor | 0x40000000u), hex, teller);
 }
 
+/* Het Do toetst zijn eerste poort met 0x449F1A (ecx = gedrag, argument = index 0) en slaat de hele keuring
+ * over als die 0 teruggeeft, terwijl het lid van de lijst op +0x24 bij ons bit 0x40000000 wel heeft. Daarom
+ * haakt deze probe op 0x449F1A zelf: de stub bewaart de registers met pushal, dus de ecx van de aanroep staat
+ * op p[-3] (layout van HK_STUB: p wijst naar de terugkeer, daaronder vlaggen en de acht pushal-registers
+ * edi esi ebp esp ebx edx ecx eax), en de index is p[1]. */
+static void hk_gate_probe(const DWORD *p) {
+    static unsigned long n;
+    const unsigned long teller = ++n;
+    const DWORD ecx = p[-3];
+    const DWORD index = p[1];
+    const DWORD *beh = (const DWORD *)ecx;
+    char hex[3 * 0x30 + 1];
+    int k = 0;
+    if (hk_leesbaar(beh, 0x30)) {
+        for (DWORD b = 0; b < 0x30; ++b) k += snprintf(hex + k, sizeof hex - (size_t)k, "%02x", ((const BYTE *)beh)[b]);
+    } else {
+        snprintf(hex, sizeof hex, "onleesbaar");
+    }
+    DWORD leden = 0, eerste = 0, vlag = 0;
+    if (hk_leesbaar(beh, 0x30)) {
+        void **const begin = *(void ***)((const BYTE *)beh + 0x24);
+        void **const einde = *(void ***)((const BYTE *)beh + 0x28);
+        if (begin && (ULONG_PTR)einde >= (ULONG_PTR)begin) leden = (DWORD)(einde - begin);
+        if (leden > 0 && hk_leesbaar(begin, sizeof(void *)) && hk_leesbaar(begin[0], 0x10)) {
+            eerste = (DWORD)(ULONG_PTR)begin[0];
+            vlag = *(const DWORD *)((const BYTE *)begin[0] + 0xc);
+        }
+    }
+    if (teller <= 10 || (teller % 200) == 0)
+        d2_line("poort: ecx %08lx index %lu leden %lu eerste %08lx vlag %08lx (%s) (nr %lu, vrager %08lx)", (unsigned long)ecx,
+                (unsigned long)index, (unsigned long)leden, (unsigned long)eerste, (unsigned long)vlag, hex,
+                teller, (unsigned long)p[0]);
+}
+
 __attribute__((used)) static void hk_log(int idx, const DWORD *p) {
     if (idx < 0 || idx >= HK_MAX) return;
     static unsigned long telling[HK_MAX];
@@ -1610,6 +1644,7 @@ __attribute__((used)) static void hk_log(int idx, const DWORD *p) {
                 (unsigned long)p[0], a1, a2, a3, a4, n);
     }
     if (hk_verify >= 0 && hk_rva[idx] == 0xC2F0) hk_block_verify(p, (DWORD)hk_verify);
+    if (hk_rva[idx] == 0x449F1A) hk_gate_probe(p);
 }
 
 #define HK_STUB(n)                                                                                             \
