@@ -152,7 +152,19 @@ static void *api_per_slot(int idx) {
     return NULL;
 }
 
+static unsigned long g_cb_stub;
+
 static unsigned long slot_value(int idx) {
+    char txt[128];
+    if (GetEnvironmentVariableA("RG_C9_CBRET", txt, sizeof txt) > 0) {
+        for (char *p = txt; *p;) {
+            char *e = NULL;
+            const long v = strtol(p, &e, 0);
+            if (v == idx) return g_cb_stub;
+            if (!e || (*e != ',' && *e != ';')) break;
+            p = e + 1;
+        }
+    }
     return env_per_slot("RG_C9_RET", idx);
 }
 
@@ -170,10 +182,17 @@ static void dump_range(DWORD va, DWORD len);
 /* The last few slot calls, so the crash handler can say which stub the game was in when it died: a wrong argument pop
  * shows up as a fault right after (or inside) the last one. */
 #define C9_TRACE_N 16
-static struct { int idx; unsigned long caller; unsigned long esp; unsigned long ebp; unsigned long arg0, arg1; } g_trace[C9_TRACE_N];
+static struct { int idx; unsigned long caller; unsigned long esp; unsigned long ebp; unsigned long arg0, arg1;
+                unsigned long saved_ptr, arg_ptr, saved_val; } g_trace[C9_TRACE_N];
 static volatile long g_trace_i;
 
 __attribute__((used)) static void c9_on_call(int idx, unsigned long *saved_eax, const unsigned long *arg0) {
+    if (idx < 0) {
+        /* Not a slot but the callback stub (RG_C9_CBRET): the game called a pointer a slot handed it. */
+        log_line("callback from %08lx: arg %08lx %08lx %08lx %08lx", arg0[-1], arg0[0], arg0[1], arg0[2], arg0[3]);
+        *saved_eax = 0;
+        return;
+    }
     const unsigned long n = ++g_stub_calls[idx];
     const unsigned long caller = arg0[-1];
     static int dumped;
@@ -184,6 +203,9 @@ __attribute__((used)) static void c9_on_call(int idx, unsigned long *saved_eax, 
     g_trace[t % C9_TRACE_N].ebp = (unsigned long)(ULONG_PTR)__builtin_frame_address(0);
     g_trace[t % C9_TRACE_N].arg0 = arg0[0];
     g_trace[t % C9_TRACE_N].arg1 = arg0[1];
+    g_trace[t % C9_TRACE_N].saved_ptr = (unsigned long)(ULONG_PTR)saved_eax;
+    g_trace[t % C9_TRACE_N].arg_ptr = (unsigned long)(ULONG_PTR)arg0;
+    g_trace[t % C9_TRACE_N].saved_val = *saved_eax;
     if (!dumped) {
         /* The packer writes its trampolines at run time: dump the code around the caller once a slot is used, so the
          * argument order and the way the result is used can be read from the log. */
@@ -210,13 +232,19 @@ static void log_trace(void) {
     long first = total > C9_TRACE_N ? total - C9_TRACE_N : 0;
     for (long i = first; i < total; ++i) {
         const int k = (int)(i % C9_TRACE_N);
-        log_line("trace %ld: slot[%d] from %08lx, caller esp %08lx ebp %08lx, arg %08lx %08lx", i, g_trace[k].idx,
-                 g_trace[k].caller, g_trace[k].esp, g_trace[k].ebp, g_trace[k].arg0, g_trace[k].arg1);
+        log_line("trace %ld: slot[%d] from %08lx, caller esp %08lx ebp %08lx, arg %08lx %08lx, saved %08lx, argp %08lx, saved was %08lx", i, g_trace[k].idx,
+                 g_trace[k].caller, g_trace[k].esp, g_trace[k].ebp, g_trace[k].arg0, g_trace[k].arg1,
+                 g_trace[k].saved_ptr, g_trace[k].arg_ptr, g_trace[k].saved_val);
     }
 }
 
 __attribute__((naked, used)) static void c9_common(void) {
-    __asm__ volatile("leal 12(%esp), %ecx\n\t"      /* saved EAX of pushal */
+    /* pushal pushed EAX first, so the saved EAX sits at the highest address of the 32-byte block: at entry
+     * esp points at the return address of the stub's `call c9_common`, so the block is [esp+12 .. esp+43] and
+     * the saved EAX is at [esp+40]. (This was [esp+12], the saved EDI slot, so a stub never set its return value
+     * and the caller kept its own EAX -- measured 2026-10-21 18:17: slot 198 returned 0x0001006A and the game
+     * called it.) */
+    __asm__ volatile("leal 40(%esp), %ecx\n\t"      /* saved EAX of pushal */
                      "leal 48(%esp), %edx\n\t"      /* first argument */
                      "movl 4(%esp), %eax\n\t"       /* index */
                      "push %edx\n\t"
@@ -224,7 +252,8 @@ __attribute__((naked, used)) static void c9_common(void) {
                      "push %eax\n\t"
                      "call _c9_on_call\n\t"
                      "add $12, %esp\n\t"
-                     "ret\n\t");
+                     "ret $4\n\t");   /* also drop the stub's push idx; without this the stub's popfd/popal/ret
+                                          read one dword too high and the stub returns to the value it meant to return */
 }
 
 static void build_stub(BYTE *b, int idx, unsigned long nargs) {
@@ -351,12 +380,14 @@ static DWORD WINAPI worker(LPVOID arg) {
     DWORD old = 0;
     unsigned long last_resolved = 0, last_stubbed = 0, stable = 0;
     (void)arg;
-    pool = (BYTE *)VirtualAlloc(NULL, (size_t)g_cells * C9_STUB_SIZE, MEM_COMMIT | MEM_RESERVE,
+    pool = (BYTE *)VirtualAlloc(NULL, (size_t)(g_cells + 1) * C9_STUB_SIZE, MEM_COMMIT | MEM_RESERVE,
                                 PAGE_EXECUTE_READWRITE);
     if (!pool) {
         log_line("geen geheugen voor de stubs");
         return 0;
     }
+    build_stub(pool + (size_t)g_cells * C9_STUB_SIZE, -1, 0);
+    g_cb_stub = (DWORD)(ULONG_PTR)(pool + (size_t)g_cells * C9_STUB_SIZE);
     if (!VirtualProtect(table, (size_t)g_cells * 4, PAGE_READWRITE, &old)) {
         log_line("table %08lx not writable", (unsigned long)g_table);
         return 0;
@@ -413,6 +444,14 @@ static LONG WINAPI c9_veh(EXCEPTION_POINTERS *info) {
             line[k] = 0;
             log_line("fault chain:%s", line);
             log_trace();
+            /* The stack around esp: the words a shifted frame or a lost argument shows up in, plus the code at the
+             * return address so the faulting instruction can be found without a ptrace. */
+            {
+                const DWORD esp = (DWORD)(ULONG_PTR)info->ContextRecord->Esp;
+                dump_range(esp - 0x20, 0x80);
+                if (sp[0] >= 0x400000 && sp[0] < 0x3000000)
+                    dump_range(sp[0] - 0x20, 0x40);
+            }
             {
                 MEMORY_BASIC_INFORMATION mbi;
                 if (VirtualQuery((void *)(ULONG_PTR)at, &mbi, sizeof mbi) == sizeof mbi)

@@ -88,6 +88,56 @@ def read_cstring(data, va, limit=64):
     return out.decode("latin1")
 
 
+def entry_point(data):
+    pe = struct.unpack_from("<I", data, 0x3C)[0]
+    opt = pe + 24
+    return BASE + struct.unpack_from("<I", data, opt + 16)[0]
+
+
+def recursive_code(data, start, end, seeds):
+    """Follow the control flow from `seeds` so that data in .text (jump tables, strings) is not decoded as code.
+
+    Every branch target is queued, a call falls through and queues its target, a jmp/ret ends the block. An
+    immediate that points into .text is taken as a function pointer and queued as a seed too (the window class
+    registration passes its WNDPROC that way), which is what makes thunks like 0x4024c0 reachable.
+    """
+    md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
+    md.detail = True
+    out = []
+    seen = set()
+    queue = [a for a in seeds if start <= a < end]
+    while queue:
+        va = queue.pop()
+        while start <= va < end and va not in seen:
+            seen.add(va)
+            got = None
+            for ins in md.disasm(data[va - BASE:min(end - BASE, va - BASE + 16)], va):
+                got = ins
+                break
+            if got is None:
+                break
+            out.append(got)
+            va = got.address + got.size
+            is_jmp = got.group(capstone.x86.X86_GRP_JUMP)
+            is_call = got.group(capstone.x86.X86_GRP_CALL)
+            for op in got.operands:
+                if op.type == capstone.x86.X86_OP_IMM:
+                    t = op.imm & 0xFFFFFFFF
+                    if start <= t < end:
+                        if is_call or is_jmp:
+                            queue.append(t)
+                        elif got.mnemonic in ("push", "mov"):
+                            queue.append(t)      # a function pointer
+            if is_call:
+                continue
+            if is_jmp or got.id in (capstone.x86.X86_INS_RET, capstone.x86.X86_INS_JMP):
+                break
+            if got.id == capstone.x86.X86_INS_INT3:
+                break
+    out.sort(key=lambda i: i.address)
+    return out
+
+
 def disasm(data, start, end):
     """Linear sweep with resync: on undecodable bytes skip one byte and continue."""
     md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
@@ -182,6 +232,9 @@ def main():
     ap.add_argument("--include-protect", action="store_true",
                     help="also sweep .protect (measured: structured data, entropy 4.8, not code; its sweep only "
                          "yields garbage sites, so it is off by default)")
+    ap.add_argument("--linear", action="store_true",
+                    help="sweep linearly instead of following the control flow from the entry point (more sites, "
+                         "but data in .text is then decoded as code)")
     args = ap.parse_args()
 
     data = open(args.exe, "rb").read()
@@ -193,7 +246,21 @@ def main():
 
     insns = []
     for start, end in code_ranges:
-        insns.extend(disasm(data, start, end))
+        if args.linear:
+            insns.extend(disasm(data, start, end))
+        else:
+            # Seeds: the entry point, the registered WNDPROC thunk, and every immediate of a first pass that
+            # points into the code range (a call/jmp target or a function pointer stored in the code). Starting
+            # the descent at real targets is what keeps a misaligned jump table from being decoded as code.
+            seeds = {entry_point(data), 0x4024C0}
+            for ins in disasm(data, start, end):
+                if ins.id == 0:
+                    continue
+                for op in ins.operands:
+                    if op.type == capstone.x86.X86_OP_IMM and start <= (op.imm & 0xFFFFFFFF) < end:
+                        seeds.add(op.imm & 0xFFFFFFFF)
+            insns.extend(recursive_code(data, start, end, sorted(seeds)))
+            print("%-28s %6d instructions from %d seeds" % ("code map", len(insns), len(seeds)))
     insns = [i for i in insns if i.id != 0]      # skipdata entries carry no operands
     insns.sort(key=lambda i: i.address)
 
