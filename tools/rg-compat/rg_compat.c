@@ -1024,6 +1024,24 @@ __attribute__((used)) static unsigned long w7_on_ret(int idx, unsigned long ret)
         if (w7_answer && ret == 0x80004005u && w7_synth_table(w7_last_obj[idx])) ret = 0;
         w7_dump_table(w7_last_obj[idx]);
     }
+    /* Antwoordstand op het recordobject: de lees-methoden gaan naar hetzelfde apparaat als de vulling en geven
+     * daar zonder dongle een fout; met een leeg record erin is de inhoud van die 8 bytes voor het spel zelf niet
+     * te toetsen (het leest ze alleen terug in de bewaakdraad), dus antwoorden we met S_OK en nullen. */
+    if (w7_answer && idx >= 16 && (ret & 0x80000000u) != 0) {
+        const DWORD slot = (DWORD)w7_map2[idx - 16];
+        if (slot == 20 || slot == 12 || slot == 22) {
+            if (slot == 20 && w7_last_st[idx]) {
+                const DWORD *st = w7_last_st[idx];
+                BYTE *out = (BYTE *)st[3];
+                const DWORD len = st[4] > 0x40 ? 0x40 : st[4];
+                if (out && (ULONG_PTR)out > 0x10000) memset(out, 0, len);
+            }
+            if (slot != 12 || w7_last_obj[idx]) {
+                d2_line("   antwoordstand: %08lx -> 0 (record +0x%02x)", ret, slot * 4);
+                ret = 0;
+            }
+        }
+    }
     if (idx == 5 && (ret & 0x80000000u) == 0 && w7_last_st[idx]) {
         const DWORD *st = w7_last_st[idx];
         const BYTE *out = (const BYTE *)st[2];
