@@ -1,8 +1,8 @@
 {
   "title": "The House of the Dead 4 Special",
   "enabled": true,
-  "status": "werkt (attract)",
-  "note": "Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader. GEMETEN 2026-10-19: spel-ID 0x7d6ab3e3, attract meer dan een minuut zonder crash, twee fotos die verschillen. Munt en START starten geen spel -- de ride-versie wacht vermoedelijk op stoelsignalen (rideBoard.c). Dus: attract ja, spelen nee.",
+  "status": "playable (headless, patch 0007 needed)",
+  "note": "Lindbergh route (docs/lindbergh.md): the ELF runs without a loader, with lindbergh.so of lindbergh-loader. MEASURED 2026-10-21: the ride's free-play flow runs by itself; START on the safety screens starts a game, after GAME OVER it returns there. The right picture needs loader patch 0007. Details: game.ini NoteEN.",
   "arch": "i386",
   "launcher": "gamescope",
   "route": "jvs",

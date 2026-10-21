@@ -1,0 +1,56 @@
+SPDX-License-Identifier: CC-BY-NC-SA-4.0
+Change to lindbergh-loader (src/lindbergh/patch.c, src/lindbergh/shaderPatches.c), under the same license as that source
+(CC BY-NC-SA 4.0); see third_party/lindbergh-loader/README.md. This file is not part of RavenGun's GPL code.
+
+HOTD4 Special Rev B (DVP-0010B, game ID 0x7d6ab3e3): the fixes of 0005 and 0006 for the same engine. The Special has the
+same multitexture loop as HOTD4 Rev C (0x082e79a9..0x082e7ac9, same instructions; the path ends with the call at 0x082e7acf to
+the depth-state reset 0x08326ed8), the same single glXGetProcAddressARB call (0x081fc0f5) and the same standard shader
+(fs/dat/std.dat0 with "Standard Vertex Shader", the same varyings and the same main() header). Both fixes are applied only
+when the bytes at those call sites are the expected calls. Applies after 0006.
+Measured 2026-10-21 (headless, daemon): without this patch the ride safety and story screens draw as grey and white boxes,
+the first stage has purple-blue/green surfaces and a whitish picture; with it those screens, the HUD and the stage render
+correctly (start log native-HOTD4SP-20261021-144448.log).
+
+--- a/src/lindbergh/patch.c
++++ b/src/lindbergh/patch.c
+@@ -42,6 +42,8 @@
+ // The call at 0x082a0b90 (to the depth-state reset 0x082dca9a) is the last step of that path; this replacement first disables
+ // GL_TEXTURE_2D on texture units 1..N again (active unit kept), then does the original call. Measured on the bench, 2026-10-20.
+ void *hod4GetProcAddressARB(const unsigned char *procName); // shaderPatches.c (RavenGun)
++// HOTD4 Special Rev B has the same path (loop 0x082e79a9..0x082e7ac9, the reset at 0x08326ed8); its case below points
++// hod4DepthStateReset there before it patches the call (RavenGun 0007).
+ static void (*hod4DepthStateReset)(void) = (void (*)(void))0x082dca9a;
+ __attribute__((force_align_arg_pointer)) static void hod4MultitexDone(void)
+ {
+@@ -2846,6 +2848,20 @@
+ 
+             // Shader Fixes
+             cacheModedShaderFiles();
++
++            // RavenGun 0007: the same leaked texture units as HOTD4 Rev C (hod4MultitexDone). The multitexture path ends with
++            // the call at 0x082e7acf to the depth-state reset 0x08326ed8 (e8 04 f4 03 00); only when those bytes are there.
++            if (memcmp((void *)0x082e7acf, "\xe8\x04\xf4\x03\x00", 5) == 0)
++            {
++                hod4DepthStateReset = (void (*)(void))0x08326ed8;
++                replaceCallAtAddress(0x082e7acf, hod4MultitexDone);
++            }
++
++            // RavenGun 0007: the game's one glXGetProcAddressARB call (0x081fc0f5, e8 16 0e e5 ff = call 0x0804cf10) through
++            // hod4GetProcAddressARB, so glShaderSourceARB gets the standard-shader fix (shaderPatches.c), as in HOTD4 Rev C.
++            if (memcmp((void *)0x081fc0f5, "\xe8\x16\x0e\xe5\xff", 5) == 0)
++                replaceCallAtAddress(0x081fc0f5, hod4GetProcAddressARB);
++
+             if (getConfig()->cpuFreqGhz != 0.0f)
+             {
+                 uint32_t cpuFreq = (uint32_t)(getConfig()->cpuFreqGhz * 998000000.0);
+--- a/src/lindbergh/shaderPatches.c
++++ b/src/lindbergh/shaderPatches.c
+@@ -731,7 +731,7 @@
+     static const char init[] = "\tnnglvViewPositionFog = vec4(0.0);\r\n\tnnglvTexCoord01 = vec4(0.0);\r\n"
+                                "\tnnglvTexCoord23 = vec4(0.0);\r\n\tnnglvTexCoord45 = vec4(0.0);\r\n"
+                                "\tnnglvTexCoord67 = vec4(0.0);\r\n";
+-    if (gGrp != GROUP_HOD4 || count != 1 || string == NULL || *string == NULL)
++    if ((gGrp != GROUP_HOD4 && gGrp != GROUP_HOD4_SP) || count != 1 || string == NULL || *string == NULL)
+         return false;
+     size_t len = (length != NULL && length[0] >= 0) ? (size_t)length[0] : strlen(*string);
+     char *src = strndup(*string, len);

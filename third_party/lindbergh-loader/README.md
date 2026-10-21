@@ -40,6 +40,9 @@ In deze map staat alleen eigen werk plus één wijziging op de bron:
   not part of RavenGun's GPL code). HOTD4 only: none of the game's standard material programs linked on Mesa (the fragment
   shader reads varyings the vertex shader does not write), so the 3D scene was drawn without its shaders (wrong colours). The
   patch sets those five varyings to 0 at the start of the standard vertex shader's main() (2026-10-21; see the patch header).
+- `patches/0007-hod4sp-texture-units-and-shaders.patch`: a change to `src/lindbergh/patch.c` and `src/lindbergh/shaderPatches.c`
+  of the source (CC BY-NC-SA 4.0, not part of RavenGun's GPL code). The fixes of 0005 and 0006 for HOTD4 Special Rev B, which
+  has the same multitexture path, the same glXGetProcAddressARB call and the same standard shader (2026-10-21; see the patch header).
 
 ## Bouwen
 
