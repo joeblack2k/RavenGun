@@ -28,10 +28,15 @@
  *    weer WM_PAINT zodat de teken-stap nooit aan de beurt komt. De fix: UpdateWindow stuurt WM_PAINT een keer en maakt het venster
  *    dan geldig; na elk verdeeld WM_PAINT wordt het venster geldig gemaakt.
  *
+ * 5. Meetmeter voor een apparaat, alleen met RG_DONGLE2_LOG=<pad> in de omgeving: leent \\.\ITOKEN2 (CreateFileA/W,
+ *    DeviceIoControl, ReadFile, WriteFile, CloseHandle) en schrijft op wat het spel vraagt, met nullen als antwoord.
+ *    Voor After Dark, wiens dongle (ATL CCoDongle2) dat apparaat zelf opent; zonder de variabele doet deze meter niets.
+ *
  * BOUWEN: tools/dev/build-compat.sh (de mingw-kruiscompiler in ~/.cache/ravengun-mingw, i686 en x86_64).
  */
 #include <windows.h>
 #include <tlhelp32.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -291,6 +296,145 @@ static void sample_start(void) {
     if (h) CloseHandle(h), OutputDebugStringA("rg-compat: meetdraad gestart (RG_COMPAT_SAMPLE)\n");
 }
 
+
+/* ------------------------------------------- 5. RG_DONGLE2_LOG (apparaatmeter) */
+
+/* After Dark (Virtools GamePlayer.exe) maakt zijn dongle zelf aan (ATL CCoDongle2, dus geen CoCreateInstance) en die
+ * praat met het apparaat \\.\ITOKEN2 via CreateFileA plus DeviceIoControl. Deze meter leent dat apparaat en schrijft op
+ * welke aanroepen en bytes het spel doet, zodat de antwoorden uit de code van het spel zelf te halen zijn. Alleen met
+ * RG_DONGLE2_LOG in de omgeving; zonder dat blijft alles bij de originelen. */
+
+#define RG_D2_HANDLE ((HANDLE)(ULONG_PTR)0xD0D61002u)
+
+typedef HANDLE(WINAPI *d2_create_a_fn)(LPCSTR, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
+typedef HANDLE(WINAPI *d2_create_w_fn)(LPCWSTR, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
+typedef BOOL(WINAPI *d2_ioctl_fn)(HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+typedef BOOL(WINAPI *d2_read_fn)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+typedef BOOL(WINAPI *d2_write_fn)(HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED);
+typedef BOOL(WINAPI *d2_close_fn)(HANDLE);
+
+static d2_create_a_fn real_d2_create_a;
+static d2_create_w_fn real_d2_create_w;
+static d2_ioctl_fn real_d2_ioctl;
+static d2_read_fn real_d2_read;
+static d2_write_fn real_d2_write;
+static d2_close_fn real_d2_close;
+static FILE *d2_log;
+
+static void d2_line(const char *fmt, ...) {
+    if (!d2_log) return;
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(d2_log, fmt, ap);
+    va_end(ap);
+    fputc('\n', d2_log);
+    fflush(d2_log);
+}
+
+static int d2_has_token2(const char *s) {
+    if (!s) return 0;
+    for (; *s; ++s) {
+        const char *p = "ITOKEN2";
+        int i = 0;
+        while (p[i] && s[i] && (s[i] == p[i] || s[i] == p[i] + 32)) ++i;   /* kleine letters toestaan */
+        if (!p[i]) return 1;
+    }
+    return 0;
+}
+
+static int d2_has_token2_w(const WCHAR *s) {
+    char narrow[260];
+    int i = 0;
+    if (!s) return 0;
+    for (; s[i] && i < 255; ++i) narrow[i] = (char)(s[i] < 128 ? s[i] : '?');
+    narrow[i] = 0;
+    return d2_has_token2(narrow);
+}
+
+static void d2_hex(const char *label, const void *buf, DWORD len) {
+    const unsigned char *p = (const unsigned char *)buf;
+    char line[3 * 24 + 8];
+    DWORD show = len < 24 ? len : 24, i;
+    int k = 0;
+    for (i = 0; i < show; ++i) k += snprintf(line + k, sizeof line - (size_t)k, "%02x ", p[i]);
+    line[k] = 0;
+    d2_line("   %s%s", label, line);
+}
+
+static HANDLE WINAPI rg_d2_CreateFileA(LPCSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD share, DWORD disp,
+                                       HANDLE tmpl) {
+    if (d2_has_token2(name)) {
+        d2_line("CreateFileA(%s, access=0x%08lx, share=%lu) -> nephandvat", name, (unsigned long)access,
+                (unsigned long)share);
+        SetLastError(ERROR_SUCCESS);
+        return RG_D2_HANDLE;
+    }
+    return real_d2_create_a(name, access, sa, share, disp, tmpl);
+}
+
+static HANDLE WINAPI rg_d2_CreateFileW(LPCWSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD share, DWORD disp,
+                                       HANDLE tmpl) {
+    if (d2_has_token2_w(name)) {
+        d2_line("CreateFileW(wijde naam \"ITOKEN2\", access=0x%08lx) -> nephandvat", (unsigned long)access);
+        SetLastError(ERROR_SUCCESS);
+        return RG_D2_HANDLE;
+    }
+    return real_d2_create_w(name, access, sa, share, disp, tmpl);
+}
+
+static BOOL WINAPI rg_d2_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD in_len, LPVOID out, DWORD out_len,
+                                         LPDWORD ret, LPOVERLAPPED ov) {
+    if (h != RG_D2_HANDLE) return real_d2_ioctl(h, code, in, in_len, out, out_len, ret, ov);
+    d2_line("DeviceIoControl code=0x%08lx in=%lu out=%lu", (unsigned long)code, (unsigned long)in_len,
+            (unsigned long)out_len);
+    if (in && in_len) d2_hex("invoer: ", in, in_len);
+    if (out && out_len) memset(out, 0, out_len);
+    if (ret) *ret = out_len;
+    return TRUE;
+}
+
+static BOOL WINAPI rg_d2_ReadFile(HANDLE h, LPVOID buf, DWORD len, LPDWORD got, LPOVERLAPPED ov) {
+    if (h != RG_D2_HANDLE) return real_d2_read(h, buf, len, got, ov);
+    d2_line("ReadFile %lu bytes -> nullen", (unsigned long)len);
+    if (buf && len) memset(buf, 0, len);
+    if (got) *got = len;
+    return TRUE;
+}
+
+static BOOL WINAPI rg_d2_WriteFile(HANDLE h, LPCVOID buf, DWORD len, LPDWORD wrote, LPOVERLAPPED ov) {
+    if (h != RG_D2_HANDLE) return real_d2_write(h, buf, len, wrote, ov);
+    d2_line("WriteFile %lu bytes", (unsigned long)len);
+    if (buf && len) d2_hex("bytes: ", buf, len);
+    if (wrote) *wrote = len;
+    return TRUE;
+}
+
+static BOOL WINAPI rg_d2_CloseHandle(HANDLE h) {
+    if (h == RG_D2_HANDLE) {
+        d2_line("CloseHandle(nephandvat)");
+        return TRUE;
+    }
+    return real_d2_close(h);
+}
+
+static void dongle2_start(HMODULE exe) {
+    char path[MAX_PATH];
+    DWORD n = GetEnvironmentVariableA("RG_DONGLE2_LOG", path, sizeof path);
+    if (n == 0 || n >= sizeof path) return;
+    d2_log = fopen(path, "w");
+    if (!d2_log) return;
+    d2_line("rg-compat: apparaatmeter aan (pid %lu), log %s", (unsigned long)GetCurrentProcessId(), path);
+    real_d2_create_a = (d2_create_a_fn)patch_import(exe, "kernel32.dll", "CreateFileA", (void *)rg_d2_CreateFileA);
+    real_d2_create_w = (d2_create_w_fn)patch_import(exe, "kernel32.dll", "CreateFileW", (void *)rg_d2_CreateFileW);
+    real_d2_ioctl = (d2_ioctl_fn)patch_import(exe, "kernel32.dll", "DeviceIoControl", (void *)rg_d2_DeviceIoControl);
+    real_d2_read = (d2_read_fn)patch_import(exe, "kernel32.dll", "ReadFile", (void *)rg_d2_ReadFile);
+    real_d2_write = (d2_write_fn)patch_import(exe, "kernel32.dll", "WriteFile", (void *)rg_d2_WriteFile);
+    real_d2_close = (d2_close_fn)patch_import(exe, "kernel32.dll", "CloseHandle", (void *)rg_d2_CloseHandle);
+    d2_line("haken: CreateFileA=%d CreateFileW=%d DeviceIoControl=%d ReadFile=%d WriteFile=%d CloseHandle=%d",
+            real_d2_create_a != NULL, real_d2_create_w != NULL, real_d2_ioctl != NULL, real_d2_read != NULL,
+            real_d2_write != NULL, real_d2_close != NULL);
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -302,6 +446,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         real_cocreate = (cocreate_fn)patch_import(exe, "ole32.dll", "CoCreateInstance", (void *)rg_CoCreateInstance);
         if (real_cocreate) OutputDebugStringA("rg-compat: ole32!CoCreateInstance omgeleid\n");
         paint_start(exe);
+        dongle2_start(exe);
     }
     return TRUE;
 }
