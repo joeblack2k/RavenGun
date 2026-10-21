@@ -1008,6 +1008,12 @@ static void *w7_synth_table(void *obj) {
     BYTE *e = (BYTE *)alloc(1, 0x6c);
     if (!e) return NULL;
     memset(e, 0, 0x6c);
+    /* De velden die de spellogica zelf toetst (0x42f9e0 leest het record vanaf +0x10 als een structuur:
+     * [0] < 0x7f, [4] >= 0x20000, [0x58] != 0, en [0x10] is de id voor de apparaatvraag). */
+    *(DWORD *)(e + 0x10) = 1;
+    *(DWORD *)(e + 0x14) = 0x20000;
+    *(DWORD *)(e + 0x20) = 1;
+    *(DWORD *)(e + 0x68) = 1;
     memcpy(e + 0x60, "InsGame", 8);
     veld[0x20 / 4] = (DWORD)(ULONG_PTR)e;
     veld[0x24 / 4] = 1;
