@@ -1,0 +1,15 @@
+# Onze eigen geheugen-motor (memory/src, docs/memory-engine.md): bytepatches in het LOPENDE proces.
+# Formaat: module|offset(RVA)|verwacht|nieuw
+#
+# GamePlayer.exe+0x4332DF (VA 0x4332DF) in de transportfunctie 0x4332B0, die elk dongle-record verstuurt:
+#
+#   4332cc  mov  eax,[esi+4]        ; de grootte/capaciteit die het object van de dongle kent
+#   4332df  cmp  eax,0x20000        ; kleiner dan 0x20000?  -> meteen terug met 2 (fout)
+#   4332e4  jae  0x433302           ; groot genoeg -> verder
+#
+# Zonder dongle blijft [obj+4] nul, dus geeft elke recordvraag meteen 2 terug en komt er nooit
+# apparaatverkeer (gemeten 2026-10-21: geen HidD_SetFeature/GetFeature in het log). De patch zet de
+# waarde in de vergelijking zelf op 0x20000 (mov eax,0x20000 in plaats van cmp eax,0x20000), zodat de
+# tak naar het echte werk loopt en de gemeten capaciteit ook in eax staat. De bytes op de NAS blijven
+# ongemoeid: dit is procesgeheugen.
+GamePlayer.exe|0x4332df|3d00000200|b800000200
