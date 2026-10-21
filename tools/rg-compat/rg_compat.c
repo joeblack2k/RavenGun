@@ -1549,49 +1549,51 @@ static int hk_leesbaar(const void *p, size_t n) {
 
 typedef void(__thiscall *hk_setvalue_fn)(void *zelf, const void *waarde, DWORD maat);
 
+static int hk_in_beeld(const void *q, DWORD maat) {
+    return q && w7_base && (const BYTE *)q >= w7_base && (const BYTE *)q + maat <= w7_base + w7_size;
+}
+
 static void hk_block_verify(const DWORD *p, DWORD waarde) {
+    (void)waarde;
     static unsigned long n;
     const unsigned long teller = ++n;
-    if (!hk_leesbaar((const void *)p[1], 4)) {
-        if (teller <= 3) d2_line("blok: arg1 %p onleesbaar", (void *)p[1]);
+    void *const ctx = (void *)p[1];
+    if (!hk_leesbaar(ctx, 4)) {
+        d2_line("blok: ctx %p onleesbaar", ctx);
         return;
     }
-    void *const beh = *(void **)p[1];
-    if (!hk_leesbaar(beh, 0x30) || !hk_leesbaar((BYTE *)beh + 0x24, 8)) {
-        if (teller <= 3) d2_line("blok: gedrag %p onleesbaar", beh);
+    void *const beh = *(void **)ctx;
+    if (!hk_leesbaar(beh, 0x30)) {
+        d2_line("blok: gedrag %p onleesbaar", beh);
         return;
     }
     void **const begin = *(void ***)((BYTE *)beh + 0x24);
     void **const einde = *(void ***)((BYTE *)beh + 0x28);
-    if (!hk_leesbaar(begin, sizeof(void *)) || (ULONG_PTR)einde < (ULONG_PTR)begin) {
-        if (teller <= 3) d2_line("blok: lijst %p..%p onbruikbaar", (void *)begin, (void *)einde);
-        return;
+    const unsigned long aantal =
+        ((ULONG_PTR)einde >= (ULONG_PTR)begin) ? (unsigned long)(einde - begin) : 0xfffffffful;
+    void *param = NULL;
+    void **vt = NULL;
+    if (begin && hk_leesbaar(begin, sizeof(void *)) && aantal <= 0x40) {
+        param = begin[0];
+        if (param && hk_leesbaar(param, 0x20)) vt = *(void ***)param;
     }
-    const unsigned long aantal = (unsigned long)(einde - begin);
-    if (aantal > 0x40) {
-        if (teller <= 3) d2_line("blok: lijst heeft %lu leden", aantal);
-        return;
-    }
-    void *const param = begin[0];
-    if (!param || !hk_leesbaar(param, 0x20)) {
-        if (teller <= 3) d2_line("blok: eerste parameter %p onleesbaar", param);
-        return;
-    }
-    void **const vt = *(void ***)param;
-    if (!hk_leesbaar(vt, 0x50)) return;
-    const DWORD oud = 0;
-    DWORD gelezen = oud;
-    if (vt[0x48 / 4]) ((hk_setvalue_fn)vt[0x48 / 4])(param, &gelezen, 4);
-    if (vt[0x4c / 4]) ((hk_setvalue_fn)vt[0x4c / 4])(param, &waarde, 4);
-    /* Het Do kijkt eerst naar bit 0x40000000 van [param+0xc] (0x449f1a via 0x44626a) en slaat de hele keuring
-     * over als dat bit nul is; dat is gemeten (geen enkele 0x449ea9-aanroep in de log). Zet het bit, zodat het Do
-     * zijn eigen weg loopt en de Succeeded/Failed-vlaggen zet. */
-    const DWORD vlaggen = *(DWORD *)((BYTE *)param + 0xc);
-    *(DWORD *)((BYTE *)param + 0xc) = vlaggen | 0x40000000u;
-    if (teller <= 30 || (teller % 500) == 0)
-        d2_line("blok: Verify-parameter %p (lijst %lu leden, gedrag %p) vlaggen %08lx -> %08lx, waarde %lu -> %lu (nr %lu)",
-                param, aantal, beh, (unsigned long)vlaggen, (unsigned long)(vlaggen | 0x40000000u),
-                (unsigned long)gelezen, (unsigned long)waarde, teller);
+    const int vt_goed = hk_in_beeld(vt, 0x50);
+    if (teller <= 10 || (teller % 200) == 0)
+        d2_line("blok: ctx %p gedrag %p lijst %p..%p (%lu leden) param %p vt %p (%s)", ctx, beh, (void *)begin,
+                (void *)einde, aantal, param, (void *)vt, vt_goed ? "in het beeld" : "buiten het beeld");
+    if (!vt_goed) return;
+    /* De vtable van deze parameter heeft op +0x48 geen GetValue (nul) en op +0x4c een heap-wijzer, dus het
+     * SetValue-pad van 0x44a0a0 hoort bij een andere klasse; het object hier is de parameter van het blok.
+     * Daarom eerst alleen de ruwe inhoud loggen (waar de waarde staat) en het vlagbit zetten dat het Do zelf
+     * toetst (0x449f1a). */
+    char hex[3 * 0x40 + 1];
+    int k = 0;
+    for (DWORD b = 0; b < 0x40; ++b) k += snprintf(hex + k, sizeof hex - (size_t)k, "%02x", ((const BYTE *)param)[b]);
+    const DWORD vlaggen_voor = *(DWORD *)((BYTE *)param + 0xc);
+    *(DWORD *)((BYTE *)param + 0xc) = vlaggen_voor | 0x40000000u;
+    if (teller <= 10 || (teller % 200) == 0)
+        d2_line("blok: param %p vlaggen %08lx -> %08lx bytes %s (nr %lu)", param, (unsigned long)vlaggen_voor,
+                (unsigned long)(vlaggen_voor | 0x40000000u), hex, teller);
 }
 
 __attribute__((used)) static void hk_log(int idx, const DWORD *p) {
