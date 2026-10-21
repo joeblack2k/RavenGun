@@ -1583,9 +1583,15 @@ static void hk_block_verify(const DWORD *p, DWORD waarde) {
     DWORD gelezen = oud;
     if (vt[0x48 / 4]) ((hk_setvalue_fn)vt[0x48 / 4])(param, &gelezen, 4);
     if (vt[0x4c / 4]) ((hk_setvalue_fn)vt[0x4c / 4])(param, &waarde, 4);
+    /* Het Do kijkt eerst naar bit 0x40000000 van [param+0xc] (0x449f1a via 0x44626a) en slaat de hele keuring
+     * over als dat bit nul is; dat is gemeten (geen enkele 0x449ea9-aanroep in de log). Zet het bit, zodat het Do
+     * zijn eigen weg loopt en de Succeeded/Failed-vlaggen zet. */
+    const DWORD vlaggen = *(DWORD *)((BYTE *)param + 0xc);
+    *(DWORD *)((BYTE *)param + 0xc) = vlaggen | 0x40000000u;
     if (teller <= 30 || (teller % 500) == 0)
-        d2_line("blok: Verify-parameter %p (lijst %lu leden, gedrag %p) was %lu -> %lu (nr %lu)", param, aantal,
-                beh, (unsigned long)gelezen, (unsigned long)waarde, teller);
+        d2_line("blok: Verify-parameter %p (lijst %lu leden, gedrag %p) vlaggen %08lx -> %08lx, waarde %lu -> %lu (nr %lu)",
+                param, aantal, beh, (unsigned long)vlaggen, (unsigned long)(vlaggen | 0x40000000u),
+                (unsigned long)gelezen, (unsigned long)waarde, teller);
 }
 
 __attribute__((used)) static void hk_log(int idx, const DWORD *p) {
