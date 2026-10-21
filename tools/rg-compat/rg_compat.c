@@ -1532,10 +1532,15 @@ __attribute__((used)) static void hk_log(int idx, const DWORD *p) {
     if (idx < 0 || idx >= HK_MAX) return;
     static unsigned long telling[HK_MAX];
     const unsigned long n = ++telling[idx];
-    if (n <= 60 || (n % 500) == 0)
-        d2_line("haak[%d] +0x%lx vrager %08lx arg %08lx %08lx %08lx %08lx (nr %lu)", idx,
-                (unsigned long)hk_rva[idx], (unsigned long)p[0], (unsigned long)p[1], (unsigned long)p[2],
-                (unsigned long)p[3], (unsigned long)p[4], n);
+    if (n <= 60 || (n % 500) == 0) {
+        char a1[64], a2[64], a3[64], a4[64];
+        w7_arg(a1, sizeof a1, p[1], w7_base, w7_size);
+        w7_arg(a2, sizeof a2, p[2], w7_base, w7_size);
+        w7_arg(a3, sizeof a3, p[3], w7_base, w7_size);
+        w7_arg(a4, sizeof a4, p[4], w7_base, w7_size);
+        d2_line("haak[%d] +0x%lx vrager %08lx arg %s | %s | %s | %s (nr %lu)", idx, (unsigned long)hk_rva[idx],
+                (unsigned long)p[0], a1, a2, a3, a4, n);
+    }
 }
 
 #define HK_STUB(n)                                                                                             \
