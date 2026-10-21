@@ -863,11 +863,11 @@ static void rg_patch_start(void) {
     const DWORD zn = GetEnvironmentVariableA("RG_COMPAT_PATCH_SEARCH", zoek, sizeof zoek);
     if ((n == 0 || n >= sizeof txt) && (zn == 0 || zn >= sizeof zoek)) return;
     HMODULE image = NULL;
-    n = GetEnvironmentVariableA("RG_COMPAT_PATCH_MODULE", mod, sizeof mod);
-    if (n > 0 && n < sizeof mod) image = GetModuleHandleA(mod);   /* het spel kan in een kindproces zitten */
+    const DWORD mn = GetEnvironmentVariableA("RG_COMPAT_PATCH_MODULE", mod, sizeof mod);
+    if (mn > 0 && mn < sizeof mod) image = GetModuleHandleA(mod);   /* het spel kan in een kindproces zitten */
     if (!image) image = GetModuleHandleA(NULL);
     BYTE *base = (BYTE *)image;
-    d2_line("patch-start: module %s op %p", (n > 0 && n < sizeof mod) ? mod : "(hoofdbeeld)", (void *)base);
+    d2_line("patch-start: module %s op %p", (mn > 0 && mn < sizeof mod) ? mod : "(hoofdbeeld)", (void *)base);
     rg_image_probe(base);
     d2_line("   base+0=%02x%02x  base+0x1000=%02x%02x%02x", base[0], base[1], base[0x1000], base[0x1001], base[0x1002]);
     d2_line("   poort 0x647b=%02x%02x  transport 0x332cc=%02x%02x%02x%02x  transport 0x332df=%02x%02x%02x%02x",
@@ -925,7 +925,7 @@ static void rg_patch_start(void) {
 
 static void *w7_orig[W7_MAX];
 __attribute__((used)) static void *w7_cont[W7_MAX];
-static const int w7_map2[16] = {4, 12, 20, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static const int w7_map2[16] = {4, 12, 20, 22, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 static int w7_answer;
 __attribute__((used)) static int w7_busy[W7_MAX];
 static void *w7_last_obj[W7_MAX];
@@ -1156,7 +1156,81 @@ static void w7_start(void) {
         const unsigned long rva2 = strtoul(txt, NULL, 0);
         void **vt2 = (void **)((BYTE *)image + rva2);
         d2_line("wrap: record-vtable %p (+0x%lx)", (void *)vt2, rva2);
-        for (int k = 0; k < 4; ++k) w7_wrap_one(vt2, 16 + k, w7_map2[k], "record");
+        for (int k = 0; k < 5; ++k) w7_wrap_one(vt2, 16 + k, w7_map2[k], "record");
+    }
+}
+
+/* ------------------------------- 8. RG_DONGLE2_CALLTRACE (directe calls volgen) */
+
+/* Voor de stappen die geen vtable gebruiken maar een directe `call rel32` (het maken van het recordobject
+ * 0x40ae20 -> 0x403820, en het vullen 0x40af60 -> 0x40b350). RG_DONGLE2_CALLTRACE=<rva>,<rva> vervangt die
+ * call door een kleine thunk die de aanroep met zijn argumenten opschrijft en dan naar het originele doel
+ * springt; de stapel en de registers blijven zoals ze waren. Zo is te zien welke stap nog loopt als het spel
+ * daarna stopt. */
+
+#define W7C_MAX 4
+static void *w7c_target[W7C_MAX];
+static unsigned long w7c_site[W7C_MAX];
+
+__attribute__((used)) static void w7c_on_call(int idx, void *regs) {
+    if (!d2_log || idx < 0 || idx >= W7C_MAX) return;
+    const DWORD *r = (const DWORD *)regs;
+    const DWORD *st = (const DWORD *)r[3];
+    char a1[80], a2[80], a3[80];
+    w7_arg(a1, sizeof a1, st[1], w7_base, w7_size);
+    w7_arg(a2, sizeof a2, st[2], w7_base, w7_size);
+    w7_arg(a3, sizeof a3, st[3], w7_base, w7_size);
+    d2_line("call +0x%lx -> %p arg1=%s arg2=%s arg3=%s", w7c_site[idx], w7c_target[idx], a1, a2, a3);
+}
+
+#define W7CALL(n)                                                                        \
+    __attribute__((naked, used)) static void w7c_##n(void) {                              \
+        __asm__ __volatile__(                                                            \
+            "pushal\n\t"                                                                \
+            "movl %esp, %eax\n\t"                                                       \
+            "pushl %eax\n\tpushl $" #n "\n\t"                                          \
+            "call _w7c_on_call\n\taddl $8, %esp\n\t"                                   \
+            "popal\n\t"                                                                 \
+            "movl _w7c_target+" #n "*4, %eax\n\t"                                       \
+            "jmp *%eax\n\t");                                                           \
+    }
+
+W7CALL(0) W7CALL(1) W7CALL(2) W7CALL(3)
+
+static void *const w7c_stubs[W7C_MAX] = {(void *)w7c_0, (void *)w7c_1, (void *)w7c_2, (void *)w7c_3};
+
+static void w7_calltrace_start(void) {
+    char txt[160];
+    DWORD n = GetEnvironmentVariableA("RG_DONGLE2_CALLTRACE", txt, sizeof txt);
+    if (n == 0 || n >= sizeof txt) return;
+    HMODULE image = GetModuleHandleA(NULL);
+    if (!image) return;
+    int idx = 0;
+    for (char *p = txt; *p && idx < W7C_MAX;) {
+        const long rva = strtol(p, &p, 0);
+        while (*p == ',' || *p == ' ') ++p;
+        if (rva <= 0) break;
+        BYTE *site = (BYTE *)image + rva;
+        if (site[0] != 0xe8) {
+            d2_line("calltrace: +0x%lx is geen call (%02x)", (unsigned long)rva, site[0]);
+            continue;
+        }
+        const long rel = (long)*(int *)(site + 1);
+        w7c_target[idx] = (void *)(site + 5 + rel);
+        w7c_site[idx] = (unsigned long)rva;
+        const long nieuw = (long)((BYTE *)w7c_stubs[idx] - (site + 5));
+        DWORD old = 0;
+        if (!VirtualProtect(site, 5, PAGE_EXECUTE_READWRITE, &old)) {
+            d2_line("calltrace: VirtualProtect geweigerd op +0x%lx", (unsigned long)rva);
+            continue;
+        }
+        const DWORD bewaar = *(DWORD *)(site + 1);
+        site[0] = 0xe8;
+        *(int *)(site + 1) = (int)nieuw;
+        VirtualProtect(site, 5, old, &old);
+        d2_line("calltrace: +0x%lx (was -> %p) -> thunk %d", (unsigned long)rva, w7c_target[idx], idx);
+        (void)bewaar;
+        ++idx;
     }
 }
 
@@ -1174,6 +1248,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         dongle2_start(exe);
         rg_patch_start();
         w7_start();
+        w7_calltrace_start();
     }
     return TRUE;
 }
