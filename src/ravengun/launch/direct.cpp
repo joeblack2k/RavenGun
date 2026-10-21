@@ -638,6 +638,13 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
             pl.view_writable.push_back(normpath(pjoin(wortel, n)));
         }
     }
+    // 6c2b2. [Launch] SeedRoot: where patches/<Game>/seed/ starts (relative to the view root, no ..); default the exe's folder.
+    if (const std::string sr = trim(lini("SeedRoot")); !sr.empty()) {
+        const std::string n = normpath(sr);
+        if (sr[0] == '/' || n == ".." || n.starts_with("../"))
+            return setting_refused("[Launch] SeedRoot = " + sr + " (a path inside the game folder, relative and without ..)");
+        pl.seed_root = normpath(pjoin(view_root, n));
+    }
     // 6c2c. [Launch] ViewLocalFiles (pass 2, R1): echte mappen in de view (ten opzichte van de wortel, zoals ViewWritable) waarvan
     // elke bestands-koppeling naar de NAS bij de start een lokale kopie wordt; map-koppelingen erin blijven staan. Wine verwijdert
     // en hernoemt door een bestands-koppeling heen (SegaGameShell: de logboekrotatie in shell/). plan_view maakt de map een echte

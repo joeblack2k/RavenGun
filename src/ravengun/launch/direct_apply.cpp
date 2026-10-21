@@ -472,6 +472,7 @@ std::string plan_to_json(const DirectPlan& pl) {
     w.end_array();
     strs("view_copies", pl.view_copies);
     strs("view_writable", pl.view_writable);
+    if (!pl.seed_root.empty()) w.key("seed_root").value(pl.seed_root);
     strs("view_local_files", pl.view_local_files);
     w.key("second_bare").value(pl.second_bare);
     w.key("prefix_setup_mark").value(pl.prefix_setup_mark);
@@ -588,6 +589,7 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
             if (const auto* x = e.find("tekst"); x && x->is_string()) st.tekst = x->str;
             pl.prefix_setup.push_back(st);
         }
+    if (const auto* f = v.find("seed_root"); f && f->is_string()) pl.seed_root = f->str;
     if (const auto* f = v.find("view_writable"); f && f->is_array())
         for (const auto& e : f->arr)
             if (e.is_string()) pl.view_writable.push_back(e.str);

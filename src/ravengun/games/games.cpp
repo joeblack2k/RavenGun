@@ -965,7 +965,7 @@ std::string GameService::run_direct(const std::string& profile, const ravengun::
     std::vector<std::string> seed_dirs;
     for (const std::string& d : {c_.dirs.user, c_.dirs.shipped})
         if (!d.empty()) seed_dirs.push_back(d + "/" + profile + "/seed");
-    const std::vector<std::string> seeded = seed_files(seed_dirs, fs::path(pl.game).parent_path().string(), wl.layers, err, vers_omgezet);
+    const std::vector<std::string> seeded = seed_files(seed_dirs, pl.seed_root.empty() ? fs::path(pl.game).parent_path().string() : pl.seed_root, wl.layers, err, vers_omgezet);
     if (!err.empty()) return fail(profile + ": " + err);
     std::string log, plan_file;
     {

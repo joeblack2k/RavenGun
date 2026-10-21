@@ -1,5 +1,9 @@
 # RaccoonRampage
 
+> **UPDATE 2026-10-21: the "guns are not calibrated" banner is gone on a fresh write layer.** Its cause was players 2..4
+> (the Gun Test screen showed P1 Corrected, P2..P4 Uncorrected; the NAS file only has player 1). `seed/Setting_Hardware.ini`
+> (+ `_Backups.ini`, made by `tools/dev/rr-calibration-seed.py`) calibrates all four players; see the NoteEN in `game.ini`.
+>
 > **STAND 2026-10-14, 01:30 — lees eerst `ATTRACT-RUN.md`.** De game draait zijn attract-lus op onze eigen
 > kern (run rr10: 12 min 50 s, op de tv, onafhankelijk meegekeken), met de films en met zijn eigen bewaarde
 > instellingen geladen. **Open punt, door de game zelf genoemd: de rode melding "The guns are not calibrated,

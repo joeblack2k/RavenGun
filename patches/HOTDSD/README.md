@@ -93,8 +93,12 @@ schakelaars ...").
 cursor at about 0.54/0.37). It was redone once in the game's TEST menu (CONTROLLER ADJUSTMENT: START selects TOP, LEFT,
 CENTER, RIGHT, BOTTOM, the trigger takes the aim on that target; player 1 is now 48/28/514/514/995/975) and lives in
 RavenGun's write layer (`writelayer/HOTDSD/.../AMDaemon/TeknoParrot/D/SDET/appfile.dat`). Since then the cursor
-follows the aim to the corners and the middle. A fresh write layer starts from the NAS backup and needs the same
-adjustment again. `[Status] Status = untested` until the owner's PS Move test.
+follows the aim to the corners and the middle. A fresh write layer no longer needs it: `seed/AMDaemon/TeknoParrot/D/SDET/appfile.dat`
+is that backup with player 2 set like player 1 (`[Launch] SeedRoot = App/Hodzero/WindowsNoEditor` makes `seed/` start at the folder
+that holds `AMDaemon/`; an existing `appfile.dat` is never overwritten). The adjustment record is in the `TEDS` block at 0x24e00
+(mirror at 0x422e00, 1536 bytes, first u32 = CRC32 of the other 1532 bytes): player 1 at +0x90, player 2 at +0xa4, each five
+(x, y) pairs of u16 for TOP, LEFT, CENTER, RIGHT, BOTTOM. Measured on a fresh layer: both players' cursors land within 2 px of the
+aim at the centre and four corner points. `[Status] Status = untested` until the owner's PS Move test.
 
 ## Verify (without TeknoParrot)
 

@@ -125,6 +125,10 @@ struct DirectPlan {
     // worden in de view een ECHTE map met een kopie van de inhoud van de NAS; schrijven komt zo
     // nooit op de NAS uit (besluit eigenaar 2026-10-19).
     std::vector<std::string> view_writable;
+    // [Launch] SeedRoot: the folder patches/<Game>/seed/ is relative to, as an absolute path in the view (the profile gives it relative
+    // to the view root, like ViewWritable). Empty = the folder of the exe. A UE4 game keeps its exe deep in the tree and a sibling
+    // folder (HOTDSD: AMDaemon/ next to Hodzero/) holds the file that needs seeding.
+    std::string seed_root;
     // [Launch] ViewLocalFiles: ECHTE mappen in de view waarvan elk kind dat een BESTANDS-koppeling naar de NAS is een lokale kopie
     // wordt (niet recursief); koppelingen naar een map (alleen-lezen inhoud zoals Graphics/) blijven staan. Wine verwijdert en
     // hernoemt DOOR een bestands-koppeling heen (wineserver werkt met het echte pad), dus een logboekrotatie in zo'n map raakte

@@ -822,6 +822,13 @@ lokale map in de view) krijgt de kopie rechtstreeks. Het logboek noemt elk besta
 Zaaigoed maak je door het spel zelf te laten schrijven (het testmenu, met de muismodus van de daemon) en het resultaat uit
 `~/.local/share/ravengun/writelayer/<Game>/<spelmap>/upper/` te kopieren. Nooit dongle- of sleutelgegevens.
 
+**`[Launch] SeedRoot` (where `seed/` starts).** By default `seed/` is relative to the folder of the exe. A UE4 game keeps its exe
+deep in the tree (`App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/`) while the file that needs seeding can sit in a sibling
+folder (House of the Dead: Scarlet Dawn keeps both players' gun adjustment in `AMDaemon/TeknoParrot/D/SDET/appfile.dat`, the AM
+daemon's backup). `SeedRoot = App/Hodzero/WindowsNoEditor` (a path relative to the view root, like `ViewWritable`, no `..`) makes
+`seed/` start there, so the seed is `seed/AMDaemon/TeknoParrot/D/SDET/appfile.dat`. The rule is unchanged: a file the write layer
+already has is never overwritten.
+
 ## Dongle per game
 
 **De loader weet niets van dongles.** Dat is de beslissing van de eigenaar (ronde 12) en die staat in

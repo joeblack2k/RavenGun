@@ -1802,6 +1802,23 @@ int main() {
         CHECK(apply_direct(wp, p, wlog, werr) && slurp(viewmap / "AMConfig.ini") == "OFFLINE\n");
         CHECK(std::any_of(wlog.begin(), wlog.end(),
                           [](const std::string& l) { return contains(l, "al een echte map"); }));
+        // [Launch] SeedRoot (the folder patches/<Game>/seed/ starts at): relative to the view root, in the plan as an absolute path,
+        // through the plan JSON and back; empty without the key; a path outside the game folder is refused.
+        {
+            CHECK(wp.seed_root.empty());
+            write(ugi2, "[Launch]\nSeedRoot = Sub/Map\n");
+            DirectPlan sp;
+            std::string sw;
+            CHECK(plan_direct("Spel", p, o, sp, sw) == Verdict::Ok && sp.seed_root == (view / "Sub/Map").string());
+            DirectPlan sback;
+            std::string serr;
+            CHECK(plan_from_json(plan_to_json(sp), sback, serr) && sback.seed_root == sp.seed_root);
+            for (const char* fout : {"../buiten", "/abs"}) {
+                write(ugi2, std::string("[Launch]\nSeedRoot = ") + fout + "\n");
+                CHECK(plan_direct("Spel", p, o, sp, sw) == Verdict::Refused && contains(sw, "SeedRoot"));
+            }
+            write(ugi2, "[Launch]\nViewWritable = AMCUS\n");
+        }
         // Een schrijfmap die op de NAS zelf uitkomt: weigeren (harde controle).
         DirectPlan np;
         np.view_writable = {nasmap.string()};
