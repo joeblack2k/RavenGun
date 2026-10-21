@@ -1346,6 +1346,177 @@ static void WINAPI rg_exitlog_ExitProcess(UINT code) {
     if (real_exitprocess) real_exitprocess(code);
 }
 
+
+/* ------------------------------- 10. RG_COMPAT_IATFIX (importtabel van een dump rechtzetten) */
+
+/* Coopers's 9 is een vlakke geheugendump van een beschermd XP-proces: de descriptors staan er (met namen in
+ * de OriginalFirstThunk), maar de FirstThunk-sleutels bevatten de adressen uit dat XP-proces (0x7C80xxxx).
+ * Deze fix loopt alle descriptors langs en zet in elke FirstThunk-sleutel het adres dat de naam in deze
+ * processruimte werkelijk heeft; alles wordt naar RG_DONGLE2_LOG geschreven zodat de indeling te lezen is.
+ * Eerste ronde meteen (voor de modules die de lader al heeft), tweede ronde vanuit een draad voor de rest. */
+
+static void iatfix_pass(HMODULE exe, int alleen_geladen) {
+    const BYTE *b = (const BYTE *)exe;
+    const IMAGE_DOS_HEADER *dos = (const IMAGE_DOS_HEADER *)exe;
+    const IMAGE_NT_HEADERS *nt = (const IMAGE_NT_HEADERS *)(b + dos->e_lfanew);
+    const IMAGE_IMPORT_DESCRIPTOR *desc =
+        (const IMAGE_IMPORT_DESCRIPTOR *)(b + nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+    if (!nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress) {
+        d2_line("iatfix: geen importmap");
+        return;
+    }
+    for (; desc->Name; ++desc) {
+        const char *dll = (const char *)(b + desc->Name);
+        HMODULE mod = GetModuleHandleA(dll);
+        if (!mod) {
+            if (alleen_geladen) continue;
+            mod = LoadLibraryA(dll);
+            if (!mod) {
+                d2_line("iatfix: %s niet te laden", dll);
+                continue;
+            }
+            d2_line("iatfix: %s geladen op %p", dll, (void *)mod);
+        }
+        const DWORD oft = desc->OriginalFirstThunk ? desc->OriginalFirstThunk : desc->FirstThunk;
+        const DWORD ft = desc->FirstThunk ? desc->FirstThunk : desc->OriginalFirstThunk;
+        const DWORD *namen = (const DWORD *)(b + oft);
+        DWORD *sleutels = (DWORD *)(b + ft);
+        int gezet = 0, mis = 0;
+        for (int i = 0; namen[i]; ++i) {
+            FARPROC proc = NULL;
+            if (namen[i] & 0x80000000u) {
+                proc = GetProcAddress(mod, (LPCSTR)(ULONG_PTR)(namen[i] & 0xffff));
+            } else {
+                const char *naam = (const char *)(b + namen[i] + 2);
+                proc = GetProcAddress(mod, naam);
+                if (!proc) {
+                    d2_line("iatfix: %s!%s niet gevonden", dll, naam);
+                    ++mis;
+                    continue;
+                }
+                if (alleen_geladen && sleutels[i] != (DWORD)(ULONG_PTR)proc) {
+                    d2_line("iatfix: %s!%s sleutel %08lx -> %p", dll, naam, (unsigned long)sleutels[i], (void *)proc);
+                }
+            }
+            if (proc) {
+                sleutels[i] = (DWORD)(ULONG_PTR)proc;
+                ++gezet;
+            }
+        }
+        d2_line("iatfix: %s %d sleutels gezet, %d niet gevonden", dll, gezet, mis);
+    }
+}
+
+static DWORD WINAPI iatfix_thread(void *arg) {
+    HMODULE exe = (HMODULE)arg;
+    Sleep(0);
+    iatfix_pass(exe, 0);
+    d2_line("iatfix: tweede ronde klaar");
+    return 0;
+}
+
+static void iatfix_start(HMODULE exe) {
+    if (GetEnvironmentVariableA("RG_COMPAT_IATFIX", NULL, 0) == 0) return;
+    d2_line("iatfix: aan");
+    iatfix_pass(exe, 1);
+    CreateThread(NULL, 0, iatfix_thread, (void *)exe, 0, NULL);
+}
+
+
+/* ------------------------------- 11. RG_COMPAT_TABLEPROBE (aanroeptabel van een beschermd spel) */
+
+/* Coopers's 9 roept zijn beschermingslaag aan via een tabel in .rdata (0x512000): `call *0x512xxx`. Deze
+ * sonde zet in elke sleutel van dat bereik een klein stubje dat de index, de vrager en de eerste vier
+ * stapelargumenten naar RG_DONGLE2_LOG schrijft en daarna 0 teruggeeft (of de waarde uit
+ * RG_COMPAT_TABLEPROBE_RET=<idx:waarde,...>). Zo is de volgorde en het gebruik van die laag te lezen zonder
+ * de bescherming zelf te hebben. Stub: pushad; pushfd; push idx; call gemeen; popfd; popad; ret. */
+
+#define TP_MAX 512
+static void *tp_stubs;
+static DWORD tp_base;
+
+__attribute__((used)) static unsigned long tp_ret_waarde(int idx) {
+    char txt[256];
+    const DWORD n = GetEnvironmentVariableA("RG_COMPAT_TABLEPROBE_RET", txt, sizeof txt);
+    if (n == 0 || n >= sizeof txt) return 0;
+    for (char *p = txt; *p;) {
+        const int i = (int)strtol(p, &p, 0);
+        if (*p == ':') ++p;
+        const unsigned long w = strtoul(p, &p, 0);
+        if (i == idx) return w;
+        if (*p == ',') ++p;
+    }
+    return 0;
+}
+
+__attribute__((used)) static unsigned long tp_on_call(int idx, const DWORD *arg0) {
+    if (idx >= 0 && idx < TP_MAX) {
+        const DWORD vrager = arg0[-1];
+        static unsigned long telling[TP_MAX];
+        const unsigned long n = ++telling[idx];
+        if (n <= 40 || (n % 500) == 0)
+            d2_line("tabel[%d] (VA %08lx) vrager %08lx -> 0, arg %08lx %08lx %08lx %08lx (nr %lu)", idx,
+                    (unsigned long)(tp_base + (DWORD)idx * 4), (unsigned long)vrager, (unsigned long)arg0[0],
+                    (unsigned long)arg0[1], (unsigned long)arg0[2], (unsigned long)arg0[3], n);
+    }
+    return tp_ret_waarde(idx);
+}
+
+/* De stubjes springen hierheen met op de stapel: [esp] = retour naar het stubje, [esp+4] = index,
+ * [esp+8] = vlaggen, [esp+12..40] = de acht registers van pushal, [esp+44] = de vrager, [esp+48] = het
+ * eerste argument. Wij geven het adres van dat eerste argument door en laten het resultaat in EAX staan;
+ * het stubje zet dat in het bewaarde EAX van pushal en herstelt daarna alles. */
+__attribute__((naked, used)) static void tp_common(void) {
+    __asm__ volatile("leal 48(%esp), %edx\n\t"
+                     "movl 4(%esp), %eax\n\t"
+                     "push %edx\n\t"
+                     "push %eax\n\t"
+                     "call _tp_on_call\n\t"
+                     "add $8, %esp\n\t"
+                     "ret\n\t");
+}
+
+static void tableprobe_start(HMODULE exe) {
+    char txt[128];
+    const DWORD n = GetEnvironmentVariableA("RG_COMPAT_TABLEPROBE", txt, sizeof txt);
+    if (n == 0 || n >= sizeof txt) return;
+    char *einde = NULL;
+    const DWORD va = (DWORD)strtoul(txt, &einde, 0);
+    DWORD aantal = (DWORD)strtoul(einde && *einde == ':' ? einde + 1 : "256", NULL, 0);
+    if (aantal > TP_MAX) aantal = TP_MAX;
+    if (!va) return;
+    tp_base = va;
+    tp_stubs = VirtualAlloc(NULL, (size_t)aantal * 16, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!tp_stubs) {
+        d2_line("tabelsonde: geen geheugen");
+        return;
+    }
+    DWORD oud = 0;
+    if (!VirtualProtect((void *)(uintptr_t)va, (size_t)aantal * 4, PAGE_READWRITE, &oud)) {
+        d2_line("tabelsonde: tabel op %08lx niet schrijfbaar", (unsigned long)va);
+        return;
+    }
+    BYTE *code = (BYTE *)tp_stubs;
+    DWORD *slot = (DWORD *)(uintptr_t)va;
+    for (DWORD i = 0; i < aantal; ++i) {
+        BYTE *b = code + (size_t)i * 16;
+        b[0] = 0x60;                                        /* pushal          */
+        b[1] = 0x9c;                                        /* pushfl          */
+        b[2] = 0x68;                                        /* push imm32      */
+        *(DWORD *)(b + 3) = i;
+        b[7] = 0xe8;                                        /* call tp_common  */
+        *(int *)(b + 8) = (int)((BYTE *)tp_common - (b + 12));
+        b[12] = 0xc3;                                       /* ret             */
+        b[13] = 0x90;
+        b[14] = 0x90;
+        b[15] = 0x90;
+        if (slot[i]) slot[i] = (DWORD)(uintptr_t)b;
+    }
+    d2_line("tabelsonde: %lu sleutels vanaf %08lx bezet (stubjes %p)", (unsigned long)aantal, (unsigned long)va,
+            tp_stubs);
+    (void)exe;
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -1362,6 +1533,8 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         w7_start();
         w7_calltrace_start();
         exitlog_start(exe);
+        iatfix_start(exe);
+        tableprobe_start(exe);
     }
     return TRUE;
 }
