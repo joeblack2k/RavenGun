@@ -910,6 +910,183 @@ static void rg_patch_start(void) {
     }
 }
 
+/* ------------------------------------- 7. RG_DONGLE2_WRAP (vtable-trampoline) */
+
+/* After Dark's own dongle object (ATL CCoDongle2, vtable 0x7d3ca4 = image+0x3d3ca4) keeps its records in a
+ * table at [obj+0x20] with count [obj+0x24]; the gate in 0x415ca0 looks records up there by an 8-char name
+ * ("InsGame"). This instrument replaces the entries of that vtable with transparent thunks: every thunk saves
+ * the registers, logs the raw stack arguments (an argument that points at printable text is shown as text) and
+ * hands the call unchanged to the original; on the way back a small return-thunk logs EAX and returns to the
+ * caller. The thunk never touches the arguments or the stack cleanup, so the calling convention of the entry
+ * does not matter. The table fill (slot 8) also dumps the whole table into the log: name at +0x60, payload at
+ * +0x00. Only with RG_DONGLE2_WRAP=<rva> (the vtable, relative to the main image) and RG_DONGLE2_WRAP_SLOTS. */
+
+#define W7_MAX 32
+
+static void *w7_orig[W7_MAX];
+__attribute__((used)) static void *w7_cont[W7_MAX];
+__attribute__((used)) static int w7_busy[W7_MAX];
+static void *w7_last_obj[W7_MAX];
+static DWORD *w7_last_st[W7_MAX];
+static unsigned char w7_on[W7_MAX];
+static BYTE *w7_base;
+static DWORD w7_size;
+
+static int w7_text_ok(const char *s) {
+    int n = 0;
+    for (; n < 24 && s[n]; ++n) {
+        const unsigned char c = (unsigned char)s[n];
+        if (c < 0x20 || c > 0x7e) return 0;
+    }
+    return n >= 2;
+}
+
+/* Een argument als tekst tonen alleen als het in het hoofdbeeld zelf ligt: die pagina's zijn leesbaar, dus
+ * dit kan geen fout veroorzaken (de namen "InsGame" en "3DGame" liggen in .rdata van het beeld). */
+static void w7_arg(char *out, size_t cap, DWORD v, BYTE *base, DWORD size) {
+    if (base && v >= (DWORD)(ULONG_PTR)base && v + 24 < (DWORD)(ULONG_PTR)base + size && w7_text_ok((const char *)v)) {
+        snprintf(out, cap, "%p \"%.24s\"", (void *)v, (const char *)v);
+        return;
+    }
+    snprintf(out, cap, "%p", (void *)v);
+}
+
+static void w7_dump_table(void *o) {
+    if (!o) return;
+    const DWORD *obj = (const DWORD *)o;
+    const DWORD count = obj[0x24 / 4];
+    const BYTE *tab = (const BYTE *)obj[0x20 / 4];
+    d2_line("   tabel: %lu records op %p", (unsigned long)count, (const void *)tab);
+    if (!tab || count > 0x100) return;
+    for (DWORD i = 0; i < count; ++i) {
+        const BYTE *e = tab + (size_t)i * 0x6c;
+        char naam[9];
+        memcpy(naam, e + 0x60, 8);
+        naam[8] = 0;
+        for (int k = 0; k < 8; ++k) if (naam[k] < 0x20 || naam[k] > 0x7e) naam[k] = '.';
+        char hex[3 * 32 + 1];
+        int p = 0;
+        for (DWORD b = 0; b < 32; ++b) p += snprintf(hex + p, sizeof hex - (size_t)p, "%02x", e[b]);
+        d2_line("   record %lu naam \"%s\" inhoud %s", (unsigned long)i, naam, hex);
+    }
+}
+
+__attribute__((used)) static void w7_on_call(int idx, void *regs) {
+    if (!d2_log || idx < 0 || idx >= W7_MAX) return;
+    /* De aanwijzer komt van na "pushal; pushfl", dus de vlaggen staan vooraan; daarachter de pushal-reeks. */
+    const DWORD *r = (const DWORD *)regs + 1;  /* pushal: edi esi ebp esp ebx edx ecx eax */
+    const DWORD *st = (const DWORD *)r[3];     /* bij de aanroep: [0]=terugkeer, [1..]=argumenten */
+    char a1[80], a2[80], a3[80], a4[80], a5[80];
+    w7_arg(a1, sizeof a1, st[1], w7_base, w7_size);
+    w7_arg(a2, sizeof a2, st[2], w7_base, w7_size);
+    w7_arg(a3, sizeof a3, st[3], w7_base, w7_size);
+    w7_arg(a4, sizeof a4, st[4], w7_base, w7_size);
+    w7_arg(a5, sizeof a5, st[5], w7_base, w7_size);
+    d2_line("vt[+0x%02x] arg1=%s arg2=%s arg3=%s arg4=%s arg5=%s ecx=%p", idx * 4, a1, a2, a3, a4, a5,
+            (void *)r[6]);
+    w7_last_obj[idx] = (void *)st[1];
+    w7_last_st[idx] = (DWORD *)st;
+}
+
+__attribute__((used)) static void w7_on_ret(int idx, unsigned long ret) {
+    if (!d2_log || idx < 0 || idx >= W7_MAX) return;
+    d2_line("vt[+0x%02x] -> %08lx", idx * 4, ret);
+    if (idx == 8) w7_dump_table(w7_last_obj[idx]);
+    if (idx == 5 && (ret & 0x80000000u) == 0 && w7_last_st[idx]) {
+        const DWORD *st = w7_last_st[idx];
+        const BYTE *out = (const BYTE *)st[2];
+        if (out) {
+            char hex[3 * 32 + 1];
+            int p = 0;
+            for (DWORD b = 0; b < 32; ++b) p += snprintf(hex + p, sizeof hex - (size_t)p, "%02x", out[b]);
+            d2_line("   recordinhoud bij de vrager: %s", hex);
+        }
+    }
+}
+
+#define W7_THUNK(n)                                                                      \
+    __attribute__((naked, used)) static void w7_call_##n(void) {                               \
+        __asm__ __volatile__(                                                            \
+            "pushal\n\tpushfl\n\t"                                                       \
+            "movl %esp, %eax\n\t"                                                        \
+            "pushl %eax\n\tpushl $" #n "\n\t"                                            \
+            "call _w7_on_call\n\taddl $8, %esp\n\t"                                      \
+            "popfl\n\tpopal\n\t"                                                         \
+            "movl (%esp), %eax\n\t"                                                      \
+            "cmpl $0, _w7_busy+" #n "*4\n\t"                                             \
+            "jne 1f\n\t"                                                                 \
+            "movl $1, _w7_busy+" #n "*4\n\t"                                             \
+            "movl %eax, _w7_cont+" #n "*4\n\t"                                           \
+            "movl $_w7_ret_" #n ", (%esp)\n\t"                                           \
+            "1:\n\t"                                                                     \
+            "movl _w7_orig+" #n "*4, %edx\n\t"                                           \
+            "jmp *%edx\n\t");                                                            \
+    }                                                                                    \
+    __attribute__((naked, used)) static void w7_ret_##n(void) {                                \
+        __asm__ __volatile__(                                                            \
+            "pushal\n\t"                                                                 \
+            "pushl %eax\n\tpushl $" #n "\n\t"                                            \
+            "call _w7_on_ret\n\taddl $8, %esp\n\t"                                       \
+            "movl $0, _w7_busy+" #n "*4\n\t"                                             \
+            "popal\n\tmovl _w7_cont+" #n "*4, %eax\n\tjmp *%eax\n\t");                   \
+    }
+
+W7_THUNK(0) W7_THUNK(1) W7_THUNK(2) W7_THUNK(3) W7_THUNK(4) W7_THUNK(5) W7_THUNK(6) W7_THUNK(7)
+W7_THUNK(8) W7_THUNK(9) W7_THUNK(10) W7_THUNK(11) W7_THUNK(12) W7_THUNK(13) W7_THUNK(14) W7_THUNK(15)
+W7_THUNK(16) W7_THUNK(17) W7_THUNK(18) W7_THUNK(19) W7_THUNK(20) W7_THUNK(21) W7_THUNK(22) W7_THUNK(23)
+W7_THUNK(24) W7_THUNK(25) W7_THUNK(26) W7_THUNK(27) W7_THUNK(28) W7_THUNK(29) W7_THUNK(30) W7_THUNK(31)
+
+static void *const w7_thunks[W7_MAX] = {
+    (void *)w7_call_0, (void *)w7_call_1, (void *)w7_call_2, (void *)w7_call_3, (void *)w7_call_4,
+    (void *)w7_call_5, (void *)w7_call_6, (void *)w7_call_7, (void *)w7_call_8, (void *)w7_call_9,
+    (void *)w7_call_10, (void *)w7_call_11, (void *)w7_call_12, (void *)w7_call_13, (void *)w7_call_14,
+    (void *)w7_call_15, (void *)w7_call_16, (void *)w7_call_17, (void *)w7_call_18, (void *)w7_call_19,
+    (void *)w7_call_20, (void *)w7_call_21, (void *)w7_call_22, (void *)w7_call_23, (void *)w7_call_24,
+    (void *)w7_call_25, (void *)w7_call_26, (void *)w7_call_27, (void *)w7_call_28, (void *)w7_call_29,
+    (void *)w7_call_30, (void *)w7_call_31,
+};
+
+static void w7_start(void) {
+    char txt[160];
+    DWORD n = GetEnvironmentVariableA("RG_DONGLE2_WRAP", txt, sizeof txt);
+    if (n == 0 || n >= sizeof txt) return;
+    const unsigned long rva = strtoul(txt, NULL, 0);
+    const DWORD size = (DWORD)strtoul(strchr(txt, ',') ? strchr(txt, ',') + 1 : "0", NULL, 0);
+    HMODULE image = GetModuleHandleA(NULL);
+    if (!image || !rva) {
+        d2_line("wrap: geen hoofdbeeld of rva");
+        return;
+    }
+    void **vt = (void **)((BYTE *)image + rva);
+    w7_base = (BYTE *)image;
+    {
+        IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)image;
+        IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)((BYTE *)image + dos->e_lfanew);
+        w7_size = nt->OptionalHeader.SizeOfImage;
+    }
+    d2_line("wrap: vtable %p (beeld %p +0x%lx, %lu entries)", (void *)vt, (void *)image, rva, (unsigned long)size);
+    char slots[160];
+    if (!GetEnvironmentVariableA("RG_DONGLE2_WRAP_SLOTS", slots, sizeof slots)) return;
+    for (char *p = slots; *p;) {
+        const long idx = strtol(p, &p, 0);
+        if (idx < 0 || idx >= W7_MAX) break;
+        while (*p == ',' || *p == ' ') ++p;
+        w7_on[idx] = 1;
+    }
+    for (int i = 0; i < W7_MAX; ++i) {
+        if (!w7_on[i]) continue;
+        DWORD old = 0;
+        if (!VirtualProtect(&vt[i], sizeof(void *), PAGE_READWRITE, &old)) {
+            d2_line("wrap: VirtualProtect geweigerd op entry %d", i);
+            continue;
+        }
+        w7_orig[i] = vt[i];
+        vt[i] = w7_thunks[i];
+        VirtualProtect(&vt[i], sizeof(void *), old, &old);
+        d2_line("wrap: entry %d (+0x%02x) %p -> thunk", i, i * 4, w7_orig[i]);
+    }
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -923,6 +1100,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         paint_start(exe);
         dongle2_start(exe);
         rg_patch_start();
+        w7_start();
     }
     return TRUE;
 }
