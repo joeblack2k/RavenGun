@@ -860,8 +860,10 @@ static void rg_patch_start(void) {
     BYTE *base = (BYTE *)image;
     d2_line("patch-start: module %s op %p", (n > 0 && n < sizeof mod) ? mod : "(hoofdbeeld)", (void *)base);
     rg_image_probe(base);
-    d2_line("   base+0=%02x%02x  base+0x1000=%02x%02x%02x  base+0x4332df=%02x%02x%02x%02x", base[0], base[1],
-            base[0x1000], base[0x1001], base[0x1002], base[0x4332df], base[0x4332e0], base[0x4332e1], base[0x4332e2]);
+    d2_line("   base+0=%02x%02x  base+0x1000=%02x%02x%02x", base[0], base[1], base[0x1000], base[0x1001], base[0x1002]);
+    d2_line("   poort 0x647b=%02x%02x  transport 0x332cc=%02x%02x%02x%02x  transport 0x332df=%02x%02x%02x%02x",
+            base[0x647b], base[0x647c], base[0x332cc], base[0x332cd], base[0x332ce], base[0x332cf], base[0x332df],
+            base[0x332e0], base[0x332e1], base[0x332e2]);
     char *save = NULL;
     if (zn > 0 && zn < sizeof zoek) rg_patch_search(base, zoek);
     for (char *item = n ? strtok_r(txt, ";", &save) : NULL; item; item = strtok_r(NULL, ";", &save)) {
@@ -899,6 +901,61 @@ static void rg_patch_start(void) {
     }
 }
 
+/* De code van dit spel staat bij de start NOG VERSLEUTELD in het beeld (gemeten 2026-10-21: op +0x4332df staat
+ * "the u" in plaats van cmp eax,0x20000, terwijl +0x401000 wel klopt) en wordt later ontsleuteld. Een patch die
+ * alleen in DllMain valt, wordt dus overschreven. Daarom blijft deze draad het patroon zoeken tot het er EEN keer
+ * staat en past het dan toe; daarna stopt hij. */
+static DWORD WINAPI rg_patch_thread(LPVOID unused) {
+    (void)unused;
+    char zoek[256];
+    const DWORD zn = GetEnvironmentVariableA("RG_COMPAT_PATCH_SEARCH", zoek, sizeof zoek);
+    if (zn == 0 || zn >= sizeof zoek) return 0;
+    HMODULE image = GetModuleHandleA(NULL);
+    char mod[128];
+    const DWORD mn = GetEnvironmentVariableA("RG_COMPAT_PATCH_MODULE", mod, sizeof mod);
+    if (mn > 0 && mn < sizeof mod) {
+        HMODULE g = GetModuleHandleA(mod);
+        if (g) image = g;
+    }
+    for (int i = 0; i < 1200; ++i) {          /* 1200 * 250 ms = 5 minuten */
+        BYTE *base = (BYTE *)image;
+        IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)base;
+        if (dos->e_magic == IMAGE_DOS_SIGNATURE) {
+            const char *sep = strchr(zoek, ',');
+            if (sep) {
+                unsigned char pat[64];
+                DWORD pat_len = 0;
+                for (const char *h = zoek; h < sep && pat_len < sizeof pat; h += 2) {
+                    char pair[3] = {h[0], h[1], 0};
+                    char *end = NULL;
+                    const unsigned long v = strtoul(pair, &end, 16);
+                    if (end == pair) break;
+                    pat[pat_len++] = (unsigned char)v;
+                }
+                IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(base + dos->e_lfanew);
+                DWORD gevonden = 0, waar = 0;
+                if (pat_len && nt->Signature == IMAGE_NT_SIGNATURE) {
+                    for (DWORD j = 0; j + pat_len <= nt->OptionalHeader.SizeOfImage; ++j) {
+                        if (memcmp(base + j, pat, pat_len) == 0) {
+                            ++gevonden;
+                            waar = j;
+                            if (gevonden > 1) break;
+                        }
+                    }
+                }
+                if (gevonden == 1) {
+                    d2_line("achtergrondpatch: patroon gevonden op +0x%lx na %d ronden", (unsigned long)waar, i);
+                    rg_patch_search(base, zoek);
+                    return 0;
+                }
+            }
+        }
+        Sleep(250);
+    }
+    d2_line("achtergrondpatch: patroon nooit gevonden (5 min)");
+    return 0;
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -912,6 +969,10 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         paint_start(exe);
         dongle2_start(exe);
         rg_patch_start();
+        if (GetEnvironmentVariableA("RG_COMPAT_PATCH_SEARCH", NULL, 0) > 0) {
+            HANDLE th = CreateThread(NULL, 0, &rg_patch_thread, NULL, 0, NULL);
+            if (th) CloseHandle(th);
+        }
     }
     return TRUE;
 }
