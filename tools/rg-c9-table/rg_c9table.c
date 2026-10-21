@@ -165,6 +165,7 @@ static unsigned long slot_args(int idx) {
  * slot's arguments (stdcall) so the caller's stack does not grow. Called from the game exactly like the API it stands in
  * for: [esp] = return address, [esp+4...] = the arguments. */
 static void dump_memory(void);
+static void dump_range(DWORD va, DWORD len);
 
 /* The last few slot calls, so the crash handler can say which stub the game was in when it died: a wrong argument pop
  * shows up as a fault right after (or inside) the last one. */
@@ -188,6 +189,11 @@ __attribute__((used)) static void c9_on_call(int idx, unsigned long *saved_eax, 
          * argument order and the way the result is used can be read from the log. */
         dumped = 1;
         dump_memory();
+    }
+    if (n == 1 && GetEnvironmentVariableA("RG_C9_CALLER", NULL, 0)) {
+        /* The first call of a slot: the code just before the return address is the call site, i.e. what the game
+         * expects of this instant. Dumped only on request (RG_C9_CALLER=1) to keep the log small. */
+        dump_range(caller - 0x60, 0x60 + 0x30);
     }
     *saved_eax = slot_value(idx);
     if (n <= 8) {
@@ -306,6 +312,23 @@ static int fix_cell(BYTE *pool, DWORD *cell, int idx) {
     }
 }
 
+static void dump_range(DWORD va, DWORD len) {
+    if (len > 0x800) len = 0x800;
+    log_line("dump %08lx, %lu bytes:", (unsigned long)va, (unsigned long)len);
+    for (DWORD off = 0; off < len; off += 16) {
+        char line[128];
+        int k = 0;
+        for (DWORD i = 0; i < 16 && off + i < len; ++i)
+            k += snprintf(line + k, sizeof line - (size_t)k, "%02x ", ((const unsigned char *)(ULONG_PTR)va)[off + i]);
+        for (DWORD i = 0; i < 16 && off + i < len; ++i) {
+            const unsigned char c = ((const unsigned char *)(ULONG_PTR)va)[off + i];
+            line[k++] = (c >= 32 && c < 127) ? (char)c : '.';
+        }
+        line[k] = 0;
+        log_line("dump %08lx: %s", (unsigned long)(va + off), line);
+    }
+}
+
 /* RG_C9_DUMP=<va>,<len>[;<va>,<len>...]: hexdump of the process' memory into the log (the packer writes its trampolines
  * at run time, so the code that calls a slot is only readable in the running process). */
 static void dump_memory(void) {
@@ -316,20 +339,7 @@ static void dump_memory(void) {
         const DWORD va = (DWORD)strtoul(p, &e, 0);
         DWORD len = 0x100;
         if (e && *e == ',') len = (DWORD)strtoul(e + 1, &e, 0);
-        if (len > 0x800) len = 0x800;
-        log_line("dump %08lx, %lu bytes:", (unsigned long)va, (unsigned long)len);
-        for (DWORD off = 0; off < len; off += 16) {
-            char line[128];
-            int k = 0;
-            for (DWORD i = 0; i < 16 && off + i < len; ++i)
-                k += snprintf(line + k, sizeof line - (size_t)k, "%02x ", ((const unsigned char *)(ULONG_PTR)va)[off + i]);
-            for (DWORD i = 0; i < 16 && off + i < len; ++i) {
-                const unsigned char c = ((const unsigned char *)(ULONG_PTR)va)[off + i];
-                line[k++] = (c >= 32 && c < 127) ? (char)c : '.';
-            }
-            line[k] = 0;
-            log_line("dump %08lx: %s", (unsigned long)(va + off), line);
-        }
+        dump_range(va, len);
         if (e && *e == ';') ++e;
         p = e ? e : p + strlen(p);
     }
