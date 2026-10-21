@@ -322,6 +322,22 @@ int dongle_load(const char *dir, dongle_t *out)
 
     char omgezet[512];
     dongle_path(omgezet, sizeof(omgezet), dir);
+    /* The memory files are opened at hasp_read/hasp_write time, not here, so a relative dir is
+     * made absolute now: a game may change its working directory after the DLL loaded (Lost Land
+     * Adventure's UE3 game moves to Binaries/Win64, and every hasp_read of fileid 65520 then failed,
+     * 2026-10-21). If that fails the dir stays as given. */
+#ifdef _WIN32
+    char vol[512];
+    if (_fullpath(vol, omgezet, sizeof(vol))) snprintf(omgezet, sizeof(omgezet), "%s", vol);
+#else
+    if (omgezet[0] && omgezet[0] != '/') {
+        char cwd[512], vol[1100];
+        if (getcwd(cwd, sizeof(cwd))) {
+            snprintf(vol, sizeof(vol), "%s/%s", cwd, omgezet);
+            if (strlen(vol) < sizeof(omgezet)) snprintf(omgezet, sizeof(omgezet), "%s", vol);
+        }
+    }
+#endif
     snprintf(out->dir, sizeof(out->dir), "%s", omgezet);
     size_t dl = strlen(out->dir);
     if (dl && (out->dir[dl - 1] == '/' || out->dir[dl - 1] == '\\'))
@@ -702,8 +718,64 @@ int hasp_login_port(unsigned int vendor_code, const char *port, const char *scop
     return hasp_login(vendor_code, scope, handle);
 }
 
+/*
+ * Diagnostics for reading a game's own state without a debugger (Lost Land, 2026-10-21). On every
+ * hasp_logout, and only when the variable is set:
+ *   RAVENGUN_HASP_PEEK=<rva>:<len>       (hex rva, decimal len <= 64) the bytes at that RVA of the
+ *                                        process's main module, such as a global dongle verdict;
+ *   RAVENGUN_HASP_PEEK_MAP=<name>:<len>  (decimal len <= 4096) the first bytes of a named file
+ *                                        mapping the game shares with another process.
+ */
+#ifdef _WIN32
+static void hasp_hexdump(const char *what, const unsigned char *p, unsigned int len)
+{
+    char hex[32 * 3 + 1];
+    for (unsigned int off = 0; off < len; off += 32) {
+        unsigned int n = (len - off < 32) ? len - off : 32;
+        for (unsigned int i = 0; i < n; i++) snprintf(hex + 3 * i, 4, "%02x ", p[off + i]);
+        hasp_log("[ravengun-hasp] peek %s +0x%03x: %s\n", what, off, hex);
+    }
+}
+#endif
+
+static void hasp_peek(void)
+{
+#ifdef _WIN32
+    const char *e = getenv("RAVENGUN_HASP_PEEK");
+    if (e && *e) {
+        char *end = NULL, what[48];
+        unsigned long long rva = strtoull(e, &end, 16);
+        unsigned int len = (end && *end == ':') ? (unsigned int)strtoul(end + 1, NULL, 10) : 16;
+        if (len == 0 || len > 64) len = 16;
+        const unsigned char *base = (const unsigned char *)GetModuleHandleA(NULL);
+        snprintf(what, sizeof(what), "rva 0x%llx", rva);
+        if (base) hasp_hexdump(what, base + rva, len);
+    }
+    const char *m = getenv("RAVENGUN_HASP_PEEK_MAP");
+    if (m && *m) {
+        char name[128];
+        snprintf(name, sizeof(name), "%s", m);
+        char *colon = strrchr(name, ':');
+        unsigned int len = 256;
+        if (colon) { *colon = '\0'; len = (unsigned int)strtoul(colon + 1, NULL, 10); }
+        if (len == 0 || len > 4096) len = 256;
+        HANDLE h = OpenFileMappingA(FILE_MAP_READ, FALSE, name);
+        if (!h) { hasp_log("[ravengun-hasp] peek map %s: OpenFileMapping failed (%lu)\n", name, GetLastError()); return; }
+        const unsigned char *v = (const unsigned char *)MapViewOfFile(h, FILE_MAP_READ, 0, 0, 0);
+        if (v) {
+            MEMORY_BASIC_INFORMATION mi;
+            if (VirtualQuery(v, &mi, sizeof(mi)) && mi.RegionSize < len) len = (unsigned int)mi.RegionSize;
+            hasp_hexdump(name, v, len);
+            UnmapViewOfFile(v);
+        }
+        CloseHandle(h);
+    }
+#endif
+}
+
 int hasp_logout(void *handle)
 {
+    hasp_peek();
     hasp_trace("hasp_logout", NULL);
     (void)handle;
     return HASP_STATUS_OK;

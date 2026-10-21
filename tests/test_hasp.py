@@ -265,5 +265,41 @@ class Opdrachtregel(Basis):
         self.assertEqual(json.loads(p.stdout)[0]["kind"], "hasp")
 
 
+DRIVER_C = r"""
+#include "dongle.h"
+#include <stdio.h>
+#include <unistd.h>
+int main(int argc, char **argv) {
+    dongle_t d;
+    if (dongle_load(argv[1], &d) != 0) return 2;     /* relative to the start directory */
+    if (chdir(argv[2]) != 0) return 3;              /* the game moves elsewhere afterwards */
+    unsigned char b[4] = {0};
+    if (dongle_read_at(&d, 65524, 8, b, 4) != 4) return 4;
+    return (b[0] == 8 && b[3] == 11) ? 0 : 5;
+}
+"""
+
+
+@unittest.skipUnless(shutil.which("cc"), "no C compiler")
+class RelatieveMap(unittest.TestCase):
+    """dongle_load makes a relative dongle dir absolute: a game that changes its working directory after
+    the DLL loaded (Lost Land Adventure's UE3 game, 2026-10-21) must still read its memory files."""
+
+    def test_lezen_na_chdir(self):
+        with tempfile.TemporaryDirectory() as t:
+            src = os.path.join(ROOT, "hasp", "src")
+            drv = os.path.join(t, "drv.c")
+            schrijf(drv, DRIVER_C)
+            exe = os.path.join(t, "drv")
+            subprocess.run(["cc", "-std=c99", "-D_DEFAULT_SOURCE", "-I", src, "-o", exe, drv,
+                            os.path.join(src, "dongle.c")], check=True, capture_output=True)
+            spel = os.path.join(t, "spel")
+            schrijf(os.path.join(spel, "dongle", "dongle.json"), json.dumps(dongle_json()))
+            schrijf(os.path.join(spel, "dongle", "dongle", "memory", BINARY_65524), IMAGE)
+            os.makedirs(os.path.join(spel, "Binaries", "Win64"))
+            p = subprocess.run([exe, "dongle", os.path.join(spel, "Binaries", "Win64")], cwd=spel)
+            self.assertEqual(p.returncode, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

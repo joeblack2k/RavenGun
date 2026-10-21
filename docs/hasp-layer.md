@@ -110,6 +110,14 @@ Dat is het bewijs dat de emulator in het proces zit **en** dat het spel hem aans
 is de laag stil. `scripts/hasp.py` zet hem standaard aan bij het injecteren; uitzetten kan met
 `RAVENGUN_HASP_VERBOSE=0` (via `[Env]` in `game.ini` of `--env`).
 
+Two diagnostics of the Windows DLL, only when set (`[Env]` in the user layer's `game.ini`), each logged on every
+`hasp_logout`: `RAVENGUN_HASP_PEEK=<rva>:<len>` (hex RVA in the main module, at most 64 bytes, e.g. a global where the game
+keeps its dongle verdict) and `RAVENGUN_HASP_PEEK_MAP=<name>:<len>` (a named file mapping the game shares with another
+process, at most 4096 bytes). Lost Land Adventure (2026-10-21) was measured this way.
+
+The dongle dir (`RAVENGUN_HASP_DIR`/`RAVENGUN_HASP_GAME`) is made absolute when the DLL loads: the memory files are opened
+at `hasp_read` time, and a game may change its working directory in between (Lost Land's UE3 game does).
+
 ---
 
 ## 2. Het dongle-formaat — `patches/<Game>/dongle.json`
