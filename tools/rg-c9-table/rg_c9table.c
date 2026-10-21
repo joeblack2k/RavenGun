@@ -36,6 +36,12 @@
  *   RG_C9_DUMP    "<va>,<len>[;<va>,<len>]" memory to hexdump into the log on the first stub call
  *   RG_C9_RET     per-slot return value, "idx:value;idx:value" (default 0)
  *   RG_C9_POP     per-slot number of stack arguments to pop, "idx:nargs;..." (default 0)
+ *   RG_C9_VEH / RG_C9_NULLRET / RG_C9_ZEROSTUB / RG_C9_CALLER / RG_C9_OBJECT  fault logging and safety nets (see below)
+ *   RG_C9_PATCH   "<va>:<old hex>:<new hex>[,...]" byte patches, applied only when the old bytes match
+ *   RG_C9_HASP    "name@va:first bytes hex,..." jumps planted on the linked HASP library (login, logout, read, decrypt);
+ *                 RG_C9_HASP_MEM "fff0:<hex>" and RG_C9_HASP_DECRYPT "<32 hex>:<32 hex>,..." are its answers (c9_hasp.h)
+ *   RG_C9_LPT_MAP the parallel-port board: which board-image bit drives which board bit (c9_lpt.h); the DLL exports Out32 and
+ *                 Inp32 and LoadLibraryA("inpout32") (shim c9_LoadLibraryA) returns this module
  *
  * BUILD: tools/rg-c9-table/build.sh (mingw-w64 i686 in ~/.cache/ravengun-mingw).
  */
@@ -45,6 +51,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "c9_hasp.h"
+#include "c9_lpt.h"
 #include "rg_c9_map.h"
 
 #define C9_MAX_CELLS 512
@@ -118,7 +126,7 @@ static unsigned long env_per_slot(const char *var, int idx) {
  * cannot name (the packer's stub). Answering it with the real function of this process is what the call site expects;
  * the classification per slot comes from the code around the call site (RG_C9_DUMP on the first stub call). */
 static void *api_per_slot(int idx) {
-    char txt[1024];
+    char txt[8192];
     if (GetEnvironmentVariableA("RG_C9_API", txt, sizeof txt) == 0) return NULL;
     for (char *p = txt; *p;) {
         char *e = NULL;
@@ -292,6 +300,28 @@ __declspec(dllexport) HMODULE WINAPI c9_GetModuleHandleA(LPCSTR name) {
     return h;
 }
 
+/* msvcr71!fopen (cdecl), logged: the game's data loader (0x406F70) shows "DISK READ ERROR (11)" when one of its files does
+ * not open, and the name is only on the stack. */
+__declspec(dllexport) void *__cdecl c9_fopen(const char *name, const char *mode) {
+    typedef void *(__cdecl * fopen_t)(const char *, const char *);
+    static fopen_t real;
+    static int n;
+    void *f;
+    if (!real) {
+        HMODULE m = GetModuleHandleA("msvcr71.dll");
+        if (!m) m = LoadLibraryA("msvcr71.dll");
+        real = m ? (fopen_t)(void *)GetProcAddress(m, "fopen") : NULL;
+        if (!real) return NULL;
+    }
+    f = real(name, mode);
+    if (!f || n < 40) {
+        ++n;
+        log_line("fopen(\"%s\", \"%s\") -> %08lx", name ? name : "(null)", mode ? mode : "(null)",
+                 (unsigned long)(ULONG_PTR)f);
+    }
+    return f;
+}
+
 __declspec(dllexport) BOOL WINAPI c9_CloseHandle(HANDLE h) {
     if (h == g_hl && g_hl != INVALID_HANDLE_VALUE) {
         CloseHandle(h);
@@ -407,16 +437,21 @@ static void build_stub(BYTE *b, int idx, unsigned long nargs) {
     *(WORD *)(b + 15) = (WORD)(nargs * 4);
 }
 
+static int xp_cmp(const void *key, const void *row) {
+    const unsigned long v = *(const unsigned long *)key, x = ((const struct rg_xp_map *)row)->xp;
+    return v < x ? -1 : v > x;
+}
+
+/* The map is sorted by address (genmap.py) and holds every msvcr71 export of the dump's build, so bsearch it: the
+ * worker looks up every cell on every poll. */
 static int lookup_xp(DWORD v, const char **dll, const char **name, WORD *ordinal) {
-    for (size_t i = 0; i < RG_XP_MAP_N; i++) {
-        if (k_xp_map[i].xp == v) {
-            *dll = k_xp_map[i].dll;
-            *name = k_xp_map[i].name;
-            *ordinal = k_xp_map[i].ordinal;
-            return 1;
-        }
-    }
-    return 0;
+    const unsigned long key = v;
+    const struct rg_xp_map *m = bsearch(&key, k_xp_map, RG_XP_MAP_N, sizeof k_xp_map[0], xp_cmp);
+    if (!m) return 0;
+    *dll = m->dll;
+    *name = m->name;
+    *ordinal = m->ordinal;
+    return 1;
 }
 
 /* Translate one cell; returns 1 when the cell was written this round. */
@@ -456,9 +491,9 @@ static int fix_cell(BYTE *pool, DWORD *cell, int idx) {
                      name[0] ? "" : " (ordinal)", (unsigned long)(ULONG_PTR)live);
             return 1;
         }
-        log_line("slot[%d] XP %08lx %s!%s%s: no live address, left alone", idx, (unsigned long)v, dll, name,
+        /* Named but not exported by this Wine: a logging stub (below) says when the game really calls it. */
+        log_line("slot[%d] XP %08lx %s!%s%s: no live address, stubbed", idx, (unsigned long)v, dll, name,
                  name[0] ? "" : " (ordinal)");
-        return 0;
     }
     if (g_stub_done[idx] && v == g_stub_slot[idx]) return 0;
     if (g_stub_done[idx] && v != g_stub_slot[idx]) {
@@ -538,6 +573,284 @@ static void poke_memory(void) {
         }
         if (e && (*e == ',' || *e == ';')) ++e;
         p = e ? e : p + strlen(p);
+    }
+}
+
+/* The HASP HL library is linked into game.exe; its device path (SetupDi enumeration, \\.\FEnteDev IOCTLs, an obfuscated
+ * version probe) has nothing to talk to under Wine. The game itself only uses four of its functions, so those four are
+ * answered here, at the level of the library's own API, from c9_hasp.c:
+ *
+ *   RG_C9_HASP=<name>@<va>:<first bytes hex>,...   name = login | logout | read | decrypt; the entry gets a jmp to the
+ *                                                 matching function below, but only when its first bytes are the given
+ *                                                 ones (another build of the exe is left alone and logged)
+ *   RG_C9_HASP_MEM=<fileid hex>:<image hex>       the dongle memory the game reads (synthetic, from its own checks)
+ *   RG_C9_HASP_DECRYPT=<32 hex>:<32 hex>[,...]    decrypt answers (synthetic, from its own check)
+ */
+static c9_hasp_t g_hasp;
+
+static void hex_line(const unsigned char *b, unsigned n, char *out, size_t outsz) {
+    size_t k = 0;
+    for (unsigned i = 0; i < n && k + 3 < outsz; ++i) k += (size_t)snprintf(out + k, outsz - k, "%02x", b[i]);
+    out[k] = 0;
+}
+
+static unsigned __stdcall c9_hasp_login_entry(unsigned feature, const void *vendor_code, unsigned *handle) {
+    const unsigned st = c9_hasp_login(&g_hasp, feature, handle);
+    static int n;
+    (void)vendor_code;
+    if (n++ < 16) log_line("hasp_login(feature %08x) -> %u", feature, st);
+    return st;
+}
+
+static unsigned __stdcall c9_hasp_logout_entry(unsigned handle) {
+    return c9_hasp_logout(&g_hasp, handle);
+}
+
+static unsigned __stdcall c9_hasp_read_entry(unsigned handle, unsigned fileid, unsigned offset, unsigned length,
+                                             unsigned char *buf) {
+    const unsigned st = c9_hasp_read(&g_hasp, handle, fileid, offset, length, buf);
+    static int n;
+    if (n++ < 16) {
+        char hex[80];
+        hex_line(buf, st == C9_HASP_OK ? (length < 32 ? length : 32) : 0, hex, sizeof hex);
+        log_line("hasp_read(file %04x, offset %u, %u bytes) -> %u %s", fileid, offset, length, st, hex);
+    }
+    return st;
+}
+
+static unsigned __stdcall c9_hasp_decrypt_entry(unsigned handle, unsigned char *buf, unsigned length) {
+    char before[40], after[40];
+    int hit = 0;
+    unsigned st;
+    static int n;
+    hex_line(buf, length < 16 ? length : 16, before, sizeof before);
+    st = c9_hasp_decrypt(&g_hasp, handle, buf, length, &hit);
+    hex_line(buf, length < 16 ? length : 16, after, sizeof after);
+    if (n++ < 16) log_line("hasp_decrypt(%u bytes %s) -> %u %s%s", length, before, st, after, hit ? "" : " (no answer)");
+    return st;
+}
+
+static void hasp_install(void) {
+    char txt[512];
+    {
+        static char mem[2 * C9_HASP_MEM_MAX + 16];
+        const DWORD n = GetEnvironmentVariableA("RG_C9_HASP_MEM", mem, sizeof mem);
+        if (n > 0 && n < sizeof mem) {
+            if (c9_hasp_set_memory(&g_hasp, mem) == 0)
+                log_line("hasp: memory file %04x, %u bytes", g_hasp.fileid, g_hasp.mem_len);
+            else
+                log_line("hasp: RG_C9_HASP_MEM not understood");
+        }
+    }
+    {
+        static char dec[C9_HASP_PAIRS * 70 + 8];
+        const DWORD n = GetEnvironmentVariableA("RG_C9_HASP_DECRYPT", dec, sizeof dec);
+        if (n > 0 && n < sizeof dec) log_line("hasp: %d decrypt answer(s)", c9_hasp_set_decrypt(&g_hasp, dec));
+    }
+    if (GetEnvironmentVariableA("RG_C9_HASP", txt, sizeof txt) == 0) return;
+    for (char *p = txt; *p;) {
+        char *sep = strchr(p, ',');
+        char *at = strchr(p, '@');
+        if (sep) *sep = 0;
+        if (at) {
+            char *colon = NULL;
+            const DWORD va = (DWORD)strtoul(at + 1, &colon, 0);
+            unsigned char want[8];
+            unsigned nwant = 0;
+            void *fn = NULL;
+            *at = 0;
+            if (_stricmp(p, "login") == 0) fn = (void *)c9_hasp_login_entry;
+            else if (_stricmp(p, "logout") == 0) fn = (void *)c9_hasp_logout_entry;
+            else if (_stricmp(p, "read") == 0) fn = (void *)c9_hasp_read_entry;
+            else if (_stricmp(p, "decrypt") == 0) fn = (void *)c9_hasp_decrypt_entry;
+            if (colon && *colon == ':')
+                for (const char *h = colon + 1; h[0] && h[1] && nwant < sizeof want; h += 2) {
+                    char two[3] = {h[0], h[1], 0};
+                    want[nwant++] = (unsigned char)strtoul(two, NULL, 16);
+                }
+            if (!fn || !va) {
+                log_line("hasp: entry '%s' not understood", p);
+            } else if (nwant < 2 || memcmp((const void *)(ULONG_PTR)va, want, nwant) != 0) {
+                log_line("hasp: %s at %08lx does not start with the expected bytes: left alone", p, (unsigned long)va);
+            } else {
+                DWORD old = 0;
+                BYTE *code = (BYTE *)(ULONG_PTR)va;
+                if (VirtualProtect(code, 5, PAGE_EXECUTE_READWRITE, &old)) {
+                    code[0] = 0xE9;   /* jmp rel32: same arguments, same stdcall pop as the library function */
+                    *(DWORD *)(code + 1) = (DWORD)(ULONG_PTR)fn - (va + 5);
+                    VirtualProtect(code, 5, old, &old);
+                    FlushInstructionCache(GetCurrentProcess(), code, 5);
+                    log_line("hasp: %s at %08lx answered by rg-c9-table", p, (unsigned long)va);
+                }
+            }
+        }
+        if (!sep) break;
+        p = sep + 1;
+    }
+}
+
+/* The gun/IO board on the parallel port (c9_lpt.h). The game LoadLibrary's "inpout32" and calls its Out32/Inp32; slot 57
+ * (LoadLibraryA) is answered by c9_LoadLibraryA, which hands back this DLL for that name, so GetProcAddress finds the
+ * Out32/Inp32 exported below. The board answers from RavenGun's board image (the mapping TeknoParrot_JvsState of
+ * rg-jvsbridge.exe, layout WartranTroopers) through the table RG_C9_LPT_MAP.
+ */
+static c9_lpt_map g_lpt_map;
+static c9_lpt_board g_lpt;
+static CRITICAL_SECTION g_lpt_lock;
+static int g_lpt_ready;
+static const volatile BYTE *g_image;
+static DWORD g_image_retry;
+static c9_lpt_image g_last_image;
+
+static void lpt_setup(void) {
+    char txt[1024], err[96];
+    InitializeCriticalSection(&g_lpt_lock);
+    g_lpt_ready = 1;
+    if (GetEnvironmentVariableA("RG_C9_LPT_MAP", txt, sizeof txt) > 0) {
+        if (c9_lpt_read_map(txt, &g_lpt_map, err, sizeof err) == 0) log_line("lpt: map read");
+        else log_line("lpt: RG_C9_LPT_MAP refused: %s", err);
+    }
+}
+
+static c9_lpt_image lpt_image(void) {
+    c9_lpt_image im;
+    memset(&im, 0, sizeof im);
+    if (!g_image && GetTickCount() - g_image_retry < 0x80000000u) {
+        HANDLE m = OpenFileMappingA(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
+        g_image_retry = GetTickCount() + 500;
+        if (m) {
+            g_image = (const volatile BYTE *)MapViewOfFile(m, FILE_MAP_READ, 0, 0, 64);
+            log_line("lpt: board image TeknoParrot_JvsState %s", g_image ? "opened" : "not mapped");
+        }
+    }
+    if (g_image) {
+        memcpy(&im.bits, (const void *)(g_image + 8), 4);
+        memcpy(im.axis, (const void *)(g_image + 12), 8);
+    } else {
+        /* No board image: everything off and both aims off-screen. */
+        memset(im.axis, 0, sizeof im.axis);
+    }
+    return im;
+}
+
+__declspec(dllexport) void __stdcall Out32(short port, short value) {
+    static unsigned long n;
+    static BYTE logged_outputs = 0xFF;
+    if (!g_lpt_ready) return;
+    EnterCriticalSection(&g_lpt_lock);
+    {
+        const BYTE before = g_lpt.ctrl;
+        c9_lpt_image im = g_last_image;
+        if ((unsigned short)port == 0x37A && (value & 1) && !(before & 1)) {
+            static uint32_t logged_bits = 0xFFFFFFFFu;
+            static int changes;
+            im = g_last_image = lpt_image();
+            if (im.bits != logged_bits && changes < 400) {
+                /* every change of the board image's buttons, with what the board answers for them: the measurement of
+                 * which image bit is which game input */
+                ++changes;
+                logged_bits = im.bits;
+                log_line("lpt: image bits %08lx axes %u,%u %u,%u -> c5 %02x c7 %02x", (unsigned long)im.bits, im.axis[0],
+                         im.axis[1], im.axis[2], im.axis[3], c9_lpt_reply(&g_lpt_map, &im, 5),
+                         c9_lpt_reply(&g_lpt_map, &im, 7));
+            }
+        }
+        {
+            const unsigned long reads = g_lpt.commands[1];
+            static int shots;
+            c9_lpt_out(&g_lpt, &g_lpt_map, &im, (unsigned short)port, (BYTE)value);
+            if (g_lpt.commands[1] != reads && shots < 400) {
+                /* a gun read with positions (command 1 = player 1 x): the shot the game sees, raw */
+                ++shots;
+                log_line("lpt: gun read %lu: p1 %u,%u p2 %u,%u gun bits %02x", g_lpt.commands[1], c9_lpt_reply(&g_lpt_map, &im, 1),
+                         c9_lpt_reply(&g_lpt_map, &im, 2), c9_lpt_reply(&g_lpt_map, &im, 3),
+                         c9_lpt_reply(&g_lpt_map, &im, 4), c9_lpt_reply(&g_lpt_map, &im, 5));
+            }
+        }
+        if (++n == 1) log_line("lpt: first Out32(%04x, %02x)", (unsigned short)port, (BYTE)value);
+        if (g_lpt.outputs != logged_outputs && g_lpt.output_writes) {
+            logged_outputs = g_lpt.outputs;
+            log_line("lpt: outputs %x (output command %lu)", g_lpt.outputs, g_lpt.output_writes);
+        }
+        if ((n % 200000) == 0) {
+            const c9_lpt_image li = g_last_image;
+            log_line("lpt: %lu writes, cmds 1:%lu 5:%lu 6:%lu 7:%lu c:%lu, image bits %08lx axes %u,%u %u,%u -> c5 %02x c7 %02x",
+                     n, g_lpt.commands[1], g_lpt.commands[5], g_lpt.commands[6], g_lpt.commands[7], g_lpt.commands[12],
+                     (unsigned long)li.bits, li.axis[0], li.axis[1], li.axis[2], li.axis[3],
+                     c9_lpt_reply(&g_lpt_map, &li, 5), c9_lpt_reply(&g_lpt_map, &li, 7));
+        }
+    }
+    LeaveCriticalSection(&g_lpt_lock);
+}
+
+__declspec(dllexport) short __stdcall Inp32(short port) {
+    BYTE v;
+    if (!g_lpt_ready) return 0;
+    EnterCriticalSection(&g_lpt_lock);
+    v = c9_lpt_in(&g_lpt, (unsigned short)port);
+    LeaveCriticalSection(&g_lpt_lock);
+    return (short)v;
+}
+
+__declspec(dllexport) HMODULE WINAPI c9_LoadLibraryA(LPCSTR name) {
+    if (name && (_stricmp(name, "inpout32") == 0 || _stricmp(name, "inpout32.dll") == 0)) {
+        HMODULE self = NULL;
+        GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCSTR)(ULONG_PTR)&Out32, &self);
+        log_line("LoadLibraryA(\"%s\") -> rg-c9-table %08lx (the parallel-port board)", name,
+                 (unsigned long)(ULONG_PTR)self);
+        return self;
+    }
+    {
+        HMODULE h = LoadLibraryA(name);
+        static int n;
+        if (n++ < 24) log_line("LoadLibraryA(\"%s\") -> %08lx", name ? name : "(null)", (unsigned long)(ULONG_PTR)h);
+        return h;
+    }
+}
+
+/* RG_C9_PATCH=<va>:<old hex>:<new hex>[,...]: replace bytes of the image, only where they are the expected old bytes
+ * (another build of the exe is left alone and logged). Coopers9: the data prefix "z:/data/bin/" at 0x5168D0 (the
+ * cabinet's drive; every asset path is copied from it, 11 sites) becomes "data/bin/", relative to the game directory,
+ * which is the working directory the game also writes its expdat/extdat into. */
+static int hexbuf(const char *p, BYTE *out, size_t max, const char **end) {
+    size_t n = 0;
+    while (p[0] && p[1] && p[0] != ':' && p[0] != ',' && n < max) {
+        char two[3] = {p[0], p[1], 0};
+        char *e = NULL;
+        out[n++] = (BYTE)strtoul(two, &e, 16);
+        if (!e || *e) return -1;
+        p += 2;
+    }
+    *end = p;
+    return (int)n;
+}
+
+static void patch_memory(void) {
+    char txt[1024];
+    if (GetEnvironmentVariableA("RG_C9_PATCH", txt, sizeof txt) == 0) return;
+    for (const char *p = txt; *p;) {
+        char *e = NULL;
+        const DWORD va = (DWORD)strtoul(p, &e, 0);
+        BYTE oldb[64], newb[64];
+        int no = -1, nn = -1;
+        const char *q = e;
+        if (q && *q == ':') no = hexbuf(q + 1, oldb, sizeof oldb, &q);
+        if (no > 0 && *q == ':') nn = hexbuf(q + 1, newb, sizeof newb, &q);
+        if (no <= 0 || nn != no) {
+            log_line("patch: entry at \"%.24s\" not understood (old and new must be the same length)", p);
+        } else if (memcmp((const void *)(ULONG_PTR)va, oldb, (size_t)no) != 0) {
+            log_line("patch %08lx: the bytes there are not the expected ones, left alone", (unsigned long)va);
+        } else {
+            DWORD old = 0;
+            if (VirtualProtect((void *)(ULONG_PTR)va, (SIZE_T)no, PAGE_EXECUTE_READWRITE, &old)) {
+                memcpy((void *)(ULONG_PTR)va, newb, (size_t)no);
+                VirtualProtect((void *)(ULONG_PTR)va, (SIZE_T)no, old, &old);
+                log_line("patch %08lx: %d bytes", (unsigned long)va, no);
+            }
+        }
+        while (*q && *q != ',') ++q;
+        p = *q ? q + 1 : q;
     }
 }
 
@@ -700,5 +1013,8 @@ void rg_c9_table_start(void) {
              (unsigned long)(ULONG_PTR)GetModuleHandleA(NULL), (unsigned long)g_table, (unsigned long)g_cells,
              (unsigned long)g_poll, (unsigned)RG_XP_MAP_N);
     if (GetEnvironmentVariableA("RG_C9_VEH", txt, sizeof txt) > 0 && txt[0] == '1') AddVectoredExceptionHandler(1, c9_veh);
+    hasp_install();   /* before the game's code runs: DllMain of the preload DLL */
+    patch_memory();
+    lpt_setup();
     CreateThread(NULL, 0, worker, NULL, 0, NULL);
 }
