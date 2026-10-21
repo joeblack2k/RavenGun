@@ -1792,6 +1792,33 @@ static void callres_start(HMODULE exe) {
     }
 }
 
+/* ------------------------------- 15. RG_COMPAT_VEH (fouten in het spelproces loggen) */
+
+/* Het dongle-blok van After Dark (Do 0x40C2F0) stopt na zijn eerste poort (0x449F1A) zonder dat de rest van
+ * het lichaam loopt, ook als die poort met een patch wordt omzeild; het spel vangt zijn eigen fouten met SEH,
+ * dus in het log is niets te zien. Deze meter logt elke uitzondering met code en het adres (en de rva als het
+ * adres in het hoofdbeeld ligt) zodat te zien is of het Do ergens in fault. Alleen met RG_COMPAT_VEH=1. */
+
+static LONG WINAPI veh_filter(EXCEPTION_POINTERS *info) {
+    static unsigned long n;
+    if (!d2_log || !info || !info->ExceptionRecord) return EXCEPTION_CONTINUE_SEARCH;
+    const unsigned long teller = ++n;
+    if (teller <= 20 || (teller % 200) == 0) {
+        const EXCEPTION_RECORD *r = info->ExceptionRecord;
+        const DWORD adres = (DWORD)(ULONG_PTR)r->ExceptionAddress;
+        const DWORD rva = (w7_base && adres >= (DWORD)(ULONG_PTR)w7_base) ? adres - (DWORD)(ULONG_PTR)w7_base : 0xffffffffu;
+        d2_line("fout %lu: code %08lx op %08lx (rva +0x%lx) vlaggen %08lx (nr %lu)", teller, (unsigned long)r->ExceptionCode,
+                (unsigned long)adres, (unsigned long)rva, (unsigned long)r->ExceptionFlags, teller);
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+static void veh_start(void) {
+    char txt[8];
+    if (GetEnvironmentVariableA("RG_COMPAT_VEH", txt, sizeof txt) == 0 || txt[0] != '1') return;
+    if (AddVectoredExceptionHandler(1, veh_filter)) d2_line("foutmeter aan");
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -1811,6 +1838,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         iatfix_start(exe);
         tableprobe_start(exe);
         hook_start(exe);
+        veh_start();
         callres_start(exe);
     }
     return TRUE;
