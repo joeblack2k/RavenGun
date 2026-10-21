@@ -1,0 +1,11 @@
+Windows Registry Editor Version 5.00
+
+; TNXK0O~C (Operation G.H.O.S.T., export build): the same registry entry as patches/OG/data/wmv-asyncreader.reg. The title
+; scene plays scene/title/og_title_movie_en.wmv through DirectShow; .wmv goes through the plain file source (AsyncReader) and
+; the GStreamer splitter instead of Proton's WM ASF reader (qasf), which hung on graph Stop for Operation G.H.O.S.T.
+; (2026-10-15). Imported by rg-direct with "wine reg import ... /reg:32" ([Launch] Registry, docs/registry.md).
+
+[HKEY_CLASSES_ROOT\Media Type\Extensions\.wmv]
+"Source Filter"="{e436ebb5-524f-11ce-9f53-0020af0ba770}"
+"Media Type"="{e436eb83-524f-11ce-9f53-0020af0ba770}"
+"Subtype"="{6b6d0801-9ada-11d0-a520-00a0d10129c0}"
