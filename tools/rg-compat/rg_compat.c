@@ -531,6 +531,89 @@ static BOOL WINAPI rg_d2_SetupDiDestroyDeviceInfoList(HDEVINFO set) {
     return real_d2_destroyset(set);
 }
 
+/* Het spel haalt twee SetupAPI-functies DYNAMISCH op (GetProcAddress van "SetupDiEnumDeviceInterfaces" en
+ * "SetupDiGetDeviceInterfaceDetailA", gevonden in zijn code op 0x4369e2/0x4369ea), dus die zijn niet in de
+ * importtabel te haken: hier wordt GetProcAddress zelf omgeleid. Zo krijgt het spel één synthetische HID-interface
+ * met een pad, en wordt de CreateFile daarop door de apparaatmeter geleend. */
+typedef BOOL(WINAPI *d2_enumif_fn)(HDEVINFO, PSP_DEVINFO_DATA, const GUID *, DWORD, PSP_DEVICE_INTERFACE_DATA);
+typedef BOOL(WINAPI *d2_ifdetail_fn)(HDEVINFO, PSP_DEVICE_INTERFACE_DATA, PSP_DEVICE_INTERFACE_DETAIL_DATA_A, DWORD,
+                                     PDWORD, PSP_DEVINFO_DATA);
+typedef FARPROC(WINAPI *d2_getproc_fn)(HMODULE, LPCSTR);
+static d2_getproc_fn real_d2_getproc;
+
+static BOOL WINAPI rg_d2_SetupDiEnumDeviceInterfaces(HDEVINFO set, PSP_DEVINFO_DATA info, const GUID *iface,
+                                                     DWORD index, PSP_DEVICE_INTERFACE_DATA data) {
+    if (set != RG_D2_DEVSET) {
+        /* niet onze set: laat de echte functie het doen (die is niet gehaakt, dus zoeken we hem zelf) */
+        d2_enumif_fn echt = (d2_enumif_fn)(void *)real_d2_getproc(GetModuleHandleA("setupapi.dll"),
+                                                          "SetupDiEnumDeviceInterfaces");
+        return echt ? echt(set, info, iface, index, data) : FALSE;
+    }
+    if (index != 0) {
+        d2_line("SetupDiEnumDeviceInterfaces(index=%lu) -> nee (einde)", (unsigned long)index);
+        SetLastError(ERROR_NO_MORE_ITEMS);
+        return FALSE;
+    }
+    if (data) {
+        data->cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+        if (iface) data->InterfaceClassGuid = *iface;
+        data->Flags = 1;   /* SPINT_ACTIVE */
+        data->Reserved = 0;
+    }
+    d2_line("SetupDiEnumDeviceInterfaces(index=0) -> een synthetische interface");
+    d2_guid("   klasse: ", iface);
+    return TRUE;
+}
+
+static BOOL WINAPI rg_d2_SetupDiGetDeviceInterfaceDetailA(HDEVINFO set, PSP_DEVICE_INTERFACE_DATA data,
+                                                          PSP_DEVICE_INTERFACE_DETAIL_DATA_A detail, DWORD size,
+                                                          PDWORD needed, PSP_DEVINFO_DATA info) {
+    char pad[256];
+    if (set != RG_D2_DEVSET) {
+        d2_ifdetail_fn echt = (d2_ifdetail_fn)(void *)real_d2_getproc(GetModuleHandleA("setupapi.dll"),
+                                                              "SetupDiGetDeviceInterfaceDetailA");
+        return echt ? echt(set, data, detail, size, needed, info) : FALSE;
+    }
+    snprintf(pad, sizeof pad, "\\\\?\\hid#vid_0471&pid_485e#7&1a2b3c4d&0&0000#{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+             (unsigned long)(data ? data->InterfaceClassGuid.Data1 : 0), data ? data->InterfaceClassGuid.Data2 : 0,
+             data ? data->InterfaceClassGuid.Data3 : 0, data ? data->InterfaceClassGuid.Data4[0] : 0,
+             data ? data->InterfaceClassGuid.Data4[1] : 0, data ? data->InterfaceClassGuid.Data4[2] : 0,
+             data ? data->InterfaceClassGuid.Data4[3] : 0, data ? data->InterfaceClassGuid.Data4[4] : 0,
+             data ? data->InterfaceClassGuid.Data4[5] : 0, data ? data->InterfaceClassGuid.Data4[6] : 0,
+             data ? data->InterfaceClassGuid.Data4[7] : 0);
+    const DWORD nodig = (DWORD)(sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A) + strlen(pad));
+    d2_line("SetupDiGetDeviceInterfaceDetailA(maat=%lu, nodig=%lu) -> pad %s", (unsigned long)size,
+            (unsigned long)nodig, pad);
+    if (needed) *needed = nodig;
+    if (!detail || size < nodig) {
+        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+        return FALSE;
+    }
+    detail->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
+    memcpy(detail->DevicePath, pad, strlen(pad) + 1);
+    if (info) {
+        info->cbSize = sizeof(SP_DEVINFO_DATA);
+        memset(&info->ClassGuid, 0, sizeof info->ClassGuid);
+        info->DevInst = 1;
+        info->Reserved = 0;
+    }
+    return TRUE;
+}
+
+static FARPROC WINAPI rg_d2_GetProcAddress(HMODULE mod, LPCSTR name) {
+    FARPROC echt = real_d2_getproc(mod, name);
+    if (!name) return echt;
+    if (strcmp(name, "SetupDiEnumDeviceInterfaces") == 0) {
+        d2_line("GetProcAddress(SetupDiEnumDeviceInterfaces) -> eigen haak");
+        return (FARPROC)(void *)rg_d2_SetupDiEnumDeviceInterfaces;
+    }
+    if (strcmp(name, "SetupDiGetDeviceInterfaceDetailA") == 0) {
+        d2_line("GetProcAddress(SetupDiGetDeviceInterfaceDetailA) -> eigen haak");
+        return (FARPROC)(void *)rg_d2_SetupDiGetDeviceInterfaceDetailA;
+    }
+    return echt;
+}
+
 static void dongle2_start(HMODULE exe) {
     char path[MAX_PATH];
     DWORD n = GetEnvironmentVariableA("RG_DONGLE2_LOG", path, sizeof path);
@@ -552,6 +635,9 @@ static void dongle2_start(HMODULE exe) {
                                                        (void *)rg_d2_SetupDiGetDeviceRegistryPropertyA);
     real_d2_destroyset = (d2_destroyset_fn)patch_import(exe, "setupapi.dll", "SetupDiDestroyDeviceInfoList",
                                                           (void *)rg_d2_SetupDiDestroyDeviceInfoList);
+    real_d2_getproc = (d2_getproc_fn)patch_import(exe, "kernel32.dll", "GetProcAddress",
+                                                       (void *)rg_d2_GetProcAddress);
+    d2_line("GetProcAddress-haak: %d", real_d2_getproc != NULL);
     d2_line("setupapi-haken: GetClassDevs=%d EnumDeviceInfo=%d GetProperty=%d DestroyList=%d",
             real_d2_getclassdevs != NULL, real_d2_enumdevinfo != NULL, real_d2_getprop != NULL,
             real_d2_destroyset != NULL);
