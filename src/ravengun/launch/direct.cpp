@@ -1006,6 +1006,27 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
         launch["GST_REGISTRY_1_0"] = env["GST_REGISTRY_1_0"] = pjoin(g, "registry.i386.bin");
     }
 
+    // 6e2. [Launch] XInput2: een 32-bits libXi voor Wine. SteamOS heeft geen lib32-libxi (pacman -Q lib32-libxi: niet gevonden); Wine 11 meldt
+    // dan "grab_clipping_window XInput2 not supported, refusing to clip" en een schermvullend venster dat de muis moet vastleggen houdt
+    // zijn berichtenlus vol met WM_WINE_CLIPCURSOR: de game komt nooit uit PeekMessage, tekent niets (wit venster) en leest zijn JVS-bord
+    // niet meer (Music GunGun 2 stond na 7 pakketten stil, gemeten 2026-10-21, met libXi weer 0x21 en verder). De bibliotheek komt uit
+    // <data>/runtime/lib32 (het onderdeel lib32, door de Steam Linux Runtime) en wordt als enige bestand in een eigen map gezet, zodat
+    // libXrandr, SDL2 en de rest van die map Wine niet veranderen.
+    if (const std::string xi = lower(trim(lini("XInput2"))); !xi.empty() && xi != "false" && xi != "0" && xi != "off") {
+        if (xi != "true" && xi != "1" && xi != "on") return setting_refused("[Launch] XInput2 = " + lini("XInput2") + " (true of false)");
+        if (is64) return setting_refused("[Launch] XInput2 is voor een 32-bits game (een 64-bits Wine vindt libXi van het systeem)");
+        std::string l32 = getenv_or(env, "RAVENGUN_LIB32");
+        if (l32.empty()) l32 = pjoin(p.data, "runtime/lib32");
+        const std::string bron = pjoin(l32, "libXi.so.6");
+        if (!isfile(bron))
+            return setting_refused("[Launch] XInput2 = true, maar " + bron + " ontbreekt: installeer het onderdeel 32-bit libraries (lib32, uit de Steam Linux Runtime)");
+        const std::string dir = pjoin(p.data, "runtime/lib32-xi");
+        pl.native_dlls.emplace_back(bron, pjoin(dir, "libXi.so.6"));
+        const std::string oud = getenv_or(env, "LD_LIBRARY_PATH");
+        launch["LD_LIBRARY_PATH"] = oud.empty() ? dir : dir + ":" + oud;
+        env["LD_LIBRARY_PATH"] = launch["LD_LIBRARY_PATH"];
+    }
+
     // 7. De JVS-brug en de procesnamen.
     static const std::set<std::string> no_pipe = {"EuropaRFordRacing", "EuropaRSegaRally3", "Theatrhythm", "FastIo", "GunslingerStratos3"};
     pl.pipe_mode = no_pipe.count(emu) ? "shm" : "pipe";

@@ -862,6 +862,53 @@ int main() {
         write(ugi, "[Launch]\nGst32 = soms\n");
         CHECK(plan_direct("Spel", p, o3, dp, w) == Verdict::Refused && contains(w, "Gst32 = soms"));
         fs::remove_all(gst);
+        // [Launch] XInput2: libXi.so.6 (32 bits) uit <data>/runtime/lib32 (of RAVENGUN_LIB32) als enige bestand in <data>/runtime/lib32-xi,
+        // voorop in LD_LIBRARY_PATH. Alleen voor een 32-bits game; Spel is 64 bits en weigert dus.
+        write(ugi, "[Launch]\nXInput2 = true\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "32-bits"));
+        write(ugi, "[Launch]\nXInput2 = soms\n");
+        CHECK(plan_direct("Spel", p, o, dp, w) == Verdict::Refused && contains(w, "XInput2 = soms"));
+        {
+            const fs::path l32 = root / "lib32";
+            DirectOptions ox = o;
+            ox.base_env["RAVENGUN_LIB32"] = l32.string();
+            const fs::path own32 = fs::path(p.data) / "openparrot/current/OpenParrotWin32";
+            write(own32 / "OpenParrotLoader.exe", "MZ");
+            write(own32 / "OpenParrot.dll", "MZ");
+            write(fs::path(p.tp) / "TeknoParrot/TeknoParrot.dll", "MZ");
+            write(ugi, "[Game]\nIs64Bit = false\n\n[Launch]\nXInput2 = true\n");
+            CHECK(plan_direct("Spel", p, ox, dp, w) == Verdict::Refused && contains(w, (l32 / "libXi.so.6").string()));
+            write(l32 / "libXi.so.6", "ELF xi");
+            write(l32 / "libXrandr.so.2", "ELF randr");
+            ox.base_env["LD_LIBRARY_PATH"] = "/al/eerder";
+            const Verdict vx = plan_direct("Spel", p, ox, dp, w);
+            CHECK(vx == Verdict::Ok);
+            const std::string xidir = (fs::path(p.data) / "runtime/lib32-xi").string();
+            CHECK(dp.env.count("LD_LIBRARY_PATH") && dp.env.at("LD_LIBRARY_PATH") == xidir + ":/al/eerder");
+            CHECK(dp.launch_env.count("LD_LIBRARY_PATH") && dp.launch_env.at("LD_LIBRARY_PATH") == xidir + ":/al/eerder");
+            CHECK(dp.native_dlls.size() == 1 && dp.native_dlls[0].first == (l32 / "libXi.so.6").string() &&
+                  dp.native_dlls[0].second == xidir + "/libXi.so.6");
+            // Plaatsen: de eigen map wordt gemaakt en bevat alleen libXi.so.6 (niet libXrandr en de rest van lib32).
+            {
+                DirectPlan alleen = dp;
+                alleen.files.clear();
+                alleen.dropin_files.clear();
+                alleen.view_links.clear();
+                alleen.stack_reserve = 0;
+                std::vector<std::string> xlog;
+                std::string xerr;
+                CHECK(apply_direct(alleen, p, xlog, xerr));
+                CHECK(slurp(xidir + "/libXi.so.6") == "ELF xi" && !fs::exists(xidir + "/libXrandr.so.2"));
+                fs::remove_all(xidir);
+            }
+            // Zonder de sleutel verandert er niets aan het zoekpad en wordt er niets gekopieerd.
+            write(ugi, "[Game]\nIs64Bit = false\n");
+            CHECK(plan_direct("Spel", p, ox, dp, w) == Verdict::Ok);
+            CHECK(dp.native_dlls.empty() && dp.env.count("LD_LIBRARY_PATH") && dp.env.at("LD_LIBRARY_PATH") == "/al/eerder");
+            fs::remove_all(l32);
+            fs::remove_all(own32);
+            fs::remove(fs::path(p.tp) / "TeknoParrot/TeknoParrot.dll");
+        }
         // [Launch] NativeDlls: uit <data>/redist/<x64> (Spel is 64 bits) naar system32 van de prefix, met <naam>=n; de ingebouwde
         // van Wine wordt bewaard; een tweede keer schrijft niets.
         write(ugi, "[Launch]\nNativeDlls = XactEngine3_3.dll\n");

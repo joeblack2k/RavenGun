@@ -173,6 +173,7 @@ PeFillPages =                 ; true: in dezelfde lokale kopie lopen de secties 
 BepInEx =                     ; versie (bv. 5.4.21.0): BepInEx naast de exe in de view, voor een eigen plugin als drop-in (zie hieronder)
 Mod =                         ; naam | none: een mod uit [Mod <naam>] (bv. een vertaling), gebouwd in een lokale cache en in de view gelinkt (zie "Mods")
 AmDaemon =                    ; true: rg-direct beantwoordt de AM Library van een Sega Ring-game op 127.0.0.1:40100-40115 (docs/research/segajvs/README.md)
+XInput2 =                     ; true (alleen 32-bits): een 32-bits libXi voor Wine, uit <data>/runtime/lib32 in <data>/runtime/lib32-xi; zonder blijft een schermvullend venster vol WM_WINE_CLIPCURSOR (zie hieronder)
 
 [AmDaemon]                     ; alleen met [Launch] AmDaemon = true: het antwoord per sleutel van de AM-daemon (standaard in src/ravengun/launch/amdaemon.cpp)
 Ports =                       ; 40100,40106,...: de poorten (standaard 40100, 40102-40104, 40106-40108, 40114, 40115)
@@ -520,6 +521,17 @@ op hun offset; een `.stamp` ernaast onthoudt grootte en mtime van het origineel 
 van deze game wijzen terug naar het origineel. In de app: de optie "Language" (`launch_env` `RG_MOD`, kEnvMap `[Launch] Mod`). Mario
 Kart DX: 107 bestanden, 77 .pac-archieven gebouwd (1,1 GB, eerste start ongeveer een minuut). In de engine: `place_view_mod` in
 `direct_apply.cpp`, in het plan `mod_*`; het logboek noemt `mod: <naam>: N bestanden in de view`.
+
+**Wine zonder XInput2 (`[Launch] XInput2 = true`, alleen 32-bits).** SteamOS heeft geen `lib32-libxi`. Wine 11 laadt dan zijn
+XInput2-ondersteuning niet (`warn:cursor:grab_clipping_window XInput2 not supported, refusing to clip`, te zien met
+`[Env] WINEDEBUG = -all,+cursor`) en een schermvullend venster dat de muis moet vastleggen krijgt `WM_WINE_CLIPCURSOR` steeds
+opnieuw: de berichtenlus van de game komt niet uit `PeekMessage`, de game tekent niets (wit venster) en zijn JVS-gesprek stopt (met
+`+msg`: tienduizenden regels `dropping msg 80001ff0` met `wp 10` en `wp 28` om en om). Gemeten bij Music GunGun 2 (2026-10-21): na
+7 pakketten (laatste node 01 commando 0x14) was het stil; met `libXi.so.6` (32 bits) in `LD_LIBRARY_PATH` kwam commando 0x21 meteen.
+De sleutel zet alleen dat ene bestand (kopie van `<data>/runtime/lib32/libXi.so.6`, het onderdeel lib32 uit de Steam Linux
+Runtime) in een eigen map `<data>/runtime/lib32-xi` en die voorop in `LD_LIBRARY_PATH`; de rest van `lib32` (libXrandr, SDL2)
+blijft buiten Wine. Zo'n wit venster plus een JVS die na een paar pakketten stilvalt is dus een reden om deze sleutel te
+proberen. Engine: stap 6e2 in `direct.cpp`, het plaatsen loopt via `native_dlls` (`place_native_dlls`).
 
 **Een bestand van de game door een ander bestand van de game vervangen (`[Launch] ViewLinks = A -> B`).** In de **view** wordt `A`
 een symlink naar het bestand waar `B` naar wijst (meestal op de NAS); er wordt niets gekopieerd en niets op de NAS geschreven.

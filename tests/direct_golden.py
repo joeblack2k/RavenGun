@@ -356,6 +356,7 @@ def tp_vrij_check(rg, patches, gs, tmp):
         for f in ("BepInEx/core/BepInEx.Preloader.dll", "winhttp.dll", "doorstop_config.ini"):
             write(os.path.join(data, "bepinex/5.4.21.0", arch, f), "x")
     write(os.path.join(data, "gst32/proton/libgstreamer-1.0.so.0"), "x")
+    write(os.path.join(data, "runtime/lib32/libXi.so.6"), "x")   # [Launch] XInput2
     os.makedirs(os.path.join(data, "gst32/plugins"), exist_ok=True)
     write(os.path.join(data, "tools/gst-extra/plugins/libgstasf.so"), "x")
     proton = os.path.join(data, "proton/GE-Proton11-7-x86_64/proton")

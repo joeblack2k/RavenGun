@@ -329,12 +329,15 @@ bool place_view_ttc_fonts(const DirectPlan& pl, const DirectPaths& p, std::vecto
 }
 
 // [Launch] NativeDlls: de native DLL op zijn plaats in de prefix (nooit op de NAS). Staat er al precies deze DLL, dan niets.
+// Ook voor [Launch] XInput2: libXi.so.6 in <data>/runtime/lib32-xi.
 bool place_native_dlls(const DirectPlan& pl, const DirectPaths& p, std::vector<std::string>& log, std::string& err) {
     for (const auto& [bron, doel] : pl.native_dlls) {
         std::string want, have;
         if (!read_file(bron, want)) { err = "native DLL " + bron + " niet te lezen"; return false; }
         if (on_nas(dirname(doel), p)) { err = "native DLL: " + doel + " ligt op de NAS"; return false; }
         if (read_file(doel, have) && have == want) { log.push_back("native: " + doel + " is al actueel"); continue; }
+        std::error_code mec;
+        fs::create_directories(dirname(doel), mec);   // een eigen map zoals runtime/lib32-xi ([Launch] XInput2); in de prefix bestaat hij al
         const std::string bewaard = doel + ".wine-bewaard";
         if (isfile(doel) && !lexists(bewaard) && ::rename(doel.c_str(), bewaard.c_str()) != 0) {
             err = "native DLL: " + doel + " niet te bewaren: " + std::strerror(errno);
