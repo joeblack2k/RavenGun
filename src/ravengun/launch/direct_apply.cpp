@@ -642,6 +642,11 @@ bool plan_from_json(const std::string& text, DirectPlan& pl, std::string& err) {
 
 std::string plan_run_dir(const DirectPlan& pl) { return pl.tp.empty() ? pl.cwd : pl.tp; }
 
+EnvMap gamescope_start_env(EnvMap env) {
+    env.erase("DISPLAY");
+    return env;
+}
+
 std::vector<std::string> plan_tp_refs(const DirectPlan& pl, const std::string& tp) {
     std::vector<std::string> out(pl.tp_files.begin(), pl.tp_files.end());
     std::string t = tp;

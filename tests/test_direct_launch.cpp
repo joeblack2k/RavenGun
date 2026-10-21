@@ -2954,6 +2954,16 @@ int main() {
         }
     }
 
+    // A start in gamescope gets the environment without the host's DISPLAY (gamescope sets its own for its children);
+    // everything else, WAYLAND_DISPLAY included, stays, and the original map is untouched.
+    {
+        EnvMap e{{"DISPLAY", ":0"}, {"WAYLAND_DISPLAY", "wayland-0"}, {"WINEPREFIX", "/p"}};
+        const EnvMap g = gamescope_start_env(e);
+        CHECK(!g.count("DISPLAY") && g.at("WAYLAND_DISPLAY") == "wayland-0" && g.at("WINEPREFIX") == "/p" && g.size() == 2);
+        CHECK(e.at("DISPLAY") == ":0" && e.size() == 3);
+        CHECK(gamescope_start_env(EnvMap{{"WINEPREFIX", "/p"}}) == (EnvMap{{"WINEPREFIX", "/p"}}));
+    }
+
     fs::remove_all(root);
     std::printf("direct-launch: %d controles, %d fout\n", g_checks, g_failures);
     return g_failures ? 1 : 0;

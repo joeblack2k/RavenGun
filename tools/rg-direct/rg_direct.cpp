@@ -1364,7 +1364,8 @@ int run_plan(const std::string& plan_file) {
     zet_stopsignalen();
     ::signal(SIGPIPE, SIG_IGN);
 
-    const L::EnvMap& env = plan.env;
+    // A plan in gamescope: no process of the run (JVS bridge, second exe, game) gets the host DISPLAY (gamescope_start_env).
+    const L::EnvMap env = plan.gamescope ? L::gamescope_start_env(plan.env) : plan.env;
     J::Board board = J::default_board();
     if (!J::configure(board, env_get(env, "RG_JVS_IDENT"), env_get(env, "RG_JVS_FEATURES"))) log("RG_JVS_FEATURES is geen geldige hex; het standaardbord blijft");
     if (!plan.core_dll.empty()) log("kern (" + plan.core_source + "): " + plan.core_dll + " sha256 " + L::sha256_file(plan.core_dll));

@@ -222,6 +222,13 @@ bool plan_from_json(const std::string& text, DirectPlan& out, std::string& err);
 // die gebruikt (zoals altijd), anders de werkmap van de lader. Nooit een pad uit de TeknoParrot-map bij een plan zonder tp_files.
 std::string plan_run_dir(const DirectPlan& plan);
 
+// The environment of every process of a plan whose game runs in gamescope (the JVS bridge, a second exe, the game): `env`
+// without DISPLAY. gamescope gives the game its own Xwayland (DISPLAY=:1, measured), but the bridge and a second exe start
+// before it in the same wineserver session; with the host DISPLAY=:0 in their environment Lost Land Adventure's run ended
+// 2-3 s after the game started with "X Error of failed request: BadWindow (X_UnmapWindow)" (headless and wayland backend),
+// also when only gamescope's own DISPLAY was removed; without DISPLAY for the whole run it lives on (2026-10-21).
+EnvMap gamescope_start_env(EnvMap env);
+
 // Alle verwijzingen naar de TeknoParrot-map `tp` in het plan: tp_files plus elke tekst in het JSON-plan (argv, omgeving, bestanden,
 // ook in de Wine-vorm Z:\...) die in die map ligt. Relatief aan `tp`, gesorteerd, zonder dubbele. Leeg = los van TeknoParrot.
 std::vector<std::string> plan_tp_refs(const DirectPlan& plan, const std::string& tp);
