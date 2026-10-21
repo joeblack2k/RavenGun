@@ -1206,7 +1206,7 @@ static void w7_start(void) {
                 w7_answer ? "slaat de leesmethoden over" : "alleen meten");
         for (int k = 0; k < 16; ++k) {
             const int idx = 16 + k;
-            const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 14 || w7_map2[k] == 22);
+            const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 14);
             DWORD old = 0;
             if (overslaan) {
                 void *stub = NULL;
@@ -1302,6 +1302,50 @@ static void w7_calltrace_start(void) {
     }
 }
 
+
+/* ------------------------------- 9. RG_COMPAT_EXITLOG (waarom sluit het spel?) */
+
+/* Hookt ExitProcess en schrijft de retourketen op de stapel naar <pad>: alleen woorden die in het
+ * hoofdbeeld vallen (beeld .. beeld+grootte), als RVA. Zo is te zien WIE de afsluiting aanvraagt,
+ * ook zonder foutcode (het geval van Coopers 9, dat met code 0 vertrekt). */
+static void (*real_exitprocess)(UINT);
+static void WINAPI rg_exitlog_ExitProcess(UINT code);
+static HMODULE exitlog_image;
+static DWORD exitlog_size;
+
+static void exitlog_start(HMODULE exe) {
+    char path[MAX_PATH];
+    if (GetEnvironmentVariableA("RG_COMPAT_EXITLOG", path, sizeof path) == 0) return;
+    exitlog_image = exe;
+    const BYTE *b = (const BYTE *)exe;
+    const IMAGE_DOS_HEADER *dos = (const IMAGE_DOS_HEADER *)exe;
+    const IMAGE_NT_HEADERS *nt = (const IMAGE_NT_HEADERS *)(b + dos->e_lfanew);
+    exitlog_size = nt->OptionalHeader.SizeOfImage;
+    HMODULE k32 = GetModuleHandleA("kernel32.dll");
+    void *oud = patch_import(exe, "kernel32.dll", "ExitProcess", (void *)rg_exitlog_ExitProcess);
+    if (!oud) {
+        OutputDebugStringA("rg-compat: ExitProcess niet gevonden in de IAT\n");
+        return;
+    }
+    real_exitprocess = (void (*)(UINT))oud;
+    d2_line("exitlog: ExitProcess gehaakt, beeld %p + 0x%lx", (void *)exe, (unsigned long)exitlog_size);
+    (void)k32;
+}
+
+static void WINAPI rg_exitlog_ExitProcess(UINT code) {
+    d2_line("ExitProcess(%u): retourketen", (unsigned)code);
+    const DWORD *p = (const DWORD *)&code;
+    int geteld = 0;
+    for (int i = 0; i < 400 && geteld < 24; ++i) {
+        const DWORD w = p[i];
+        if (w > (DWORD)(uintptr_t)exitlog_image && w < (DWORD)(uintptr_t)exitlog_image + exitlog_size) {
+            d2_line("   stapel[%d] = +0x%lx", i, (unsigned long)(w - (DWORD)(uintptr_t)exitlog_image));
+            ++geteld;
+        }
+    }
+    if (real_exitprocess) real_exitprocess(code);
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -1317,6 +1361,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         rg_patch_start();
         w7_start();
         w7_calltrace_start();
+        exitlog_start(exe);
     }
     return TRUE;
 }
