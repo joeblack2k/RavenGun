@@ -364,6 +364,35 @@ static int d2_has_token2_w(const WCHAR *s) {
     return d2_has_token2(narrow);
 }
 
+/* Antwoord van het geleende apparaat: nullen, of RG_DONGLE2_REPLY=<hex> als die gezet is (dan herhaalt de
+ * reeks zich), zodat een antwoord zonder herbouwen te proberen is. */
+static unsigned char d2_reply[64];
+static DWORD d2_reply_len;
+
+static void d2_reply_init(void) {
+    char txt[160];
+    DWORD n = GetEnvironmentVariableA("RG_DONGLE2_REPLY", txt, sizeof txt);
+    if (n == 0 || n >= sizeof txt) return;
+    DWORD i = 0;
+    for (; i + 1 < n && d2_reply_len < sizeof d2_reply; i += 2) {
+        char pair[3] = {txt[i], txt[i + 1], 0};
+        char *end = NULL;
+        long v = strtol(pair, &end, 16);
+        if (end == pair) break;
+        d2_reply[d2_reply_len++] = (unsigned char)v;
+    }
+    d2_line("antwoordreeks uit RG_DONGLE2_REPLY: %lu bytes", (unsigned long)d2_reply_len);
+}
+
+static void d2_fill(unsigned char *buf, DWORD len) {
+    if (!buf || !len) return;
+    if (d2_reply_len == 0) {
+        memset(buf, 0, len);
+        return;
+    }
+    for (DWORD i = 0; i < len; ++i) buf[i] = d2_reply[i % d2_reply_len];
+}
+
 static void d2_hex(const char *label, const void *buf, DWORD len) {
     const unsigned char *p = (const unsigned char *)buf;
     char line[3 * 24 + 8];
@@ -372,6 +401,30 @@ static void d2_hex(const char *label, const void *buf, DWORD len) {
     for (i = 0; i < show; ++i) k += snprintf(line + k, sizeof line - (size_t)k, "%02x ", p[i]);
     line[k] = 0;
     d2_line("   %s%s", label, line);
+}
+
+
+typedef DWORD(WINAPI *d2_getfiletype_fn)(HANDLE);
+typedef BOOL(WINAPI *d2_getoverlapped_fn)(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
+static d2_getfiletype_fn real_d2_getfiletype;
+static d2_getoverlapped_fn real_d2_getoverlapped;
+
+static DWORD WINAPI rg_d2_GetFileType(HANDLE h) {
+    if (h == RG_D2_HANDLE) {
+        d2_line("GetFileType(nephandvat) -> FILE_TYPE_UNKNOWN");
+        SetLastError(ERROR_SUCCESS);
+        return FILE_TYPE_UNKNOWN;
+    }
+    return real_d2_getfiletype(h);
+}
+
+static BOOL WINAPI rg_d2_GetOverlappedResult(HANDLE h, LPOVERLAPPED ov, LPDWORD got, BOOL wait) {
+    if (h == RG_D2_HANDLE) {
+        d2_line("GetOverlappedResult(nephandvat, wait=%d) -> klaar", wait);
+        if (got) *got = 0;
+        return TRUE;
+    }
+    return real_d2_getoverlapped(h, ov, got, wait);
 }
 
 static HANDLE WINAPI rg_d2_CreateFileA(LPCSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD share, DWORD disp,
@@ -401,15 +454,15 @@ static BOOL WINAPI rg_d2_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD 
     d2_line("DeviceIoControl code=0x%08lx in=%lu out=%lu", (unsigned long)code, (unsigned long)in_len,
             (unsigned long)out_len);
     if (in && in_len) d2_hex("invoer: ", in, in_len);
-    if (out && out_len) memset(out, 0, out_len);
+    if (out && out_len) d2_fill((unsigned char *)out, out_len);
     if (ret) *ret = out_len;
     return TRUE;
 }
 
 static BOOL WINAPI rg_d2_ReadFile(HANDLE h, LPVOID buf, DWORD len, LPDWORD got, LPOVERLAPPED ov) {
     if (h != RG_D2_HANDLE) return real_d2_read(h, buf, len, got, ov);
-    d2_line("ReadFile %lu bytes -> nullen", (unsigned long)len);
-    if (buf && len) memset(buf, 0, len);
+    d2_line("ReadFile %lu bytes -> antwoord", (unsigned long)len);
+    if (buf && len) d2_fill((unsigned char *)buf, len);
     if (got) *got = len;
     return TRUE;
 }
@@ -535,6 +588,17 @@ static BOOL WINAPI rg_d2_SetupDiDestroyDeviceInfoList(HDEVINFO set) {
  * "SetupDiGetDeviceInterfaceDetailA", gevonden in zijn code op 0x4369e2/0x4369ea), dus die zijn niet in de
  * importtabel te haken: hier wordt GetProcAddress zelf omgeleid. Zo krijgt het spel één synthetische HID-interface
  * met een pad, en wordt de CreateFile daarop door de apparaatmeter geleend. */
+
+static int strnicmp_(const char *a, const char *b, int n) {
+    for (int i = 0; i < n; ++i) {
+        const char ca = (a[i] >= 'A' && a[i] <= 'Z') ? (char)(a[i] + 32) : a[i];
+        const char cb = (b[i] >= 'A' && b[i] <= 'Z') ? (char)(b[i] + 32) : b[i];
+        if (ca != cb) return 1;
+        if (!ca) return 0;
+    }
+    return 0;
+}
+
 typedef BOOL(WINAPI *d2_enumif_fn)(HDEVINFO, PSP_DEVINFO_DATA, const GUID *, DWORD, PSP_DEVICE_INTERFACE_DATA);
 typedef BOOL(WINAPI *d2_ifdetail_fn)(HDEVINFO, PSP_DEVICE_INTERFACE_DATA, PSP_DEVICE_INTERFACE_DETAIL_DATA_A, DWORD,
                                      PDWORD, PSP_DEVINFO_DATA);
@@ -600,9 +664,46 @@ static BOOL WINAPI rg_d2_SetupDiGetDeviceInterfaceDetailA(HDEVINFO set, PSP_DEVI
     return TRUE;
 }
 
+/* Het spel praat met de dongle via HID-feature-rapporten (HidD_SetFeature als opdracht, HidD_GetFeature als
+ * antwoord), ook dynamisch opgehaald. Die twee worden hier geleend en opgeschreven: de opdrachtbytes komen in het
+ * log, het antwoord komt uit d2_fill (nullen, of RG_DONGLE2_REPLY). */
+typedef BOOL(WINAPI *d2_getfeature_fn)(HANDLE, PVOID, ULONG);
+typedef BOOL(WINAPI *d2_setfeature_fn)(HANDLE, PVOID, ULONG);
+static d2_getfeature_fn real_d2_getfeature;
+static d2_setfeature_fn real_d2_setfeature;
+
+static BOOL WINAPI rg_d2_HidD_SetFeature(HANDLE h, PVOID buf, ULONG len) {
+    if (h != RG_D2_HANDLE) {
+        if (!real_d2_setfeature) real_d2_setfeature = (d2_setfeature_fn)(void *)real_d2_getproc(GetModuleHandleA("hid.dll"), "HidD_SetFeature");
+        return real_d2_setfeature ? real_d2_setfeature(h, buf, len) : FALSE;
+    }
+    d2_line("HidD_SetFeature %lu bytes", (unsigned long)len);
+    if (buf && len) d2_hex("   opdracht: ", buf, len);
+    return TRUE;
+}
+
+static BOOL WINAPI rg_d2_HidD_GetFeature(HANDLE h, PVOID buf, ULONG len) {
+    if (h != RG_D2_HANDLE) {
+        if (!real_d2_getfeature) real_d2_getfeature = (d2_getfeature_fn)(void *)real_d2_getproc(GetModuleHandleA("hid.dll"), "HidD_GetFeature");
+        return real_d2_getfeature ? real_d2_getfeature(h, buf, len) : FALSE;
+    }
+    d2_line("HidD_GetFeature %lu bytes -> antwoord", (unsigned long)len);
+    if (buf && len) d2_fill((unsigned char *)buf, len);
+    if (buf && len) d2_hex("   antwoord: ", buf, len);
+    return TRUE;
+}
+
 static FARPROC WINAPI rg_d2_GetProcAddress(HMODULE mod, LPCSTR name) {
     FARPROC echt = real_d2_getproc(mod, name);
     if (!name) return echt;
+    if (strcmp(name, "HidD_SetFeature") == 0) {
+        d2_line("GetProcAddress(HidD_SetFeature) -> eigen haak");
+        return (FARPROC)(void *)rg_d2_HidD_SetFeature;
+    }
+    if (strcmp(name, "HidD_GetFeature") == 0) {
+        d2_line("GetProcAddress(HidD_GetFeature) -> eigen haak");
+        return (FARPROC)(void *)rg_d2_HidD_GetFeature;
+    }
     if (strcmp(name, "SetupDiEnumDeviceInterfaces") == 0) {
         d2_line("GetProcAddress(SetupDiEnumDeviceInterfaces) -> eigen haak");
         return (FARPROC)(void *)rg_d2_SetupDiEnumDeviceInterfaces;
@@ -610,6 +711,13 @@ static FARPROC WINAPI rg_d2_GetProcAddress(HMODULE mod, LPCSTR name) {
     if (strcmp(name, "SetupDiGetDeviceInterfaceDetailA") == 0) {
         d2_line("GetProcAddress(SetupDiGetDeviceInterfaceDetailA) -> eigen haak");
         return (FARPROC)(void *)rg_d2_SetupDiGetDeviceInterfaceDetailA;
+    }
+    if (strnicmp_(name, "Hid", 3) == 0 || strstr(name, "hid") || strstr(name, "HID")) {
+        static int geteld;
+        if (geteld < 40) {
+            ++geteld;
+            d2_line("GetProcAddress(%s) -> doorgegeven (%p)", name, (void *)echt);
+        }
     }
     return echt;
 }
@@ -638,6 +746,11 @@ static void dongle2_start(HMODULE exe) {
     real_d2_getproc = (d2_getproc_fn)patch_import(exe, "kernel32.dll", "GetProcAddress",
                                                        (void *)rg_d2_GetProcAddress);
     d2_line("GetProcAddress-haak: %d", real_d2_getproc != NULL);
+    real_d2_getfiletype = (d2_getfiletype_fn)patch_import(exe, "kernel32.dll", "GetFileType",
+                                                          (void *)rg_d2_GetFileType);
+    real_d2_getoverlapped = (d2_getoverlapped_fn)patch_import(exe, "kernel32.dll", "GetOverlappedResult",
+                                                                (void *)rg_d2_GetOverlappedResult);
+    d2_reply_init();
     d2_line("setupapi-haken: GetClassDevs=%d EnumDeviceInfo=%d GetProperty=%d DestroyList=%d",
             real_d2_getclassdevs != NULL, real_d2_enumdevinfo != NULL, real_d2_getprop != NULL,
             real_d2_destroyset != NULL);
