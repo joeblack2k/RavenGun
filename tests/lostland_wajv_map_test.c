@@ -78,6 +78,39 @@ int main(void) {
     set_ctl(shm, 1u << RG_LL_BIT_COIN);
     rg_wajv_fill(blk, shm, &st);
     CHECK(blk[0x2a8] == 2);
+
+    /* The launcher takes coins with WAJVSetOutput (out+0 = u16 to take off): the counter goes down by that, never below 0, and the
+     * next fill shows it. Zero or NULL changes nothing. */
+    {
+        uint8_t out[0x50];
+        memset(out, 0, sizeof out);
+        rg_wajv_output(out, &st);
+        rg_wajv_output(NULL, &st);
+        rg_wajv_fill(blk, shm, &st);
+        CHECK(blk[0x2a8] == 2);
+        out[0] = 2;
+        rg_wajv_output(out, &st);
+        rg_wajv_fill(blk, shm, &st);
+        CHECK(blk[0x2a8] == 0 && blk[0x2a9] == 0);
+        out[0] = 5;
+        rg_wajv_output(out, &st);
+        CHECK(st.coins == 0);
+        /* Held coin bit after the take: still no new coin; a new press counts one. */
+        set_ctl(shm, 0);
+        rg_wajv_fill(blk, shm, &st);
+        set_ctl(shm, 1u << RG_LL_BIT_COIN);
+        rg_wajv_fill(blk, shm, &st);
+        CHECK(blk[0x2a8] == 1);
+        out[0] = 1;
+        rg_wajv_output(out, &st);
+        rg_wajv_fill(blk, shm, &st);
+        CHECK(blk[0x2a8] == 0);
+        set_ctl(shm, 0);
+        st.coins = 300;
+        out[0] = 0x2c; out[1] = 0x01;   /* 300, little-endian */
+        rg_wajv_output(out, &st);
+        CHECK(st.coins == 0);
+    }
     /* Statusdwords en tweede teller blijven nul. */
     CHECK(blk[0x2aa] == 0 && blk[0x2ac] == 0 && blk[0x2ad] == 0 && blk[0x2cc] == 0 && blk[0x2c8] == 0 && blk[0x2ca] == 0);
 

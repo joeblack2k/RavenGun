@@ -82,6 +82,16 @@ typedef struct {
 /* Vult `block` (RG_WAJV_BLOCK_SIZE bytes) uit de 64 bytes `shm` (mag NULL zijn: dan alles los). */
 void rg_wajv_fill(uint8_t *block, const uint8_t *shm, rg_wajv_state *st);
 
+/* The output block RSLauncher hands to WAJVSetOutput(1, out) every frame (0x140063b75: out = rbp+0x30). Its first u16 is the
+ * JVS "decrease coin counter" for slot 0: RSLauncher counts new coins as (counter at 0x2a8) - (its own baseline), and when 0x2aa is
+ * 0 (0x140063e0e) it moves its baseline into out+0 and sets the baseline back to 0 (0x1400634ed..0x1400634f8), expecting the board
+ * to take that many coins off its counter. A board that keeps its counter makes every frame count all coins again (measured
+ * 2026-10-21: four coin taps gave 99 credits). out+8 is the same for slot 1 (the counter at 0x2c8, which we keep at 0). */
+#define RG_WAJV_OUT_COIN_DEC0 0x00u
+
+/* Applies the coin decrease of one WAJVSetOutput block (NULL: nothing) to the counter. */
+void rg_wajv_output(const uint8_t *out, rg_wajv_state *st);
+
 /* De toets-/knopbits van het bitveld als u32 (little-endian), 0 bij NULL. */
 uint32_t rg_wajv_control(const uint8_t *shm);
 

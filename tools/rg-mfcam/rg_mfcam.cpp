@@ -111,6 +111,8 @@
 //   the game reads 12-byte frames (picture spot of each gun's camera and the button bits) from COM2 at 115200 and forgets the gun after
 //   60 polls without a frame; the launcher then shows a gun camera error (RSSharedData+0x1a4, RSLauncher 0x1400633ea). The frames come
 //   from the shared memory TeknoParrot_JvsState (dome_gun.h). RG_DOMEGUN_MASKS=<hex rva> logs the game's button masks.
+//   RG_DOMEGUN_GRID=<file next to this DLL> holds the measured map from camera spot to the crosshair on the screen per player; with it
+//   the frames carry the spot whose crosshair lands where the player aims (dome_grid.h).
 //
 // FOURTEENTH TASK: Lost Land's card reader on COM4, in the launcher
 //   RSLauncher.exe attaches a card reader on COM4 at start (0x14002eab0, card library linked into the exe) and raises error 39
@@ -125,6 +127,7 @@
 // ENVIRONMENT
 //   RG_CHILD_PRELOAD=name   load this DLL into a child process with that exe name (THIRTEENTH TASK)
 //   RG_DOMEGUN_COMPORT=COM2 emulate the gun peripheral on that port (THIRTEENTH TASK)
+//   RG_DOMEGUN_GRID=file    correct the aim with the measured grid in that file (THIRTEENTH TASK)
 //   RG_CARDRW_COMPORT=COM4  emulate the launcher's PN532 card reader on that port (FOURTEENTH TASK)
 //   RG_ERRCLEAR=m:f:c:bytes clear error c once with the exe's own forced clear f (FIFTEENTH TASK)
 //   RG_MFCAM_SYNTHETIC=WxH  a camera of that size also without the camera file (TWELFTH TASK)
@@ -2550,6 +2553,7 @@ LONG g_gun_frames = 0;
 int g_gun_feedback[2] = {-1, -1};
 uint32_t g_gun_mask_rva = 0;   // RG_DOMEGUN_MASKS=<hex rva>: log the game's two button masks when they change
 uint32_t g_gun_masks[2] = {~0u, ~0u};
+rg_domegun::Grid g_gun_grids[2];   // RG_DOMEGUN_GRID=<file next to this DLL>: the measured aim map per player (dome_grid.h)
 
 using CreateFileWFn = HANDLE(WINAPI*)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
 using ClearCommErrorFn = BOOL(WINAPI*)(HANDLE, LPDWORD, LPCOMSTAT);
@@ -2573,6 +2577,7 @@ HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY
     HANDLE h = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     EnterCriticalSection(&g_gun_cs);
     g_gun = rg_domegun::Port{};
+    for (int p = 0; p < 2; ++p) g_gun.grid[p] = g_gun_grids[p].valid() ? &g_gun_grids[p] : nullptr;
     if (!g_gun_shm) {
         g_gun_map = OpenFileMappingA(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
         if (g_gun_map) g_gun_shm = static_cast<const uint8_t*>(MapViewOfFile(g_gun_map, FILE_MAP_READ, 0, 0, 64));
@@ -2690,8 +2695,30 @@ void setup_dome_gun() {
         const unsigned long v = std::strtoul(rva, nullptr, 16);
         if (v && v + 8 <= nt->OptionalHeader.SizeOfImage) g_gun_mask_rva = static_cast<uint32_t>(v);
     }
-    rg_log("gun peripheral on: %s answered from TeknoParrot_JvsState (12-byte frames, both players)%s", g_gun_port,
-           g_gun_mask_rva ? ", button masks logged" : "");
+    int grids = 0;
+    char gname[MAX_PATH];
+    if (GetEnvironmentVariableA("RG_DOMEGUN_GRID", gname, sizeof gname) > 0 && gname[0]) {
+        // The file sits next to this DLL (the same file is loaded into the launcher and the game, see RG_CHILD_PRELOAD).
+        char path[MAX_PATH * 2] = {};
+        GetModuleFileNameA(g_self, path, MAX_PATH);
+        char* slash = std::strrchr(path, '\\');
+        if (slash) slash[1] = 0;
+        std::strncat(path, gname, sizeof path - std::strlen(path) - 1);
+        std::string text;
+        if (FILE* f = std::fopen(path, "rb")) {
+            char buf[4096];
+            size_t k;
+            while ((k = std::fread(buf, 1, sizeof buf, f)) > 0 && text.size() < (1u << 20)) text.append(buf, k);
+            std::fclose(f);
+            grids = rg_domegun::parse_grids(text.c_str(), g_gun_grids);
+            for (int p = 0; p < 2; ++p)
+                if (g_gun_grids[p].valid())
+                    rg_log("gun: aim grid player %d: %dx%d spots from %s", p + 1, g_gun_grids[p].nu, g_gun_grids[p].nv, gname);
+        }
+        if (!grids) rg_log("gun: RG_DOMEGUN_GRID=%s: no usable grid in %s (aim not corrected)", gname, path);
+    }
+    rg_log("gun peripheral on: %s answered from TeknoParrot_JvsState (12-byte frames, both players)%s%s", g_gun_port,
+           g_gun_mask_rva ? ", button masks logged" : "", grids ? ", aim corrected by the grid" : "");
 }
 
 // --- the card reader on a COM port (see FOURTEENTH TASK at the top; logic in pn532_reader.h) --------------------------------------------

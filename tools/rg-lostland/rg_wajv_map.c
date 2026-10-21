@@ -42,3 +42,10 @@ void rg_wajv_fill(uint8_t *block, const uint8_t *shm, rg_wajv_state *st) {
     }
     /* 0x2aa (u16), 0x2ac (u32 muntstatus) en de tweede teller 0x2c8..0x2cf blijven 0: geen muntfout. */
 }
+
+void rg_wajv_output(const uint8_t *out, rg_wajv_state *st) {
+    if (!out || !st) return;
+    const uint16_t dec = (uint16_t)(out[RG_WAJV_OUT_COIN_DEC0] | (out[RG_WAJV_OUT_COIN_DEC0 + 1] << 8));
+    /* Like the board: the counter goes down by what the host has taken, never below 0. */
+    st->coins = (uint16_t)(dec >= st->coins ? 0u : (unsigned)st->coins - dec);
+}

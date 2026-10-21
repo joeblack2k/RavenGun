@@ -19,11 +19,15 @@
 //     (the gun's feedback state 0..2).
 // The picture spot comes from the daemon's shared memory (tp-shm, layout LostLandAdventures in packaging/tp-shm-profiles.json):
 // one byte per axis, 0..255, at 12/16 (player 1) and 20/24 (player 2); the triggers are bits 0 and 1 of the control word at 8.
+// That byte is where the player aims on the screen; with a grid (RG_DOMEGUN_GRID, dome_grid.h) the frame carries the spot whose
+// crosshair the game draws there, without one the byte itself.
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+
+#include "dome_grid.h"
 
 namespace rg_domegun {
 
@@ -61,6 +65,7 @@ struct Port {
     size_t n = 0;
     uint32_t last_ms = 0;
     bool primed = false;
+    const Grid* grid[2] = {nullptr, nullptr};   // RG_DOMEGUN_GRID: per player the measured map from spot to screen (dome_grid.h)
 
     // shm: the 64 bytes of the shared state, or nullptr (then both guns aim at the centre, no buttons).
     void refill(uint32_t now_ms, uint32_t period_ms, const uint8_t* shm) {
@@ -79,7 +84,10 @@ struct Port {
         }
         const uint8_t bits = buttons(control);
         for (uint8_t p = 0; p < 2 && n + kFrame <= sizeof q; ++p) {
-            make_frame(q + n, p, axis(ax[2 * p]), axis(ax[2 * p + 1]), bits);
+            const float sx = axis(ax[2 * p]), sy = axis(ax[2 * p + 1]);
+            float x = sx, y = sy;
+            if (grid[p] && grid[p]->valid() && shm) grid[p]->invert(sx, sy, x, y);   // the spot whose crosshair lands on (sx, sy)
+            make_frame(q + n, p, x, y, bits);
             n += kFrame;
         }
     }

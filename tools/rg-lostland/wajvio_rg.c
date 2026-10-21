@@ -151,7 +151,12 @@ EXP void *WAJVGetInput(int node) {
 
 EXP void WAJVUpdate(void) { trace(5, "WAJVUpdate"); refresh(); }
 
-EXP BOOL WAJVSetOutput(int node, const void *out) { (void)node; (void)out; trace(6, "WAJVSetOutput"); return TRUE; }
+/* The launcher's output block: its first u16 is the coins it has taken (rg_wajv_map.h, RG_WAJV_OUT_COIN_DEC0). */
+EXP BOOL WAJVSetOutput(int node, const void *out) {
+    trace(6, "WAJVSetOutput");
+    if (node == 1) rg_wajv_output((const uint8_t *)out, &g_state);
+    return TRUE;
+}
 
 EXP BOOL WAJVSetFunctionSettings(int node, int count, const void *table) {
     (void)node; (void)count; (void)table;

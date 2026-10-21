@@ -39,7 +39,7 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/src/tools/rg-mfcam" "$TMP/src/src/ravengun/vision" "$TMP/out"
-cp "$SRC" "$ROOT/tools/rg-mfcam/jvs_com.h" "$ROOT/tools/rg-mfcam/sharek_fake.h" "$ROOT/tools/rg-mfcam/am_auth_fake.h" "$ROOT/tools/rg-mfcam/stall_dump.h" "$ROOT/tools/rg-mfcam/drive_fix.h" "$ROOT/tools/rg-mfcam/bngrw_fake.h" "$ROOT/tools/rg-mfcam/window_mode.h" "$ROOT/tools/rg-mfcam/str_board.h" "$ROOT/tools/rg-mfcam/usb_dongle.h" "$ROOT/tools/rg-mfcam/content_router.h" "$ROOT/tools/rg-mfcam/cam_select.h" "$ROOT/tools/rg-mfcam/dome_gun.h" "$ROOT/tools/rg-mfcam/pn532_reader.h" "$ROOT/tools/rg-mfcam/err_clear.h" "$TMP/src/tools/rg-mfcam/"
+cp "$SRC" "$ROOT/tools/rg-mfcam/jvs_com.h" "$ROOT/tools/rg-mfcam/sharek_fake.h" "$ROOT/tools/rg-mfcam/am_auth_fake.h" "$ROOT/tools/rg-mfcam/stall_dump.h" "$ROOT/tools/rg-mfcam/drive_fix.h" "$ROOT/tools/rg-mfcam/bngrw_fake.h" "$ROOT/tools/rg-mfcam/window_mode.h" "$ROOT/tools/rg-mfcam/str_board.h" "$ROOT/tools/rg-mfcam/usb_dongle.h" "$ROOT/tools/rg-mfcam/content_router.h" "$ROOT/tools/rg-mfcam/cam_select.h" "$ROOT/tools/rg-mfcam/dome_gun.h" "$ROOT/tools/rg-mfcam/dome_grid.h" "$ROOT/tools/rg-mfcam/pn532_reader.h" "$ROOT/tools/rg-mfcam/err_clear.h" "$TMP/src/tools/rg-mfcam/"
 cp "$HDR" "$TMP/src/src/ravengun/vision/"
 # Statically linked (no libstdc++/libgcc DLLs needed in the game process); no timestamp, for reproducibility.
 podman run --rm --network=none -v "$TMP/src:/src:ro" -v "$TMP/out:/out" "$IMAGE" \
