@@ -1202,7 +1202,7 @@ static void w7_start(void) {
                 w7_answer ? "slaat de leesmethoden over" : "alleen meten");
         for (int k = 0; k < 5; ++k) {
             const int idx = 16 + k;
-            const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 20 || w7_map2[k] == 22);
+            const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 14 || w7_map2[k] == 20 || w7_map2[k] == 22);
             DWORD old = 0;
             if (overslaan) {
                 void *stub = NULL;
