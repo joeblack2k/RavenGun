@@ -1598,6 +1598,82 @@ static void hook_start(HMODULE exe) {
     }
 }
 
+/* ------------------------------- 13. RG_COMPAT_CALLRES (aanroep plus uitkomst) */
+
+/* Voor een aanroepsite waarvan de UITKOMST het antwoord is (bestaat het Virtools-object wel?), vervangt deze
+ * fix de `call rel32` door een sprong naar een stubje dat eerst het echte doel aanroept met dezelfde stapel,
+ * daarna het resultaat (en de eerste twee argumenten) opschrijft en met dat resultaat terugkeert.
+ * RG_COMPAT_CALLRES=<rva>,<rva>,... (maximaal 4). */
+
+#define CR_MAX 4
+__attribute__((used)) static void *cr_doel[CR_MAX];
+static DWORD cr_site[CR_MAX];
+
+__attribute__((used)) static void cr_log(int idx, unsigned long resultaat, const DWORD *p) {
+    if (idx < 0 || idx >= CR_MAX) return;
+    static unsigned long telling[CR_MAX];
+    const unsigned long n = ++telling[idx];
+    if (n <= 60 || (n % 500) == 0) {
+        char a1[64], a2[64];
+        w7_arg(a1, sizeof a1, p[0], w7_base, w7_size);
+        w7_arg(a2, sizeof a2, p[1], w7_base, w7_size);
+        d2_line("callres[%d] +0x%lx -> %08lx arg %s | %s (nr %lu)", idx, (unsigned long)cr_site[idx], resultaat, a1,
+                a2, n);
+    }
+}
+
+#define CR_STUB(n)                                                                                             \
+    __attribute__((naked, used)) static void cr_stub_##n(void) {                                               \
+        __asm__ volatile("movl _cr_doel+" #n "*4, %eax\n\t"                                                    \
+                         "call *%eax\n\t"                                                                     \
+                         "pushal\n\t"                                                                         \
+                         "leal 36(%esp), %edx\n\t"                                                            \
+                         "push %edx\n\t"                                                                      \
+                         "push %eax\n\t"                                                                      \
+                         "push $" #n "\n\t"                                                                   \
+                         "call _cr_log\n\t"                                                                   \
+                         "add $12, %esp\n\t"                                                                  \
+                         "popal\n\t"                                                                          \
+                         "ret\n\t");                                                                          \
+    }
+CR_STUB(0)
+CR_STUB(1)
+CR_STUB(2)
+CR_STUB(3)
+
+static void *const cr_stubs[CR_MAX] = {(void *)cr_stub_0, (void *)cr_stub_1, (void *)cr_stub_2,
+                                       (void *)cr_stub_3};
+
+static void callres_start(HMODULE exe) {
+    char txt[128];
+    const DWORD n = GetEnvironmentVariableA("RG_COMPAT_CALLRES", txt, sizeof txt);
+    if (n == 0 || n >= sizeof txt) return;
+    int idx = 0;
+    for (char *p = txt; *p && idx < CR_MAX;) {
+        const DWORD rva = (DWORD)strtoul(p, &p, 0);
+        BYTE *site = (BYTE *)exe + rva;
+        if (site[0] != 0xe8) {
+            d2_line("callres: +0x%lx is geen call (%02x)", (unsigned long)rva, site[0]);
+            continue;
+        }
+        const long rel = (long)*(int *)(site + 1);
+        cr_doel[idx] = (void *)(site + 5 + rel);
+        cr_site[idx] = rva;
+        DWORD oud = 0;
+        if (!VirtualProtect(site, 5, PAGE_EXECUTE_READWRITE, &oud)) {
+            d2_line("callres: +0x%lx niet schrijfbaar", (unsigned long)rva);
+            break;
+        }
+        const long nieuw = (long)((BYTE *)cr_stubs[idx] - (site + 5));
+        site[0] = 0xe8;
+        *(int *)(site + 1) = (int)nieuw;
+        VirtualProtect(site, 5, oud, &oud);
+        d2_line("callres: +0x%lx -> %p -> stub %d", (unsigned long)rva, cr_doel[idx], idx);
+        ++idx;
+        if (*p == ',') ++p;
+    }
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -1617,6 +1693,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         iatfix_start(exe);
         tableprobe_start(exe);
         hook_start(exe);
+        callres_start(exe);
     }
     return TRUE;
 }
