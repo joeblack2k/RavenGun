@@ -1,0 +1,128 @@
+SPDX-License-Identifier: CC-BY-NC-SA-4.0
+Change to lindbergh-loader (src/lindbergh/shaderPatches.c), under the same license as that source (CC BY-NC-SA 4.0);
+see third_party/lindbergh-loader/README.md. This file is not part of RavenGun's GPL code.
+
+HOTD4 (GROUP_HOD4), wrong 3D colours on Mesa: none of the game's standard material programs (fs/dat/std.dat0 + std.dat1)
+links. The fragment shader always reads nnglvTexCoord01/23/45/67 and nnglvViewPositionFog, the vertex shader writes only the
+ones the material uses; Mesa follows GLSL 1.10/1.20 and refuses the link ("fragment shader varying ... not written by vertex
+shader"), NVIDIA accepts it. The game then draws every surface without its shader (raw base or normal maps: purple-blue walls,
+purple/green surfaces in the first cutscene). Measured 2026-10-21: all 1599 programs compiled in a chapter 1 run fail to link
+on Mesa; with these five varyings set to 0 at the start of the vertex shader's main() all 1599 link. The loader already routes
+glShaderSourceARB through gl_ShaderSourceARB for every game; this adds the vertex-shader fix for GROUP_HOD4 only, and only when
+the source is that standard vertex shader. HOTD4 itself was not routed through that interception: in Rev C its one
+glXGetProcAddressARB call (0x081b6fb7) now goes to hod4GetProcAddressARB, which hands out the intercepted glShaderSourceARB
+and passes every other name to the normal lookup. Applies after 0005 (both change patch.c).
+
+--- a/src/lindbergh/shaderPatches.c
++++ b/src/lindbergh/shaderPatches.c
+@@ -9,6 +9,7 @@
+ #include <libgen.h>
+ #include <stdbool.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <sys/mman.h>
+ #include <unistd.h>
+ 
+@@ -716,8 +717,56 @@
+     return _cgCreateProgram(context, program_type, program, profile, entry, args);
+ }
+ 
++// RavenGun: HOTD4's standard shaders (fs/dat/std.dat0 + std.dat1, one program per material) do not link on Mesa. The fragment
++// shader (with the loader's own Mesa patch) copies nnglvTexCoord01/23/45/67 into globals at file scope, so it always reads
++// those varyings, plus nnglvViewPositionFog; the vertex shader only writes the ones its material uses. GLSL 1.10/1.20 makes a
++// varying that the fragment shader reads but the vertex shader never writes a link error ("fragment shader varying ... not
++// written by vertex shader"); NVIDIA accepts it. Every material program then fails to link and the game draws the scene
++// without its shader: the wrong colours (raw base/normal maps, purple-blue walls). Measured 2026-10-21: all 1599 programs
++// of a chapter 1 run fail to link on Mesa; with these five varyings set to 0 at the start of the vertex shader's main()
++// (the shader's own writes follow and win) all 1599 link.
++static bool hod4StdVertexShaderFix(GLhandleARB shaderObj, GLsizei count, const GLcharARB **const string, const GLint *length)
++{
++    static const char key[] = "void main( void )\r\n{\r\n";
++    static const char init[] = "\tnnglvViewPositionFog = vec4(0.0);\r\n\tnnglvTexCoord01 = vec4(0.0);\r\n"
++                               "\tnnglvTexCoord23 = vec4(0.0);\r\n\tnnglvTexCoord45 = vec4(0.0);\r\n"
++                               "\tnnglvTexCoord67 = vec4(0.0);\r\n";
++    if (gGrp != GROUP_HOD4 || count != 1 || string == NULL || *string == NULL)
++        return false;
++    size_t len = (length != NULL && length[0] >= 0) ? (size_t)length[0] : strlen(*string);
++    char *src = strndup(*string, len);
++    if (src == NULL)
++        return false;
++    char *at = strstr(src, key);
++    if (strstr(src, "Standard Vertex Shader") == NULL || strstr(src, "varying vec4 nnglvViewPositionFog;") == NULL ||
++        strstr(src, "varying half4 nnglvTexCoord67;") == NULL || at == NULL)
++    {
++        free(src);
++        return false;
++    }
++    size_t head = (size_t)(at - src) + strlen(key);
++    char *out = malloc(len + sizeof(init));
++    if (out == NULL)
++    {
++        free(src);
++        return false;
++    }
++    memcpy(out, src, head);
++    memcpy(out + head, init, sizeof(init) - 1);
++    memcpy(out + head + sizeof(init) - 1, src + head, len - head);
++    out[len + sizeof(init) - 1] = 0;
++    const GLcharARB *final_string = out;
++    glShaderSourceARB(shaderObj, 1, &final_string, NULL);
++    free(out);
++    free(src);
++    return true;
++}
++
+ void gl_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count, const GLcharARB **const string, const GLint *length)
+ {
++    if (hod4StdVertexShaderFix(shaderObj, count, string, length))
++        return;
++
+     if (gGrp != GROUP_HUMMER && gId != SEGA_RACE_TV)
+     {
+         glShaderSourceARB(shaderObj, count, string, length);
+@@ -807,6 +856,23 @@
+     }
+ }
+ 
++// RavenGun: HOTD4 fetches glShaderSourceARB through glXGetProcAddressARB (one call site, 0x081b6fb7 in Rev C), which the loader
++// does not intercept for this game. patch.c points that call here: glShaderSourceARB goes through gl_ShaderSourceARB (and so
++// hod4StdVertexShaderFix), every other name to the normal lookup. Both functions realign the stack: the game calls with a
++// 4-byte aligned stack (librg-stackalign does this for the normal lookup's results).
++__attribute__((force_align_arg_pointer)) static void hod4ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
++                                                                         const GLcharARB **const string, const GLint *length)
++{
++    gl_ShaderSourceARB(shaderObj, count, string, length);
++}
++
++__attribute__((force_align_arg_pointer)) void *hod4GetProcAddressARB(const unsigned char *procName)
++{
++    if (procName != NULL && strcmp((const char *)procName, "glShaderSourceARB") == 0)
++        return (void *)hod4ShaderSourceARB;
++    return (void *)glXGetProcAddressARB(procName);
++}
++
+ /**
+  * This function intercepts glXGetProcAddressARB
+  * to point non existing functions to existing functions
+--- a/src/lindbergh/patch.c
++++ b/src/lindbergh/patch.c
+@@ -41,6 +41,7 @@
+ // draw; the scene composite (texture 6 onto the window) becomes their texel, a uniformly white picture during play.
+ // The call at 0x082a0b90 (to the depth-state reset 0x082dca9a) is the last step of that path; this replacement first disables
+ // GL_TEXTURE_2D on texture units 1..N again (active unit kept), then does the original call. Measured on the bench, 2026-10-20.
++void *hod4GetProcAddressARB(const unsigned char *procName); // shaderPatches.c (RavenGun)
+ static void (*hod4DepthStateReset)(void) = (void (*)(void))0x082dca9a;
+ __attribute__((force_align_arg_pointer)) static void hod4MultitexDone(void)
+ {
+@@ -2766,6 +2767,11 @@
+             if (memcmp((void *)0x082a0b90, "\xe8\x05\xbf\x03\x00", 5) == 0)
+                 replaceCallAtAddress(0x082a0b90, hod4MultitexDone);
+ 
++            // RavenGun: route the game's glXGetProcAddressARB call (0x081b6fb7, e8 28 59 e9 ff = call 0x0804c8e4) through
++            // hod4GetProcAddressARB, so glShaderSourceARB gets the standard-shader fix (shaderPatches.c).
++            if (memcmp((void *)0x081b6fb7, "\xe8\x28\x59\xe9\xff", 5) == 0)
++                replaceCallAtAddress(0x081b6fb7, hod4GetProcAddressARB);
++
+             if (!getConfig()->hideCursor)
+             {
+                 CPlayer_MainOri = (void (*)(int))trampolineHook((void *)0x08162494, CPlayer_Main, 6);

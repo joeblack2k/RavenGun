@@ -36,6 +36,10 @@ In deze map staat alleen eigen werk plus één wijziging op de bron:
   and not part of RavenGun's GPL code. HOTD4 Rev C only: after its multitexture path the game leaves texture units 1..N enabled
   (GL_REPLACE); on Mesa the in-game picture then turns uniformly white. The patch disables those units again at the end of that
   path (bench 2026-10-20; see the patch header and `docs/lindbergh.md`).
+- `patches/0006-hod4-std-shader-varyings.patch`: a change to `src/lindbergh/shaderPatches.c` of the source (CC BY-NC-SA 4.0,
+  not part of RavenGun's GPL code). HOTD4 only: none of the game's standard material programs linked on Mesa (the fragment
+  shader reads varyings the vertex shader does not write), so the 3D scene was drawn without its shaders (wrong colours). The
+  patch sets those five varyings to 0 at the start of the standard vertex shader's main() (2026-10-21; see the patch header).
 
 ## Bouwen
 
