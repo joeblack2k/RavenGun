@@ -112,9 +112,21 @@
 //   60 polls without a frame; the launcher then shows a gun camera error (RSSharedData+0x1a4, RSLauncher 0x1400633ea). The frames come
 //   from the shared memory TeknoParrot_JvsState (dome_gun.h). RG_DOMEGUN_MASKS=<hex rva> logs the game's button masks.
 //
+// FOURTEENTH TASK: Lost Land's card reader on COM4, in the launcher
+//   RSLauncher.exe attaches a card reader on COM4 at start (0x14002eab0, card library linked into the exe) and raises error 39
+//   "07-12 CARD R/W INITIALIZE ERROR" (fatal) when it does not answer. RG_CARDRW_COMPORT=COM4 answers it as an NXP PN532 reader that
+//   is present and has no card (pn532_reader.h has the frames and what the launcher checks).
+//
+// FIFTEENTH TASK: an error the launcher raises at start and never clears
+//   Lost Land's RSLauncher.exe raises error 58 "20-02 VERSION UP ERROR 2" in WinMain without a condition, and no code path takes it
+//   out of its error list again, so the game never leaves FATAL ERROR. RG_ERRCLEAR calls the launcher's own forced clear for that code
+//   once, on its main thread (err_clear.h has the addresses and why).
+//
 // ENVIRONMENT
 //   RG_CHILD_PRELOAD=name   load this DLL into a child process with that exe name (THIRTEENTH TASK)
 //   RG_DOMEGUN_COMPORT=COM2 emulate the gun peripheral on that port (THIRTEENTH TASK)
+//   RG_CARDRW_COMPORT=COM4  emulate the launcher's PN532 card reader on that port (FOURTEENTH TASK)
+//   RG_ERRCLEAR=m:f:c:bytes clear error c once with the exe's own forced clear f (FIFTEENTH TASK)
 //   RG_MFCAM_SYNTHETIC=WxH  a camera of that size also without the camera file (TWELFTH TASK)
 //   RG_MFCAM_MODULE=name    redirect MFEnumDeviceSources in that module instead of the exe (TWELFTH TASK)
 //   RG_CONTENT_ROUTER=a.b.c.d  answer the game's pings to its content router at that address (ELEVENTH TASK)
@@ -174,6 +186,8 @@
 #include "bngrw_fake.h"
 #include "cam_select.h"
 #include "dome_gun.h"
+#include "pn532_reader.h"
+#include "err_clear.h"
 #include "window_mode.h"
 #include "str_board.h"
 #include "usb_dongle.h"
@@ -1001,11 +1015,17 @@ bool is_str(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_str_handle; }
 // The gun peripheral of Lost Land Adventure (THIRTEENTH TASK); the functions are further down.
 volatile HANDLE g_gun_handle = INVALID_HANDLE_VALUE;
 bool is_gun(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_gun_handle; }
-bool is_fake_com(HANDLE h) { return is_jvs(h) || is_str(h) || is_gun(h); }
+// The card reader of Lost Land's launcher (FOURTEENTH TASK); the functions are further down.
+char g_card_port[32];
+volatile HANDLE g_card_handle = INVALID_HANDLE_VALUE;
+bool is_card(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_card_handle; }
+bool is_fake_com(HANDLE h) { return is_jvs(h) || is_str(h) || is_gun(h) || is_card(h); }
 HANDLE str_open(LPCSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD flags);
+HANDLE card_open(LPCSTR name);
 
 HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
     if (g_str_port[0] && rg_jvscom::port_matches(name, g_str_port)) return str_open(name, access, sa, flags);
+    if (g_card_port[0] && rg_jvscom::port_matches(name, g_card_port)) return card_open(name);
     if (!g_jvs_port[0] || !rg_jvscom::port_matches(name, g_jvs_port)) return g_create_file_a(name, access, share, sa, disp, flags, tmpl);
     // The bridge only creates the pipe when the game needs it or just before: wait briefly until it is there (at most ~5 s).
     HANDLE h = INVALID_HANDLE_VALUE;
@@ -1032,6 +1052,9 @@ BOOL WINAPI rg_SetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_fake_com(
 BOOL WINAPI rg_GetCommTimeouts(HANDLE h, LPCOMMTIMEOUTS t) { return is_fake_com(h) ? TRUE : g_get_comm_timeouts(h, t); }
 BOOL WINAPI rg_SetupComm(HANDLE h, DWORD i, DWORD o) { return is_fake_com(h) ? TRUE : g_setup_comm(h, i, o); }
 BOOL WINAPI rg_PurgeComm(HANDLE h, DWORD f) { return is_fake_com(h) ? TRUE : g_purge_comm(h, f); }
+using SetCommMaskFn = BOOL(WINAPI*)(HANDLE, DWORD);
+SetCommMaskFn g_set_comm_mask = nullptr;
+BOOL WINAPI rg_SetCommMask(HANDLE h, DWORD m) { return is_fake_com(h) ? TRUE : g_set_comm_mask(h, m); }
 BOOL WINAPI rg_GetCommModemStatus(HANDLE h, LPDWORD status) {
     if (is_str(h)) {
         if (status) *status = 0x30;   // CTS and DSR: the board is there
@@ -1067,6 +1090,7 @@ void hook_comm_once() {
     hook_kernel32("GetCommTimeouts", &rg_GetCommTimeouts, g_get_comm_timeouts);
     hook_kernel32("SetupComm", &rg_SetupComm, g_setup_comm);
     hook_kernel32("PurgeComm", &rg_PurgeComm, g_purge_comm);
+    hook_kernel32("SetCommMask", &rg_SetCommMask, g_set_comm_mask);
     hook_kernel32("GetCommModemStatus", &rg_GetCommModemStatus, g_get_modem_status);
     if (!g_create_file_a) rg_log("COM: CreateFileA is not in the game's import table; the redirection cannot catch anything");
 }
@@ -2538,6 +2562,10 @@ ReadFileFn g_read_file = nullptr;
 WriteFileFn g_write_file = nullptr;
 CloseHandleFn g_close_handle = nullptr;
 
+BOOL card_read(LPVOID buf, DWORD want, LPDWORD got);
+BOOL card_write(LPCVOID buf, DWORD n, LPDWORD put);
+void card_close();
+
 HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
     const std::string n8 = name ? to_utf8(name) : std::string();
     if (!g_gun_port[0] || !rg_jvscom::port_matches(n8.c_str(), g_gun_port))
@@ -2584,6 +2612,7 @@ BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD errors, LPCOMSTAT st) {
 }
 
 BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD want, LPDWORD got, LPOVERLAPPED ov) {
+    if (is_card(h)) return card_read(buf, want, got);
     if (!is_gun(h)) return g_read_file(h, buf, want, got, ov);
     EnterCriticalSection(&g_gun_cs);
     const size_t k = g_gun.read(static_cast<uint8_t*>(buf), want);
@@ -2597,6 +2626,7 @@ BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD want, LPDWORD got, LPOVERLAP
 }
 
 BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD put, LPOVERLAPPED ov) {
+    if (is_card(h)) return card_write(buf, n, put);
     if (!is_gun(h)) return g_write_file(h, buf, n, put, ov);
     const auto* b = static_cast<const uint8_t*>(buf);
     for (DWORD i = 0; i < n && i < 2; ++i) {
@@ -2611,11 +2641,23 @@ BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD put, LPOVERLAPP
 }
 
 BOOL WINAPI rg_CloseHandle(HANDLE h) {
+    if (is_card(h)) card_close();
     if (is_gun(h)) {
         g_gun_handle = INVALID_HANDLE_VALUE;
         rg_log("gun: the game closed the port");
     }
     return g_close_handle(h);
+}
+
+// ReadFile/WriteFile/CloseHandle once, for the gun and the card reader together (redirecting twice would make the wrappers point at
+// themselves).
+void hook_rw_once() {
+    static bool done = false;
+    if (done) return;
+    done = true;
+    hook_kernel32("ReadFile", &rg_ReadFile, g_read_file);
+    hook_kernel32("WriteFile", &rg_WriteFile, g_write_file);
+    hook_kernel32("CloseHandle", &rg_CloseHandle, g_close_handle);
 }
 
 void setup_dome_gun() {
@@ -2639,9 +2681,7 @@ void setup_dome_gun() {
     g_create_file_w = reinterpret_cast<CreateFileWFn>(old);
     g_clear_comm_error = reinterpret_cast<ClearCommErrorFn>(clear);
     std::snprintf(g_gun_port, sizeof g_gun_port, "%s", port);
-    hook_kernel32("ReadFile", &rg_ReadFile, g_read_file);
-    hook_kernel32("WriteFile", &rg_WriteFile, g_write_file);
-    hook_kernel32("CloseHandle", &rg_CloseHandle, g_close_handle);
+    hook_rw_once();
     hook_comm_once();   // GetCommState/SetCommState on our handle succeed
     char rva[32];
     if (GetEnvironmentVariableA("RG_DOMEGUN_MASKS", rva, sizeof rva) > 0 && rva[0]) {
@@ -2652,6 +2692,78 @@ void setup_dome_gun() {
     }
     rg_log("gun peripheral on: %s answered from TeknoParrot_JvsState (12-byte frames, both players)%s", g_gun_port,
            g_gun_mask_rva ? ", button masks logged" : "");
+}
+
+// --- the card reader on a COM port (see FOURTEENTH TASK at the top; logic in pn532_reader.h) --------------------------------------------
+// RG_CARDRW_COMPORT=COM4: CreateFileA on that port gives a handle of our own (an event, so that CloseHandle stays valid); the launcher's
+// WriteFile on it goes into the emulated PN532 reader and its ReadFile takes the answers. The comm calls on the handle succeed.
+CRITICAL_SECTION g_card_cs;
+rg_pn532::Reader g_card;
+int g_card_logged = 0;   // command frames logged so far (the first ones and every 1000th)
+using FlushFileBuffersFn = BOOL(WINAPI*)(HANDLE);
+FlushFileBuffersFn g_flush_file = nullptr;
+BOOL WINAPI rg_FlushFileBuffers(HANDLE h) { return is_card(h) ? TRUE : g_flush_file(h); }
+
+HANDLE card_open(LPCSTR name) {
+    HANDLE h = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    EnterCriticalSection(&g_card_cs);
+    g_card = rg_pn532::Reader{};
+    g_card_handle = h;
+    LeaveCriticalSection(&g_card_cs);
+    rg_log("card reader: CreateFileA(%s) -> our PN532 reader (present, no card), handle %p", name, h);
+    return h;
+}
+
+BOOL card_write(LPCVOID buf, DWORD n, LPDWORD put) {
+    EnterCriticalSection(&g_card_cs);
+    const unsigned before = g_card.commands, dropped = g_card.dropped;
+    g_card.write(static_cast<const uint8_t*>(buf), n);
+    const unsigned now = g_card.commands;
+    const int cmd = g_card.last_cmd;
+    const bool bad = g_card.dropped != dropped;
+    LeaveCriticalSection(&g_card_cs);
+    if (now != before && (g_card_logged < 40 || now % 1000 == 0)) {
+        ++g_card_logged;
+        rg_log("card reader: command 0x%02x answered (%u so far)", cmd, now);
+    }
+    if (bad) rg_log("card reader: a frame with a bad checksum was dropped");
+    if (put) *put = n;
+    return TRUE;
+}
+
+BOOL card_read(LPVOID buf, DWORD want, LPDWORD got) {
+    EnterCriticalSection(&g_card_cs);
+    const size_t k = g_card.read(static_cast<uint8_t*>(buf), want);
+    LeaveCriticalSection(&g_card_cs);
+    // A real port waits for its read timeout when nothing comes (the launcher sets 10 ms, 0x140138b4e); do not spin.
+    if (k == 0) Sleep(1);
+    if (got) *got = static_cast<DWORD>(k);
+    return TRUE;
+}
+
+void card_close() {
+    g_card_handle = INVALID_HANDLE_VALUE;
+    rg_log("card reader: the launcher closed the port");
+}
+
+void setup_card_reader() {
+    char port[32];
+    if (GetEnvironmentVariableA("RG_CARDRW_COMPORT", port, sizeof port) == 0 || !port[0]) return;   // off
+    // Only in the exe that opens its ports with CreateFileA and has the PN532 library (the launcher); the game started by it inherits
+    // the setting and does not import CreateFileA.
+    HMODULE exe = GetModuleHandleW(nullptr);
+    void* old = patch_iat(exe, "KERNEL32.dll", "FlushFileBuffers", reinterpret_cast<void*>(&rg_FlushFileBuffers));
+    if (old) g_flush_file = reinterpret_cast<FlushFileBuffersFn>(old);
+    InitializeCriticalSection(&g_card_cs);
+    std::snprintf(g_card_port, sizeof g_card_port, "%s", port);
+    hook_comm_once();
+    if (!g_create_file_a) {
+        g_card_port[0] = 0;
+        rg_log("card reader %s: CreateFileA not in this exe, off", port);
+        return;
+    }
+    hook_rw_once();
+    rg_log("card reader on: %s answered as a PN532 reader without a card", g_card_port);
 }
 
 // --- the error set of a game (RG_ERRMAP) -------------------------------------------------------------------------------------------------
@@ -2724,6 +2836,70 @@ void setup_errmap() {
            static_cast<unsigned long long>(g_errmap_off));
 }
 
+// --- one error the exe raises and never clears (RG_ERRCLEAR, see FIFTEENTH TASK at the top; settings in err_clear.h) ---------------------
+// On the exe's first GetMessageW (its main thread, right after WinMain raised the error) the exe's own forced clear is called once for
+// that code: the same call the launcher makes for its dongle errors. Only in 64-bit builds (the launcher is 64-bit; one calling
+// convention).
+#ifdef _WIN64
+rg_errclear::Spec g_errclear;
+volatile LONG g_errclear_done = 0;
+using GetMessageWFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT);
+GetMessageWFn g_get_message_w = nullptr;
+using ErrClearFn = int (*)(void* manager, int code, int force);
+
+void errclear_try() {
+    if (InterlockedCompareExchange(&g_errclear_done, 1, 0) != 0) return;
+    const auto base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+    void* mgr = nullptr;
+    if (!safe_read(reinterpret_cast<void*>(base + g_errclear.mgr_rva), &mgr, sizeof mgr) || !mgr) {
+        InterlockedExchange(&g_errclear_done, 0);   // no manager yet: try again at the next message
+        return;
+    }
+    const auto fn = reinterpret_cast<ErrClearFn>(base + g_errclear.fn_rva);
+    const int r = fn(mgr, g_errclear.code, 1);
+    rg_log("error clear: code %d %s by the exe's own forced clear (exe+0x%llx)", g_errclear.code,
+           r ? "cleared" : "was not set; nothing done", static_cast<unsigned long long>(g_errclear.fn_rva));
+}
+
+BOOL WINAPI rg_GetMessageW(LPMSG msg, HWND wnd, UINT lo, UINT hi) {
+    if (!g_errclear_done) errclear_try();
+    return g_get_message_w(msg, wnd, lo, hi);
+}
+#endif
+
+void setup_errclear() {
+    char spec[96];
+    if (GetEnvironmentVariableA("RG_ERRCLEAR", spec, sizeof spec) == 0 || !spec[0]) return;   // off
+#ifdef _WIN64
+    char exe[MAX_PATH] = {};
+    GetModuleFileNameA(nullptr, exe, MAX_PATH);
+    char want[MAX_PATH] = {};
+    if (GetEnvironmentVariableA("RG_ERRCLEAR_EXE", want, sizeof want) > 0 && want[0] && !std::strstr(exe, want)) return;
+    if (!rg_errclear::parse(spec, g_errclear)) {
+        rg_log("RG_ERRCLEAR=%s not understood (manager rva:function rva:code:first bytes, hex); off", spec);
+        return;
+    }
+    const auto* base = reinterpret_cast<const BYTE*>(GetModuleHandleW(nullptr));
+    const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + reinterpret_cast<const IMAGE_DOS_HEADER*>(base)->e_lfanew);
+    const uint64_t size = nt->OptionalHeader.SizeOfImage;
+    if (g_errclear.mgr_rva + 8 > size || g_errclear.fn_rva + g_errclear.prologue_len > size ||
+        !rg_errclear::prologue_matches(g_errclear, base + g_errclear.fn_rva)) {
+        rg_log("error clear: the function at exe+0x%llx is not the expected one (another build?); off",
+               static_cast<unsigned long long>(g_errclear.fn_rva));
+        return;
+    }
+    void* old = patch_iat(GetModuleHandleW(nullptr), "USER32.dll", "GetMessageW", reinterpret_cast<void*>(&rg_GetMessageW));
+    if (!old) {
+        rg_log("error clear: GetMessageW not in this exe; off");
+        return;
+    }
+    g_get_message_w = reinterpret_cast<GetMessageWFn>(old);
+    rg_log("error clear on: code %d once, on the first GetMessageW", g_errclear.code);
+#else
+    rg_log("RG_ERRCLEAR is only in the 64-bit build; off");
+#endif
+}
+
 void setup() {
     InitializeCriticalSection(&g_log_cs);
     // Log next to this DLL.
@@ -2765,7 +2941,9 @@ void setup() {
     setup_windowed();       // likewise: only with RG_WINDOWED=1
     setup_child_preload();  // likewise: only with RG_CHILD_PRELOAD
     setup_dome_gun();       // likewise: only with RG_DOMEGUN_COMPORT
+    setup_card_reader();    // likewise: only with RG_CARDRW_COMPORT
     setup_errmap();         // likewise: only with RG_ERRMAP
+    setup_errclear();       // likewise: only with RG_ERRCLEAR
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: nothing redirected");
         return;

@@ -1505,7 +1505,7 @@
    "offscreen_margin": 0
   },
   "LostLandAdventures": {
-   "description": "Lost Land Adventure (Namco ES3X, TeknoParrot-kern; profiel LostLandAdventures, TeknoParrotUi LostLandPipe). Control (offset 8): trekker speler 1 (0x1, TeknoParrot 'P2Button1') en speler 2 (0x2, 'P2Button2'). Aim: 4 kanalen van 1 byte met stride 4 op offset 12..24 (P1 X/Y = 12/16, P2 = 20/24). Start, munt en service (P1Button3/4, Coin1, Service1) zijn nog niet gemeten. Toegevoegd 2026-10-16.",
+   "description": "Lost Land Adventure (Namco ES3X, TeknoParrot-kern; profiel LostLandAdventures, TeknoParrotUi LostLandPipe). Control (offset 8): trekker speler 1 (0x1, TeknoParrot 'P2Button1') en speler 2 (0x2, 'P2Button2'). Aim: 4 kanalen van 1 byte met stride 4 op offset 12..24 (P1 X/Y = 12/16, P2 = 20/24). Service, coin, TEST and the two start buttons are bits 2..6: our own wajvio.dll (tools/rg-lostland/rg_wajv_map.h) reads them from the same word and gives them to RSLauncher.exe as the JVS switches and coin counter it reads (0x140062ee0). Toegevoegd 2026-10-16.",
    "size": 64,
    "complete": false,
    "mirror_bytes": [
@@ -1522,6 +1522,31 @@
      "signal": "p2.trigger",
      "offset": 8,
      "bit": 1
+    },
+    {
+     "signal": "service",
+     "offset": 8,
+     "bit": 2
+    },
+    {
+     "signal": "coin1",
+     "offset": 8,
+     "bit": 3
+    },
+    {
+     "signal": "test",
+     "offset": 8,
+     "bit": 4
+    },
+    {
+     "signal": "p1.start",
+     "offset": 8,
+     "bit": 5
+    },
+    {
+     "signal": "p2.start",
+     "offset": 8,
+     "bit": 6
     }
    ],
    "axes": [

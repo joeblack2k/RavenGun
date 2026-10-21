@@ -615,6 +615,12 @@ if(RAVENGUN_BUILD_TESTS)
   # The gun peripheral of Lost Land Adventure in rg-mfcam.dll (tools/rg-mfcam/dome_gun.h): COM2 frames from the shared memory.
   add_executable(ravengun_dome_gun_tests tests/test_dome_gun.cpp)
   add_test(NAME ravengun_dome_gun_tests COMMAND ravengun_dome_gun_tests)
+  # The card reader of Lost Land Adventure's launcher in rg-mfcam.dll (tools/rg-mfcam/pn532_reader.h): PN532 frames on COM4.
+  add_executable(ravengun_pn532_reader_tests tests/test_pn532_reader.cpp)
+  add_test(NAME ravengun_pn532_reader_tests COMMAND ravengun_pn532_reader_tests)
+  # RG_ERRCLEAR of rg-mfcam.dll (tools/rg-mfcam/err_clear.h): which launcher error to clear with its own forced clear.
+  add_executable(ravengun_err_clear_tests tests/test_err_clear.cpp)
+  add_test(NAME ravengun_err_clear_tests COMMAND ravengun_err_clear_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)
