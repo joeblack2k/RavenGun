@@ -1028,7 +1028,11 @@ Verdict plan_direct(const std::string& name, const DirectPaths& p, const DirectO
     }
 
     // 7. De JVS-brug en de procesnamen.
-    static const std::set<std::string> no_pipe = {"EuropaRFordRacing", "EuropaRSegaRally3", "Theatrhythm", "FastIo", "GunslingerStratos3"};
+    // LostLandAdventures: the game's JVS goes through our wajvio.dll, which reads the shared state only. With the JVS pipe
+    // connected RSLauncher.exe spins after its first WAJVUpdate in the wait loop of its card-reader start (0x14002eb27, polling
+    // a status that stays 1); with shm only it runs its frame loop and starts the game (both measured 2026-10-21).
+    static const std::set<std::string> no_pipe = {"EuropaRFordRacing", "EuropaRSegaRally3", "Theatrhythm", "FastIo", "GunslingerStratos3",
+                                                  "LostLandAdventures"};
     pl.pipe_mode = no_pipe.count(emu) ? "shm" : "pipe";
     pl.shm_source = o.shm_source.empty() ? "/dev/shm/TeknoParrot_JvsState" : o.shm_source;
     // De JVS-brug: onze rg-jvsbridge.exe (het onderdeel "JVS bridge"). pipehelper.exe uit de TeknoParrot-map alleen als terugval voor

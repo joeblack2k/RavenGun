@@ -14,6 +14,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdarg.h>
+
+#ifdef _WIN32
+#include <windows.h>  /* GetCurrentProcessId for the log file */
+#else
+#include <unistd.h>   /* getpid for the log file */
+#endif
 
 #ifndef _WIN32
 #include <dirent.h>   /* voor de lineaire scan in dongle_find */
@@ -155,16 +162,49 @@ static int hasp_verbose(void)
     return v && *v && strcmp(v, "0") != 0;
 }
 
+/*
+ * Every log line goes to stderr and, when RAVENGUN_HASP_LOG names a file, is also appended to that
+ * file with the process id in front. A Windows game started by its own launcher (Lost Land
+ * Adventure: RSLauncher.exe -> DomeShooterGame-Win64-Shipping.exe) gets no stderr handle, so
+ * without the file its calls are never seen. The file is opened per line, so the launcher and the
+ * game can share it.
+ */
+static void dongle_path(char *out, size_t outlen, const char *in);
+
+static void hasp_log(const char *fmt, ...)
+{
+    char line[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(line, sizeof line, fmt, ap);
+    va_end(ap);
+    fputs(line, stderr);
+    fflush(stderr);
+    const char *path = getenv("RAVENGUN_HASP_LOG");
+    if (path && *path) {
+        char fpath[1024];
+        dongle_path(fpath, sizeof fpath, path);
+        FILE *f = fopen(fpath, "a");
+        if (f) {
+#ifdef _WIN32
+            fprintf(f, "[pid %lu] %s", (unsigned long)GetCurrentProcessId(), line);
+#else
+            fprintf(f, "[pid %ld] %s", (long)getpid(), line);
+#endif
+            fclose(f);
+        }
+    }
+}
+
 static void hasp_trace(const char *fn, const char *detail)
 {
     if (!hasp_verbose()) return;
     if (g_trace_lines >= HASP_TRACE_MAX) return;
     g_trace_lines++;
     if (g_trace_lines == HASP_TRACE_MAX)
-        fprintf(stderr, "[ravengun-hasp] %s: verdere aanroepen worden niet meer gemeld\n", fn);
+        hasp_log("[ravengun-hasp] %s: verdere aanroepen worden niet meer gemeld\n", fn);
     else
-        fprintf(stderr, "[ravengun-hasp] %s%s%s\n", fn, detail ? " " : "", detail ? detail : "");
-    fflush(stderr);
+        hasp_log("[ravengun-hasp] %s%s%s\n", fn, detail ? " " : "", detail ? detail : "");
 }
 
 /* ============================================================ paden (Windows) */
@@ -603,21 +643,21 @@ int dongle_install_from_env(void)
 
     if (!game[0]) {
         if (hasp_verbose())
-            fprintf(stderr, "[ravengun-hasp] RAVENGUN_HASP_GAME is niet gezet; geen dongle geladen\n");
+            hasp_log("[ravengun-hasp] RAVENGUN_HASP_GAME is niet gezet; geen dongle geladen\n");
         return -1;
     }
     if (dongle_find(root, game, &d) != 0) {
         if (hasp_verbose())
-            fprintf(stderr, "[ravengun-hasp] geen dongle voor '%s' in %s\n", game, root);
+            hasp_log("[ravengun-hasp] geen dongle voor '%s' in %s\n", game, root);
         return -1;
     }
     if (dongle_install(&d) != 0) {
         if (hasp_verbose())
-            fprintf(stderr, "[ravengun-hasp] dongle '%s' gevonden maar niet te installeren\n", game);
+            hasp_log("[ravengun-hasp] dongle '%s' gevonden maar niet te installeren\n", game);
         return -1;
     }
     if (hasp_verbose())
-        fprintf(stderr, "[ravengun-hasp] dongle '%s' geladen uit %s (%d geheugenbestand(en), haspid %u)\n",
+        hasp_log("[ravengun-hasp] dongle '%s' geladen uit %s (%d geheugenbestand(en), haspid %u)\n",
                 d.game[0] ? d.game : game, d.dir, d.nmemory, d.haspid);
     return 0;
 }

@@ -1,0 +1,12 @@
+{
+  "kind": "hasp",
+  "game": "Lost Land Adventure",
+  "haspid": 412719385,
+  "features": [0, 1, 60],
+  "keycaps": ["hasphl", "newintf", "hasp4", "aes", "sentinelhl"],
+  "memory": [
+    {"name": "read/write", "fileid": 65524, "size": 112, "file": "dongle/memory/00000000000000001111111111110100"}
+  ],
+  "port": {"type": "USB", "address": 196608},
+  "notes": "Lost Land Adventure (64-bit UE4 title behind RSLauncher.exe, 2026-10-21). The launcher and LLA/Binaries/Win64/DomeShooterGame-Win64-Shipping.exe both load hasp_windows_x64_106993.dll -- the exact name our emulator is built as -- so our DLL replaces the vendor runtime through the drop-in (WINEDLLOVERRIDES hasp_windows_x64_106993=n, RAVENGUN_HASP_DIR=ravengun-hasp, RAVENGUN_HASP_GAME=LostLandAdventure, RAVENGUN_HASP_VERBOSE=1). The values here are SYNTHETIC, built from what the game itself asks for, never from TeknoParrot: the haspid is invented, the features/keycaps are the standard HASP HL set and the 112-byte read/write image is zero-filled, because RSLauncher writes (hasp_write) and the game reads back, so the round trip is consistent without any real dongle data. The memory size is the first value tried; RAVENGUN_HASP_VERBOSE=1 logs every call so it can be corrected from the game's own requests."
+}

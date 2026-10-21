@@ -173,8 +173,11 @@ if [[ "$DO_DROPIN" == 1 ]]; then
       naam="${sectie#[}"; naam="${naam%]}"
       [[ -n "$naam" ]] || continue
       bron=""
-      for b in "${BUILT[@]}"; do [[ "$b" == "$naam" ]] && bron="$OUT/$naam"; done
-      [[ -n "$bron" && -f "$bron" ]] || { [[ -f "$OUT/windows/$naam" ]] && bron="$OUT/windows/$naam"; }
+      # A section may name a sub path (Lost Land Adventure: LLA/Binaries/Win64/hasp_windows_x64_106993.dll,
+      # the copy for the game exe's own folder); the built file is found by its base name.
+      basis="${naam##*/}"
+      for b in "${BUILT[@]}"; do [[ "$b" == "$basis" ]] && bron="$OUT/$basis"; done
+      [[ -n "$bron" && -f "$bron" ]] || { [[ -f "$OUT/windows/$basis" ]] && bron="$OUT/windows/$basis"; }
       if [[ -n "$bron" && -f "$bron" ]]; then
         install -m 0755 "$bron" "$dir/$naam"
         echo "  $game/$naam"
