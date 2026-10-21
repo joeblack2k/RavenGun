@@ -51,7 +51,7 @@ FINDINGS = {
     "LethalEnforcers3": "LethalEnforcers3", "LGI": "LetsGoIsland", "LGI3D": "LetsGoIsland3D", "LGS": "LetsGoSafari",
     "LuigisMansion": "LuigisMansion", "MedaruNoGunman": "MedaruNoGunman", "MusicGunGun2": "MusicGunGun2", "NERF": "NERF",
     "OmatsuriYasanGansoTakoyaki": "OmatsuriYasan", "OmatsuriYasanKingyoSukui": "OmatsuriYasan", "Otomedius": "Otomedius",
-    "PacmanChomp": "PacmanChompMania", "PigsMightFly": "PigsMightFly", "RabbidsHollywood": "RabbidsHollywood",
+    "PacmanChomp": "PacmanChompMania", "RabbidsHollywood": "RabbidsHollywood",
     "RaccoonRampage": "RaccoonRampage", "Terminator": "Terminator",
 }
 

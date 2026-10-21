@@ -30,7 +30,6 @@ Automatisch gemaakt met `python3 tools/verify-all.py --md docs/per-game-stand.md
 | OmatsuriYasanKingyoSukui | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
 | Otomedius | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
 | PacmanChomp | ElfLdr2 | tp-budgie | - | nee | - | - | 1 bestand(en), 1 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
-| PigsMightFly | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
 | RabbidsHollywood | TeknoParrot | ours | tp | ja | matrix | matrix.py (aanwezig) | 3 bestand(en), 3 sectie(s) | 0 aan / 0 uit / 0 geweigerd | ok |
 | RaccoonRampage | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |
 | RainbowBombergirl | TeknoParrot | ours | tp | nee | - | - | - | 0 aan / 0 uit / 0 geweigerd | ok |

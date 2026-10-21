@@ -41,7 +41,6 @@ standaardwaarde); dat staat er dan bij.
 | **OmatsuriYasanKingyoSukui** | TeknoParrot | WartranTroopers | - | - | parked |
 | **Otomedius** | TeknoParrot | WartranTroopers | - | - | parked |
 | **PacmanChomp** | ElfLdr2 | RawThrillsGUN | - | - | parked |
-| **PigsMightFly** | TeknoParrot | WartranTroopers | - | - | playable |
 | **RabbidsHollywood** | TeknoParrot | WartranTroopers | matrix | drop-in (dongle.json + dropin/) | parked |
 | **RaccoonRampage** | TeknoParrot | WartranTroopers | - | - | playable |
 | **RainbowBombergirl** | TeknoParrot | WartranTroopers | - | - | parked |
@@ -80,7 +79,6 @@ standaardwaarde); dat staat er dan bij.
 * **OmatsuriYasanKingyoSukui** — -
 * **Otomedius** — -
 * **PacmanChomp** — -
-* **PigsMightFly** — -
 * **RabbidsHollywood** — matrix (dropin/)
 * **RaccoonRampage** — -
 * **RainbowBombergirl** — -
@@ -119,7 +117,6 @@ standaardwaarde); dat staat er dan bij.
 * **OmatsuriYasanKingyoSukui** — Start nog niet: de game stopt met exitcode 8 nadat hij alle schijfletters heeft doorzocht op rqrdlist.rqr en campaign*.bmp. Geparkeerd.
 * **Otomedius** — Start nog niet: wit venster; de game zoekt een ACIO-micom op COM2 ('COM Port 2 Open Error') en komt niet verder. Geparkeerd.
 * **PacmanChomp** — Geparkeerd. Een van drie Raw Thrills-games (met Jurassic Park, Pac-Man Chomp-Mania en Galaga Assault) die de lader van TeknoParrot onder Wine nog niet
-* **PigsMightFly** — Speelbaar: start (toets 1) en trekker (de hendel die het varken lanceert) werken; staand beeld (portret) in het midden van de tv. Testmenu: TEST (toet
 * **RabbidsHollywood** — Start en reageert op de Move (munt, start, wereldkeuze), maar stopt na ongeveer een minuut zichzelf: de eigen dongle-controle van de game (SBK.Matrix,
 * **RaccoonRampage** — Speelbaar: richten, trekker (ook = start) en munt (toets 5) werken; testmenu met TEST (toets 0), service (F3) en F4. De kalibratie is eenmalig gedaan 
 * **RainbowBombergirl** — Start niet verder dan het begin van de game: de game start tot de attract (twee schermen: staand hoofdscherm rechts, aanraakscherm links onder), het t
