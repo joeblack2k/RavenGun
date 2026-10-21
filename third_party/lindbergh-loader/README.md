@@ -32,6 +32,10 @@ In deze map staat alleen eigen werk plus één wijziging op de bron:
 - `patches/0001-passthrough-count-escaped-bytes.patch`: een wijziging op `src/lindbergh/passthrough.c` van de bron en daarom
   **CC BY-NC-SA 4.0**, zoals de bron (SPDX-regel bovenaan het bestand). Het is geen deel van de GPL-code van RavenGun; het bestand
   wordt alleen in de build-container op de bron toegepast. Bedoeld om upstream aan te bieden.
+- `patches/0005-hod4-leaked-texture-units.patch`: a change to `src/lindbergh/patch.c` of the source, so also **CC BY-NC-SA 4.0**
+  and not part of RavenGun's GPL code. HOTD4 Rev C only: after its multitexture path the game leaves texture units 1..N enabled
+  (GL_REPLACE); on Mesa the in-game picture then turns uniformly white. The patch disables those units again at the end of that
+  path (bench 2026-10-20; see the patch header and `docs/lindbergh.md`).
 
 ## Bouwen
 

@@ -34,6 +34,9 @@ struct NativePaths {
     std::string home;          // HOME van de gebruiker (voor gamescope)
     std::string exec_helper;   // rg-exec (tools/rg-exec): tussen gamescope en bwrap, laat alleen DISPLAY van gamescope door
     std::string lindbergh;     // de Lindbergh-laag (scripts/build-lindbergh-loader.sh; leeg = @data/lindbergh-loader/current)
+    // TSC frequency of this machine in GHz (measure_tsc_ghz()); the Lindbergh route writes it as [GameSpecific] CPU_FREQ_GHZ unless
+    // the profile's lindbergh.ini sets that key itself. 0 = do not write it (tests, non-x86).
+    double tsc_ghz = 0;
 };
 
 struct Mount { std::string mode, src, dst; };
@@ -130,6 +133,12 @@ std::string lindbergh_game_id(const std::string& elf_path);
 // ontbrekende komt achteraan in zijn sectie (of in een nieuwe sectie). Commentaar en andere regels blijven staan. Zuiver.
 struct IniKey { std::string section, key, value; };
 std::string lindbergh_ini(const std::string& base, const std::vector<IniKey>& forced);
+// True when the INI text `base` has `key` in `section` (case-insensitive, comment lines skipped). Pure.
+bool ini_has_key(const std::string& base, const std::string& section, const std::string& key);
+// The TSC frequency in GHz, measured once per process against CLOCK_MONOTONIC (about 50 ms); 0 when it cannot be measured.
+// HOTD4 (lindbergh-loader's CPU_FREQ_GHZ) converts TSC ticks to game time with a hard-coded 3.0 GHz; on a faster TSC the
+// game runs too fast.
+double measure_tsc_ghz();
 // Voert de schrijflaag uit. Seed/Link alleen als het pad er nog niet is (laag en NAS). `log` krijgt een regel per stap.
 bool apply_layer(const NativePlan& plan, std::vector<std::string>& log, std::string& err);
 // Kleine hex-sha256 van een bestand (leeg = niet te lezen).

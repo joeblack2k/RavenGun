@@ -1027,6 +1027,7 @@ std::string GameService::run_native(const std::string& profile) {
     // De spelmappen van de app (library.json) bij elke start opnieuw: een map die de gebruiker net toevoegde telt meteen mee.
     L::NativePaths np = c_.native;
     if (np.nas.empty()) np.nas_roots = library_folders(c_.library_file, c_.home);
+    np.tsc_ghz = L::measure_tsc_ghz();   // Lindbergh: HOTD4's game speed (CPU_FREQ_GHZ)
     if (np.nas.empty() && np.nas_roots.empty()) return "geen spelmappen in de app: voeg je spelmap toe (Add Folder)";
     const std::string text = L::profile_text(np, profile);
     if (text.empty()) return "het native profiel " + L::profile_file(np, profile) + " is geen geldig JSON-object";

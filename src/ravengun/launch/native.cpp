@@ -502,6 +502,39 @@ std::string lindbergh_game_id(const std::string& elf_path) {
     return out;
 }
 
+bool ini_has_key(const std::string& base, const std::string& section, const std::string& key) {
+    std::istringstream in(base);
+    std::string l, sec;
+    while (std::getline(in, l)) {
+        const std::string t = trim(l);
+        if (t.empty() || t[0] == ';' || t[0] == '#') continue;
+        if (t.size() >= 2 && t.front() == '[' && t.back() == ']') { sec = t.substr(1, t.size() - 2); continue; }
+        const size_t eq = t.find('=');
+        if (eq != std::string::npos && lower(sec) == lower(section) && lower(trim(t.substr(0, eq))) == lower(key)) return true;
+    }
+    return false;
+}
+
+double measure_tsc_ghz() {
+#if defined(__x86_64__) || defined(__i386__)
+    static const double ghz = [] {
+        timespec a{}, b{};
+        ::clock_gettime(CLOCK_MONOTONIC, &a);
+        const uint64_t t0 = __builtin_ia32_rdtsc();
+        timespec d{0, 50 * 1000 * 1000};
+        while (::nanosleep(&d, &d) != 0 && errno == EINTR) {}
+        const uint64_t t1 = __builtin_ia32_rdtsc();
+        ::clock_gettime(CLOCK_MONOTONIC, &b);
+        const double s = static_cast<double>(b.tv_sec - a.tv_sec) + static_cast<double>(b.tv_nsec - a.tv_nsec) / 1e9;
+        const double g = s > 0 ? static_cast<double>(t1 - t0) / s / 1e9 : 0;
+        return (g > 0.5 && g < 20) ? g : 0.0;
+    }();
+    return ghz;
+#else
+    return 0;
+#endif
+}
+
 std::string lindbergh_ini(const std::string& base, const std::vector<IniKey>& forced) {
     std::vector<std::string> lines;
     {
@@ -877,6 +910,12 @@ bool plan(const NativeProfile& pr, const NativePaths& p, const PlanOptions& o, N
             forced.push_back({"Emulation", "EMULATE_JVS", "true"});
         }
         if (s.libcg) forced.push_back({"Paths", "LIBCG_PATH", "\"/rg/lindbergh/libCg.so\""});
+        // HOTD4's speed fix: the TSC frequency of this machine, unless the profile (or the user layer) sets it.
+        if (p.tsc_ghz > 0 && !ini_has_key(base, "GameSpecific", "CPU_FREQ_GHZ")) {
+            char ghz[32];
+            std::snprintf(ghz, sizeof ghz, "%.3f", p.tsc_ghz);
+            forced.push_back({"GameSpecific", "CPU_FREQ_GHZ", ghz});
+        }
         const std::string made = ovlbase + "/lindbergh.ini";
         out.layer.push_back({LayerStep::Kind::Write, "; Gemaakt door RavenGun uit " + ini + " (docs/lindbergh.md); wordt bij elke start opnieuw geschreven.\n" +
                                                          lindbergh_ini(base, forced),

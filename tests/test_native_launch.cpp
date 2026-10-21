@@ -177,6 +177,31 @@ static void test_lindbergh(const fs::path& root, NativePaths p) {
         CHECK(w->from.find("EMULATE_JVS = false") != std::string::npos && w->from.find("JVS_PATH = \"/dev/ttyRG0\"") != std::string::npos);
         CHECK(w->from.find("WIDTH = 1024") != std::string::npos && w->from.find("FULLSCREEN = true") != std::string::npos);
     }
+    // No TSC frequency in the paths: no CPU_FREQ_GHZ. With one: written in [GameSpecific], unless the ini sets it itself.
+    if (w) CHECK(w->from.find("CPU_FREQ_GHZ") == std::string::npos);
+    {
+        NativePaths pt = p;
+        pt.tsc_ghz = 4.2001;
+        NativePlan pf;
+        CHECK(plan(pr, pt, PlanOptions{}, pf, err));
+        const LayerStep* wf = nullptr;
+        for (const LayerStep& s : pf.layer) if (s.kind == LayerStep::Kind::Write) wf = &s;
+        CHECK(wf && wf->from.find("[GameSpecific]\nCPU_FREQ_GHZ = 4.200\n") != std::string::npos);
+        CHECK(ini_has_key("[GameSpecific]\n; c\ncpu_freq_ghz = 3.0\n", "gamespecific", "CPU_FREQ_GHZ"));
+        CHECK(!ini_has_key("[GameSpecific]\n; CPU_FREQ_GHZ = 3.0\n", "GameSpecific", "CPU_FREQ_GHZ"));
+        CHECK(!ini_has_key("[Display]\nCPU_FREQ_GHZ = 3.0\n", "GameSpecific", "CPU_FREQ_GHZ"));
+        write(p.patches + "/Lb/lindbergh.ini", "[Graphics]\nGPU_VENDOR = 2\n[GameSpecific]\nCPU_FREQ_GHZ = 3.0\n");
+        CHECK(plan(pr, pt, PlanOptions{}, pf, err));
+        wf = nullptr;
+        for (const LayerStep& s : pf.layer) if (s.kind == LayerStep::Kind::Write) wf = &s;
+        CHECK(wf && wf->from.find("CPU_FREQ_GHZ = 3.0") != std::string::npos && wf->from.find("4.200") == std::string::npos);
+        write(p.patches + "/Lb/lindbergh.ini", "[Graphics]\nGPU_VENDOR = 2\n");
+    }
+    {
+        const double g = measure_tsc_ghz();
+        CHECK(g == 0 || (g > 0.5 && g < 20));
+        CHECK(measure_tsc_ghz() == g);   // measured once
+    }
     std::vector<std::string> log;
     CHECK(apply_layer(pl, log, err));
     CHECK(slurp(p.data + "/native/Lb/lindbergh.ini").find("JVS_PATH = \"/dev/ttyRG0\"") != std::string::npos);

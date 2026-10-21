@@ -1,0 +1,62 @@
+SPDX-License-Identifier: CC-BY-NC-SA-4.0
+Change to lindbergh-loader (src/lindbergh/patch.c), under the same license as that source (CC BY-NC-SA 4.0);
+see third_party/lindbergh-loader/README.md. This file is not part of RavenGun's GPL code.
+
+HOTD4 Rev C, white picture during play on Mesa. The multitexture path at 0x082a09a9 enables GL_TEXTURE_2D on texture units
+1..N (GL_REPLACE) and returns without disabling them; every later fixed-function draw then shows the texel of those units, and
+the scene composite (texture 6 onto the window) turns uniformly white. Measured on the bench with an LD_PRELOAD probe
+(2026-10-20): the pbuffer holds the right scene and texture 6 has it (average rgb 120,121,157), but units 1 and 2 are still
+enabled at the composite (textures 646 and 644, GL_REPLACE). Disabling them again after that path gives the real picture.
+The call at 0x082a0b90 (the depth-state reset 0x082dca9a, the path's last step) is replaced by a function that disables
+GL_TEXTURE_2D on units 1..N first and then does that call; only when the five bytes there are the expected call.
+
+--- a/src/lindbergh/patch.c
++++ b/src/lindbergh/patch.c
+@@ -2,6 +2,7 @@
+ #define _GNU_SOURCE
+ #include <stdbool.h>
+ #include <stdint.h>
++#include <string.h>
+ #include <sys/types.h>
+ #endif
+ #define GL_GLEXT_PROTOTYPES
+@@ -34,6 +35,27 @@
+ 
+ extern void (*idWriteFileHeader)(void *);
+ 
++// RavenGun: HOTD4 Rev C draws its multitexture objects in 0x082a09a9..0x082a0bb2: per extra texture it calls
++// glActiveTexture(GL_TEXTURE1 + i), glEnable(GL_TEXTURE_2D), binds the texture with GL_REPLACE, draws, and returns with
++// glUseProgramObjectARB(0) without disabling those units again. On Mesa the leaked units then win in every later fixed-function
++// draw; the scene composite (texture 6 onto the window) becomes their texel, a uniformly white picture during play.
++// The call at 0x082a0b90 (to the depth-state reset 0x082dca9a) is the last step of that path; this replacement first disables
++// GL_TEXTURE_2D on texture units 1..N again (active unit kept), then does the original call. Measured on the bench, 2026-10-20.
++static void (*hod4DepthStateReset)(void) = (void (*)(void))0x082dca9a;
++__attribute__((force_align_arg_pointer)) static void hod4MultitexDone(void)
++{
++    GLint active = GL_TEXTURE0, units = 1;
++    glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
++    glGetIntegerv(GL_MAX_TEXTURE_UNITS, &units);
++    for (GLint u = 1; u < units && u < 8; u++)
++    {
++        glActiveTexture(GL_TEXTURE0 + u);
++        glDisable(GL_TEXTURE_2D);
++    }
++    glActiveTexture(active);
++    hod4DepthStateReset();
++}
++
+ int amDongleInit()
+ {
+     return 0;
+@@ -2739,6 +2761,11 @@
+             // Shader Fixes
+             cacheModedShaderFiles();
+ 
++            // RavenGun: leaked texture units after the multitexture path (white picture during play on Mesa); see
++            // hod4MultitexDone. Only when the call there is the expected one (e8 05 bf 03 00 = call 0x082dca9a).
++            if (memcmp((void *)0x082a0b90, "\xe8\x05\xbf\x03\x00", 5) == 0)
++                replaceCallAtAddress(0x082a0b90, hod4MultitexDone);
++
+             if (!getConfig()->hideCursor)
+             {
+                 CPlayer_MainOri = (void (*)(int))trampolineHook((void *)0x08162494, CPlayer_Main, 6);
