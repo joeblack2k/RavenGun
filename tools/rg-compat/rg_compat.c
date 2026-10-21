@@ -37,6 +37,7 @@
 #include <windows.h>
 #include <tlhelp32.h>
 #include <stdarg.h>
+#include <setupapi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -417,6 +418,53 @@ static BOOL WINAPI rg_d2_CloseHandle(HANDLE h) {
     return real_d2_close(h);
 }
 
+/* SetupAPI: laat zien welke apparaatklasse het spel opzoekt voordat het \\.\ITOKEN2 opent. */
+typedef HDEVINFO(WINAPI *d2_setupdi_getclassdevs_a_fn)(const GUID *, PCSTR, HWND, DWORD);
+typedef BOOL(WINAPI *d2_setupdi_enum_device_interfaces_fn)(HDEVINFO, PSP_DEVINFO_DATA, const GUID *, DWORD,
+                                                           PSP_DEVICE_INTERFACE_DATA);
+typedef BOOL(WINAPI *d2_setupdi_get_device_interface_detail_a_fn)(HDEVINFO, PSP_DEVICE_INTERFACE_DATA,
+                                                                  PSP_DEVICE_INTERFACE_DETAIL_DATA_A, DWORD,
+                                                                  PDWORD, PSP_DEVINFO_DATA);
+static d2_setupdi_getclassdevs_a_fn real_d2_getclassdevs;
+static d2_setupdi_enum_device_interfaces_fn real_d2_enumif;
+static d2_setupdi_get_device_interface_detail_a_fn real_d2_ifdetail;
+
+static void d2_guid(const char *label, const GUID *g) {
+    if (!g) {
+        d2_line("%s(NULL)", label);
+        return;
+    }
+    d2_line("%s{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}", label, (unsigned long)g->Data1, g->Data2,
+            g->Data3, g->Data4[0], g->Data4[1], g->Data4[2], g->Data4[3], g->Data4[4], g->Data4[5], g->Data4[6],
+            g->Data4[7]);
+}
+
+static HDEVINFO WINAPI rg_d2_SetupDiGetClassDevsA(const GUID *cls, PCSTR enumerator, HWND parent, DWORD flags) {
+    HDEVINFO h = real_d2_getclassdevs(cls, enumerator, parent, flags);
+    d2_line("SetupDiGetClassDevsA(enumerator=%s, flags=0x%08lx) -> %p", enumerator ? enumerator : "(geen)",
+            (unsigned long)flags, (void *)h);
+    d2_guid("   klasse: ", cls);
+    return h;
+}
+
+static BOOL WINAPI rg_d2_SetupDiEnumDeviceInterfaces(HDEVINFO set, PSP_DEVINFO_DATA info, const GUID *iface,
+                                                     DWORD index, PSP_DEVICE_INTERFACE_DATA data) {
+    BOOL ok = real_d2_enumif(set, info, iface, index, data);
+    d2_line("SetupDiEnumDeviceInterfaces(index=%lu) -> %d", (unsigned long)index, ok);
+    d2_guid("   interface: ", iface);
+    return ok;
+}
+
+static BOOL WINAPI rg_d2_SetupDiGetDeviceInterfaceDetailA(HDEVINFO set, PSP_DEVICE_INTERFACE_DATA data,
+                                                          PSP_DEVICE_INTERFACE_DETAIL_DATA_A detail, DWORD size,
+                                                          PDWORD needed, PSP_DEVINFO_DATA info) {
+    BOOL ok = real_d2_ifdetail(set, data, detail, size, needed, info);
+    d2_line("SetupDiGetDeviceInterfaceDetailA(maat=%lu) -> %d%s%s", (unsigned long)size, ok,
+            (ok && detail && detail->cbSize >= sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A)) ? "  pad: " : "",
+            (ok && detail && detail->cbSize >= sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A)) ? detail->DevicePath : "");
+    return ok;
+}
+
 static void dongle2_start(HMODULE exe) {
     char path[MAX_PATH];
     DWORD n = GetEnvironmentVariableA("RG_DONGLE2_LOG", path, sizeof path);
@@ -430,6 +478,17 @@ static void dongle2_start(HMODULE exe) {
     real_d2_read = (d2_read_fn)patch_import(exe, "kernel32.dll", "ReadFile", (void *)rg_d2_ReadFile);
     real_d2_write = (d2_write_fn)patch_import(exe, "kernel32.dll", "WriteFile", (void *)rg_d2_WriteFile);
     real_d2_close = (d2_close_fn)patch_import(exe, "kernel32.dll", "CloseHandle", (void *)rg_d2_CloseHandle);
+    real_d2_getclassdevs = (d2_setupdi_getclassdevs_a_fn)patch_import(exe, "setupapi.dll",
+                                                                "SetupDiGetClassDevsA",
+                                                                (void *)rg_d2_SetupDiGetClassDevsA);
+    real_d2_enumif = (d2_setupdi_enum_device_interfaces_fn)patch_import(exe, "setupapi.dll",
+                                                                      "SetupDiEnumDeviceInterfaces",
+                                                                      (void *)rg_d2_SetupDiEnumDeviceInterfaces);
+    real_d2_ifdetail = (d2_setupdi_get_device_interface_detail_a_fn)patch_import(exe, "setupapi.dll",
+                                                                                "SetupDiGetDeviceInterfaceDetailA",
+                                                                                (void *)rg_d2_SetupDiGetDeviceInterfaceDetailA);
+    d2_line("setupapi-haken: GetClassDevs=%d EnumDeviceInterfaces=%d GetDeviceInterfaceDetail=%d",
+            real_d2_getclassdevs != NULL, real_d2_enumif != NULL, real_d2_ifdetail != NULL);
     d2_line("haken: CreateFileA=%d CreateFileW=%d DeviceIoControl=%d ReadFile=%d WriteFile=%d CloseHandle=%d",
             real_d2_create_a != NULL, real_d2_create_w != NULL, real_d2_ioctl != NULL, real_d2_read != NULL,
             real_d2_write != NULL, real_d2_close != NULL);
