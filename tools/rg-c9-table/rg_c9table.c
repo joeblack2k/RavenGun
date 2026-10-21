@@ -212,6 +212,26 @@ __attribute__((used)) static void c9_on_call(int idx, unsigned long *saved_eax, 
         dumped = 1;
         dump_memory();
     }
+    if (n == 1) {
+        /* RG_C9_OBJECT=<va>[,<len>]: dump an object and, when its first dword is a pointer, the first dwords of the
+         * vtable it points at. The game takes code pointers out of its own objects, so this is where a hole shows. */
+        char txt[64];
+        if (GetEnvironmentVariableA("RG_C9_OBJECT", txt, sizeof txt) > 0) {
+            char *e = NULL;
+            const DWORD va = (DWORD)strtoul(txt, &e, 0);
+            DWORD len = 0x60;
+            if (e && *e == ',') len = (DWORD)strtoul(e + 1, NULL, 0);
+            log_line("object at %08lx on slot[%d]:", (unsigned long)va, idx);
+            dump_range(va, len);
+            {
+                const DWORD vt = *(const DWORD *)(ULONG_PTR)va;
+                if (vt > 0x10000 && vt < 0x80000000ul) {
+                    log_line("vtable %08lx of object %08lx:", (unsigned long)vt, (unsigned long)va);
+                    dump_range(vt, 0x40);
+                }
+            }
+        }
+    }
     if (n == 1 && GetEnvironmentVariableA("RG_C9_CALLER", NULL, 0)) {
         /* The first call of a slot: the code just before the return address is the call site, i.e. what the game
          * expects of this instant. Dumped only on request (RG_C9_CALLER=1) to keep the log small. */
