@@ -1549,6 +1549,29 @@ static int hk_leesbaar(const void *p, size_t n) {
 
 typedef void(__thiscall *hk_setvalue_fn)(void *zelf, const void *waarde, DWORD maat);
 
+static unsigned long hk_lijst_lengte(const void *beh, DWORD off) {
+    if (!hk_leesbaar(beh, off + 8) || !hk_leesbaar((const BYTE *)beh + off, 8)) return 0xfffffffful;
+    void **const begin = *(void ***)((const BYTE *)beh + off);
+    void **const einde = *(void ***)((const BYTE *)beh + off + 4);
+    if (!begin || (ULONG_PTR)einde < (ULONG_PTR)begin) return 0xfffffffeul;
+    return (unsigned long)(einde - begin);
+}
+
+static void hk_lijst_dump(const void *beh, DWORD off, const char *naam) {
+    if (!hk_leesbaar(beh, off + 8)) return;
+    void **const begin = *(void ***)((const BYTE *)beh + off);
+    void **const einde = *(void ***)((const BYTE *)beh + off + 4);
+    if (!begin || (ULONG_PTR)einde < (ULONG_PTR)begin || (ULONG_PTR)(einde - begin) > 0x40) return;
+    for (unsigned long i = 0; i < (unsigned long)(einde - begin); ++i) {
+        void *const m = begin[i];
+        if (!m || !hk_leesbaar(m, 0x20)) continue;
+        const DWORD *d = (const DWORD *)m;
+        d2_line("   %s[%lu] %p: %08lx %08lx %08lx %08lx %08lx %08lx", naam, i, m, (unsigned long)d[0],
+                (unsigned long)d[1], (unsigned long)d[2], (unsigned long)d[3], (unsigned long)d[4],
+                (unsigned long)d[5]);
+    }
+}
+
 static int hk_in_beeld(const void *q, DWORD maat) {
     return q && w7_base && (const BYTE *)q >= w7_base && (const BYTE *)q + maat <= w7_base + w7_size;
 }
@@ -1589,6 +1612,11 @@ static void hk_block_verify(const DWORD *p, DWORD waarde) {
     char hex[3 * 0x40 + 1];
     int k = 0;
     for (DWORD b = 0; b < 0x40; ++b) k += snprintf(hex + k, sizeof hex - (size_t)k, "%02x", ((const BYTE *)param)[b]);
+    d2_line("blok: lijsten +24 %lu +2c %lu +34 %lu +3c %lu", hk_lijst_lengte(beh, 0x24), hk_lijst_lengte(beh, 0x2c),
+            hk_lijst_lengte(beh, 0x34), hk_lijst_lengte(beh, 0x3c));
+    hk_lijst_dump(beh, 0x2c, "uit-params");
+    hk_lijst_dump(beh, 0x34, "ingangen");
+    hk_lijst_dump(beh, 0x3c, "uitgangen");
     const DWORD vlaggen_voor = *(DWORD *)((BYTE *)param + 0xc);
     *(DWORD *)((BYTE *)param + 0xc) = vlaggen_voor | 0x40000000u;
     if (teller <= 10 || (teller % 200) == 0)
