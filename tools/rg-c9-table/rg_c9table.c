@@ -221,7 +221,7 @@ __attribute__((used)) static void c9_on_call(int idx, unsigned long *saved_eax, 
     if (n <= 8) {
         log_line("slot[%d] called from %08lx: arg %08lx %08lx %08lx %08lx %08lx %08lx -> %08lx (nr %lu)", idx,
                  caller, arg0[0], arg0[1], arg0[2], arg0[3], arg0[4], arg0[5], *saved_eax, n);
-    } else if ((n % 200) == 0) {
+    } else if ((n % 20000) == 0) {
         log_line("slot[%d] called %lu times", idx, n);
     }
 }
