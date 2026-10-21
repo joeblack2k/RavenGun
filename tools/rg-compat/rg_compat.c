@@ -32,6 +32,9 @@
  *    DeviceIoControl, ReadFile, WriteFile, CloseHandle) en schrijft op wat het spel vraagt, met nullen als antwoord.
  *    Voor After Dark, wiens dongle (ATL CCoDongle2) dat apparaat zelf opent; zonder de variabele doet deze meter niets.
  *
+ * 6. RG_COMPAT_PATCH=<rva>:<hex>[;...] schrijft die bytes synchroon in het hoofdbeeld en schrijft de oude
+ *    bytes op; zonder de variabele gebeurt er niets.
+ *
  * BOUWEN: tools/dev/build-compat.sh (de mingw-kruiscompiler in ~/.cache/ravengun-mingw, i686 en x86_64).
  */
 #include <windows.h>
@@ -759,6 +762,53 @@ static void dongle2_start(HMODULE exe) {
             real_d2_write != NULL, real_d2_close != NULL);
 }
 
+/* ------------------------------------- 6. RG_COMPAT_PATCH (bytes in het hoofdbeeld) */
+
+/* Kleine, algemene byte-patch in het hoofdbeeld, synchroon in DllMain: formaat
+ *   RG_COMPAT_PATCH=<rva>:<hex>[;<rva>:<hex>...]        (hex = de nieuwe bytes, 0x… of decimaal)
+ * De oude bytes worden opgeschreven zodat het log laat zien wat er stond en of het klopte. Alleen voor gevallen
+ * waar de geheugen-motor (patchmem) te laat komt of niet zichtbaar is; zonder de variabele gebeurt er niets. */
+static void rg_patch_start(void) {
+    char txt[512];
+    DWORD n = GetEnvironmentVariableA("RG_COMPAT_PATCH", txt, sizeof txt);
+    if (n == 0 || n >= sizeof txt) return;
+    BYTE *base = (BYTE *)GetModuleHandleA(NULL);
+    char *save = NULL;
+    for (char *item = strtok_r(txt, ";", &save); item; item = strtok_r(NULL, ";", &save)) {
+        char *colon = strchr(item, ':');
+        if (!colon) continue;
+        *colon = 0;
+        const unsigned long rva = strtoul(item, NULL, 0);
+        const char *hex = colon + 1;
+        unsigned char bytes[32];
+        DWORD len = 0;
+        for (; hex[0] && hex[1] && len < sizeof bytes; hex += 2) {
+            char pair[3] = {hex[0], hex[1], 0};
+            char *end = NULL;
+            const unsigned long v = strtoul(pair, &end, 16);
+            if (end == pair) break;
+            bytes[len++] = (unsigned char)v;
+        }
+        if (!len) continue;
+        BYTE *target = base + rva;
+        char before[3 * 32 + 1];
+        int k = 0;
+        for (DWORD i = 0; i < len; ++i) k += snprintf(before + k, sizeof before - (size_t)k, "%02x", target[i]);
+        DWORD old = 0;
+        if (!VirtualProtect(target, len, PAGE_EXECUTE_READWRITE, &old)) {
+            OutputDebugStringA("rg-compat: RG_COMPAT_PATCH VirtualProtect geweigerd\n");
+            continue;
+        }
+        memcpy(target, bytes, len);
+        VirtualProtect(target, len, old, &old);
+        d2_line("patch op +0x%lx: %s -> %s", rva, before, "");
+        char after[3 * 32 + 4];
+        k = 0;
+        for (DWORD i = 0; i < len; ++i) k += snprintf(after + k, sizeof after - (size_t)k, "%02x", target[i]);
+        d2_line("   nieuwe bytes: %s", after);
+    }
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -771,6 +821,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         if (real_cocreate) OutputDebugStringA("rg-compat: ole32!CoCreateInstance omgeleid\n");
         paint_start(exe);
         dongle2_start(exe);
+        rg_patch_start();
     }
     return TRUE;
 }
