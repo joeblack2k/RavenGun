@@ -1019,10 +1019,11 @@ static void *w7_synth_table(void *obj) {
      * [0] < 0x7f, [4] >= 0x20000, [0x58] != 0, en [0x10] is de id voor de apparaatvraag). */
     for (DWORD i = 0; i < aantal; ++i) {
         BYTE *r = e + (size_t)i * 0x6c;
-        *(DWORD *)(r + 0x10) = 1;
-        *(DWORD *)(r + 0x14) = 0x20000;
-        *(DWORD *)(r + 0x20) = 1;
-        *(DWORD *)(r + 0x68) = 1;
+        *(DWORD *)(r + 0x10) = 1;              /* < 0x7f            (0x42f9e0) */
+        *(DWORD *)(r + 0x14) = 0x20000;        /* >= 0x20000        (0x42f9e0) */
+        *(DWORD *)(r + 0x20) = i;              /* id van deze slot  (apparaatvraag 0x432bc0) */
+        *(DWORD *)(r + 0x24) = 0;
+        *(DWORD *)(r + 0x68) = i + 1;          /* != 0              (0x42f9e0) */
         memcpy(r + 0x60, "InsGame", 8);
     }
     veld[0x20 / 4] = (DWORD)(ULONG_PTR)e;
