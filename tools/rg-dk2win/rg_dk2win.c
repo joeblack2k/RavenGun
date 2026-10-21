@@ -186,6 +186,87 @@ void *__stdcall dk2_error_text_ptr(void *text) {
     return text;
 }
 
+
+/* ---------------------------------------------------------------------------------------------------------------
+ * The launcher step (17) after the key: 0x407180 builds "<dir>\<name>.exe" and starts it with CreateProcessA, then goes
+ * to step 19 (0x13) on success or step 21 (0x15) with "MAINTHREAD : Failed to launch game" on failure. Which of the two
+ * shell checks fails is not visible from the host, so this DLL logs the CreateProcessA call of the shell and its result
+ * (one line each) and forwards it unchanged. The import is patched in the main image's import table.
+ * ------------------------------------------------------------------------------------------------------------- */
+
+typedef BOOL(WINAPI *create_process_a_fn)(LPCSTR, LPSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL, DWORD,
+                                          LPVOID, LPCSTR, LPSTARTUPINFOA, LPPROCESS_INFORMATION);
+static create_process_a_fn real_create_process;
+
+static void *patch_import(HMODULE mod, const char *dll, const char *func, void *repl) {
+    BYTE *base = (BYTE *)mod;
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)base;
+    IMAGE_NT_HEADERS *nt;
+    IMAGE_DATA_DIRECTORY dir;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return NULL;
+    nt = (IMAGE_NT_HEADERS *)(base + dos->e_lfanew);
+    dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (!dir.VirtualAddress) return NULL;
+    for (IMAGE_IMPORT_DESCRIPTOR *d = (IMAGE_IMPORT_DESCRIPTOR *)(base + dir.VirtualAddress); d->Name; ++d) {
+        IMAGE_THUNK_DATA *names, *iat;
+        if (lstrcmpiA((const char *)(base + d->Name), dll) != 0) continue;
+        names = (IMAGE_THUNK_DATA *)(base + (d->OriginalFirstThunk ? d->OriginalFirstThunk : d->FirstThunk));
+        iat = (IMAGE_THUNK_DATA *)(base + d->FirstThunk);
+        for (; names->u1.AddressOfData; ++names, ++iat) {
+            IMAGE_IMPORT_BY_NAME *ibn;
+            DWORD old = 0;
+            void *orig;
+            if (IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal)) continue;
+            ibn = (IMAGE_IMPORT_BY_NAME *)(base + names->u1.AddressOfData);
+            if (strcmp((const char *)ibn->Name, func) != 0) continue;
+            if (!VirtualProtect(&iat->u1.Function, sizeof(iat->u1.Function), PAGE_READWRITE, &old)) return NULL;
+            orig = (void *)iat->u1.Function;
+            iat->u1.Function = (ULONG_PTR)repl;
+            VirtualProtect(&iat->u1.Function, sizeof(iat->u1.Function), old, &old);
+            return orig;
+        }
+    }
+    return NULL;
+}
+
+/* The shell does not wait for the game it starts; a watcher reports how long it lived and with which exit code, so a
+ * hand-over says whether the game itself refused to start or was killed later. */
+static DWORD WINAPI dk2_watch_child(LPVOID arg) {
+    HANDLE proc = (HANDLE)arg;
+    const DWORD start = GetTickCount();
+    DWORD code = 0;
+    if (WaitForSingleObject(proc, 60000) == WAIT_OBJECT_0) {
+        GetExitCodeProcess(proc, &code);
+        log_line("dk2: game process %lu exited with %lu after %lu ms", (unsigned long)GetProcessId(proc),
+                 (unsigned long)code, (unsigned long)(GetTickCount() - start));
+    } else {
+        log_line("dk2: game process %lu still running after 60 s", (unsigned long)GetProcessId(proc));
+    }
+    CloseHandle(proc);
+    return 0;
+}
+
+static BOOL WINAPI dk2_CreateProcessA(LPCSTR app, LPSTR cmd, LPSECURITY_ATTRIBUTES pa, LPSECURITY_ATTRIBUTES ta,
+                                      BOOL inherit, DWORD flags, LPVOID env, LPCSTR cwd, LPSTARTUPINFOA si,
+                                      LPPROCESS_INFORMATION pi) {
+    BOOL ok;
+    DWORD err;
+    log_line("dk2: CreateProcessA(\"%s\", \"%s\", cwd \"%s\", flags %#lx)", app ? app : "(null)", cmd ? cmd : "(null)",
+             cwd ? cwd : "(null)", (unsigned long)flags);
+    if (!real_create_process) real_create_process = (create_process_a_fn)(void *)GetProcAddress(
+        GetModuleHandleA("kernel32.dll"), "CreateProcessA");
+    if (!real_create_process) {
+        log_line("dk2: CreateProcessA: no real function");
+        return FALSE;
+    }
+    ok = real_create_process(app, cmd, pa, ta, inherit, flags, env, cwd, si, pi);
+    err = ok ? 0 : GetLastError();
+    log_line("dk2: CreateProcessA -> %s (pid %lu, error %lu)", ok ? "ok" : "FAILED",
+             ok && pi ? (unsigned long)pi->dwProcessId : 0ul, (unsigned long)err);
+    if (ok && pi && pi->hProcess) CreateThread(NULL, 0, dk2_watch_child, pi->hProcess, 0, NULL);
+    return ok;
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
@@ -194,6 +275,8 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         g_ready = 0;
         g_log = NULL;
         g_log_tried = 0;
+        real_create_process = (create_process_a_fn)patch_import(GetModuleHandleA(NULL), "KERNEL32.dll",
+                                                               "CreateProcessA", (void *)dk2_CreateProcessA);
     }
     return TRUE;
 }
