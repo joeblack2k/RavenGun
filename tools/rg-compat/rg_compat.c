@@ -768,13 +768,103 @@ static void dongle2_start(HMODULE exe) {
  *   RG_COMPAT_PATCH=<rva>:<hex>[;<rva>:<hex>...]        (hex = de nieuwe bytes, 0x… of decimaal)
  * De oude bytes worden opgeschreven zodat het log laat zien wat er stond en of het klopte. Alleen voor gevallen
  * waar de geheugen-motor (patchmem) te laat komt of niet zichtbaar is; zonder de variabele gebeurt er niets. */
+/* Kop van het beeld opschrijven: zo is te zien of het geladen beeld dezelfde indeling heeft als het bestand. */
+static void rg_image_probe(BYTE *base) {
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)base;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) {
+        d2_line("beeld: geen MZ (%04x)", dos->e_magic);
+        return;
+    }
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(base + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE) {
+        d2_line("beeld: geen PE (%08lx)", (unsigned long)nt->Signature);
+        return;
+    }
+    d2_line("beeld: ImageBase=%08lx SizeOfImage=%08lx SectionAlignment=%08lx FileAlignment=%08lx",
+            (unsigned long)nt->OptionalHeader.ImageBase, (unsigned long)nt->OptionalHeader.SizeOfImage,
+            (unsigned long)nt->OptionalHeader.SectionAlignment, (unsigned long)nt->OptionalHeader.FileAlignment);
+    IMAGE_SECTION_HEADER *s = IMAGE_FIRST_SECTION(nt);
+    for (int i = 0; i < nt->FileHeader.NumberOfSections && i < 8; ++i) {
+        d2_line("   sectie %.8s va=%08lx vsize=%08lx raw=%08lx rawsize=%08lx", (const char *)s[i].Name,
+                (unsigned long)s[i].VirtualAddress, (unsigned long)s[i].Misc.VirtualSize,
+                (unsigned long)s[i].PointerToRawData, (unsigned long)s[i].SizeOfRawData);
+    }
+}
+
+/* Zoeken naar een bytepatroon in het beeld en daar de laatste bytes van vervangen (RG_COMPAT_PATCH_SEARCH=<patroon>,<nieuw>).
+ * Nodig als de indeling in het geheugen niet die van het bestand blijkt te zijn: dan klopt een vaste RVA niet. */
+static void rg_patch_search(BYTE *base, const char *txt) {
+    const char *sep = strchr(txt, ',');
+    if (!sep) {
+        d2_line("zoekpatch: geen ',' in de opgave");
+        return;
+    }
+    unsigned char pat[64], nieuw[64];
+    DWORD pat_len = 0, nieuw_len = 0;
+    for (const char *h = txt; h < sep && pat_len < sizeof pat; h += 2) {
+        char pair[3] = {h[0], h[1], 0};
+        char *end = NULL;
+        const unsigned long v = strtoul(pair, &end, 16);
+        if (end == pair) break;
+        pat[pat_len++] = (unsigned char)v;
+    }
+    for (const char *h = sep + 1; h[0] && h[1] && nieuw_len < sizeof nieuw; h += 2) {
+        char pair[3] = {h[0], h[1], 0};
+        char *end = NULL;
+        const unsigned long v = strtoul(pair, &end, 16);
+        if (end == pair) break;
+        nieuw[nieuw_len++] = (unsigned char)v;
+    }
+    if (!pat_len || !nieuw_len || nieuw_len > pat_len) {
+        d2_line("zoekpatch: patroon %lu, nieuw %lu -- onbruikbaar", (unsigned long)pat_len, (unsigned long)nieuw_len);
+        return;
+    }
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)base;
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(base + dos->e_lfanew);
+    const DWORD grootte = nt->OptionalHeader.SizeOfImage;
+    DWORD gevonden = 0, waar = 0;
+    for (DWORD i = 0; i + pat_len <= grootte; ++i) {
+        if (memcmp(base + i, pat, pat_len) == 0) {
+            ++gevonden;
+            waar = i;
+            if (gevonden > 1) break;
+        }
+    }
+    if (gevonden != 1) {
+        d2_line("zoekpatch: %lu treffers (0 of meer dan 1) -- niets geschreven", (unsigned long)gevonden);
+        return;
+    }
+    BYTE *target = base + waar + (pat_len - nieuw_len);
+    char before[3 * 64 + 1];
+    int k = 0;
+    for (DWORD i = 0; i < nieuw_len; ++i) k += snprintf(before + k, sizeof before - (size_t)k, "%02x", target[i]);
+    DWORD old = 0;
+    if (!VirtualProtect(target, nieuw_len, PAGE_EXECUTE_READWRITE, &old)) {
+        d2_line("zoekpatch: VirtualProtect geweigerd");
+        return;
+    }
+    memcpy(target, nieuw, nieuw_len);
+    VirtualProtect(target, nieuw_len, old, &old);
+    d2_line("zoekpatch: patroon op +0x%lx, %s -> %s", (unsigned long)(waar + pat_len - nieuw_len), before, sep + 1);
+}
+
 static void rg_patch_start(void) {
-    char txt[512];
+    char txt[512], mod[128], zoek[256];
     DWORD n = GetEnvironmentVariableA("RG_COMPAT_PATCH", txt, sizeof txt);
-    if (n == 0 || n >= sizeof txt) return;
-    BYTE *base = (BYTE *)GetModuleHandleA(NULL);
+    const DWORD zn = GetEnvironmentVariableA("RG_COMPAT_PATCH_SEARCH", zoek, sizeof zoek);
+    if ((n == 0 || n >= sizeof txt) && (zn == 0 || zn >= sizeof zoek)) return;
+    HMODULE image = NULL;
+    n = GetEnvironmentVariableA("RG_COMPAT_PATCH_MODULE", mod, sizeof mod);
+    if (n > 0 && n < sizeof mod) image = GetModuleHandleA(mod);   /* het spel kan in een kindproces zitten */
+    if (!image) image = GetModuleHandleA(NULL);
+    BYTE *base = (BYTE *)image;
+    d2_line("patch-start: module %s op %p", (n > 0 && n < sizeof mod) ? mod : "(hoofdbeeld)", (void *)base);
+    rg_image_probe(base);
+    d2_line("   base+0=%02x%02x  base+0x1000=%02x%02x%02x  base+0x4332df=%02x%02x%02x%02x", base[0], base[1],
+            base[0x1000], base[0x1001], base[0x1002], base[0x4332df], base[0x4332e0], base[0x4332e1], base[0x4332e2]);
     char *save = NULL;
-    for (char *item = strtok_r(txt, ";", &save); item; item = strtok_r(NULL, ";", &save)) {
+    if (zn > 0 && zn < sizeof zoek) rg_patch_search(base, zoek);
+    for (char *item = n ? strtok_r(txt, ";", &save) : NULL; item; item = strtok_r(NULL, ";", &save)) {
         char *colon = strchr(item, ':');
         if (!colon) continue;
         *colon = 0;
