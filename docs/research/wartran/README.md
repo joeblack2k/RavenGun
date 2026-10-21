@@ -1069,12 +1069,30 @@ exe in a throw-away map with links to `data/` and the DXVK dlls):** the old
 exits with code 0. So the "unstartable memory dump of a protected process" verdict from 10-19 was based
 on the stale section table.
 
-**Still open (next measurements):** (1) why the game exits cleanly after ~40 s instead of drawing -- a
-`+relay` tail of those last seconds and a first screenshot; (2) how the fixed image gets into the
-double-click path (the engine has to produce it per launch; no game bytes in the repo); (3) the second
-IAT at 0x512000 in `.rdata`, which the thunks (`jmp dword ptr [0x5123a0]`, e.g. at 0x45c0b0) use but
-which is no descriptor's `FirstThunk`: it holds XP addresses (0x7C80xxxx) and 0x0313xxxx protector
-stubs, so something has to fill it at runtime.
+**Reference run on the closed core, for comparison (2026-10-21 07:26).** With `[Loader]` removed from the
+*installed* profile (so the plan takes `TeknoParrot/TeknoParrot.dll` from the runtime, `tp_files` = 3) and
+`[Display] GamescopeBackend = headless` in the user layer, the **unchanged NAS exe** does reach its own
+screen: the headless screenshot shows **PLEASE CALIBRATE THE GUN**. So the closed core is what makes this
+dump run; both later reverted (profile restored from a copy, user-layer key removed).
+
+**What our own path lacks, measured:** the game's real import table is *not* the problem -- the thunks the
+code uses are `jmp dword ptr [0x512xxx]` into a **second table at 0x512000 in `.rdata`**, and that table is
+no descriptor's `FirstThunk` and is not filled by any loader. In the dump its slots hold XP addresses
+(`0x7C80xxxx` kernel32, `0x77E4xxxx` user32, `0x77F4xxxx` ntdll) and `0x0313xxxx` values -- stubs of the
+protection in memory at 0x3130000 that the dump does **not** contain (the dump was taken on an XP session).
+`.text` has 49 such thunks over 47 distinct slots (0x512038..0x5123bc), against 55 named ILT entries in the
+descriptors, so the table is the protection's own call table, not the game's IAT. The very first thing the
+entry point does after its static init is `call 0x4010d0` -> `call 0x45c0b0` (`jmp [0x5123a0]`), and slot
+0x5123a0 holds **0x4FD8AED0** in the dump: that is exactly the address of every crash we measure, with and
+without our core and with or without the corrected section table. The closed core supplies that table; we
+would have to rebuild it slot by slot from the game's own code (which call sites use which API, as the
+document proposes for the other dongle games). That is the open work, and it is the reason this game stays
+parked.
+
+**Also open:** (1) how a corrected image would get into the double-click path at all (the engine has to
+produce it per launch; no game bytes in the repo); (2) reading the filled table from a reference run is
+blocked here by `kernel.yama.ptrace_scope=1` (the game runs as a grandchild of the shell), so the slot ->
+API mapping has to come from the game's code.
 
 ### Robin Hood: wie er wacht, met de meetdraad (2026-10-19 11:41)
 
