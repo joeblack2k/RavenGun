@@ -28,6 +28,12 @@ static const volatile uint8_t *g_shm;
 static int g_open;
 static HANDLE g_log = INVALID_HANDLE_VALUE;
 static unsigned g_logged[32];
+static unsigned g_calls[32];
+/* WAJVGetStatus terug. GEMETEN 2026-10-21: met 0 blijft RSLauncher ~10x per seconde WAJVGetStatus vragen en komt
+ * hij nooit verder; met 1 loopt hij meteen door naar WAJVSetPLParm en daarna de beeldlus (WAJVSetOutput, WAJVUpdate,
+ * WAJVGetNodeCount, WAJVGetInput op ~54 Hz). Dus 0 betekent "nog niet klaar" en 1 "klaar". Standaard 1; met
+ * RG_WAJV_STATUS is een andere waarde te proberen (de tellers in het logboek laten zien waar hij blijft). */
+static int g_status = 1;
 
 static void log_line(const char *s) {
     if (g_log == INVALID_HANDLE_VALUE) return;
@@ -38,11 +44,58 @@ static void log_line(const char *s) {
     WriteFile(g_log, "\r\n", 2, &n, NULL);
 }
 
-/* Elke aanroep hoogstens de eerste keren loggen (het gaat om bewijs dat de DLL geladen is en wat RSLauncher vraagt). */
+/* Elke aanroep hoogstens de eerste keren loggen (het gaat om bewijs dat de DLL geladen is en wat RSLauncher vraagt);
+ * alle aanroepen tellen mee in g_calls en komen elke tien seconden als samenvatting in het logboek, zodat te zien is
+ * OF en HOE vaak de lader blijft hangen (bijvoorbeeld de GetStatus-lus van 600 rondes). */
 static void trace(int id, const char *name) {
-    if (id < 0 || id >= 32 || g_logged[id] >= 3) return;
+    if (id < 0 || id >= 32) return;
+    g_calls[id]++;
+    if (g_logged[id] >= 3) return;
     g_logged[id]++;
     log_line(name);
+}
+
+static const char *const g_names[9] = {"WAJVOpen", "WAJVClose", "WAJVGetStatus", "WAJVGetNodeCount", "WAJVGetInput",
+                                       "WAJVUpdate", "WAJVSetOutput", "WAJVSetFunctionSettings", "WAJVSetPLParm"};
+
+/* "teller 12 s: WAJVGetStatus=600 WAJVUpdate=41" -- per aanroep die al geweest is. */
+static void summary(unsigned secs) {
+    char buf[400];
+    unsigned len = 0;
+    const char *head = (secs ? "teller " : "einde ");
+    for (unsigned i = 0; head[i]; i++) buf[len++] = head[i];
+    if (secs) {
+        char digs[12];
+        unsigned n = 0, v = secs;
+        do { digs[n++] = (char)('0' + v % 10); v /= 10; } while (v);
+        while (n) buf[len++] = digs[--n];
+        buf[len++] = ' ';
+        buf[len++] = 's';
+        buf[len++] = ':';
+    }
+    for (unsigned id = 0; id < 9; id++) {
+        if (!g_calls[id]) continue;
+        buf[len++] = ' ';
+        for (unsigned k = 0; g_names[id][k]; k++) buf[len++] = g_names[id][k];
+        buf[len++] = '=';
+        char digs[12];
+        unsigned n = 0, v = g_calls[id];
+        do { digs[n++] = (char)('0' + v % 10); v /= 10; } while (v);
+        while (n) buf[len++] = digs[--n];
+        if (len > sizeof buf - 40) break;
+    }
+    buf[len] = 0;
+    SetFilePointer(g_log, 0, NULL, FILE_END);
+    log_line(buf);
+}
+
+static DWORD WINAPI summary_thread(LPVOID unused) {
+    (void)unused;
+    for (unsigned i = 1;; i++) {
+        Sleep(10000);
+        summary(i * 10);
+    }
+    return 0;
 }
 
 static void open_log(void) {
@@ -84,7 +137,7 @@ EXP BOOL WAJVOpen(const char *port) {
 EXP BOOL WAJVClose(void) { trace(1, "WAJVClose"); g_open = 0; return TRUE; }
 
 /* Origineel: 0 = klaar, 1 / 2 = tussenstanden, -1 = niet geopend, -2 = fout. */
-EXP int WAJVGetStatus(void) { trace(2, "WAJVGetStatus"); return g_open ? 0 : -1; }
+EXP int WAJVGetStatus(void) { trace(2, "WAJVGetStatus"); return g_open ? g_status : -1; }
 
 EXP int WAJVGetNodeCount(void) { trace(3, "WAJVGetNodeCount"); return g_open ? 1 : 0; }
 
@@ -122,7 +175,21 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst; (void)reserved;
     if (reason == DLL_PROCESS_ATTACH) {
         open_log();
+        {
+            char v[16];
+            DWORD n = GetEnvironmentVariableA("RG_WAJV_STATUS", v, sizeof v);
+            if (n > 0 && n < sizeof v) {
+                int sign = 1, k = 0, val = 0;
+                if (v[0] == '-') { sign = -1; k = 1; }
+                for (; v[k] >= '0' && v[k] <= '9'; k++) val = val * 10 + (v[k] - '0');
+                g_status = sign * val;
+            }
+        }
         log_line("rg wajvio: geladen (vervangt wajvio.dll van Namco; geen seriele poort)");
+        if (g_log != INVALID_HANDLE_VALUE) {
+            HANDLE t = CreateThread(NULL, 0, &summary_thread, NULL, 0, NULL);
+            if (t) CloseHandle(t);
+        }
     }
     return TRUE;
 }
