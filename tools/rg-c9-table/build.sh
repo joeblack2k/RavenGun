@@ -24,7 +24,7 @@ GCCV="$(ls "$SR/usr/lib/gcc/i686-w64-mingw32/" | sort -V | tail -1)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 "$CC" -B"$SR/usr/lib/gcc/i686-w64-mingw32/$GCCV/" -B"$SR/usr/i686-w64-mingw32/" \
-  -O2 -s -shared -Wall -Wextra -Werror -static-libgcc -Wl,--no-insert-timestamp \
+  -O2 -s -shared -Wall -Wextra -Werror -static-libgcc -Wl,--no-insert-timestamp -Wl,--kill-at \
   -I"$HERE" "$HERE/dllmain.c" "$HERE/rg_c9table.c" -o "$TMP/rg-c9-table.dll"
 mkdir -p "$OUT"
 cp "$TMP/rg-c9-table.dll" "$OUT/rg-c9-table.dll"

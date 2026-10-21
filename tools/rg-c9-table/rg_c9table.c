@@ -137,8 +137,20 @@ static void *api_per_slot(int idx) {
             bang = strchr(spec, '!');
             if (!bang) return NULL;
             *bang = 0;
-            mod = GetModuleHandleA(spec);
-            if (!mod) mod = LoadLibraryA(spec);
+            /* "self" is this DLL as the loader already has it: naming our own shims by file name makes Wine load a
+             * SECOND copy for the game's calls, and then the shims and the fault handler live in different instances
+             * (measured: the single-step arm and the device handle were invisible to the VEH). */
+            if (_stricmp(spec, "self") == 0) {
+                HMODULE self = NULL;
+                if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                        (LPCSTR)(ULONG_PTR)&api_per_slot, &self))
+                    return NULL;
+                mod = self;
+            } else {
+                mod = GetModuleHandleA(spec);
+                if (!mod) mod = LoadLibraryA(spec);
+            }
             if (!mod) return NULL;
             if (bang[1] >= '0' && bang[1] <= '9')
                 fn = GetProcAddress(mod, (LPCSTR)(ULONG_PTR)strtoul(bang + 1, NULL, 0));
@@ -194,6 +206,8 @@ static volatile long g_trace_i;
  * device gets a NUL handle and the IOCTL an empty table, every other file is passed straight through. */
 static HANDLE g_hl = INVALID_HANDLE_VALUE;
 static unsigned long g_hl_io;
+static DWORD g_nullret;          /* xor eax,eax; ret -- the answer to a missing import */
+static unsigned long g_skips;
 
 static int hardlock_name(const char *p) {
     if (!p) return 0;
@@ -204,7 +218,18 @@ static int hardlock_name(const char *p) {
 
 __declspec(dllexport) HANDLE WINAPI c9_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa,
                                                    DWORD disp, DWORD flags, HANDLE tmpl) {
-    if (!hardlock_name(name)) return CreateFileA(name, access, share, sa, disp, flags, tmpl);
+    if (!hardlock_name(name)) {
+        static int plain;
+        HLOCAL h;
+        (void)h;
+        if (plain++ < 12) {
+            HANDLE r = CreateFileA(name, access, share, sa, disp, flags, tmpl);
+            log_line("CreateFileA(\"%s\") access %08lx -> %08lx", name ? name : "(null)", (unsigned long)access,
+                     (unsigned long)r);
+            return r;
+        }
+        return CreateFileA(name, access, share, sa, disp, flags, tmpl);
+    }
     g_hl = CreateFileA("NUL", 0, 0, NULL, OPEN_EXISTING, 0, NULL);
     log_line("hardlock: CreateFileA(%s) -> NUL handle %08lx", name, (unsigned long)g_hl);
     return g_hl;
@@ -220,6 +245,51 @@ __declspec(dllexport) BOOL WINAPI c9_DeviceIoControl(HANDLE h, DWORD code, LPVOI
                  (unsigned long)h, (unsigned long)code, (unsigned long)insz, (unsigned long)(ULONG_PTR)in,
                  (unsigned long)outsz);
     return TRUE;
+}
+
+/* The packer keeps its own GetProcAddress in a heap slot, so every import the game resolves at run time goes through
+ * it: logging the names shows what the packer hides and which lookup comes back NULL. */
+__declspec(dllexport) FARPROC WINAPI c9_GetProcAddressA(HMODULE mod, LPCSTR name) {
+    static int logged;
+    FARPROC fn;
+    if ((ULONG_PTR)name > 0x10000 && logged < 200) {
+        ++logged;
+        fn = GetProcAddress(mod, name);
+        log_line("GetProcAddress(%08lx, \"%s\") -> %08lx", (unsigned long)(ULONG_PTR)mod, name, (unsigned long)(ULONG_PTR)fn);
+        return fn;
+    }
+    return GetProcAddress(mod, name);
+}
+
+__declspec(dllexport) HLOCAL WINAPI c9_LocalAlloc(UINT flags, SIZE_T bytes) {
+    static int logged;
+    HLOCAL r = LocalAlloc(flags, bytes);
+    if (logged++ < 12) log_line("LocalAlloc(%08lx, %lu) -> %08lx", (unsigned long)flags, (unsigned long)bytes,
+                                (unsigned long)(ULONG_PTR)r);
+    return r;
+}
+
+/* RG_C9_STEP=<n>: single-step the game for n instructions as soon as c9_GetModuleHandleA is called, logging every
+ * EIP. The path into a call of a NULL pointer is otherwise invisible: the crash says "eip 0" and nothing else. */
+static volatile long g_step_left;
+static void step_arm(long n) {
+    CONTEXT c;
+    g_step_left = n;
+    c.ContextFlags = CONTEXT_CONTROL;
+    if (GetThreadContext(GetCurrentThread(), &c)) {
+        c.EFlags |= 0x100;                       /* TF */
+        SetThreadContext(GetCurrentThread(), &c);
+        log_line("stepping from %08lx for %ld instructions", (unsigned long)c.Eip, n);
+    }
+}
+
+__declspec(dllexport) HMODULE WINAPI c9_GetModuleHandleA(LPCSTR name) {
+    static int stepped;
+    char txt[32];
+    HMODULE h = GetModuleHandleA(name);
+    log_line("GetModuleHandleA(\"%s\") -> %08lx", name ? name : "(null)", (unsigned long)(ULONG_PTR)h);
+    if (!stepped++ && GetEnvironmentVariableA("RG_C9_STEP", txt, sizeof txt) > 0) step_arm(strtol(txt, NULL, 0));
+    return h;
 }
 
 __declspec(dllexport) BOOL WINAPI c9_CloseHandle(HANDLE h) {
@@ -354,7 +424,10 @@ static int fix_cell(BYTE *pool, DWORD *cell, int idx) {
     const DWORD v = *cell;
     const char *dll, *name;
     WORD ordinal;
-    if (v == 0) return 0;
+    /* A cell the packer would have filled at run time and that the game still calls: with 0 the call lands at EIP 0.
+     * RG_C9_ZEROSTUB=1 answers such a cell with a logging stub like any other unknown, which both keeps the game alive
+     * and names the hole (the call site shows which API it should have been). */
+    if (v == 0 && GetEnvironmentVariableA("RG_C9_ZEROSTUB", NULL, 0) == 0) return 0;
     {
         void *named = api_per_slot(idx);
         if (named) {
@@ -428,14 +501,58 @@ static void dump_range(DWORD va, DWORD len) {
 static void dump_memory(void) {
     char txt[512];
     if (GetEnvironmentVariableA("RG_C9_DUMP", txt, sizeof txt) == 0) return;
+    /* pairs: "va,len[,va,len...]" (';' also works); the engine's Env parser only accepts ',' inside a value */
     for (char *p = txt; *p;) {
         char *e = NULL;
         const DWORD va = (DWORD)strtoul(p, &e, 0);
         DWORD len = 0x100;
         if (e && *e == ',') len = (DWORD)strtoul(e + 1, &e, 0);
         dump_range(va, len);
-        if (e && *e == ';') ++e;
+        while (e && (*e == ',' || *e == ';')) ++e;
         p = e ? e : p + strlen(p);
+    }
+}
+
+/* RG_C9_POKE=<va>:<value>[,<va>:<value>...]: write into the game's own memory just before its code runs. Coopers9 needs
+ * one: when the packer's own device-enumeration step has not run, the global at 0x54B560 ("the dongle was found") stays
+ * 0, the driver path at 0x4A4D30 then never picks a device name, CreateFileA gets NULL and the table it builds stays
+ * empty -- and the game later calls a NULL pointer out of it. Poking the flag makes the game take its own dongle route,
+ * where our c9_CreateFileA/c9_DeviceIoControl answer the device. */
+static void poke_memory(void) {
+    char txt[512];
+    if (GetEnvironmentVariableA("RG_C9_POKE", txt, sizeof txt) == 0) return;
+    for (char *p = txt; *p;) {
+        char *e = NULL;
+        const DWORD va = (DWORD)strtoul(p, &e, 0);
+        DWORD val = 0;
+        if (e && *e == ':') val = (DWORD)strtoul(e + 1, &e, 0);
+        {
+            DWORD old = 0;
+            if (VirtualProtect((void *)(ULONG_PTR)(va & ~0xFFFu), 0x1000, PAGE_READWRITE, &old)) {
+                *(volatile DWORD *)(ULONG_PTR)va = val;
+                VirtualProtect((void *)(ULONG_PTR)(va & ~0xFFFu), 0x1000, old, &old);
+                log_line("poke %08lx = %08lx", (unsigned long)va, (unsigned long)val);
+            } else {
+                log_line("poke %08lx = %08lx FAILED", (unsigned long)va, (unsigned long)val);
+            }
+        }
+        if (e && (*e == ',' || *e == ';')) ++e;
+        p = e ? e : p + strlen(p);
+    }
+}
+
+static unsigned long g_steps[64];
+static unsigned long g_steps_i;
+__attribute__((unused)) static void count_step(unsigned long eip) {
+    g_steps[g_steps_i++ % 64] = eip;
+    if ((g_steps_i % 32) == 0) {
+        char line[512];
+        int k = 0;
+        const unsigned long n = g_steps_i < 64 ? g_steps_i : 64;
+        for (unsigned long i = 0; i < n && k < (int)sizeof line - 12; ++i)
+            k += snprintf(line + k, sizeof line - (size_t)k, " %08lx", g_steps[i]);
+        line[k] = 0;
+        log_line("steps:%s", line);
     }
 }
 
@@ -452,7 +569,12 @@ static DWORD WINAPI worker(LPVOID arg) {
         return 0;
     }
     build_stub(pool + (size_t)g_cells * C9_STUB_SIZE, -1, 0);
+    g_nullret = (DWORD)(ULONG_PTR)(pool + (size_t)g_cells * C9_STUB_SIZE + 24);   /* 31 c0 c3: xor eax,eax; ret */
+    ((BYTE *)(ULONG_PTR)g_nullret)[0] = 0x31;
+    ((BYTE *)(ULONG_PTR)g_nullret)[1] = 0xC0;
+    ((BYTE *)(ULONG_PTR)g_nullret)[2] = 0xC3;
     g_cb_stub = (DWORD)(ULONG_PTR)(pool + (size_t)g_cells * C9_STUB_SIZE);
+    poke_memory();
     if (!VirtualProtect(table, (size_t)g_cells * 4, PAGE_READWRITE, &old)) {
         log_line("table %08lx not writable", (unsigned long)g_table);
         return 0;
@@ -497,6 +619,35 @@ static LONG WINAPI c9_veh(EXCEPTION_POINTERS *info) {
         log_line("fault %08lx at %08lx: eip %08lx eax %08lx ebp %08lx esp %08lx", (unsigned long)code,
                  (unsigned long)at, (unsigned long)info->ContextRecord->Eip, (unsigned long)info->ContextRecord->Eax,
                  (unsigned long)info->ContextRecord->Ebp, (unsigned long)info->ContextRecord->Esp);
+        log_line("fault regs: ebx %08lx ecx %08lx edx %08lx esi %08lx edi %08lx",
+                 (unsigned long)info->ContextRecord->Ebx, (unsigned long)info->ContextRecord->Ecx,
+                 (unsigned long)info->ContextRecord->Edx, (unsigned long)info->ContextRecord->Esi,
+                 (unsigned long)info->ContextRecord->Edi);
+        if (code == 0x80000004ul && g_step_left > 0) {      /* single step while RG_C9_STEP is armed */
+            log_line("step %08lx", (unsigned long)info->ContextRecord->Eip);
+            info->ContextRecord->EFlags |= 0x100;      /* Wine drops TF on continue: set it again every time */
+            if (--g_step_left == 0) {
+                CONTEXT c = *info->ContextRecord;
+                c.EFlags &= ~0x100u;
+                *info->ContextRecord = c;
+                log_line("stepping done");
+            }
+            return EXCEPTION_CONTINUE_EXECUTION;
+        }
+        if (code == 0xc0000005ul && g_nullret && (ULONG_PTR)info->ExceptionRecord->ExceptionAddress < 0x10000 &&
+            GetEnvironmentVariableA("RG_C9_NULLRET", NULL, 0)) {
+            /* The game called an import that its own (packer-rebuilt) table does not have: the pointer is small or
+             * NULL. Answer it the way a missing import has to look -- return 0 -- and continue, instead of dying. */
+            const DWORD eip = (DWORD)(ULONG_PTR)info->ExceptionRecord->ExceptionAddress;
+            MEMORY_BASIC_INFORMATION mbi;
+            if (VirtualQuery((void *)(ULONG_PTR)eip, &mbi, sizeof mbi) != sizeof mbi || mbi.State != MEM_COMMIT) {
+                if (g_skips < 200)
+                    log_line("null call at %08lx from %08lx (skip %lu): answering 0", (unsigned long)eip,
+                             (unsigned long)*(const DWORD *)(ULONG_PTR)info->ContextRecord->Esp, ++g_skips);
+                info->ContextRecord->Eip = g_nullret;
+                return EXCEPTION_CONTINUE_EXECUTION;
+            }
+        }
         if (code == 0xc0000005ul) {
             const DWORD *sp = (const DWORD *)(ULONG_PTR)info->ContextRecord->Esp;
             char line[256];
