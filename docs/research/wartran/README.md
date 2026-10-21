@@ -1028,6 +1028,54 @@ echte beveiliging doet (daar is een dongle voor nodig, en de eigenaar heeft geze
 komt), ofwel de exe op dat punt **patchen** zodat hij de controle overslaat -- dezelfde aanpak als bij
 de andere dongle-spellen in dit document.
 
+### Coopers 9: the 10-17 start used the closed core, and the exe is a flat image dump (2026-10-21 07:30)
+
+**The contradiction is resolved without a run.** `git show cadca34:patches/Coopers9/game.ini` (the
+profile as it was until 10-19) has **no `[Loader]` section**, so on 2026-10-17 the profile selected the
+closed TeknoParrot runtime; commit 7495c3a of 10-17 00:10 lists "Cooper's 9" as starting with
+`Windowed = 1`. That start is therefore a TeknoParrot-core start, not ours. There is no start record for
+it either: `~/.local/state/ravengun/starts/` only begins on 10-17 in the evening (HOTDSD, Police
+Trainer 2). Today's plan (`build/rg-direct --plan Coopers9 --patches patches`) still names our loader and
+our core, `tp_files []`, which is what the queue asks for.
+
+**What was actually missing is not in the core.** The exe is a *flat memory image*: the byte at file
+offset X belongs at RVA X (the header is 0x1000 bytes, `.text` at 0x1000, `.rdata` at 0x112000, and the
+file is 0x272a000 bytes = `SizeOfImage`), but its section table still carries the raw offsets of the
+**packed** exe it was dumped from. `.data` even declares `VirtualSize 0x24c3e30` against `SizeOfRawData
+0x29000`, which only makes sense for a live image. With that stale table the loader reads `.protect` at
+0x160000 instead of 0x25fb000 -- 0x10a000 bytes early -- and the import directory (RVA 0x27297c0, inside
+`.protect`) reads as zeros. That is the whole "the import table lies in uninitialized `.data`" story: the
+table is there, we were looking 0x10a000 bytes off.
+
+**Measured** with `tools/dev/pe-flat-fix.py` (rewrites `PointerToRawData` to the RVA and
+`SizeOfRawData` to the aligned `VirtualSize`, then re-parses the import directory; it never writes the
+NAS):
+
+```
+section .rsrc      raw 0015f000 -> 025fa000
+section .protect   raw 00160000 -> 025fb000
+check: 15 descriptors, 15 dlls: KERNEL32.dll, SETUPAPI.dll, KERNEL32.dll, USER32.dll, d3d9.dll,
+       DINPUT8.dll, DSOUND.dll, WINMM.dll, KERNEL32.dll, USER32.dll, GDI32.dll, ADVAPI32.dll,
+       ole32.dll, OLEAUT32.dll, MSVCR71.dll
+```
+
+The hint/name table, the ILT and the IAT are all in the dump, so the names come out of the game itself
+(`GetVersion`, `WaitForSingleObject`, `LocalFree`, `CloseHandle`, `DeviceIoControl`, `CreateFileA`, ...).
+
+**Effect (gamescope headless, prefix `prefixes/Coopers9`, `WINEDEBUG=-all,+loaddll`, a copy of the fixed
+exe in a throw-away map with links to `data/` and the DXVK dlls):** the old
+`EXCEPTION_ACCESS_VIOLATION addr=4FD8AED0` is gone, Wine loads every DLL of the import table plus
+`Z:\...\d3d9.dll` (DXVK) and `DINPUT8.dll`, and the process lives ~40 s with **no exception** and then
+exits with code 0. So the "unstartable memory dump of a protected process" verdict from 10-19 was based
+on the stale section table.
+
+**Still open (next measurements):** (1) why the game exits cleanly after ~40 s instead of drawing -- a
+`+relay` tail of those last seconds and a first screenshot; (2) how the fixed image gets into the
+double-click path (the engine has to produce it per launch; no game bytes in the repo); (3) the second
+IAT at 0x512000 in `.rdata`, which the thunks (`jmp dword ptr [0x5123a0]`, e.g. at 0x45c0b0) use but
+which is no descriptor's `FirstThunk`: it holds XP addresses (0x7C80xxxx) and 0x0313xxxx protector
+stubs, so something has to fill it at runtime.
+
 ### Robin Hood: wie er wacht, met de meetdraad (2026-10-19 11:41)
 
 De volgorde-fout in `rg_rhio.cpp` (de meetdraad werd voor `LogOpen()` geladen, dus zijn regels
