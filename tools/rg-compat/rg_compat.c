@@ -925,10 +925,12 @@ static void rg_patch_start(void) {
 
 static void *w7_orig[W7_MAX];
 __attribute__((used)) static void *w7_cont[W7_MAX];
+static const int w7_map2[16] = {4, 12, 20, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static int w7_answer;
 __attribute__((used)) static int w7_busy[W7_MAX];
 static void *w7_last_obj[W7_MAX];
 static DWORD *w7_last_st[W7_MAX];
-static unsigned char w7_on[W7_MAX];
+
 static BYTE *w7_base;
 static DWORD w7_size;
 
@@ -982,16 +984,46 @@ __attribute__((used)) static void w7_on_call(int idx, void *regs) {
     w7_arg(a3, sizeof a3, st[3], w7_base, w7_size);
     w7_arg(a4, sizeof a4, st[4], w7_base, w7_size);
     w7_arg(a5, sizeof a5, st[5], w7_base, w7_size);
-    d2_line("vt[+0x%02x] arg1=%s arg2=%s arg3=%s arg4=%s arg5=%s ecx=%p", idx * 4, a1, a2, a3, a4, a5,
+    const char *vt = idx < 16 ? "dongle" : "record";
+    const DWORD off = (DWORD)(idx < 16 ? idx * 4 : w7_map2[idx - 16] * 4);
+    d2_line("%s[+0x%02x] arg1=%s arg2=%s arg3=%s arg4=%s arg5=%s ecx=%p", vt, off, a1, a2, a3, a4, a5,
             (void *)r[6]);
     w7_last_obj[idx] = (void *)st[1];
     w7_last_st[idx] = (DWORD *)st;
 }
 
-__attribute__((used)) static void w7_on_ret(int idx, unsigned long ret) {
-    if (!d2_log || idx < 0 || idx >= W7_MAX) return;
-    d2_line("vt[+0x%02x] -> %08lx", idx * 4, ret);
-    if (idx == 8) w7_dump_table(w7_last_obj[idx]);
+/* Antwoordstand: na de mislukte tabelvulling ([vt+0x20]) leggen we een synthetische tabel in het object:
+ * een record van 0x6c bytes (hetzelfde formaat dat de vulling zelf gebruikt, zie 0x40a632: count en 0x6c via
+ * [0x7d039c]) met de naam "InsGame" op +0x60 en een lege sleutel van 32 bytes op +0x00. [vt+0x14] zoekt op die
+ * naam en [vt+0x10] vergelijkt de 32 bytes van het record met wat de vrager kreeg (0x40a580), dus nullen aan
+ * beide kanten matchen. De teller en de wijzer staan op dezelfde plaatsen als de vulling ze gebruikt: +0x24 en
+ * +0x20. */
+static void *w7_synth_table(void *obj) {
+    if (!obj || !w7_base) return NULL;
+    DWORD *const veld = (DWORD *)obj;
+    if (veld[0x24 / 4] != 0 || veld[0x20 / 4] != 0) return NULL;
+    typedef void *(CDECL *alloc_fn)(DWORD, DWORD);
+    alloc_fn alloc = *(alloc_fn *)((BYTE *)w7_base + 0x3d039c);
+    if (!alloc) return NULL;
+    BYTE *e = (BYTE *)alloc(1, 0x6c);
+    if (!e) return NULL;
+    memset(e, 0, 0x6c);
+    memcpy(e + 0x60, "InsGame", 8);
+    veld[0x20 / 4] = (DWORD)(ULONG_PTR)e;
+    veld[0x24 / 4] = 1;
+    d2_line("   synthetische tabel: 1 record \"InsGame\" op %p", (void *)e);
+    return e;
+}
+
+__attribute__((used)) static unsigned long w7_on_ret(int idx, unsigned long ret) {
+    if (!d2_log || idx < 0 || idx >= W7_MAX) return ret;
+    const char *vt = idx < 16 ? "dongle" : "record";
+    const DWORD off = (DWORD)(idx < 16 ? idx * 4 : w7_map2[idx - 16] * 4);
+    d2_line("%s[+0x%02x] -> %08lx", vt, off, ret);
+    if (idx == 8) {
+        if (w7_answer && ret == 0x80004005u && w7_synth_table(w7_last_obj[idx])) ret = 0;
+        w7_dump_table(w7_last_obj[idx]);
+    }
     if (idx == 5 && (ret & 0x80000000u) == 0 && w7_last_st[idx]) {
         const DWORD *st = w7_last_st[idx];
         const BYTE *out = (const BYTE *)st[2];
@@ -1002,6 +1034,7 @@ __attribute__((used)) static void w7_on_ret(int idx, unsigned long ret) {
             d2_line("   recordinhoud bij de vrager: %s", hex);
         }
     }
+    return ret;
 }
 
 #define W7_THUNK(n)                                                                      \
@@ -1028,6 +1061,7 @@ __attribute__((used)) static void w7_on_ret(int idx, unsigned long ret) {
             "pushl %eax\n\tpushl $" #n "\n\t"                                            \
             "call _w7_on_ret\n\taddl $8, %esp\n\t"                                       \
             "movl $0, _w7_busy+" #n "*4\n\t"                                             \
+            "movl %eax, 28(%esp)\n\t"                                                    \
             "popal\n\tmovl _w7_cont+" #n "*4, %eax\n\tjmp *%eax\n\t");                   \
     }
 
@@ -1046,44 +1080,59 @@ static void *const w7_thunks[W7_MAX] = {
     (void *)w7_call_30, (void *)w7_call_31,
 };
 
+/* Een entry omwikkelen: thunknummer n (dat de log en de originelen indexeert) op vtable-entry slot. */
+static void w7_wrap_one(void **vt, int n, int slot, const char *naam) {
+    DWORD old = 0;
+    if (!VirtualProtect(&vt[slot], sizeof(void *), PAGE_READWRITE, &old)) {
+        d2_line("wrap: VirtualProtect geweigerd op %s entry %d", naam, slot);
+        return;
+    }
+    w7_orig[n] = vt[slot];
+    vt[slot] = w7_thunks[n];
+    VirtualProtect(&vt[slot], sizeof(void *), old, &old);
+    d2_line("wrap: %s entry %d (+0x%02x) %p -> thunk", naam, slot, slot * 4, w7_orig[n]);
+}
+
 static void w7_start(void) {
     char txt[160];
     DWORD n = GetEnvironmentVariableA("RG_DONGLE2_WRAP", txt, sizeof txt);
     if (n == 0 || n >= sizeof txt) return;
-    const unsigned long rva = strtoul(txt, NULL, 0);
-    const DWORD size = (DWORD)strtoul(strchr(txt, ',') ? strchr(txt, ',') + 1 : "0", NULL, 0);
     HMODULE image = GetModuleHandleA(NULL);
+    const unsigned long rva = strtoul(txt, NULL, 0);
     if (!image || !rva) {
         d2_line("wrap: geen hoofdbeeld of rva");
         return;
     }
-    void **vt = (void **)((BYTE *)image + rva);
     w7_base = (BYTE *)image;
     {
         IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)image;
         IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)((BYTE *)image + dos->e_lfanew);
         w7_size = nt->OptionalHeader.SizeOfImage;
     }
-    d2_line("wrap: vtable %p (beeld %p +0x%lx, %lu entries)", (void *)vt, (void *)image, rva, (unsigned long)size);
+    char antw[8];
+    w7_answer = GetEnvironmentVariableA("RG_DONGLE2_WRAP_ANSWER", antw, sizeof antw) > 0 && antw[0] == '1';
+    d2_line("wrap: antwoordstand %s", w7_answer ? "aan" : "uit");
+
+    /* Het dongle-object zelf: RG_DONGLE2_WRAP=<rva> met RG_DONGLE2_WRAP_SLOTS=<entry,...>. */
+    void **vt = (void **)((BYTE *)image + rva);
     char slots[160];
-    if (!GetEnvironmentVariableA("RG_DONGLE2_WRAP_SLOTS", slots, sizeof slots)) return;
-    for (char *p = slots; *p;) {
-        const long idx = strtol(p, &p, 0);
-        if (idx < 0 || idx >= W7_MAX) break;
-        while (*p == ',' || *p == ' ') ++p;
-        w7_on[idx] = 1;
-    }
-    for (int i = 0; i < W7_MAX; ++i) {
-        if (!w7_on[i]) continue;
-        DWORD old = 0;
-        if (!VirtualProtect(&vt[i], sizeof(void *), PAGE_READWRITE, &old)) {
-            d2_line("wrap: VirtualProtect geweigerd op entry %d", i);
-            continue;
+    if (GetEnvironmentVariableA("RG_DONGLE2_WRAP_SLOTS", slots, sizeof slots)) {
+        d2_line("wrap: dongle-vtable %p (+0x%lx)", (void *)vt, rva);
+        for (char *p = slots; *p;) {
+            const long slot = strtol(p, &p, 0);
+            if (slot < 0 || slot >= 16) break;
+            while (*p == ',' || *p == ' ') ++p;
+            w7_wrap_one(vt, (int)slot, (int)slot, "dongle");
         }
-        w7_orig[i] = vt[i];
-        vt[i] = w7_thunks[i];
-        VirtualProtect(&vt[i], sizeof(void *), old, &old);
-        d2_line("wrap: entry %d (+0x%02x) %p -> thunk", i, i * 4, w7_orig[i]);
+    }
+
+    /* Het recordobject dat uit een record wordt gemaakt (0x40ae20 zet zijn vptr op 0x7d2564). */
+    n = GetEnvironmentVariableA("RG_DONGLE2_WRAP2", txt, sizeof txt);
+    if (n > 0 && n < sizeof txt) {
+        const unsigned long rva2 = strtoul(txt, NULL, 0);
+        void **vt2 = (void **)((BYTE *)image + rva2);
+        d2_line("wrap: record-vtable %p (+0x%lx)", (void *)vt2, rva2);
+        for (int k = 0; k < 4; ++k) w7_wrap_one(vt2, 16 + k, w7_map2[k], "record");
     }
 }
 
