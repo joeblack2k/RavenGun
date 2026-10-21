@@ -1572,6 +1572,13 @@ static void hook_start(HMODULE exe) {
     int idx = 0;
     for (char *p = txt; *p && idx < HK_MAX;) {
         const DWORD rva = (DWORD)strtoul(p, &p, 0);
+        DWORD lengte = 6;
+        if (*p == ':') {
+            ++p;
+            lengte = (DWORD)strtoul(p, &p, 0);
+            if (lengte < 5) lengte = 5;
+            if (lengte > 16) lengte = 16;
+        }
         BYTE *doel = (BYTE *)exe + rva;
         BYTE *tramp = (BYTE *)VirtualAlloc(NULL, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
         if (!tramp) {
@@ -1583,13 +1590,17 @@ static void hook_start(HMODULE exe) {
             d2_line("haak: +0x%lx niet schrijfbaar", (unsigned long)rva);
             break;
         }
-        memcpy(tramp, doel, 6);
-        tramp[6] = 0xe9;
-        *(int *)(tramp + 7) = (int)((doel + 6) - (tramp + 11));
+        memcpy(tramp, doel, lengte);
+        tramp[lengte] = 0xe9;
+        *(int *)(tramp + lengte + 1) = (int)((doel + lengte) - (tramp + lengte + 5));
+        if (!VirtualProtect(doel, lengte, PAGE_EXECUTE_READWRITE, &oud)) {
+            d2_line("haak: +0x%lx niet schrijfbaar", (unsigned long)rva);
+            break;
+        }
         doel[0] = 0xe9;
         *(int *)(doel + 1) = (int)((BYTE *)hk_stubs[idx] - (doel + 5));
-        doel[5] = 0x90;
-        VirtualProtect(doel, 6, oud, &oud);
+        for (DWORD k = 5; k < lengte; ++k) doel[k] = 0x90;
+        VirtualProtect(doel, lengte, oud, &oud);
         hk_tramp[idx] = tramp;
         hk_rva[idx] = rva;
         d2_line("haak: +0x%lx -> stub %d (trampoline %p)", (unsigned long)rva, idx, tramp);
