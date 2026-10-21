@@ -1021,6 +1021,38 @@ static void *w7_synth_table(void *obj) {
     return e;
 }
 
+/* Overslaan in antwoordstand: de lees-methoden van het recordobject wachten op het apparaat (de hoofd- en de
+ * bewaakdraad staan beiden in een wacht binnen 0x40c110) en komen dus nooit terug. Voor die entries antwoordt
+ * de thunk zelf met S_OK (en nullen in de uitbuffer) en ruimt hij zijn eigen argumenten op, met de maat die de
+ * methode zelf gebruikt (0x40bbf0 ret 8, 0x40c110 ret 0x14, 0x40bab0 ret 0xc, 0x40bc90 ret 4). */
+__attribute__((used)) static void w7_on_skip(int idx, void *regs) {
+    if (!d2_log || idx < 0 || idx >= W7_MAX) return;
+    const DWORD *r = (const DWORD *)regs + 1;
+    const DWORD *st = (const DWORD *)r[3];
+    const DWORD slot = idx < 16 ? (DWORD)idx : (DWORD)w7_map2[idx - 16];
+    if (slot == 20 && st[3] && (ULONG_PTR)st[3] > 0x10000) {
+        const DWORD len = st[4] > 0x40 ? 0x40 : st[4];
+        memset((void *)st[3], 0, len);
+    } else if (slot == 12 && st[2] && (ULONG_PTR)st[2] > 0x10000) {
+        memset((void *)st[2], 0, 8);
+    }
+    d2_line("record[+0x%02x] overgeslagen (antwoordstand, obj %p)", slot * 4, (void *)st[1]);
+}
+
+#define W7_SKIP(n, bytes)                                                                \
+    __attribute__((naked, used)) static void w7_sk_##n(void) {                            \
+        __asm__ __volatile__(                                                            \
+            "pushal\n\tpushfl\n\t"                                                    \
+            "movl %esp, %eax\n\t"                                                       \
+            "pushl %eax\n\tpushl $" #n "\n\t"                                          \
+            "call _w7_on_skip\n\taddl $8, %esp\n\t"                                    \
+            "popfl\n\tpopal\n\t"                                                      \
+            "xorl %eax, %eax\n\t"                                                       \
+            "ret $" #bytes "\n\t");                                                    \
+    }
+
+W7_SKIP(17, 0x8) W7_SKIP(18, 0x14) W7_SKIP(19, 0xc) W7_SKIP(20, 0x4)
+
 __attribute__((used)) static unsigned long w7_on_ret(int idx, unsigned long ret) {
     if (!d2_log || idx < 0 || idx >= W7_MAX) return ret;
     const char *vt = idx < 16 ? "dongle" : "record";
@@ -1155,8 +1187,30 @@ static void w7_start(void) {
     if (n > 0 && n < sizeof txt) {
         const unsigned long rva2 = strtoul(txt, NULL, 0);
         void **vt2 = (void **)((BYTE *)image + rva2);
-        d2_line("wrap: record-vtable %p (+0x%lx)", (void *)vt2, rva2);
-        for (int k = 0; k < 5; ++k) w7_wrap_one(vt2, 16 + k, w7_map2[k], "record");
+        d2_line("wrap: record-vtable %p (+0x%lx), antwoordstand %s", (void *)vt2, rva2,
+                w7_answer ? "slaat de leesmethoden over" : "alleen meten");
+        for (int k = 0; k < 5; ++k) {
+            const int idx = 16 + k;
+            const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 14 || w7_map2[k] == 20 ||
+                                                w7_map2[k] == 22);
+            DWORD old = 0;
+            if (overslaan) {
+                void *stub = NULL;
+                if (idx == 17) stub = (void *)w7_sk_17;
+                else if (idx == 18) stub = (void *)w7_sk_18;
+                else if (idx == 19) stub = (void *)w7_sk_19;
+                else if (idx == 20) stub = (void *)w7_sk_20;
+                if (stub && VirtualProtect(&vt2[w7_map2[k]], sizeof(void *), PAGE_READWRITE, &old)) {
+                    w7_orig[idx] = vt2[w7_map2[k]];
+                    vt2[w7_map2[k]] = stub;
+                    VirtualProtect(&vt2[w7_map2[k]], sizeof(void *), old, &old);
+                    d2_line("wrap: record entry %d (+0x%02x) %p -> overslaan-thunk", w7_map2[k],
+                            w7_map2[k] * 4, w7_orig[idx]);
+                    continue;
+                }
+            }
+            w7_wrap_one(vt2, idx, w7_map2[k], "record");
+        }
     }
 }
 
