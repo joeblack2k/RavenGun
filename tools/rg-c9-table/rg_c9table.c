@@ -378,6 +378,17 @@ static LONG WINAPI c9_veh(EXCEPTION_POINTERS *info) {
             }
             line[k] = 0;
             log_line("fault chain:%s", line);
+            {
+                MEMORY_BASIC_INFORMATION mbi;
+                if (VirtualQuery((void *)(ULONG_PTR)at, &mbi, sizeof mbi) == sizeof mbi)
+                    log_line("fault at %08lx: state %08lx prot %08lx type %08lx base %08lx size %08lx",
+                             (unsigned long)at, (unsigned long)mbi.State, (unsigned long)mbi.Protect,
+                             (unsigned long)mbi.Type, (unsigned long)(ULONG_PTR)mbi.AllocationBase,
+                             (unsigned long)mbi.RegionSize);
+                else
+                    log_line("fault at %08lx: no query", (unsigned long)at);
+                dump_memory();
+            }
         }
     }
     return EXCEPTION_CONTINUE_SEARCH;
