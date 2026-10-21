@@ -19,13 +19,16 @@ int main(void) {
     rg_wajv_state st = {0, 0};
     memset(shm, 0, sizeof shm);
 
-    /* Rust: alles nul, geen muntfout (statusdwords 0x2ac en 0x2cc nul). */
+    /* Rest: the board ID at the start (RSLauncher compares 0x2a bytes), the rest zero, no coin error (status dwords 0x2ac and 0x2cc zero). */
     rg_wajv_fill(blk, shm, &st);
-    for (size_t i = 0; i < RG_WAJV_BLOCK_SIZE; i++) CHECK(blk[i] == 0);
+    CHECK(sizeof RG_WAJV_BOARD_ID - 1 == RG_WAJV_BOARD_ID_LEN && RG_WAJV_BOARD_ID_LEN == 0x2a);
+    CHECK(memcmp(blk, "namco ltd.;NA-JV;Ver4.00;JPN,Multipurpose.", 0x2a) == 0);
+    for (size_t i = RG_WAJV_BOARD_ID_LEN; i < RG_WAJV_BLOCK_SIZE; i++) CHECK(blk[i] == 0);
 
-    /* Zonder gedeeld geheugen: ook rust. */
+    /* Without shared memory: also rest. */
     rg_wajv_fill(blk, NULL, &st);
-    for (size_t i = 0; i < RG_WAJV_BLOCK_SIZE; i++) CHECK(blk[i] == 0);
+    CHECK(memcmp(blk, RG_WAJV_BOARD_ID, RG_WAJV_BOARD_ID_LEN) == 0);
+    for (size_t i = RG_WAJV_BOARD_ID_LEN; i < RG_WAJV_BLOCK_SIZE; i++) CHECK(blk[i] == 0);
 
     /* TEST. */
     set_ctl(shm, 1u << RG_LL_BIT_TEST);
@@ -57,7 +60,7 @@ int main(void) {
     /* De trekkers staan niet in dit blok (RSLauncher leest ze niet). */
     set_ctl(shm, (1u << RG_LL_BIT_P1_TRIGGER) | (1u << RG_LL_BIT_P2_TRIGGER));
     rg_wajv_fill(blk, shm, &st);
-    for (size_t i = 0; i < RG_WAJV_BLOCK_SIZE; i++) CHECK(blk[i] == 0);
+    for (size_t i = RG_WAJV_BOARD_ID_LEN; i < RG_WAJV_BLOCK_SIZE; i++) CHECK(blk[i] == 0);
 
     /* Munt: elke stijgende flank telt, vasthouden niet; de teller blijft staan als de bit weer los is. */
     st.coin_was_down = 0; st.coins = 0;

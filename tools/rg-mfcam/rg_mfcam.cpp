@@ -96,7 +96,27 @@
 //   and answers echo requests to that one address like a router on the same switch; every other address goes to the real function
 //   (content_router.h). Off with the TeknoParrot core. Log: "content router: ...".
 //
+// TWELFTH TASK: a camera without the daemon, in a module other than the exe (Lost Land Adventure, 64-bit)
+//   Lost Land Adventure's launcher (RSLauncher.exe, 64-bit) asks nbamMfCapture.dll's mfCapDevList::EnumerateDevices for its cameras
+//   (0x140041450: up to 25 times, 200 ms apart) and raises error 40 "08-01 AUTH CAMERA ERROR" when the count stays 0; that error
+//   sets bErrorFatal in the memory it shares with the game, and the game stays on its FATAL ERROR screen. nbamMfCapture.dll, not the
+//   exe, imports MF.dll!MFEnumDeviceSources. RG_MFCAM_MODULE=nbamMfCapture.dll puts the redirection in that module's import table;
+//   RG_MFCAM_SYNTHETIC=640x480 offers the camera also without the daemon's camera file, with the gray frame below (cam_select.h).
+//   This file builds both as the 32-bit DLL (Mario Kart DX) and as a 64-bit one (tools/dev/build-mfcam.sh --arch x86_64); the
+//   stalldump reads 32-bit thread registers and is only in the 32-bit build.
+//
+// THIRTEENTH TASK: Lost Land's gun peripheral on COM2, in the game started by the launcher
+//   RSLauncher.exe starts LLA/Binaries/Win64/DomeShooterGame-Win64-Shipping.exe with CreateProcessW. RG_CHILD_PRELOAD=<exe name> loads
+//   this DLL into that child too (suspended start, remote LoadLibraryW). In the game RG_DOMEGUN_COMPORT=COM2 answers its gun peripheral:
+//   the game reads 12-byte frames (picture spot of each gun's camera and the button bits) from COM2 at 115200 and forgets the gun after
+//   60 polls without a frame; the launcher then shows a gun camera error (RSSharedData+0x1a4, RSLauncher 0x1400633ea). The frames come
+//   from the shared memory TeknoParrot_JvsState (dome_gun.h). RG_DOMEGUN_MASKS=<hex rva> logs the game's button masks.
+//
 // ENVIRONMENT
+//   RG_CHILD_PRELOAD=name   load this DLL into a child process with that exe name (THIRTEENTH TASK)
+//   RG_DOMEGUN_COMPORT=COM2 emulate the gun peripheral on that port (THIRTEENTH TASK)
+//   RG_MFCAM_SYNTHETIC=WxH  a camera of that size also without the camera file (TWELFTH TASK)
+//   RG_MFCAM_MODULE=name    redirect MFEnumDeviceSources in that module instead of the exe (TWELFTH TASK)
 //   RG_CONTENT_ROUTER=a.b.c.d  answer the game's pings to its content router at that address (ELEVENTH TASK)
 //   RG_STR_COMPORT=COM1  emulate the STR board (TENTH TASK)
 //   RG_WINDOWED=1        let the game start windowed (NINTH TASK)
@@ -142,6 +162,7 @@
 #include <cstring>
 #include <deque>
 #include <string>
+#include <cwctype>
 #include <vector>
 
 #include "../../src/ravengun/vision/camera_feed_format.h"
@@ -151,6 +172,8 @@
 #include "stall_dump.h"
 #include "drive_fix.h"
 #include "bngrw_fake.h"
+#include "cam_select.h"
+#include "dome_gun.h"
 #include "window_mode.h"
 #include "str_board.h"
 #include "usb_dongle.h"
@@ -205,6 +228,7 @@ const char* fmt_name(const GUID& g) {
 // --- settings ---------------------------------------------------------------------------------------------------------------------
 wchar_t g_source[MAX_PATH] = RG_CAMFEED_PATH_WINE;
 int g_fps = 30;
+uint32_t g_synth_w = 0, g_synth_h = 0;   // RG_MFCAM_SYNTHETIC; 0 = off
 
 // --- reading the camera file ----------------------------------------------------------------------------------------------------------
 // Reads header and frame with the seqlock from camera_feed_format.h. true = `head` and `frame` are one whole frame.
@@ -238,7 +262,12 @@ bool read_feed(rg_camfeed_header& head, std::vector<BYTE>& frame) {
 bool feed_present(uint32_t& w, uint32_t& h) {
     rg_camfeed_header hd;
     std::vector<BYTE> f;
-    if (!read_feed(hd, f)) return false;
+    if (!read_feed(hd, f)) {
+        if (!g_synth_w) return false;
+        w = g_synth_w;   // no camera file: the synthetic camera (the stream delivers gray frames)
+        h = g_synth_h;
+        return true;
+    }
     w = hd.width;
     h = hd.height;
     return true;
@@ -969,7 +998,10 @@ bool is_jvs(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_jvs_handle; }
 char g_str_port[32];
 volatile HANDLE g_str_handle = INVALID_HANDLE_VALUE;
 bool is_str(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_str_handle; }
-bool is_fake_com(HANDLE h) { return is_jvs(h) || is_str(h); }
+// The gun peripheral of Lost Land Adventure (THIRTEENTH TASK); the functions are further down.
+volatile HANDLE g_gun_handle = INVALID_HANDLE_VALUE;
+bool is_gun(HANDLE h) { return h != INVALID_HANDLE_VALUE && h == g_gun_handle; }
+bool is_fake_com(HANDLE h) { return is_jvs(h) || is_str(h) || is_gun(h); }
 HANDLE str_open(LPCSTR name, DWORD access, LPSECURITY_ATTRIBUTES sa, DWORD flags);
 
 HANDLE WINAPI rg_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
@@ -2217,6 +2249,7 @@ void setup_windowed() {
 }
 
 // --- the stalldump (see FIFTH TASK at the top) -------------------------------------------------------------------------------------------------
+#if defined(__i386__)
 // Where is `a`? In the exe: "exe+0xRVA (VA 0x...)", otherwise "module+0xoffset".
 void where_text(DWORD a, char* out, size_t n) {
     auto* exe = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
@@ -2328,12 +2361,19 @@ DWORD WINAPI stall_thread(LPVOID) {
     return 0;
 }
 
+#endif  // __i386__
+
 void setup_stall_dump() {
     char spec[128];
     if (GetEnvironmentVariableA("RG_STALL_DUMP", spec, sizeof spec) == 0 || !spec[0]) return;
+#if !defined(__i386__)
+    rg_log("stalldump: RG_STALL_DUMP=%s ignored, only in the 32-bit build", spec);
+    return;
+#else
     HANDLE t = CreateThread(nullptr, 0, &stall_thread, nullptr, 0, nullptr);
     if (t) CloseHandle(t);
     rg_log("stalldump on: %s s after load", spec);
+#endif
 }
 
 // --- image dump (RG_IMAGE_DUMP=40,90) -----------------------------------------------------------
@@ -2405,6 +2445,285 @@ void setup_image_dump() {
     rg_log("image dump on: %s s after load", spec);
 }
 
+// --- the child process (see THIRTEENTH TASK at the top) ----------------------------------------------------------------------------------
+// RG_CHILD_PRELOAD=<exe name>: when this process starts that exe with CreateProcessW, the child is created suspended, this DLL is
+// loaded into it (a remote thread on LoadLibraryW, the same way the OpenParrot loader loads its core) and the child then continues.
+// The child inherits the environment, so the parts switched on there (RG_DOMEGUN_COMPORT) work in it.
+using CreateProcessWFn = BOOL(WINAPI*)(LPCWSTR, LPWSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCWSTR,
+                                       LPSTARTUPINFOW, LPPROCESS_INFORMATION);
+CreateProcessWFn g_create_process_w = nullptr;
+wchar_t g_child_exe[MAX_PATH];
+
+bool child_matches(LPCWSTR app, LPCWSTR cmd) {
+    for (LPCWSTR s : {app, static_cast<LPCWSTR>(cmd)}) {
+        if (!s) continue;
+        std::wstring low(s);
+        for (auto& c : low) c = static_cast<wchar_t>(towlower(c));
+        std::wstring want(g_child_exe);
+        for (auto& c : want) c = static_cast<wchar_t>(towlower(c));
+        if (low.find(want) != std::wstring::npos) return true;
+    }
+    return false;
+}
+
+bool inject_self(HANDLE proc) {
+    wchar_t self[MAX_PATH] = {};
+    const DWORD len = GetModuleFileNameW(g_self, self, MAX_PATH);
+    if (!len) return false;
+    const SIZE_T bytes = (len + 1) * sizeof(wchar_t);
+    void* remote = VirtualAllocEx(proc, nullptr, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!remote) return false;
+    SIZE_T put = 0;
+    bool ok = false;
+    if (WriteProcessMemory(proc, remote, self, bytes, &put) && put == bytes) {
+        auto* load = reinterpret_cast<LPTHREAD_START_ROUTINE>(reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW")));
+        HANDLE t = load ? CreateRemoteThread(proc, nullptr, 0, load, remote, 0, nullptr) : nullptr;
+        if (t) {
+            const DWORD w = WaitForSingleObject(t, 15000);
+            DWORD code = 0;
+            GetExitCodeThread(t, &code);
+            ok = w == WAIT_OBJECT_0 && code != 0;
+            rg_log("child: LoadLibraryW in the child %s (wait %lu, low half of the module 0x%lx)", ok ? "done" : "FAILED",
+                   static_cast<unsigned long>(w), static_cast<unsigned long>(code));
+            CloseHandle(t);
+        } else {
+            rg_log("child: CreateRemoteThread failed (error %lu)", static_cast<unsigned long>(GetLastError()));
+        }
+    }
+    VirtualFreeEx(proc, remote, 0, MEM_RELEASE);
+    return ok;
+}
+
+BOOL WINAPI rg_CreateProcessW(LPCWSTR app, LPWSTR cmd, LPSECURITY_ATTRIBUTES pa, LPSECURITY_ATTRIBUTES ta, BOOL inherit, DWORD flags,
+                              LPVOID env, LPCWSTR dir, LPSTARTUPINFOW si, LPPROCESS_INFORMATION pi) {
+    if (!child_matches(app, cmd) || !pi) return g_create_process_w(app, cmd, pa, ta, inherit, flags, env, dir, si, pi);
+    const BOOL r = g_create_process_w(app, cmd, pa, ta, inherit, flags | CREATE_SUSPENDED, env, dir, si, pi);
+    if (!r) return r;
+    const std::string c8 = cmd ? to_utf8(cmd) : std::string();
+    rg_log("child: started pid %lu suspended: %s", static_cast<unsigned long>(pi->dwProcessId), c8.c_str());
+    inject_self(pi->hProcess);
+    if (!(flags & CREATE_SUSPENDED)) ResumeThread(pi->hThread);
+    return r;
+}
+
+void setup_child_preload() {
+    if (GetEnvironmentVariableW(L"RG_CHILD_PRELOAD", g_child_exe, MAX_PATH) == 0 || !g_child_exe[0]) return;   // off
+    void* old = patch_iat(GetModuleHandleW(nullptr), "KERNEL32.dll", "CreateProcessW", reinterpret_cast<void*>(&rg_CreateProcessW));
+    if (old) g_create_process_w = reinterpret_cast<CreateProcessWFn>(old);
+    const std::string e8 = to_utf8(g_child_exe);
+    rg_log("child preload %s: %s", e8.c_str(), old ? "CreateProcessW redirected" : "CreateProcessW not in this exe, off");
+}
+
+// --- the gun peripheral on a COM port (see THIRTEENTH TASK at the top) -------------------------------------------------------------------
+// RG_DOMEGUN_COMPORT=COM2: CreateFileW on that port gives a handle of our own (an event, so that CloseHandle stays valid), and the
+// game's ReadFile/WriteFile/ClearCommError on it are answered from the shared memory TeknoParrot_JvsState (dome_gun.h).
+char g_gun_port[32];
+CRITICAL_SECTION g_gun_cs;
+rg_domegun::Port g_gun;
+HANDLE g_gun_map = nullptr;
+const uint8_t* g_gun_shm = nullptr;
+LONG g_gun_frames = 0;
+int g_gun_feedback[2] = {-1, -1};
+uint32_t g_gun_mask_rva = 0;   // RG_DOMEGUN_MASKS=<hex rva>: log the game's two button masks when they change
+uint32_t g_gun_masks[2] = {~0u, ~0u};
+
+using CreateFileWFn = HANDLE(WINAPI*)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
+using ClearCommErrorFn = BOOL(WINAPI*)(HANDLE, LPDWORD, LPCOMSTAT);
+using ReadFileFn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using WriteFileFn = BOOL(WINAPI*)(HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED);
+using CloseHandleFn = BOOL(WINAPI*)(HANDLE);
+CreateFileWFn g_create_file_w = nullptr;
+ClearCommErrorFn g_clear_comm_error = nullptr;
+ReadFileFn g_read_file = nullptr;
+WriteFileFn g_write_file = nullptr;
+CloseHandleFn g_close_handle = nullptr;
+
+HANDLE WINAPI rg_CreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
+    const std::string n8 = name ? to_utf8(name) : std::string();
+    if (!g_gun_port[0] || !rg_jvscom::port_matches(n8.c_str(), g_gun_port))
+        return g_create_file_w(name, access, share, sa, disp, flags, tmpl);
+    HANDLE h = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    EnterCriticalSection(&g_gun_cs);
+    g_gun = rg_domegun::Port{};
+    if (!g_gun_shm) {
+        g_gun_map = OpenFileMappingA(FILE_MAP_READ, FALSE, "TeknoParrot_JvsState");
+        if (g_gun_map) g_gun_shm = static_cast<const uint8_t*>(MapViewOfFile(g_gun_map, FILE_MAP_READ, 0, 0, 64));
+    }
+    g_gun_handle = h;
+    LeaveCriticalSection(&g_gun_cs);
+    rg_log("gun: CreateFileW(%s) -> our gun peripheral, handle %p; shared memory TeknoParrot_JvsState %s", n8.c_str(), h,
+           g_gun_shm ? "open" : "NOT there (centre, no buttons)");
+    return h;
+}
+
+void gun_note_masks() {
+    if (!g_gun_mask_rva) return;
+    const auto* base = reinterpret_cast<const BYTE*>(GetModuleHandleW(nullptr));
+    uint32_t m[2];
+    std::memcpy(m, base + g_gun_mask_rva, sizeof m);
+    if (m[0] != g_gun_masks[0] || m[1] != g_gun_masks[1]) {
+        g_gun_masks[0] = m[0];
+        g_gun_masks[1] = m[1];
+        rg_log("gun: button masks now 0x%lx / 0x%lx", static_cast<unsigned long>(m[0]), static_cast<unsigned long>(m[1]));
+    }
+}
+
+BOOL WINAPI rg_ClearCommError(HANDLE h, LPDWORD errors, LPCOMSTAT st) {
+    if (!is_gun(h)) return g_clear_comm_error(h, errors, st);
+    EnterCriticalSection(&g_gun_cs);
+    g_gun.refill(GetTickCount(), 8, g_gun_shm);
+    const DWORD n = static_cast<DWORD>(g_gun.n);
+    LeaveCriticalSection(&g_gun_cs);
+    if (errors) *errors = 0;
+    if (st) {
+        std::memset(st, 0, sizeof *st);
+        st->cbInQue = n;
+    }
+    gun_note_masks();
+    return TRUE;
+}
+
+BOOL WINAPI rg_ReadFile(HANDLE h, LPVOID buf, DWORD want, LPDWORD got, LPOVERLAPPED ov) {
+    if (!is_gun(h)) return g_read_file(h, buf, want, got, ov);
+    EnterCriticalSection(&g_gun_cs);
+    const size_t k = g_gun.read(static_cast<uint8_t*>(buf), want);
+    LeaveCriticalSection(&g_gun_cs);
+    if (got) *got = static_cast<DWORD>(k);
+    if (k >= 11) {
+        const LONG f = InterlockedIncrement(&g_gun_frames);
+        if (f == 1 || f % 3600 == 0) rg_log("gun: frame %ld read by the game", static_cast<long>(f));
+    }
+    return TRUE;
+}
+
+BOOL WINAPI rg_WriteFile(HANDLE h, LPCVOID buf, DWORD n, LPDWORD put, LPOVERLAPPED ov) {
+    if (!is_gun(h)) return g_write_file(h, buf, n, put, ov);
+    const auto* b = static_cast<const uint8_t*>(buf);
+    for (DWORD i = 0; i < n && i < 2; ++i) {
+        const int lvl = rg_domegun::feedback_level(b[i], static_cast<int>(i));
+        if (lvl != g_gun_feedback[i]) {
+            g_gun_feedback[i] = lvl;
+            rg_log("gun: feedback player %lu -> %d ('%c')", static_cast<unsigned long>(i + 1), lvl, b[i] >= 32 && b[i] < 127 ? b[i] : '?');
+        }
+    }
+    if (put) *put = n;
+    return TRUE;
+}
+
+BOOL WINAPI rg_CloseHandle(HANDLE h) {
+    if (is_gun(h)) {
+        g_gun_handle = INVALID_HANDLE_VALUE;
+        rg_log("gun: the game closed the port");
+    }
+    return g_close_handle(h);
+}
+
+void setup_dome_gun() {
+    char port[32];
+    if (GetEnvironmentVariableA("RG_DOMEGUN_COMPORT", port, sizeof port) == 0 || !port[0]) return;   // off
+    HMODULE game = GetModuleHandleW(nullptr);
+    // Only where the game itself opens the port with CreateFileW (not in the launcher, which inherits the setting).
+    void* old = patch_iat(game, "KERNEL32.dll", "CreateFileW", reinterpret_cast<void*>(&rg_CreateFileW));
+    if (!old) {
+        rg_log("gun peripheral %s: CreateFileW not in this exe, off", port);
+        return;
+    }
+    // Only the exe that uses ClearCommError on its port; another exe gets its CreateFileW back.
+    void* clear = patch_iat(game, "KERNEL32.dll", "ClearCommError", reinterpret_cast<void*>(&rg_ClearCommError));
+    if (!clear) {
+        patch_iat(game, "KERNEL32.dll", "CreateFileW", old);
+        rg_log("gun peripheral %s: ClearCommError not in this exe, off", port);
+        return;
+    }
+    InitializeCriticalSection(&g_gun_cs);
+    g_create_file_w = reinterpret_cast<CreateFileWFn>(old);
+    g_clear_comm_error = reinterpret_cast<ClearCommErrorFn>(clear);
+    std::snprintf(g_gun_port, sizeof g_gun_port, "%s", port);
+    hook_kernel32("ReadFile", &rg_ReadFile, g_read_file);
+    hook_kernel32("WriteFile", &rg_WriteFile, g_write_file);
+    hook_kernel32("CloseHandle", &rg_CloseHandle, g_close_handle);
+    hook_comm_once();   // GetCommState/SetCommState on our handle succeed
+    char rva[32];
+    if (GetEnvironmentVariableA("RG_DOMEGUN_MASKS", rva, sizeof rva) > 0 && rva[0]) {
+        const auto* base = reinterpret_cast<const BYTE*>(game);
+        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + reinterpret_cast<const IMAGE_DOS_HEADER*>(base)->e_lfanew);
+        const unsigned long v = std::strtoul(rva, nullptr, 16);
+        if (v && v + 8 <= nt->OptionalHeader.SizeOfImage) g_gun_mask_rva = static_cast<uint32_t>(v);
+    }
+    rg_log("gun peripheral on: %s answered from TeknoParrot_JvsState (12-byte frames, both players)%s", g_gun_port,
+           g_gun_mask_rva ? ", button masks logged" : "");
+}
+
+// --- the error set of a game (RG_ERRMAP) -------------------------------------------------------------------------------------------------
+// RG_ERRMAP=<hex rva>:<hex offset>: the exe keeps a pointer to an object at that RVA, with an MSVC 2010 std::map<int, ...> at that
+// offset (map+8 = head node; node: left 0, parent 8, right 0x10, key 0x18, isnil byte 0x29). Every 2 s the keys are logged when they
+// changed. For Lost Land's launcher: 4098e0:38 is its error list (RSLauncher 0x140035190 raises an error by adding its code there,
+// 0x1400362a0 is the map's find), so the log names the errors that are up, e.g. 40 = "08-01 AUTH CAMERA ERROR".
+uintptr_t g_errmap_rva = 0, g_errmap_off = 0;
+
+bool safe_read(const void* p, void* out, size_t n) {
+    SIZE_T got = 0;
+    return ReadProcessMemory(GetCurrentProcess(), p, out, n, &got) && got == n;
+}
+
+void errmap_walk(uintptr_t node, uintptr_t head, std::vector<int>& keys, int depth) {
+    if (!node || node == head || depth > 64 || keys.size() > 256) return;
+    uint8_t isnil = 1;
+    if (!safe_read(reinterpret_cast<void*>(node + 0x29), &isnil, 1) || isnil) return;
+    uintptr_t left = 0, right = 0;
+    int key = 0;
+    safe_read(reinterpret_cast<void*>(node), &left, sizeof left);
+    safe_read(reinterpret_cast<void*>(node + 0x10), &right, sizeof right);
+    safe_read(reinterpret_cast<void*>(node + 0x18), &key, sizeof key);
+    errmap_walk(left, head, keys, depth + 1);
+    keys.push_back(key);
+    errmap_walk(right, head, keys, depth + 1);
+}
+
+DWORD WINAPI errmap_thread(LPVOID) {
+    const auto base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+    std::string last = "-";
+    for (;;) {
+        Sleep(2000);
+        uintptr_t obj = 0, head = 0, root = 0;
+        std::string now;
+        if (!safe_read(reinterpret_cast<void*>(base + g_errmap_rva), &obj, sizeof obj) || !obj) now = "(no object yet)";
+        else if (!safe_read(reinterpret_cast<void*>(obj + g_errmap_off + 8), &head, sizeof head) || !head ||
+                 !safe_read(reinterpret_cast<void*>(head + 8), &root, sizeof root))
+            now = "(map not readable)";
+        else {
+            std::vector<int> keys;
+            errmap_walk(root, head, keys, 0);
+            now = keys.empty() ? "none" : "";
+            for (int k : keys) now += (now.empty() ? "" : " ") + std::to_string(k);
+        }
+        if (now != last) {
+            rg_log("error map: %s", now.c_str());
+            last = now;
+        }
+    }
+}
+
+void setup_errmap() {
+    char spec[64];
+    if (GetEnvironmentVariableA("RG_ERRMAP", spec, sizeof spec) == 0 || !spec[0]) return;
+    char* end = nullptr;
+    g_errmap_rva = std::strtoull(spec, &end, 16);
+    g_errmap_off = (end && *end == ':') ? std::strtoull(end + 1, nullptr, 16) : 0;
+    // Only in the exe the RVA belongs to: the module must be larger than the RVA and must not be the game child.
+    const auto* base = reinterpret_cast<const BYTE*>(GetModuleHandleW(nullptr));
+    const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + reinterpret_cast<const IMAGE_DOS_HEADER*>(base)->e_lfanew);
+    char exe[MAX_PATH] = {};
+    GetModuleFileNameA(nullptr, exe, MAX_PATH);
+    char want[MAX_PATH] = {};
+    if (GetEnvironmentVariableA("RG_ERRMAP_EXE", want, sizeof want) > 0 && want[0] && !std::strstr(exe, want)) return;
+    if (!g_errmap_rva || g_errmap_rva + 8 > nt->OptionalHeader.SizeOfImage) return;
+    HANDLE t = CreateThread(nullptr, 0, &errmap_thread, nullptr, 0, nullptr);
+    if (t) CloseHandle(t);
+    rg_log("error map on: pointer at exe+0x%llx, map at +0x%llx", static_cast<unsigned long long>(g_errmap_rva),
+           static_cast<unsigned long long>(g_errmap_off));
+}
+
 void setup() {
     InitializeCriticalSection(&g_log_cs);
     // Log next to this DLL.
@@ -2444,11 +2763,29 @@ void setup() {
     setup_bngrw();          // likewise: only with RG_BNGRW
     setup_msg_trace();      // likewise: only with RG_MSGTRACE=1
     setup_windowed();       // likewise: only with RG_WINDOWED=1
+    setup_child_preload();  // likewise: only with RG_CHILD_PRELOAD
+    setup_dome_gun();       // likewise: only with RG_DOMEGUN_COMPORT
+    setup_errmap();         // likewise: only with RG_ERRMAP
     if (GetEnvironmentVariableW(L"RG_MFCAM_OFF", buf, MAX_PATH) > 0 && buf[0] == L'1') {
         rg_log("RG_MFCAM_OFF=1: nothing redirected");
         return;
     }
-    void* old = patch_iat(GetModuleHandleW(nullptr), "MF.dll", "MFEnumDeviceSources", reinterpret_cast<void*>(&rg_MFEnumDeviceSources));
+    char synth[32];
+    if (GetEnvironmentVariableA("RG_MFCAM_SYNTHETIC", synth, sizeof synth) > 0 && synth[0]) {
+        if (rg_camsel::parse_size(synth, g_synth_w, g_synth_h)) rg_log("synthetic camera on: %ux%u when there is no camera file", g_synth_w, g_synth_h);
+        else rg_log("RG_MFCAM_SYNTHETIC=%s not understood (WxH, even width, at most 4096x4096); synthetic camera off", synth);
+    }
+    char modname[MAX_PATH] = {};
+    HMODULE target = GetModuleHandleW(nullptr);
+    if (GetEnvironmentVariableA("RG_MFCAM_MODULE", modname, sizeof modname) > 0 && modname[0]) {
+        target = GetModuleHandleA(modname);
+        if (!target) {
+            rg_log("import table: module %s is not loaded; no camera", modname);
+            return;
+        }
+        rg_log("import table: the redirection goes into %s", modname);
+    }
+    void* old = patch_iat(target, "MF.dll", "MFEnumDeviceSources", reinterpret_cast<void*>(&rg_MFEnumDeviceSources));
     if (old) {
         g_orig_enum = reinterpret_cast<EnumFn>(old);
         rg_log("import table: MF.dll!MFEnumDeviceSources redirected (old address %p)", old);
@@ -2456,7 +2793,10 @@ void setup() {
         rg_log("import table: MF.dll!MFEnumDeviceSources NOT found in the game; no camera");
     }
     uint32_t w = 0, h = 0;
-    if (feed_present(w, h)) rg_log("camera file now: %ux%u with frame", w, h);
+    rg_camfeed_header fh;
+    std::vector<BYTE> ff;
+    if (read_feed(fh, ff)) rg_log("camera file now: %ux%u with frame", fh.width, fh.height);
+    else if (feed_present(w, h)) rg_log("camera file now: there is no frame; the synthetic camera (%ux%u, gray) answers", w, h);
     else rg_log("camera file now: there is no frame (yet) (the daemon turns it on for a game with [Camera] Use = game)");
 }
 

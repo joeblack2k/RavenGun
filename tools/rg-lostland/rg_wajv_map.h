@@ -43,6 +43,12 @@ enum {
     RG_LL_BIT_ENTER = 9
 };
 
+/* The board's identification at the start of the block. RSLauncher.exe 0x14006466a..0x140064691 compares the first 0x2a bytes
+ * of the WAJVGetInput block with this string (0x1402bda30) and raises error 5 "03-02 FIRMWARE ERROR" (registered as not playable,
+ * so the game shows FATAL ERROR) when they differ. Measured 2026-10-21: with a zero block error 5 is in the launcher's error list. */
+#define RG_WAJV_BOARD_ID "namco ltd.;NA-JV;Ver4.00;JPN,Multipurpose."
+#define RG_WAJV_BOARD_ID_LEN 42u
+
 /* Offsets in het blok (wajvio.dll 0x180001300). */
 enum {
     RG_WAJV_OFF_START = 0x183,

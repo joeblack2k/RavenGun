@@ -18,6 +18,7 @@ static void set_button(uint8_t *blk, int idx, int down) {
 
 void rg_wajv_fill(uint8_t *block, const uint8_t *shm, rg_wajv_state *st) {
     for (size_t i = 0; i < RG_WAJV_BLOCK_SIZE; i++) block[i] = 0;
+    for (size_t i = 0; i < RG_WAJV_BOARD_ID_LEN; i++) block[i] = (uint8_t)RG_WAJV_BOARD_ID[i];
     const uint32_t ctl = rg_wajv_control(shm);
 
     block[RG_WAJV_OFF_TEST] = (uint8_t)bit(ctl, RG_LL_BIT_TEST);

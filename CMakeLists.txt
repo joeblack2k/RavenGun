@@ -609,6 +609,12 @@ if(RAVENGUN_BUILD_TESTS)
   # The content router's echo reply of rg-mfcam.dll (tools/rg-mfcam/content_router.h): address parser and ICMP reply buffer.
   add_executable(ravengun_content_router_tests tests/test_content_router.cpp)
   add_test(NAME ravengun_content_router_tests COMMAND ravengun_content_router_tests)
+  # The synthetic camera size of rg-mfcam.dll (tools/rg-mfcam/cam_select.h): RG_MFCAM_SYNTHETIC=WxH for Lost Land's launcher.
+  add_executable(ravengun_cam_select_tests tests/test_cam_select.cpp)
+  add_test(NAME ravengun_cam_select_tests COMMAND ravengun_cam_select_tests)
+  # The gun peripheral of Lost Land Adventure in rg-mfcam.dll (tools/rg-mfcam/dome_gun.h): COM2 frames from the shared memory.
+  add_executable(ravengun_dome_gun_tests tests/test_dome_gun.cpp)
+  add_test(NAME ravengun_dome_gun_tests COMMAND ravengun_dome_gun_tests)
   # docs/compatibility.md moet bij patches/<Game>/game.ini passen (tools/dev/gen-compatibility.py).
   if(Python3_Interpreter_FOUND)
     add_test(NAME ravengun_compat_list COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/dev/gen-compatibility.py" --check)
