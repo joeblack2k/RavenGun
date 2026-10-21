@@ -1005,19 +1005,26 @@ static void *w7_synth_table(void *obj) {
     typedef void *(CDECL *alloc_fn)(DWORD, DWORD);
     alloc_fn alloc = *(alloc_fn *)((BYTE *)w7_base + 0x3d039c);
     if (!alloc) return NULL;
-    BYTE *e = (BYTE *)alloc(1, 0x6c);
+    /* Het spel vraagt dezelfde record ook met een oplopende teller op (0x40a7b0 slaat zoveel treffers over:
+     * gemeten arg4=0xFF), dus de dongle hoort een rij van 0x100 gelijke "InsGame"-records te hebben -- precies
+     * het aantal slots dat de poort zelf afloopt (0x415ca0 tot 0x8987b0). */
+    const DWORD aantal = 0x100;
+    BYTE *e = (BYTE *)alloc(aantal, 0x6c);
     if (!e) return NULL;
-    memset(e, 0, 0x6c);
+    memset(e, 0, (size_t)aantal * 0x6c);
     /* De velden die de spellogica zelf toetst (0x42f9e0 leest het record vanaf +0x10 als een structuur:
      * [0] < 0x7f, [4] >= 0x20000, [0x58] != 0, en [0x10] is de id voor de apparaatvraag). */
-    *(DWORD *)(e + 0x10) = 1;
-    *(DWORD *)(e + 0x14) = 0x20000;
-    *(DWORD *)(e + 0x20) = 1;
-    *(DWORD *)(e + 0x68) = 1;
-    memcpy(e + 0x60, "InsGame", 8);
+    for (DWORD i = 0; i < aantal; ++i) {
+        BYTE *r = e + (size_t)i * 0x6c;
+        *(DWORD *)(r + 0x10) = 1;
+        *(DWORD *)(r + 0x14) = 0x20000;
+        *(DWORD *)(r + 0x20) = 1;
+        *(DWORD *)(r + 0x68) = 1;
+        memcpy(r + 0x60, "InsGame", 8);
+    }
     veld[0x20 / 4] = (DWORD)(ULONG_PTR)e;
-    veld[0x24 / 4] = 1;
-    d2_line("   synthetische tabel: 1 record \"InsGame\" op %p", (void *)e);
+    veld[0x24 / 4] = aantal;
+    d2_line("   synthetische tabel: %lu records \"InsGame\" op %p", (unsigned long)aantal, (void *)e);
     return e;
 }
 
@@ -1036,7 +1043,11 @@ __attribute__((used)) static void w7_on_skip(int idx, void *regs) {
     } else if (slot == 12 && st[2] && (ULONG_PTR)st[2] > 0x10000) {
         memset((void *)st[2], 0, 8);
     }
-    d2_line("record[+0x%02x] overgeslagen (antwoordstand, obj %p)", slot * 4, (void *)st[1]);
+    static unsigned long n;
+    ++n;
+    if (n <= 20 || (n % 500) == 0)
+        d2_line("record[+0x%02x] overgeslagen (antwoordstand, obj %p, vrager +0x%lx, totaal %lu)", slot * 4,
+                (void *)st[1], (unsigned long)(st[0] - (DWORD)(ULONG_PTR)w7_base), n);
 }
 
 #define W7_SKIP(n, bytes)                                                                \
@@ -1191,8 +1202,7 @@ static void w7_start(void) {
                 w7_answer ? "slaat de leesmethoden over" : "alleen meten");
         for (int k = 0; k < 5; ++k) {
             const int idx = 16 + k;
-            const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 14 || w7_map2[k] == 20 ||
-                                                w7_map2[k] == 22);
+            const BOOL overslaan = w7_answer && (w7_map2[k] == 12 || w7_map2[k] == 20 || w7_map2[k] == 22);
             DWORD old = 0;
             if (overslaan) {
                 void *stub = NULL;
