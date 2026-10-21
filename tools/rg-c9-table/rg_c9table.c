@@ -186,6 +186,51 @@ static struct { int idx; unsigned long caller; unsigned long esp; unsigned long 
                 unsigned long saved_ptr, arg_ptr, saved_val; } g_trace[C9_TRACE_N];
 static volatile long g_trace_i;
 
+/* The hardlock/HASP device driver. 0x4A4D30 of the game opens a device file (\\.\FEnteDev on NT, \\.\HARDLOCK.VXD on
+ * Win9x, both at 0x54C42C/0x54C418), asks it DeviceIoControl 0x9C4024A8 with a 0x2000-byte buffer and turns the reply
+ * into words: count = [buf], then per entry a 64-bit value whose low 16 bits go to [table + i*4] and bits 16..31 to
+ * [table + i*4 + 2]. Wine has no such device, CreateFileA fails, the table stays empty, and the game then calls a NULL
+ * pointer out of it. These three shims are named from the drop-in (RG_C9_API=76/88/54:...rg-c9-table.dll!c9_*): the
+ * device gets a NUL handle and the IOCTL an empty table, every other file is passed straight through. */
+static HANDLE g_hl = INVALID_HANDLE_VALUE;
+static unsigned long g_hl_io;
+
+static int hardlock_name(const char *p) {
+    if (!p) return 0;
+    for (; *p; ++p)
+        if (strncmp(p, "FEnteDev", 8) == 0 || strncmp(p, "HARDLOCK", 8) == 0) return 1;
+    return 0;
+}
+
+__declspec(dllexport) HANDLE WINAPI c9_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa,
+                                                   DWORD disp, DWORD flags, HANDLE tmpl) {
+    if (!hardlock_name(name)) return CreateFileA(name, access, share, sa, disp, flags, tmpl);
+    g_hl = CreateFileA("NUL", 0, 0, NULL, OPEN_EXISTING, 0, NULL);
+    log_line("hardlock: CreateFileA(%s) -> NUL handle %08lx", name, (unsigned long)g_hl);
+    return g_hl;
+}
+
+__declspec(dllexport) BOOL WINAPI c9_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD insz, LPVOID out,
+                                                    DWORD outsz, LPDWORD got, LPOVERLAPPED ov) {
+    if (h != g_hl || g_hl == INVALID_HANDLE_VALUE) return DeviceIoControl(h, code, in, insz, out, outsz, got, ov);
+    if (out && outsz) memset(out, 0, outsz);   /* count 0: an empty table */
+    if (got) *got = outsz;
+    if (++g_hl_io <= 8)
+        log_line("hardlock: DeviceIoControl(%08lx, code %08lx, in %lu bytes at %08lx, out %lu bytes) -> empty table",
+                 (unsigned long)h, (unsigned long)code, (unsigned long)insz, (unsigned long)(ULONG_PTR)in,
+                 (unsigned long)outsz);
+    return TRUE;
+}
+
+__declspec(dllexport) BOOL WINAPI c9_CloseHandle(HANDLE h) {
+    if (h == g_hl && g_hl != INVALID_HANDLE_VALUE) {
+        CloseHandle(h);
+        g_hl = INVALID_HANDLE_VALUE;
+        return TRUE;
+    }
+    return CloseHandle(h);
+}
+
 __attribute__((used)) static void c9_on_call(int idx, unsigned long *saved_eax, const unsigned long *arg0) {
     if (idx < 0) {
         /* Not a slot but the callback stub (RG_C9_CBRET): the game called a pointer a slot handed it. */
