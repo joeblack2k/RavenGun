@@ -1856,10 +1856,169 @@ static void veh_start(void) {
     if (AddVectoredExceptionHandler(1, veh_filter)) d2_line("foutmeter aan");
 }
 
+/* ------------------------------- 16. RG_TABLE_DUMP (aanroeptabel van een beschermd spel volgen) */
+
+/* Coopers's 9 vult zijn aanroeptabel op 0x512000 pas tijdens het starten (de dump is daar helemaal nul),
+ * dus de inhoud is alleen in het lopende proces te lezen. Deze meter leest de tabel om de <ms> opnieuw en
+ * schrijft hem naar RG_DONGLE2_LOG zodra hij verandert; hij schrijft NIETS in de tabel, zodat het spel zich
+ * precies zo gedraagt als zonder meter. RG_TABLE_DUMP=<va>,<dwords>,<ms> (va in het hoofdbeeld). */
+
+static void tabel_dump_rij(const DWORD *t, DWORD van, DWORD tot, DWORD ronde) {
+    char hex[9 * 16 + 1];
+    for (DWORD i = van; i < tot; i += 16) {
+        const DWORD eind = (i + 16 < tot) ? i + 16 : tot;
+        int k = 0;
+        for (DWORD j = i; j < eind; ++j) k += snprintf(hex + k, sizeof hex - (size_t)k, "%08lx ", (unsigned long)t[j]);
+        d2_line("tabeldump ronde %lu [%lu..%lu]: %s", (unsigned long)ronde, (unsigned long)i, (unsigned long)(eind - 1),
+                hex);
+    }
+}
+
+static DWORD WINAPI tabledump_thread(LPVOID arg) {
+    const DWORD va = (DWORD)(ULONG_PTR)arg;
+    char txt[64];
+    DWORD aantal = 64, ms = 500;
+    if (GetEnvironmentVariableA("RG_TABLE_DUMP", txt, sizeof txt) > 0) {
+        char *e = NULL;
+        (void)strtoul(txt, &e, 0);
+        if (e && *e == ',') aantal = (DWORD)strtoul(e + 1, &e, 0);
+        if (e && *e == ',') ms = (DWORD)strtoul(e + 1, NULL, 0);
+    }
+    if (aantal > 512) aantal = 512;
+    if (ms < 50) ms = 50;
+    BYTE *const base = (BYTE *)GetModuleHandleA(NULL);
+    const DWORD *const t = (const DWORD *)(uintptr_t)va;
+    DWORD vorige[512];
+    memset(vorige, 0, sizeof vorige);
+    int eerste = 1;
+    for (DWORD ronde = 1; ronde <= 40; ++ronde) {
+        Sleep(ms);
+        if (!base || !t) continue;
+        int anders = 0;
+        for (DWORD i = 0; i < aantal; ++i)
+            if (t[i] != vorige[i]) anders = 1;
+        if (anders || eerste) {
+            d2_line("tabeldump: tabel %08lx ronde %lu (beeld %p)", (unsigned long)va, (unsigned long)ronde, (void *)base);
+            tabel_dump_rij(t, 0, aantal, ronde);
+            for (DWORD i = 0; i < aantal; ++i) vorige[i] = t[i];
+            eerste = 0;
+        }
+        if (ronde == 40) break;
+    }
+    return 0;
+}
+
+static void tabledump_start(void) {
+    char txt[64];
+    if (GetEnvironmentVariableA("RG_TABLE_DUMP", txt, sizeof txt) == 0) return;
+    char *e = NULL;
+    const DWORD va = (DWORD)strtoul(txt, &e, 0);
+    if (!va) return;
+    d2_line("tabeldump: aan voor %08lx", (unsigned long)va);
+    CreateThread(NULL, 0, tabledump_thread, (void *)(ULONG_PTR)va, 0, NULL);
+}
+
+/* ------------------------------- 17. RG_MAPLOG / RG_PEEK (geheugenbeeld van een beschermd spel) */
+
+/* Coopers's 9 springt via zijn tabel naar 0x4FD8AED0, een adres in de uitpakruimte van de bescherming die de
+ * vlakke dump niet bevat. RG_MAPLOG=1 schrijft een keer de toegewezen gebieden (basis, maat, protectie,
+ * modulenaam) naar RG_DONGLE2_LOG, en RG_PEEK=<va>,<len> de eerste <len> bytes op <va> met de
+ * VirtualQuery-uitkomst. Samen laten ze zien of die ruimte bestaat voordat het spel erheen springt. */
+
+static DWORD WINAPI map_thread(LPVOID arg) {
+    (void)arg;
+    Sleep(800);
+    char txt[64];
+    if (GetEnvironmentVariableA("RG_MAPLOG", txt, sizeof txt) > 0 && txt[0] == '1') {
+        MEMORY_BASIC_INFORMATION mbi;
+        BYTE *p = (BYTE *)0x10000;
+        unsigned long n = 0;
+        while (p < (BYTE *)0x80000000 && n < 400) {
+            if (VirtualQuery(p, &mbi, sizeof mbi) != sizeof mbi) break;
+            if (mbi.State == MEM_COMMIT) {
+                char naam[MAX_PATH] = "";
+                if (mbi.Type == MEM_IMAGE && GetModuleFileNameA((HMODULE)mbi.AllocationBase, naam, sizeof naam) > 0) {
+                    const char *kort = strrchr(naam, '\\');
+                    if (kort) memmove(naam, kort + 1, strlen(kort) + 1);
+                }
+                if (mbi.Protect != PAGE_NOACCESS)
+                    d2_line("map %08lx-%08lx maat %08lx prot %08lx type %08lx %s", (unsigned long)(ULONG_PTR)mbi.BaseAddress,
+                            (unsigned long)((ULONG_PTR)mbi.BaseAddress + mbi.RegionSize), (unsigned long)mbi.RegionSize,
+                            (unsigned long)mbi.Protect, (unsigned long)mbi.Type, naam);
+                ++n;
+            }
+            p = (BYTE *)mbi.BaseAddress + mbi.RegionSize;
+            if (!mbi.RegionSize) break;
+        }
+        d2_line("map: %lu gebieden", n);
+    }
+    if (GetEnvironmentVariableA("RG_PEEK", txt, sizeof txt) > 0) {
+        char *e = NULL;
+        const DWORD va = (DWORD)strtoul(txt, &e, 0);
+        DWORD len = 32;
+        if (e && *e == ',') len = (DWORD)strtoul(e + 1, NULL, 0);
+        if (len > 256) len = 256;
+        MEMORY_BASIC_INFORMATION mbi;
+        if (VirtualQuery((void *)(ULONG_PTR)va, &mbi, sizeof mbi) != sizeof mbi) {
+            d2_line("peek %08lx: geen query", (unsigned long)va);
+        } else {
+            d2_line("peek %08lx: staat %08lx prot %08lx type %08lx basis %08lx", (unsigned long)va,
+                    (unsigned long)mbi.State, (unsigned long)mbi.Protect, (unsigned long)mbi.Type,
+                    (unsigned long)(ULONG_PTR)mbi.AllocationBase);
+            if (mbi.State == MEM_COMMIT) {
+                char hex[3 * 32 + 1];
+                int k = 0;
+                const BYTE *b = (const BYTE *)(ULONG_PTR)va;
+                for (DWORD i = 0; i < len; ++i) k += snprintf(hex + k, sizeof hex - (size_t)k, "%02x", b[i]);
+                d2_line("peek %08lx: %s", (unsigned long)va, hex);
+            }
+        }
+    }
+    return 0;
+}
+
+static void map_start(void) {
+    char txt[8];
+    if (GetEnvironmentVariableA("RG_MAPLOG", txt, sizeof txt) == 0 &&
+        GetEnvironmentVariableA("RG_PEEK", txt, sizeof txt) == 0)
+        return;
+    CreateThread(NULL, 0, map_thread, NULL, 0, NULL);
+}
+
+/* ------------------------------- 18. RG_PREMAP (uitpakruimte van de bescherming vooraf toewijzen) */
+
+/* De aanroeptabel van Coopers's 9 staat vol pointers naar 0x0313xxxx en 0x4FD8AED0, en beide gebieden zijn in
+ * het lopende proces MEM_FREE (gemeten met RG_MAPLOG/RG_PEEK): de bescherming schrijft vaste adressen die ze
+ * zelf had moeten toewijzen. RG_PREMAP=<va>,<maat>[;<va>,<maat>] wijst die ruimte in de DLL-init toe (RX), in
+ * de hoop dat de bescherming er dan in schrijft in plaats van in het niets. */
+
+static void premap_start(void) {
+    char txt[128];
+    const DWORD n = GetEnvironmentVariableA("RG_PREMAP", txt, sizeof txt);
+    if (n == 0 || n >= sizeof txt) return;
+    char *save = NULL;
+    for (char *item = strtok_r(txt, "|", &save); item; item = strtok_r(NULL, "|", &save)) {
+        char *e = NULL;
+        const DWORD va = (DWORD)strtoul(item, &e, 0);
+        DWORD maat = 0x100000;
+        if (e && *e == ',') maat = (DWORD)strtoul(e + 1, NULL, 0);
+        if (!va || !maat) continue;
+        void *p = VirtualAlloc((void *)(ULONG_PTR)va, (size_t)maat, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        if (p) {
+            memset(p, 0xcc, (size_t)maat);
+            d2_line("premap: %08lx-%08lx toegewezen op %p", (unsigned long)va, (unsigned long)(va + maat), p);
+        } else {
+            d2_line("premap: %08lx-%08lx geweigerd (fout %lu)", (unsigned long)va, (unsigned long)(va + maat),
+                    (unsigned long)GetLastError());
+        }
+    }
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     (void)inst;
     (void)reserved;
     if (reason == DLL_PROCESS_ATTACH) {
+        premap_start();
         sample_start();
         HMODULE exe = GetModuleHandleA(NULL);
         real_abc = (abc_fn)patch_import(exe, "gdi32.dll", "GetCharABCWidthsA", (void *)rg_GetCharABCWidthsA);
@@ -1876,6 +2035,8 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         tableprobe_start(exe);
         hook_start(exe);
         veh_start();
+        tabledump_start();
+        map_start();
         callres_start(exe);
     }
     return TRUE;
