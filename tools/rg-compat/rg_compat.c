@@ -927,6 +927,7 @@ static void *w7_orig[W7_MAX];
 __attribute__((used)) static void *w7_cont[W7_MAX];
 static const int w7_map2[16] = {4, 12, 20, 22, 14, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16, 17};
 static int w7_answer;
+static int w7_echo;
 __attribute__((used)) static int w7_busy[W7_MAX];
 static void *w7_last_obj[W7_MAX];
 static DWORD *w7_last_st[W7_MAX];
@@ -1043,7 +1044,13 @@ __attribute__((used)) static void w7_on_skip(int idx, void *regs) {
     const DWORD slot = idx < 16 ? (DWORD)idx : (DWORD)w7_map2[idx - 16];
     if (slot == 20 && st[3] && (ULONG_PTR)st[3] > 0x10000) {
         const DWORD len = st[4] > 0x40 ? 0x40 : st[4];
-        memset((void *)st[3], 0, len);
+        /* Echostand: de transform (mode 0x30) krijgt een ingang en moet zijn antwoord in de uitgang zetten;
+         * de lezing (mode 0x42) heeft geen ingang. In plaats van nullen geven we de ingang terug, zodat de
+         * Check Bytes van het blok gelijk worden aan de ID Bytes van de scène. */
+        if (w7_echo && st[2] && (ULONG_PTR)st[2] > 0x10000)
+            memcpy((void *)st[3], (const void *)st[2], len);
+        else
+            memset((void *)st[3], 0, len);
     } else if (slot == 12 && st[2] && (ULONG_PTR)st[2] > 0x10000) {
         memset((void *)st[2], 0, 8);
     }
@@ -1182,6 +1189,8 @@ static void w7_start(void) {
     }
     char antw[8];
     w7_answer = GetEnvironmentVariableA("RG_DONGLE2_WRAP_ANSWER", antw, sizeof antw) > 0 && antw[0] == '1';
+    w7_echo = GetEnvironmentVariableA("RG_DONGLE2_ECHO", antw, sizeof antw) > 0 && antw[0] == '1';
+    if (w7_echo) d2_line("wrap: echostand aan (transform 0x30 geeft de ingang terug)");
     d2_line("wrap: antwoordstand %s", w7_answer ? "aan" : "uit");
 
     /* Het dongle-object zelf: RG_DONGLE2_WRAP=<rva> met RG_DONGLE2_WRAP_SLOTS=<entry,...>. */
