@@ -474,6 +474,7 @@ std::string validate(const Settings& s) {
     if (!in(s.aim.predict_ms, 0, 200)) return "aim.predict_ms moet tussen 0 en 200 liggen";
     if (!(s.output.clock_hz == 0 || in(s.output.clock_hz, 20, 1000))) return "output.clock_hz moet 0 (uit) zijn of tussen 20 en 1000 liggen";
     if (!in(s.output.extrapolate_ms, 0, 100)) return "output.extrapolate_ms moet tussen 0 en 100 liggen";
+    if (!in(s.output.key_min_hold_ms, 0, 1000)) return "output.key_min_hold_ms moet tussen 0 en 1000 liggen";
     if (s.web.port < 1 || s.web.port > 65535) return "web.port moet tussen 1 en 65535 liggen";
     for (const auto& kv : s.sharp_shooter.buttons) {
         const auto& roles = sharp_shooter_roles();
@@ -618,7 +619,8 @@ std::string to_json(const Settings& s, bool pretty, bool redact) {
         w.key("h_edge_deg").value(s.aim.h_edge_deg).key("v_edge_deg").value(s.aim.v_edge_deg).key("predict_ms").value(s.aim.predict_ms);
     }) + "," + nl;
     out += section("output", [&](json::Writer& w) {
-        w.key("clock_hz").value(s.output.clock_hz).key("extrapolate_ms").value(s.output.extrapolate_ms);
+        w.key("clock_hz").value(s.output.clock_hz).key("extrapolate_ms").value(s.output.extrapolate_ms)
+            .key("key_min_hold_ms").value(s.output.key_min_hold_ms);
     }) + "," + nl;
     out += section("web", [&](json::Writer& w) { w.key("port").value(s.web.port).key("lan").value(s.web.lan).key("require_token").value(s.web.require_token); }) + "," + nl;
     out += section("sharp_shooter", [&](json::Writer& w) {
@@ -768,7 +770,8 @@ bool parse_settings(const std::string& text, Settings& out, std::string& err, st
         Section c{*o, "output", e, warnings};
         c.number("clock_hz", 0, 1000, s.output.clock_hz, false);
         c.number("extrapolate_ms", 0, 100, s.output.extrapolate_ms, false);
-        c.unknown({"clock_hz", "extrapolate_ms"});
+        c.number("key_min_hold_ms", 0, 1000, s.output.key_min_hold_ms, false);
+        c.unknown({"clock_hz", "extrapolate_ms", "key_min_hold_ms"});
     }
     if (const json::Value* o = sec("web")) {
         Section c{*o, "web", e, warnings};

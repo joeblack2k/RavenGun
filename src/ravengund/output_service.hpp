@@ -88,6 +88,10 @@ public:
     void set_pad_input(int player, const ravengun::iobridge::IoPadInput& in);
     // Uitvoerklok (fase 6): live instelbaar; hz = 0 zet hem uit (positie alleen per rapport).
     ravengun::output::OutputClockConfig clock_config() const;
+    // Minimum time (ms) a keyboard key stays down, for every key that a PS Move button or `ravengunctl key` presses; 0 = off.
+    // Quick presses are stretched, and two presses stay at least kKeyMinGapMs apart (see key_mux.hpp). Settings: output.key_min_hold_ms.
+    void set_key_min_hold(double ms);
+    static constexpr double kKeyMinGapMs = 50.0;
     void set_clock(const ravengun::output::OutputClockConfig& c);
     // Actieve knoppenindeling (voor status/startlog) van speler 1 of `player`; de live koppeling zelf zit in de HID-thread.
     void set_layout(const std::vector<std::pair<std::string, std::string>>& layout) { set_layout(1, layout); }

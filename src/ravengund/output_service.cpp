@@ -23,7 +23,18 @@ OutputService::OutputService(GunFactory guns, std::unique_ptr<KeyDevice> keyboar
         if (!p.dev) p.dev = std::make_unique<UinputGun>(p.id);
         p.out = std::make_unique<GunOutput>(*p.dev, &mux_.port(p.number));
     }
+    mux_.set_wake([this] { clock_changed_ = true; clock_cv_.notify_all(); });   // runs under m_
     clock_thread_ = std::thread(&OutputService::clock_main, this);
+}
+
+void OutputService::set_key_min_hold(double ms) {
+    std::lock_guard<std::mutex> g(m_);
+    ravengun::output::KeyTiming t;
+    if (ms > 0) {
+        t.min_hold_ns = static_cast<int64_t>(ms * 1e6);
+        t.min_gap_ns = static_cast<int64_t>(kKeyMinGapMs * 1e6);
+    }
+    mux_.set_timing(t);
 }
 
 OutputService::~OutputService() { shutdown(); }
@@ -46,6 +57,9 @@ void OutputService::set_clock(const ravengun::output::OutputClockConfig& c) {
 void OutputService::clock_main() {
     std::unique_lock<std::mutex> lk(m_);
     while (!shut_) {
+        // Keys whose release (or next press) was delayed by the minimum hold time (key_mux.hpp).
+        mux_.poll(mux_.now());
+        const int64_t key_due = mux_.next_due();
         auto needs = [&](const Player& p) { return p.out->armed() && p.clock.anchor().valid && !p.clock_idle; };
         bool any = false;
         if (clock_cfg_.enabled() && armed_ && !pattern_running_)
@@ -53,16 +67,19 @@ void OutputService::clock_main() {
         // Niets te doen (klok uit, ongewapend, patroon, geen anker of overal vastgehouden): slapen tot een rapport, een
         // instelling of het afsluiten haar wakker maakt (met een time-out als vangnet).
         if (!any) {
-            clock_cv_.wait_for(lk, std::chrono::milliseconds(50), [&] { return shut_ || clock_changed_; });
+            auto idle = std::chrono::nanoseconds(std::chrono::milliseconds(50));
+            if (key_due != KeyMux::kNever) idle = std::min(idle, std::chrono::nanoseconds(std::max<int64_t>(0, key_due - mux_.now())));
+            clock_cv_.wait_for(lk, idle, [&] { return shut_ || clock_changed_; });
             clock_changed_ = false;
             continue;
         }
         // Alle spelers delen hetzelfde raster (dezelfde klokinstelling): de klok van speler 1 bepaalt het tikmoment.
         const int64_t next = p1().clock.next_tick_after(mono_ns());
         for (size_t i = 1; i < players_.size(); ++i) players_[i].clock.next_tick_after(mono_ns());
-        const auto tp = steady_clock::time_point(std::chrono::nanoseconds(next));
+        const auto tp = steady_clock::time_point(std::chrono::nanoseconds(std::min(next, key_due)));
         if (clock_cv_.wait_until(lk, tp, [&] { return shut_ || clock_changed_; })) { clock_changed_ = false; continue; }
         if (shut_) break;
+        if (key_due < next) continue;   // woken for a delayed key event: emit it at the top, tick on the grid
         if (!armed_ || pattern_running_) continue;
         const int64_t now = mono_ns();
         for (auto& p : players_) {

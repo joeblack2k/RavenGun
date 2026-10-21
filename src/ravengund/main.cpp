@@ -427,6 +427,7 @@ int main(int argc, char** argv) {
     output.set_initial_transform(out_transform);
     output.set_layout(opt.gun_buttons.layout);
     output.set_clock(out_clock);
+    output.set_key_min_hold(cfg.output.key_min_hold_ms);
     shared.output = &output;
     // Gewone muis als bron voor de gun van een speler (runtime-toewijzingen via IPC `set_mouse_gun`, niet in config.json).
     MouseService mouse(output);

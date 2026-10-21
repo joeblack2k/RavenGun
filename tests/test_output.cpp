@@ -1151,6 +1151,82 @@ static void test_key_mux() {
     CHECK(r2.pressed.empty());
 }
 
+// Minimum hold time of the virtual keyboard: short presses are stretched, long ones pass, quick double presses stay two.
+static void test_key_mux_min_hold() {
+    constexpr int64_t ms = 1'000'000;
+    int64_t t = 1000 * ms;
+    FakeKbd real;
+    KeyMux mux(real);
+    mux.set_clock([&] { return t; });
+    mux.set_timing({200 * ms, 50 * ms});
+    std::string err;
+    KeyDevice& a = mux.port(1);
+    CHECK(a.create(err));
+    auto advance = [&](int64_t d) { t += d * ms; mux.poll(t); };
+    int wakes = 0;
+    mux.set_wake([&] { ++wakes; });
+    // A 40 ms tap: down at once, the up is held back until 200 ms after the down.
+    CHECK(a.write_key(6, true) && real.pressed.count(6) && real.writes == 1);
+    advance(40);
+    CHECK(a.write_key(6, false) && real.pressed.count(6) && real.writes == 1 && mux.held_by(1, 6) && wakes == 1);
+    CHECK(mux.next_due() == t + 160 * ms);
+    advance(159);
+    CHECK(real.pressed.count(6) && mux.down(6));
+    advance(1);
+    CHECK(!real.pressed.count(6) && real.writes == 2 && !mux.down(6) && mux.next_due() == KeyMux::kNever);
+    // A press longer than the minimum is unchanged: the up passes through at once.
+    advance(500);
+    CHECK(a.write_key(6, true) && real.pressed.count(6));
+    advance(300);
+    CHECK(a.write_key(6, false) && !real.pressed.count(6) && real.writes == 4 && wakes == 1);
+    // Two quick taps (40 ms down, 30 ms apart) must stay two presses: down, up@200, gap 50, down@250, up@450.
+    advance(500);
+    real.writes = 0;
+    CHECK(a.write_key(6, true) && real.writes == 1);        // t0: down
+    advance(40);
+    CHECK(a.write_key(6, false));                           // t0+40: up (delayed to +200)
+    advance(30);
+    CHECK(a.write_key(6, true) && real.writes == 1);        // t0+70: down again (delayed to +250)
+    advance(40);
+    CHECK(a.write_key(6, false));                           // t0+110: up (delayed to +450)
+    CHECK(real.pressed.count(6) && real.writes == 1);
+    advance(90);                                            // t0+200: first up
+    CHECK(!real.pressed.count(6) && real.writes == 2);
+    advance(49);                                            // t0+249: still in the gap
+    CHECK(!real.pressed.count(6) && real.writes == 2);
+    advance(1);                                             // t0+250: second down
+    CHECK(real.pressed.count(6) && real.writes == 3);
+    advance(199);
+    CHECK(real.pressed.count(6));
+    advance(1);                                             // t0+450: second up
+    CHECK(!real.pressed.count(6) && real.writes == 4 && mux.next_due() == KeyMux::kNever);
+    // A release (disarm, source loss) is immediate and drops what was queued.
+    advance(500);
+    CHECK(a.write_key(7, true));
+    advance(10);
+    CHECK(a.write_key(7, false) && real.pressed.count(7));
+    a.destroy();
+    CHECK(!real.pressed.count(7) && mux.next_due() == KeyMux::kNever);
+    // Timing off: identical to a plain pass-through.
+    FakeKbd r2;
+    KeyMux m2(r2);
+    m2.set_clock([&] { return t; });
+    KeyDevice& b = m2.port(1);
+    CHECK(b.create(err) && b.write_key(5, true) && b.write_key(5, false) && !r2.pressed.count(5) && r2.writes == 2 && m2.next_due() == KeyMux::kNever);
+    // Two players pressing the same key keep their own timing; the device sees the union.
+    FakeKbd r3;
+    KeyMux m3(r3);
+    m3.set_clock([&] { return t; });
+    m3.set_timing({200 * ms, 50 * ms});
+    CHECK(m3.port(1).create(err) && m3.port(2).create(err));
+    m3.port(1).write_key(6, true);
+    m3.port(2).write_key(6, true);
+    m3.port(1).write_key(6, false);
+    m3.port(2).write_key(6, false);
+    t += 200 * ms; m3.poll(t);
+    CHECK(!r3.pressed.count(6) && r3.writes == 2 && m3.holders(6) == 0);
+}
+
 // Navigation Controller: rapport naar knoppen (Sixaxis-indeling) en de stick met hysterese.
 static void test_nav_report() {
     uint8_t r[49] = {};
@@ -1359,6 +1435,7 @@ static void test_override_layer() {
 int main() {
     test_gun_identity();
     test_key_mux();
+    test_key_mux_min_hold();
     test_nav_report();
     test_live_feed_nav();
     test_key_table();

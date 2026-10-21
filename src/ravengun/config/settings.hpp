@@ -63,6 +63,9 @@ struct AimSettings {
 struct OutputSettings {
     double clock_hz = 250.0;       // 0 = uit: de uitvoer volgt alleen de rapporten
     double extrapolate_ms = 40.0;  // daarna wordt de laatste positie vastgehouden
+    // Minimum time a keyboard key stays down (coin, Start, TEST, ...): a quicker PS Move press is stretched to this, so games
+    // that only count a held key still see it (output/key_mux.hpp). 0 = off, keys follow the buttons exactly.
+    double key_min_hold_ms = 150.0;
 };
 struct WebSettings {
     int port = 8765;  // gebruikt bij de volgende start
