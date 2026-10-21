@@ -1,0 +1,7 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+;
+; The one function game.exe imports from DINPUT8.dll, under its undecorated name (mingw would otherwise export the
+; stdcall decoration DirectInput8Create@20, which the game's import table does not ask for).
+LIBRARY DINPUT8
+EXPORTS
+    DirectInput8Create=DirectInput8Create@20 @1
