@@ -166,10 +166,23 @@ static unsigned long slot_args(int idx) {
  * for: [esp] = return address, [esp+4...] = the arguments. */
 static void dump_memory(void);
 
+/* The last few slot calls, so the crash handler can say which stub the game was in when it died: a wrong argument pop
+ * shows up as a fault right after (or inside) the last one. */
+#define C9_TRACE_N 16
+static struct { int idx; unsigned long caller; unsigned long esp; unsigned long ebp; unsigned long arg0, arg1; } g_trace[C9_TRACE_N];
+static volatile long g_trace_i;
+
 __attribute__((used)) static void c9_on_call(int idx, unsigned long *saved_eax, const unsigned long *arg0) {
     const unsigned long n = ++g_stub_calls[idx];
     const unsigned long caller = arg0[-1];
     static int dumped;
+    const long t = InterlockedIncrement(&g_trace_i) - 1;
+    g_trace[t % C9_TRACE_N].idx = idx;
+    g_trace[t % C9_TRACE_N].caller = caller;
+    g_trace[t % C9_TRACE_N].esp = (unsigned long)(ULONG_PTR)(arg0 - 1);
+    g_trace[t % C9_TRACE_N].ebp = (unsigned long)(ULONG_PTR)__builtin_frame_address(0);
+    g_trace[t % C9_TRACE_N].arg0 = arg0[0];
+    g_trace[t % C9_TRACE_N].arg1 = arg0[1];
     if (!dumped) {
         /* The packer writes its trampolines at run time: dump the code around the caller once a slot is used, so the
          * argument order and the way the result is used can be read from the log. */
@@ -182,6 +195,17 @@ __attribute__((used)) static void c9_on_call(int idx, unsigned long *saved_eax, 
                  caller, arg0[0], arg0[1], arg0[2], arg0[3], arg0[4], arg0[5], *saved_eax, n);
     } else if ((n % 200) == 0) {
         log_line("slot[%d] called %lu times", idx, n);
+    }
+}
+
+/* The slot calls that led to the fault, oldest first. */
+static void log_trace(void) {
+    const long total = g_trace_i;
+    long first = total > C9_TRACE_N ? total - C9_TRACE_N : 0;
+    for (long i = first; i < total; ++i) {
+        const int k = (int)(i % C9_TRACE_N);
+        log_line("trace %ld: slot[%d] from %08lx, caller esp %08lx ebp %08lx, arg %08lx %08lx", i, g_trace[k].idx,
+                 g_trace[k].caller, g_trace[k].esp, g_trace[k].ebp, g_trace[k].arg0, g_trace[k].arg1);
     }
 }
 
@@ -378,6 +402,7 @@ static LONG WINAPI c9_veh(EXCEPTION_POINTERS *info) {
             }
             line[k] = 0;
             log_line("fault chain:%s", line);
+            log_trace();
             {
                 MEMORY_BASIC_INFORMATION mbi;
                 if (VirtualQuery((void *)(ULONG_PTR)at, &mbi, sizeof mbi) == sizeof mbi)
