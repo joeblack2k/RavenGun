@@ -4,6 +4,11 @@
 Een game krijgt hem als drop-in met `Preload = true` (`docs/dropins.md`): de OpenParrot-lader laadt hem via `TP_PRELOAD_DLL`
 na de kern in het spelproces. Let op: `TP_PRELOAD_DLL` neemt één DLL; een game met al een preload-drop-in kan er niet twee hebben.
 
+`RG_COMPAT_LOAD=<dll>[;<dll>]` (English, 2026-10-21): rg-compat loads these DLLs as the last step of its DllMain, after all its
+import-table hooks; a relative name is taken next to rg-compat.dll. That is the way to a second in-process DLL despite the single
+`TP_PRELOAD_DLL`. A loaded DLL that hooks the same imports wraps rg-compat's hooks. Used by After Dark for `rg-unisgun.dll`
+(`tools/rg-unisgun/`, its serial gun board on COM1).
+
 Elke fix grijpt alleen in bij precies de situatie die hij oplost; anders gaat de aanroep ongewijzigd door. Geen game-naam, geen
 game-adres.
 

@@ -497,6 +497,11 @@ if(RAVENGUN_BUILD_TESTS)
   # lezen) en de meegeleverde tabellen. Geen spel en geen Windows nodig. Skip (77) zonder C-compiler.
   add_test(NAME ravengun_unis COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/unis_test.sh")
   set_tests_properties(ravengun_unis PROPERTIES SKIP_RETURN_CODE 77)
+  # rg-unisgun (tools/rg-unisgun): the serial gun board of After Dark (COM1, loaded by rg-compat with RG_COMPAT_LOAD). The core: the
+  # table, the 26-byte report as the game checks it, y inversion, off-screen and the scanner for what the game writes; with the
+  # i686 mingw also both DLLs. No game and no Windows needed. Skip (77) without a C compiler.
+  add_test(NAME ravengun_unisgun COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/unisgun_test.sh")
+  set_tests_properties(ravengun_unisgun PROPERTIES SKIP_RETURN_CODE 77)
   # De RIO-brug als USB-bord (32-bits): een nep-game zonder PIE met vier pmrt_usb-functies en een xrtea; handvat, trampolines,
   # rapport type 2 met tellers, kanaal en controlesom, met en zonder versleuteling (Aliens Armageddon/Walking Dead), afkeuren
   # zonder versleutelingsregel, niets bij een verkeerde handtekening, en de usb-tabellen in patches/. Skip (77) zonder gcc -m32.

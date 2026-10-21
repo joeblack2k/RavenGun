@@ -35,6 +35,11 @@
  * 6. RG_COMPAT_PATCH=<rva>:<hex>[;...] schrijft die bytes synchroon in het hoofdbeeld en schrijft de oude
  *    bytes op; zonder de variabele gebeurt er niets.
  *
+ * 7. RG_COMPAT_LOAD=<dll>[;<dll>] loads more DLLs into the game process, as the LAST step of DllMain (after every import-table
+ *    hook above), because the OpenParrot loader takes a single TP_PRELOAD_DLL. A relative name is taken next to rg-compat.dll.
+ *    Such a DLL that hooks the same imports wraps the hooks above and passes the rest on (After Dark: rg-unisgun.dll, the serial
+ *    gun board on COM1). Without the variable nothing happens.
+ *
  * BOUWEN: tools/dev/build-compat.sh (de mingw-kruiscompiler in ~/.cache/ravengun-mingw, i686 en x86_64).
  */
 #include <windows.h>
@@ -2014,8 +2019,30 @@ static void premap_start(void) {
     }
 }
 
+/* Fix 7: RG_COMPAT_LOAD (see the top of this file). */
+static void load_start(HINSTANCE self) {
+    const char *v = getenv("RG_COMPAT_LOAD");
+    if (!v || !*v) return;
+    char list[1024];
+    snprintf(list, sizeof list, "%s", v);
+    char dir[MAX_PATH];
+    DWORD n = GetModuleFileNameA(self, dir, MAX_PATH);
+    char *slash = n ? strrchr(dir, '\\') : NULL;
+    if (slash) slash[1] = 0;
+    else dir[0] = 0;
+    for (char *name = strtok(list, ";"); name; name = strtok(NULL, ";")) {
+        char path[MAX_PATH * 2];
+        if (name[0] && (name[1] == ':' || name[0] == '\\' || name[0] == '/')) snprintf(path, sizeof path, "%s", name);
+        else snprintf(path, sizeof path, "%s%s", dir, name);
+        HMODULE m = LoadLibraryA(path);
+        char msg[MAX_PATH * 2 + 64];
+        snprintf(msg, sizeof msg, "rg-compat: RG_COMPAT_LOAD %s -> %p (error %lu)\n", path, (void *)m,
+                 m ? 0ul : (unsigned long)GetLastError());
+        OutputDebugStringA(msg);
+    }
+}
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
-    (void)inst;
     (void)reserved;
     if (reason == DLL_PROCESS_ATTACH) {
         premap_start();
@@ -2038,6 +2065,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
         tabledump_start();
         map_start();
         callres_start(exe);
+        load_start(inst);
     }
     return TRUE;
 }
