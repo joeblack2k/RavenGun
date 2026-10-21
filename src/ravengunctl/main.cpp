@@ -78,7 +78,8 @@ void usage(FILE* f) {
         "  disarm      stopt een patroon, geeft alle knoppen vrij en schakelt de uitvoer uit\n"
         "  output      status van de uitvoer (armed, apparaat, positie, knoppen, transformatie, patroon)\n"
         "  test-pattern center|corners|grid|sweep|stop   synthetische posities zonder Move (vereist arm)\n"
-        "  test-pattern point X Y                         één punt, X en Y in [0,1] (linksboven 0 0)\n"
+        "  test-pattern point X Y                         één punt, X en Y in [0,1] (linksboven 0 0); buiten 0..1 (tot -1..2) = buiten\n"
+        "                                                 het scherm gericht (de as staat op de rand, pN.offscreen)\n"
         "  output-button trigger|reload|grenade|aux1|aux2 [down|up|tap]   testknop (standaard tap)\n"
         "              test-pattern en output-button: --player N voor speler N (standaard 1; bv. P2 kalibreren in een testmenu)\n"
         "  key NAAM [down|up|tap]    toets op het virtuele toetsenbord (munt 5, start 1..4, test 0), standaard tap;\n"
@@ -587,7 +588,7 @@ int main(int argc, char** argv) {
                 char *e1 = nullptr, *e2 = nullptr;
                 if (pos.size() != 3) { std::fprintf(stderr, "ravengunctl: test-pattern point vereist X en Y (0..1)\n"); return kExitUsage; }
                 double px = std::strtod(pos[1].c_str(), &e1), py = std::strtod(pos[2].c_str(), &e2);
-                if (*e1 || *e2 || !(px >= 0 && px <= 1 && py >= 0 && py <= 1)) { std::fprintf(stderr, "ravengunctl: X en Y moeten in [0,1] liggen\n"); return kExitUsage; }
+                if (*e1 || *e2 || !(px >= -1 && px <= 2 && py >= -1 && py <= 2)) { std::fprintf(stderr, "ravengunctl: X and Y must lie in [-1,2] (outside 0..1 = off-screen)\n"); return kExitUsage; }
                 rq.x = px;
                 rq.y = py;
             } else if (pos.size() != 1) { std::fprintf(stderr, "ravengunctl: onverwacht argument bij test-pattern\n"); return kExitUsage; }

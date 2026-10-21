@@ -241,8 +241,8 @@ std::variant<Request, Error> parse_request(std::string_view line) {
         if (!opt_number(o, "dwell_ms", 50, 60000, r.dwell_ms, e, r.id_json)) return e;
         if (!opt_number(o, "duration_s", 0.5, 600, r.duration_s, e, r.id_json)) return e;
         if (!opt_number(o, "margin", 0, 0.499, r.margin, e, r.id_json)) return e;
-        if (!opt_number(o, "x", 0, 1, r.x, e, r.id_json)) return e;
-        if (!opt_number(o, "y", 0, 1, r.y, e, r.id_json)) return e;
+        if (!opt_number(o, "x", -1, 2, r.x, e, r.id_json)) return e;
+        if (!opt_number(o, "y", -1, 2, r.y, e, r.id_json)) return e;
         if (!opt_number(o, "rate_hz", 1, 1000, r.rate_hz_pattern, e, r.id_json)) return e;
     } else if (cmd == "output_button") {
         r.cmd = Cmd::OutputButton;

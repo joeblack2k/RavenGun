@@ -255,6 +255,37 @@ void test_synthetic_hold() {
     CHECK(!io().player[0].trigger && guns[1]->down.empty());
 }
 
+// A test point outside 0..1 is an aim off the screen: the axes sit at the edge and the IO bridge reports pN.offscreen (the
+// signal the SCREEN OUT bit of the Sega-gun boards is fed from); a point on the edge or inside is not off-screen.
+void test_offscreen_point() {
+    std::map<int, FakeGun*> guns;
+    OutputService out([&](int p) { auto g = std::make_unique<FakeGun>(p); guns[p] = g.get(); return g; }, std::make_unique<FakeKbd>());
+    CHECK(out.arm().ok);
+    // Starts a test point and returns player 1 once the pattern thread has applied it (the clamped axes are the expected u, v).
+    auto state = [&](double x, double y, double u, double v) {
+        output::PatternParams pp;
+        pp.kind = output::PatternKind::Point;
+        pp.x = x;
+        pp.y = y;
+        CHECK(out.start_pattern(pp).ok);
+        iobridge::IoState st;
+        for (int i = 0; i < 400; ++i) {
+            if (out.io_snapshot(st) && st.player[0].valid && std::fabs(st.player[0].x - u) < 0.01 && std::fabs(st.player[0].y - v) < 0.01) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        return st.player[0];
+    };
+    const iobridge::IoPlayer in = state(0.3, 0.5, 0.3, 0.5);
+    CHECK(in.valid && !in.offscreen);
+    const iobridge::IoPlayer left = state(-0.2, 0.5, 0.0, 0.5);          // the axis is clamped to the edge
+    CHECK(left.valid && left.offscreen && left.x < 0.01);
+    const iobridge::IoPlayer below = state(0.5, 1.4, 0.5, 1.0);
+    CHECK(below.valid && below.offscreen && below.y > 0.99);
+    const iobridge::IoPlayer edge = state(1.0, 0.5, 1.0, 0.5);          // exactly on the edge is still on the screen
+    CHECK(edge.valid && !edge.offscreen);
+    out.disarm();
+}
+
 }  // namespace
 
 int main() {
@@ -264,6 +295,7 @@ int main() {
     ::setenv("XDG_CONFIG_HOME", tmp.c_str(), 1);
     ::setenv("XDG_STATE_HOME", tmp.c_str(), 1);
     test_synthetic_hold();
+    test_offscreen_point();
 
     std::map<int, FakeGun*> guns;
     auto kbd = std::make_unique<FakeKbd>();

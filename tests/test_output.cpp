@@ -464,7 +464,10 @@ static void test_patterns() {
     p.x = 0.25; p.y = 0.75;
     auto pt = generate_pattern(p, err);
     CHECK(pt.size() == 1 && pt[0].x == 0.25 && pt[0].y == 0.75);
-    p.x = 1.5;
+    p.x = -0.5;   // off the screen: allowed (aim off-screen test), the output clamps it
+    auto off = generate_pattern(p, err);
+    CHECK(off.size() == 1 && off[0].x == -0.5 && off[0].y == 0.75);
+    p.x = 3.0;
     CHECK(generate_pattern(p, err).empty() && !err.empty());
     p = PatternParams{};
     p.kind = PatternKind::Corners;
@@ -522,7 +525,7 @@ static void test_ipc() {
     CHECK(ok && *pt.x == 0.1 && *pt.y == 0.9);
     CHECK(parse_err(R"({"v":1,"cmd":"test_pattern"})") == "invalid_argument");
     CHECK(parse_err(R"({"v":1,"cmd":"test_pattern","pattern":"grid","dwell_ms":1})") == "invalid_argument");
-    CHECK(parse_err(R"({"v":1,"cmd":"test_pattern","pattern":"point","x":1.5})") == "invalid_argument");
+    CHECK(parse_err(R"({"v":1,"cmd":"test_pattern","pattern":"point","x":2.5})") == "invalid_argument");
     CHECK(parse_err(R"({"v":1,"cmd":"test_pattern","pattern":5})") == "invalid_argument");
 
     auto b = parse_ok(R"({"v":1,"cmd":"output_button","button":"trigger"})", ok);

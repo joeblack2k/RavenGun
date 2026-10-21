@@ -31,8 +31,10 @@ std::vector<PatternStep> generate_pattern(const PatternParams& p, std::string& e
             s.push_back({0, 0.5, 0.5, 0});
             break;
         case PatternKind::Point:
-            if (!(std::isfinite(p.x) && std::isfinite(p.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1))
-                return bad("punt moet binnen [0,1] x [0,1] liggen");
+            // Outside 0..1 is allowed down to -1 and up to 2: an aim off the screen (the output clamps the axes to the edge and the
+            // IO bridge reports pN.offscreen), the only way to test "aim off-screen to reload" without a Move.
+            if (!(std::isfinite(p.x) && std::isfinite(p.y) && p.x >= -1 && p.x <= 2 && p.y >= -1 && p.y <= 2))
+                return bad("point must lie within [-1,2] x [-1,2] (outside 0..1 = aimed off the screen)");
             s.push_back({0, p.x, p.y, 0});
             break;
         case PatternKind::Corners: {

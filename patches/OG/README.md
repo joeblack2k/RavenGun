@@ -26,7 +26,7 @@ Waar dat vandaan komt:
   `KEYCHIP ACCESS FAILED`, `Init: amDongleIsAvailable() is false`,
   `Init: Faild to init DongleLib. (amDongleInit() Faild)`, `Faild to get Keychip ID.`;
 * de printplaat `837-14572` is het standaard Sega-JVS-gunbord van de `SegaJvs*`-profielen
-  (`packaging/jvs-boards.json`, bord `SegaGun2P`).
+  (`packaging/jvs-boards.json`, bord `SegaGun2PScreenOut`: SegaGun2P with bit 0 = pN.offscreen).
 
 `enforced` staat op `false`, en dat is sinds **ronde 34 gemeten** in plaats van aangenomen: de game
 start en blijft draaien **zonder enige regiobron**, zowel met de eigen lader (`patches/STARTTEST.md`,

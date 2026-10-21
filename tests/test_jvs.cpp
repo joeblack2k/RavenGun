@@ -193,6 +193,42 @@ void test_board_file() {
         CHECK(eadp.size() == 3 + 1 + 3 + 6 + 1 + 1 + 1 && eadp[3] == kJvsStatusOk && eadp[eadp.size() - 2] == kJvsReportOk);
     }
 
+    // SegaGun2PScreenOut (Operation G.H.O.S.T., Target Bravo): bit 0 van byte 0 is pN.offscreen (SCREEN OUT in de invoertest): de
+    // herlaadknop OF de aim buiten het scherm. SegaGun2P zelf houdt de herlaadknop alleen.
+    const JvsBoard* so = bs.find("SegaGun2PScreenOut");
+    CHECK(so && g && so->identify == g->identify && so->analog_channels == g->analog_channels && so->buttons == g->buttons);
+    if (so && g) {
+        JvsBus plain, out;
+        plain.add_node(*g);
+        out.add_node(*so);
+        talk(plain, "E0 FF 03 F1 01 F4");
+        talk(out, "E0 FF 03 F1 01 F4");
+        IoState a = armed_state();
+        a.player[0].valid = true;
+        a.player[0].offscreen = true;      // alleen richten naast het scherm
+        a.player[1].valid = true;
+        a.player[1].offscreen = true;
+        plain.set_input(a);
+        out.set_input(a);
+        // E0 00 len 01 01 sys p1b0 p1b1 p2b0 p2b1 som: byte 0 van speler 1 is index 6, van speler 2 index 8.
+        const Bytes sp = ask(plain, 0x01, "20 02 02"), so_ = ask(out, 0x01, "20 02 02");
+        CHECK(sp.size() >= 11 && (sp[6] & 0x01) == 0 && (sp[8] & 0x01) == 0);
+        CHECK(so_.size() >= 11 && (so_[6] & 0x01) == 0x01 && (so_[8] & 0x01) == 0x01);
+        // De herlaadknop zet de bit op allebei de borden; binnen het scherm blijft hij uit.
+        IoState b = armed_state();
+        b.player[0].valid = true;
+        b.player[0].reload = true;
+        plain.set_input(b);
+        out.set_input(b);
+        CHECK((ask(plain, 0x01, "20 02 02")[6] & 0x01) == 0x01 && (ask(out, 0x01, "20 02 02")[6] & 0x01) == 0x01);
+        IoState c = armed_state();
+        c.player[0].valid = true;
+        c.player[0].trigger = true;        // de trekker alleen is geen herladen
+        out.set_input(c);
+        const Bytes sc = ask(out, 0x01, "20 02 02");
+        CHECK((sc[6] & 0x01) == 0 && (sc[6] & 0x02) == 0x02);
+    }
+
     std::string err;
     parse_jvs_boards("{", err);
     CHECK(!err.empty());
