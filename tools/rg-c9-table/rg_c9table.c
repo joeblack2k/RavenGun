@@ -31,6 +31,9 @@
  *   RG_C9_TABLE   table address (default 0x512000)
  *   RG_C9_CELLS   number of dwords to watch (default 256)
  *   RG_C9_POLL    poll interval in ms (default 2)
+ *   RG_C9_API     per-slot API of this process, "idx:dll!function,idx:dll!ordinal" (wins over the map and the stub; ',' or
+ *                 ';' between the entries -- the engine's drop-in Env parser refuses a ';' inside a value)
+ *   RG_C9_DUMP    "<va>,<len>[;<va>,<len>]" memory to hexdump into the log on the first stub call
  *   RG_C9_RET     per-slot return value, "idx:value;idx:value" (default 0)
  *   RG_C9_POP     per-slot number of stack arguments to pop, "idx:nargs;..." (default 0)
  *
@@ -55,7 +58,7 @@ static int g_log_tried;
 static int g_lock_ready;
 static CRITICAL_SECTION g_lock;
 
-static DWORD g_stub_slot[C9_MAX_CELLS];    /* stub address installed in that slot, 0 = none */
+static DWORD g_stub_slot[C9_MAX_CELLS];    /* value we wrote into that slot (live address or stub), 0 = none */
 static int g_stub_done[C9_MAX_CELLS];
 static unsigned long g_stub_calls[C9_MAX_CELLS];
 static unsigned long g_resolved;
@@ -111,6 +114,44 @@ static unsigned long env_per_slot(const char *var, int idx) {
     return 0;
 }
 
+/* RG_C9_API=<idx:dll!function[;idx:dll!ordinal...]>: the game's own table wants an API at that slot that the XP map
+ * cannot name (the packer's stub). Answering it with the real function of this process is what the call site expects;
+ * the classification per slot comes from the code around the call site (RG_C9_DUMP on the first stub call). */
+static void *api_per_slot(int idx) {
+    char txt[1024];
+    if (GetEnvironmentVariableA("RG_C9_API", txt, sizeof txt) == 0) return NULL;
+    for (char *p = txt; *p;) {
+        char *e = NULL;
+        const int i = (int)strtol(p, &e, 0);
+        if (!e || *e != ':') break;
+        p = e + 1;
+        char *sep = strpbrk(p, ";,");   /* the engine's Env parser refuses ';', so ',' is the separator in a profile */
+        const size_t n = sep ? (size_t)(sep - p) : strlen(p);
+        if (i == idx && n > 0 && n < 200) {
+            char spec[200];
+            HMODULE mod;
+            void *fn;
+            char *bang;
+            memcpy(spec, p, n);
+            spec[n] = 0;
+            bang = strchr(spec, '!');
+            if (!bang) return NULL;
+            *bang = 0;
+            mod = GetModuleHandleA(spec);
+            if (!mod) mod = LoadLibraryA(spec);
+            if (!mod) return NULL;
+            if (bang[1] >= '0' && bang[1] <= '9')
+                fn = GetProcAddress(mod, (LPCSTR)(ULONG_PTR)strtoul(bang + 1, NULL, 0));
+            else
+                fn = GetProcAddress(mod, bang + 1);
+            return fn;
+        }
+        if (!sep) break;
+        p = sep + 1;
+    }
+    return NULL;
+}
+
 static unsigned long slot_value(int idx) {
     return env_per_slot("RG_C9_RET", idx);
 }
@@ -123,9 +164,18 @@ static unsigned long slot_args(int idx) {
 /* The stub of a slot: save everything, ask C what to answer, put that in the saved EAX, restore, and return, popping the
  * slot's arguments (stdcall) so the caller's stack does not grow. Called from the game exactly like the API it stands in
  * for: [esp] = return address, [esp+4...] = the arguments. */
+static void dump_memory(void);
+
 __attribute__((used)) static void c9_on_call(int idx, unsigned long *saved_eax, const unsigned long *arg0) {
     const unsigned long n = ++g_stub_calls[idx];
     const unsigned long caller = arg0[-1];
+    static int dumped;
+    if (!dumped) {
+        /* The packer writes its trampolines at run time: dump the code around the caller once a slot is used, so the
+         * argument order and the way the result is used can be read from the log. */
+        dumped = 1;
+        dump_memory();
+    }
     *saved_eax = slot_value(idx);
     if (n <= 8) {
         log_line("slot[%d] called from %08lx: arg %08lx %08lx %08lx %08lx %08lx %08lx -> %08lx (nr %lu)", idx,
@@ -181,6 +231,19 @@ static int fix_cell(BYTE *pool, DWORD *cell, int idx) {
     const char *dll, *name;
     WORD ordinal;
     if (v == 0) return 0;
+    {
+        void *named = api_per_slot(idx);
+        if (named) {
+            if (v == (DWORD)(ULONG_PTR)named) return 0;
+            *cell = (DWORD)(ULONG_PTR)named;
+            g_stub_slot[idx] = *cell;
+            g_stub_done[idx] = 1;
+            ++g_resolved;
+            log_line("slot[%d] value %08lx -> named API %08lx (RG_C9_API)", idx, (unsigned long)v,
+                     (unsigned long)(ULONG_PTR)named);
+            return 1;
+        }
+    }
     if (lookup_xp(v, &dll, &name, &ordinal)) {
         HMODULE mod = GetModuleHandleA(dll);
         void *live = NULL;
@@ -188,6 +251,9 @@ static int fix_cell(BYTE *pool, DWORD *cell, int idx) {
         if (mod) live = GetProcAddress(mod, name[0] ? name : (LPCSTR)(ULONG_PTR)ordinal);
         if (live) {
             *cell = (DWORD)(ULONG_PTR)live;
+            /* Remember what we wrote: a live address is no XP address, so the next pass would stub it otherwise. */
+            g_stub_slot[idx] = *cell;
+            g_stub_done[idx] = 1;
             ++g_resolved;
             log_line("slot[%d] XP %08lx %s!%s%s -> live %08lx", idx, (unsigned long)v, dll, name,
                      name[0] ? "" : " (ordinal)", (unsigned long)(ULONG_PTR)live);
@@ -198,6 +264,11 @@ static int fix_cell(BYTE *pool, DWORD *cell, int idx) {
         return 0;
     }
     if (g_stub_done[idx] && v == g_stub_slot[idx]) return 0;
+    if (g_stub_done[idx] && v != g_stub_slot[idx]) {
+        /* The game wrote the slot again: forget our own value and look at the new one. */
+        g_stub_done[idx] = 0;
+        g_stub_slot[idx] = 0;
+    }
     {
         BYTE *stub = pool + (size_t)idx * C9_STUB_SIZE;
         build_stub(stub, idx, slot_args(idx));
@@ -208,6 +279,35 @@ static int fix_cell(BYTE *pool, DWORD *cell, int idx) {
         log_line("slot[%d] unknown %08lx -> logging stub (returns %08lx, pops %lu)", idx, (unsigned long)v,
                  slot_value(idx), slot_args(idx));
         return 1;
+    }
+}
+
+/* RG_C9_DUMP=<va>,<len>[;<va>,<len>...]: hexdump of the process' memory into the log (the packer writes its trampolines
+ * at run time, so the code that calls a slot is only readable in the running process). */
+static void dump_memory(void) {
+    char txt[512];
+    if (GetEnvironmentVariableA("RG_C9_DUMP", txt, sizeof txt) == 0) return;
+    for (char *p = txt; *p;) {
+        char *e = NULL;
+        const DWORD va = (DWORD)strtoul(p, &e, 0);
+        DWORD len = 0x100;
+        if (e && *e == ',') len = (DWORD)strtoul(e + 1, &e, 0);
+        if (len > 0x800) len = 0x800;
+        log_line("dump %08lx, %lu bytes:", (unsigned long)va, (unsigned long)len);
+        for (DWORD off = 0; off < len; off += 16) {
+            char line[128];
+            int k = 0;
+            for (DWORD i = 0; i < 16 && off + i < len; ++i)
+                k += snprintf(line + k, sizeof line - (size_t)k, "%02x ", ((const unsigned char *)(ULONG_PTR)va)[off + i]);
+            for (DWORD i = 0; i < 16 && off + i < len; ++i) {
+                const unsigned char c = ((const unsigned char *)(ULONG_PTR)va)[off + i];
+                line[k++] = (c >= 32 && c < 127) ? (char)c : '.';
+            }
+            line[k] = 0;
+            log_line("dump %08lx: %s", (unsigned long)(va + off), line);
+        }
+        if (e && *e == ';') ++e;
+        p = e ? e : p + strlen(p);
     }
 }
 
@@ -233,6 +333,7 @@ static DWORD WINAPI worker(LPVOID arg) {
         int wrote = 0;
         ++g_round;
         for (DWORD i = 0; i < g_cells; ++i) wrote |= fix_cell(pool, &table[i], (int)i);
+        if (g_round == 1) dump_memory();
         if (wrote || g_round == 1) {
             unsigned long seen = 0, zero = 0;
             for (DWORD i = 0; i < g_cells; ++i)
@@ -254,6 +355,34 @@ static DWORD WINAPI worker(LPVOID arg) {
     }
 }
 
+/* Report where the game dies: the first fault is logged with its address, the registers and the return chain on the
+ * stack (words inside the image as RVA), so the next blocker is visible without the host being able to ptrace. */
+static LONG WINAPI c9_veh(EXCEPTION_POINTERS *info) {
+    static int seen;
+    if (seen) return EXCEPTION_CONTINUE_SEARCH;
+    seen = 1;
+    if (info && info->ExceptionRecord) {
+        const DWORD code = info->ExceptionRecord->ExceptionCode;
+        const DWORD at = (DWORD)(ULONG_PTR)info->ExceptionRecord->ExceptionAddress;
+        log_line("fault %08lx at %08lx: eip %08lx eax %08lx ebp %08lx esp %08lx", (unsigned long)code,
+                 (unsigned long)at, (unsigned long)info->ContextRecord->Eip, (unsigned long)info->ContextRecord->Eax,
+                 (unsigned long)info->ContextRecord->Ebp, (unsigned long)info->ContextRecord->Esp);
+        if (code == 0xc0000005ul) {
+            const DWORD *sp = (const DWORD *)(ULONG_PTR)info->ContextRecord->Esp;
+            char line[256];
+            int k = 0;
+            for (int i = 0; i < 48 && k < (int)sizeof line - 16; ++i) {
+                const DWORD v = sp[i];
+                if (v >= 0x400000 && v < 0x3000000)
+                    k += snprintf(line + k, sizeof line - (size_t)k, " rva+%lx", (unsigned long)(v - 0x400000));
+            }
+            line[k] = 0;
+            log_line("fault chain:%s", line);
+        }
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 /* Called from the DINPUT8.dll proxy's DllMain: set the knobs and start the repair thread. */
 void rg_c9_table_start(void) {
     char txt[64];
@@ -269,5 +398,6 @@ void rg_c9_table_start(void) {
     log_line("rg-c9-table: image %08lx, table %08lx, %lu cells, poll %lu ms, %u XP addresses in the map",
              (unsigned long)(ULONG_PTR)GetModuleHandleA(NULL), (unsigned long)g_table, (unsigned long)g_cells,
              (unsigned long)g_poll, (unsigned)RG_XP_MAP_N);
+    if (GetEnvironmentVariableA("RG_C9_VEH", txt, sizeof txt) > 0 && txt[0] == '1') AddVectoredExceptionHandler(1, c9_veh);
     CreateThread(NULL, 0, worker, NULL, 0, NULL);
 }
