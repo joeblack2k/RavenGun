@@ -166,7 +166,7 @@ GPU bewezen: `/proc/<pid van de game>/maps` bevat `libvulkan_radeon.so` en `libg
 
 | Profiel | Wat drukken | Let op |
 |---|---|---|
-| `HOTD4SP` (eerst) | munt, START, schieten, naast het scherm richten = herladen | Kalibreer de guns in het testmenu als het vizier verschuift (TEST); de EEPROM blijft in de schrijflaag. Geluid: `libsegaapi.so` van de laag (FAudio op SDL3/Pulse). |
+| `HOTD4SP` (eerst) | munt, START, schieten, naast het scherm richten = herladen | De gun-kalibratie staat in de EEPROM (`patches/HOTD4SP/seed/eeprom.bin`, door het testmenu van de game zelf gemaakt, gemeten 2026-10-22: binnen 2 px in x en 4 px in y over het hele scherm; zonder is de standaardkalibratie van de game tot 3% van de breedte scheef). Het testmenu is een apart programma (`elf/hod4testM.elf`, spel-ID `0xae47a9fc`): TEST in het spel doet niets. Wil je opnieuw kalibreren, zet dan in de gebruikerslaag een `patches/HOTD4SP/native.json` met `exe` en `lindbergh.id` van dat programma; SERVICE (F3) stapt, TEST (toets 0) kiest, GUN CALIBRATION SETTING > PLAYER1/PLAYER2 GUN ADJUSTMENT (de marks beschieten, dan TEST om vast te leggen), GUN MARK CHECK toont waar de game denkt dat de gun wijst. De EEPROM blijft in de schrijflaag. Geluid: `libsegaapi.so` van de laag (FAudio op SDL3/Pulse). |
 | `HOTD4` | idem | Start alleen als het bibliotheekitem naar HOTD4 wijst. |
 | `HOTDEX` | munt, START, schieten | `Cg`-hercompilatie: kijk naar shaderfouten van de laag in het logboek; eerste start duurt langer (shadercache). |
 | `Rambo` | munt, START, schieten, herladen, gun-knop (grenade) | `ramboM.elf`; `RAMBO_GUNS_SWITCH` in `lindbergh.ini` als de game één gun ziet. |
