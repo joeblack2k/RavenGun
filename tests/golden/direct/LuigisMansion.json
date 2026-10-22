@@ -58,6 +58,8 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_CAPCOM_BOARD": "COM1",
+    "RG_CAPCOM_BOARD_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\capcom-board.log",
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
     "RG_HOOK_BYTES_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook-bytes.txt",
     "RG_HOOK_IMAGE": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe",
@@ -94,6 +96,8 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_CAPCOM_BOARD": "COM1",
+    "RG_CAPCOM_BOARD_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\capcom-board.log",
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
     "RG_HOOK_BYTES_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook-bytes.txt",
     "RG_HOOK_IMAGE": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe",
@@ -141,7 +145,10 @@
    ],
    "view_copies": [],
    "view_links": [],
-   "view_writable": [],
+   "view_writable": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/Ram",
+    "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/Log"
+   ],
    "windowed_override": false,
    "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
   },
@@ -207,6 +214,8 @@
     "RAVENGUN_LOADER_PATCHES_DIR": "@PATCHES@",
     "RAVENGUN_TP_DIR": "@TMP@/home/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64",
     "RAVENGUN_USER_PATCHES_DIR": "@TMP@/home/.local/share/ravengun/patches",
+    "RG_CAPCOM_BOARD": "COM1",
+    "RG_CAPCOM_BOARD_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\capcom-board.log",
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
     "RG_HOOK_BYTES_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook-bytes.txt",
     "RG_HOOK_IMAGE": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe",
@@ -243,6 +252,8 @@
    "gamescope": true,
    "launch_env": {
     "PULSE_PROP": "pulse.fix.position='[ FL FR ]'",
+    "RG_CAPCOM_BOARD": "COM1",
+    "RG_CAPCOM_BOARD_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\capcom-board.log",
     "RG_DROPIN_PRELOAD": "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.dll",
     "RG_HOOK_BYTES_LOG": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\rg-pe-hook-bytes.txt",
     "RG_HOOK_IMAGE": "Z:\\home\\deck\\.local\\share\\ravengun\\runtime\\views\\LuigisMansion\\exe\\x64\\VACUUM.exe",
@@ -290,7 +301,10 @@
    ],
    "view_copies": [],
    "view_links": [],
-   "view_writable": [],
+   "view_writable": [
+    "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/Ram",
+    "@TMP@/home/.local/share/ravengun/runtime/views/LuigisMansion/Log"
+   ],
    "windowed_override": false,
    "wine": "@TMP@/home/.local/share/ravengun/wine/proton-11.0-2/bin/wine"
   },

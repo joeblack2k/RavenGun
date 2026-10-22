@@ -30,7 +30,7 @@
  *
  * BOUWEN (de mingw-wrapper van de eigenaar; geen container)
  *   /home/deck/.cache/ravengun-mingw/mingw-gcc -shared -O2 -o rg-pe-hook.dll \
- *       tools/rt-hasphook/rg_pe_hook_dll.c tools/rt-hasphook/rg_pe_hook.c \
+ *       tools/rt-hasphook/rg_pe_hook_dll.c tools/rt-hasphook/rg_pe_hook.c tools/rt-hasphook/rg_capcom_board.c \
  *       -Wl,--image-base,0x180000000 -Wl,--no-insert-timestamp
  */
 #if defined(_WIN32)
@@ -321,7 +321,80 @@ static DWORD WINAPI rg_werk_thread(LPVOID arg)
     return 0;
 }
 
+/* ------------------------------------------------------------------ optional image dump (diagnostics) */
+
+/*
+ * RG_HOOK_DUMP=<file>, RG_HOOK_DUMP_S=<seconds, default 60>: after that many seconds, write the main
+ * module's image (SizeOfImage bytes from the image base; pages that are not readable stay zero) to
+ * <file>, plus <file>.regions with one line per region (rva, size, state, protect). Off without the
+ * variable. Used to read the unpacked game code, which is empty on disk (packed .text).
+ */
+static char G_dump_pad[MAX_PATH];
+static DWORD G_dump_s = 60;
+
+static DWORD WINAPI rg_dump_thread(LPVOID arg)
+{
+    unsigned char *b = (unsigned char *)G_basis;
+    size_t n = G.beeld_n, off = 0;
+    unsigned char *kopie;
+    char rpad[MAX_PATH + 16];
+    FILE *f, *r;
+    (void)arg;
+    Sleep(G_dump_s * 1000u);
+    if (!b || !n)
+        return 0;
+    kopie = (unsigned char *)calloc(1, n);
+    if (!kopie)
+        return 0;
+    snprintf(rpad, sizeof rpad, "%s.regions", G_dump_pad);
+    r = fopen(rpad, "w");
+    while (off < n) {
+        MEMORY_BASIC_INFORMATION mi;
+        size_t len;
+        if (!VirtualQuery(b + off, &mi, sizeof mi))
+            break;
+        len = (size_t)((unsigned char *)mi.BaseAddress + mi.RegionSize - (b + off));
+        if (off + len > n)
+            len = n - off;
+        if (r)
+            fprintf(r, "rva 0x%08zx size 0x%08zx state 0x%lx protect 0x%lx\n", off, len,
+                    (unsigned long)mi.State, (unsigned long)mi.Protect);
+        if (mi.State == MEM_COMMIT && !(mi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) && mi.Protect)
+            memcpy(kopie + off, b + off, len);
+        off += len;
+    }
+    if (r)
+        fclose(r);
+    f = fopen(G_dump_pad, "wb");
+    if (f) {
+        fwrite(kopie, 1, n, f);
+        fclose(f);
+    }
+    free(kopie);
+    rg_meld("dump: %zu bytes of the main module written to %s after %lu s", n, G_dump_pad,
+            (unsigned long)G_dump_s);
+    return 0;
+}
+
+static void rg_start_dump(void)
+{
+    const char *d = getenv("RG_HOOK_DUMP");
+    const char *ds = getenv("RG_HOOK_DUMP_S");
+    HANDLE h;
+    if (!d || !*d)
+        return;
+    snprintf(G_dump_pad, sizeof G_dump_pad, "%s", d);
+    if (ds && atoi(ds) > 0)
+        G_dump_s = (DWORD)atoi(ds);
+    h = CreateThread(NULL, 0, rg_dump_thread, NULL, 0, NULL);
+    if (h)
+        CloseHandle(h);
+    rg_meld("dump: armed (%s after %lu s)", G_dump_pad, (unsigned long)G_dump_s);
+}
+
 /* ------------------------------------------------------------------ DllMain */
+
+void rg_capcom_board_start(void);   /* rg_capcom_board.c: off unless RG_CAPCOM_BOARD is set */
 
 static void rg_init(void)
 {
@@ -331,6 +404,7 @@ static void rg_init(void)
     int v;
     static int teller;
 
+    rg_capcom_board_start();
     if (!ini || !*ini) {
         /* Niets doen is de veilige kant: zonder lijst weten we niet wat we mogen aanraken. */
         return;
@@ -396,6 +470,7 @@ static void rg_init(void)
         rg_meld("hoofdprogramma op %p, ImageBase 0x%llx, SizeOfImage 0x%x", (void *)spel,
                 (unsigned long long)kop.imagebase, kop.grootte_beeld);
     }
+    rg_start_dump();
 
     v = rg_pe_voorbereid(&G);
     if (v < 0) {
