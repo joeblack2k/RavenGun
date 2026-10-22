@@ -128,6 +128,22 @@ int main() {
         CHECK(parse_grids("", h) == 0 && parse_grids("u 0 1\n", h) == 0);
     }
 
+    // The inverse form: the lattice lies over the screen and holds the spot to send; a bilinear lookup, clamped to the lattice.
+    {
+        // spot = (0.1 + 0.8 x, 0.3 + 0.5 y^2) sampled at x, y = 0, 0.5, 1 (bilinear is exact in x, approximate in y).
+        const char* text = "player 2\nx 0 0.5 1\ny 0 0.5 1\nspot 0.1 0.3 0.5 0.3 0.9 0.3\nspot 0.1 0.425 0.5 0.425 0.9 0.425\nspot 0.1 0.8 0.5 0.8 0.9 0.8\n";
+        Grid g[2];
+        CHECK(parse_grids(text, g) == 1 && !g[0].valid() && g[1].valid() && g[1].inverse && g[1].nu == 3 && g[1].nv == 3);
+        float a, b;
+        g[1].invert(0.25f, 0.5f, a, b);
+        CHECK(a > 0.299f && a < 0.301f && b > 0.424f && b < 0.426f);
+        g[1].invert(1.0f, 1.0f, a, b);
+        CHECK(a == 0.9f && b == 0.8f);
+        g[1].invert(-3.0f, 7.0f, a, b);               // beyond the lattice: the edge value, no jump
+        CHECK(a == 0.1f && b == 0.8f);
+        CHECK(parse_grids("player 1\nx 0 1\ny 0 1\nspot 0 0 1 0\n", g) == 0);   // one row missing
+    }
+
     CHECK(feedback_level('n', 0) == 0 && feedback_level('f', 0) == 1 && feedback_level('m', 0) == 2);
     CHECK(feedback_level('N', 1) == 0 && feedback_level('M', 1) == 2);
     CHECK(feedback_level('N', 0) == -1 && feedback_level(0, 1) == -1);

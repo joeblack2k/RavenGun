@@ -10,7 +10,8 @@
 //
 // WHAT: a Grid holds the measured forward map: for each spot (u[i], v[j]) of a lattice, the screen point (0..1) where the game drew
 // the crosshair. invert() finds the spot that lands on a wanted screen point with Newton steps on the bilinear interpolation of the
-// lattice (outside the lattice the edge cells are extended), clamped to 0..1.
+// lattice (outside the lattice the edge cells are extended), clamped to 0..1; or, with the inverse form (what the shipped grid uses since
+// 2026-10-22), a bilinear lookup in a lattice laid over the screen that holds the spot to send.
 #pragma once
 
 #include <cstddef>
@@ -20,12 +21,17 @@
 
 namespace rg_domegun {
 
-inline constexpr int kGridMax = 12;
+inline constexpr int kGridMax = 24;
 
 struct Grid {
     int nu = 0, nv = 0;
     float u[kGridMax] = {}, v[kGridMax] = {};                          // the lattice's spots, increasing
     float sx[kGridMax * kGridMax] = {}, sy[kGridMax * kGridMax] = {};  // screen point of spot (u[i], v[j]) at j * nu + i
+
+    // inverse: the lattice is laid over the SCREEN instead (u[i], v[j] are screen points and sx/sy hold the spot to send for them), so
+    // invert() is a bilinear lookup. A forward lattice cannot cover the screen edges: the game does not draw the crosshair outside
+    // its dome picture, so the lattice nodes there cannot be measured, while every screen point the player can aim at can.
+    bool inverse = false;
 
     bool valid() const { return nu >= 2 && nv >= 2; }
 
@@ -43,6 +49,21 @@ struct Grid {
 
     // The spot (clamped to 0..1) whose screen point is (tx, ty).
     void invert(float tx, float ty, float& a, float& b) const {
+        if (inverse) {
+            tx = tx < u[0] ? u[0] : (tx > u[nu - 1] ? u[nu - 1] : tx);
+            ty = ty < v[0] ? v[0] : (ty > v[nv - 1] ? v[nv - 1] : ty);
+            int i = 0, j = 0;
+            while (i < nu - 2 && tx > u[i + 1]) ++i;
+            while (j < nv - 2 && ty > v[j + 1]) ++j;
+            const float s = (tx - u[i]) / (u[i + 1] - u[i]), t = (ty - v[j]) / (v[j + 1] - v[j]);
+            const int k = j * nu + i;
+            const float w00 = (1 - s) * (1 - t), w10 = s * (1 - t), w01 = (1 - s) * t, w11 = s * t;
+            a = w00 * sx[k] + w10 * sx[k + 1] + w01 * sx[k + nu] + w11 * sx[k + nu + 1];
+            b = w00 * sy[k] + w10 * sy[k + 1] + w01 * sy[k + nu] + w11 * sy[k + nu + 1];
+            a = a < 0 ? 0 : (a > 1 ? 1 : a);
+            b = b < 0 ? 0 : (b > 1 ? 1 : b);
+            return;
+        }
         a = 0.5f;
         b = 0.5f;
         for (int it = 0; it < 32; ++it) {
@@ -72,6 +93,10 @@ struct Grid {
 //   u <spots...>     the lattice's x spots, increasing (2..kGridMax)
 //   v <spots...>     the lattice's y spots, increasing (2..kGridMax)
 //   row <x y ...>    one row per v (in v order), nu screen points (0..1) as x y pairs
+// or, the inverse form (the lattice lies over the screen and holds the spot to send; no Newton search):
+//   x <screen x...>  the lattice's screen x, increasing (2..kGridMax)
+//   y <screen y...>  the lattice's screen y, increasing (2..kGridMax)
+//   spot <u v ...>   one row per y (in y order), nx spots (0..1) as u v pairs
 // A player with a malformed or incomplete grid gets none (no correction). Returns the number of players with a grid.
 inline int parse_grids(const char* text, Grid out[2]) {
     Grid g[2];
@@ -115,11 +140,13 @@ inline int parse_grids(const char* text, Grid out[2]) {
             p = (v == 1 || v == 2) ? static_cast<int>(v - 1) : -1;
         } else if (p < 0) {
             continue;
-        } else if (kw == 1 && *c == 'u') {
+        } else if (kw == 1 && (*c == 'u' || *c == 'x')) {
             g[p].nu = numbers(g[p].u, kGridMax);
-        } else if (kw == 1 && *c == 'v') {
+            if (*c == 'x') g[p].inverse = true;
+        } else if (kw == 1 && (*c == 'v' || *c == 'y')) {
             g[p].nv = numbers(g[p].v, kGridMax);
-        } else if (kw == 3 && std::strncmp(c, "row", 3) == 0) {
+            if (*c == 'y') g[p].inverse = true;
+        } else if ((kw == 3 && std::strncmp(c, "row", 3) == 0) || (kw == 4 && std::strncmp(c, "spot", 4) == 0)) {
             float xy[2 * kGridMax];
             const int k = numbers(xy, 2 * kGridMax);
             if (rows[p] < 0 || g[p].nu < 2 || g[p].nu > kGridMax || k != 2 * g[p].nu || rows[p] >= g[p].nv || rows[p] >= kGridMax) {
