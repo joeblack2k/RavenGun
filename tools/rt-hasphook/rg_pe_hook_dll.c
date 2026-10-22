@@ -41,8 +41,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <tlhelp32.h>
 
 static rg_pe_ctx G;
+static void rg_w_nu(void);   /* [wacht]: bestaande hardware-watchpoints nu zetten */
 static FILE *G_log;
 static HANDLE G_uit_h = INVALID_HANDLE_VALUE;   /* ongebufferd logboek (WriteFile) voor handlers */
 static char G_logpad[MAX_PATH];
@@ -166,6 +168,24 @@ static void WINAPI rg_exit_handler(ULONG_PTR rcx)
                  "DOORGELATEN (ntdll!RtlExitUserProcess(0x%x))%s\n", (unsigned)rcx,
                  in_exe ? "" : " [terugkeeradres niet in de hoofdmodule]");
     rg_regel_uit(buf);
+    if (terug && getenv("RG_HOOK_STACKWALK")) {
+        /* Een ruwe stapelscan: elke waarde die in de hoofdmodule ligt is een kandidaat-terugkeeradres.
+           Zo is te zien welke keten de exit bereikt heeft, ook als de frames niet kloppen. */
+        const uint64_t *p = (const uint64_t *)__builtin_frame_address(0);
+        int i, k = 0;
+        char b[512];
+        snprintf(b, sizeof b, "[rg-pe-hook] [uitgang] stapelscan vanaf %p:", (const void *)p);
+        rg_regel_uit(b);
+        for (i = 0; i < 200 && k < 14; i++) {
+            uint64_t w = p[i];
+            if (G_basis && w >= G_basis && w < G_basis + G.beeld_n) {
+                snprintf(b, sizeof b, " +0x%llx", (unsigned long long)(w - G_basis));
+                rg_regel_uit(b);
+                k++;
+            }
+        }
+        rg_regel_uit("\n");
+    }
     if (terug)
         return;                 /* ExitProcess keert normaal niet terug: geen rax-contract */
     if (G_rtl_exit)
@@ -248,6 +268,7 @@ static LONG NTAPI rg_det_protect(HANDLE h, PVOID *base, PSIZE_T size, ULONG prot
                 (unsigned long long)(uintptr_t)*base, (unsigned long long)(size ? *size : 0),
                 (unsigned long)prot, G.trigger_sectie);
         n = rg_pe_pas_toe(&G, "trigger");
+        rg_w_nu();
         rg_meld("resultaat (trigger): %d van %d functie(s) aangehaakt; de aanroep wordt nu doorgegeven", n, G.n);
     }
     return G_real_protect(h, base, size, prot, oud);
@@ -297,6 +318,250 @@ static int rg_installeer_protect(void)
 
 /* ------------------------------------------------------------------ de eigen thread */
 
+/* ------------------------------------------------------------------ [wacht]: hardware watchpoints */
+
+/*
+ * RG_HOOK_WATCH=<rva>[:<len>[:<modus>]],... (hoogstens 4, hex-rva's in de hoofdmodule)
+ *
+ * Een MEETINSTRUMENT, geen haak: per thread worden DR0..DR3 als hardware-breekpunten gezet en elke
+ * treffer wordt gelogd met de RIP en de registers. `modus` is `x` (uitvoeren), `w` (schrijven) of
+ * `rw` (lezen en schrijven, de standaard; `len` is dan 1, 2, 4 of 8, standaard 4). Uit zonder de
+ * variabele. Gebruikt om te zien WIE een stuk spelgeheugen leest of schrijft -- bijvoorbeeld of de
+ * pakker zijn eigen (door ons omgezette) code nog keurt, of welke waarde een beslissing bepaalt.
+ *
+ * Het breekpunt staat per thread, dus een eigen thread zet het op elke bestaande thread en daarna
+ * elke 200 ms op elke nieuwe, tot RG_HOOK_WATCH_S seconden (standaard 30) voorbij zijn. De VEH
+ * logt en gaat door (RF in EFlags), dus het spel merkt niets van de meting.
+ */
+#define RG_W_MAX 4
+typedef struct {
+    uint64_t rva;
+    int len;
+    char modus;                     /* 'x', 'w' of 'r' (lezen en schrijven) */
+    volatile long treffers;
+} rg_wacht;
+static rg_wacht G_w[RG_W_MAX];
+static int G_w_n;
+static void *G_w_veh;
+static volatile LONG G_w_aan;
+
+/* De DR7-waarde voor deze vier punten. */
+static unsigned long rg_w_dr7(void)
+{
+    unsigned long v = 0;
+    int i;
+    for (i = 0; i < G_w_n; i++) {
+        unsigned type = G_w[i].modus == 'x' ? 0u : (G_w[i].modus == 'w' ? 1u : 3u);
+        unsigned len = 3u;                                  /* 11 = 4 bytes */
+        if (G_w[i].modus == 'x')
+            len = 0u;
+        else if (G_w[i].len == 1)
+            len = 0u;
+        else if (G_w[i].len == 2)
+            len = 1u;
+        else if (G_w[i].len == 8)
+            len = 2u;
+        v |= 1u << (2 * i);                                 /* L0..L3: lokaal aan */
+        v |= (type | (len << 2)) << (16 + 4 * i);           /* RWn/LENn */
+    }
+    return v;
+}
+
+/* Zet de punten op één thread (idempotent). */
+static int rg_w_zet_thread(HANDLE h)
+{
+    CONTEXT c;
+    int i, ok;
+    memset(&c, 0, sizeof c);
+    c.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+    if (!GetThreadContext(h, &c))
+        return 0;
+    c.Dr0 = G_w_n > 0 ? (DWORD64)(G_basis + G_w[0].rva) : 0;
+    c.Dr1 = G_w_n > 1 ? (DWORD64)(G_basis + G_w[1].rva) : 0;
+    c.Dr2 = G_w_n > 2 ? (DWORD64)(G_basis + G_w[2].rva) : 0;
+    c.Dr3 = G_w_n > 3 ? (DWORD64)(G_basis + G_w[3].rva) : 0;
+    c.Dr6 = 0;
+    c.Dr7 = rg_w_dr7();
+    c.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+    ok = SetThreadContext(h, &c) != 0;
+    (void)i;
+    return ok;
+}
+
+/* Alle threads van dit proces (behalve deze) langs. Geeft het aantal gelukte threads. */
+static int rg_w_alle_threads(void)
+{
+    HANDLE snap;
+    THREADENTRY32 te;
+    int n = 0;
+    DWORD ik = GetCurrentThreadId(), pid = GetCurrentProcessId();
+    snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE)
+        return 0;
+    te.dwSize = sizeof te;
+    if (Thread32First(snap, &te))
+        do {
+            HANDLE h;
+            if (te.th32OwnerProcessID != pid || te.th32ThreadID == ik)
+                continue;
+            h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_SET_CONTEXT, FALSE,
+                           te.th32ThreadID);
+            if (!h)
+                continue;
+            SuspendThread(h);
+            if (rg_w_zet_thread(h))
+                n++;
+            ResumeThread(h);
+            CloseHandle(h);
+        } while (Thread32Next(snap, &te));
+    CloseHandle(snap);
+    return n;
+}
+
+/* De VEH: loggen en doorgaan. */
+static LONG CALLBACK rg_w_veh(PEXCEPTION_POINTERS ep)
+{
+    CONTEXT *c;
+    unsigned long dr6;
+    int i;
+    if (!G_w_n || !ep || ep->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP)
+        return EXCEPTION_CONTINUE_SEARCH;
+    c = ep->ContextRecord;
+    dr6 = (unsigned long)c->Dr6;
+    if (!dr6)
+        return EXCEPTION_CONTINUE_SEARCH;
+    for (i = 0; i < G_w_n; i++) {
+        char buf[512], wie[128];
+        long n;
+        uint64_t a;
+        if (!(dr6 & (1u << i)))
+            continue;
+        n = InterlockedIncrement(&G_w[i].treffers);
+        if (n > 60 && (n % 2000) != 0) {                /* niet vollopen in een lus */
+            continue;
+        }
+        a = (uint64_t)(G_basis + G_w[i].rva);
+        rg_adres_tekst(wie, sizeof wie, (uint64_t)c->Rip);
+        snprintf(buf, sizeof buf,
+                 "[rg-pe-hook] [wacht] rva 0x%llx #%ld tid %lu rip=%s waarde=0x%llx "
+                 "rcx=0x%llx rdx=0x%llx r8=0x%llx r9=0x%llx rax=0x%llx\n",
+                 (unsigned long long)G_w[i].rva, n, (unsigned long)GetCurrentThreadId(), wie,
+                 (unsigned long long)*(volatile uint64_t *)a, (unsigned long long)c->Rcx,
+                 (unsigned long long)c->Rdx, (unsigned long long)c->R8, (unsigned long long)c->R9,
+                 (unsigned long long)c->Rax);
+        rg_regel_uit(buf);
+    }
+    c->Dr6 = 0;
+    c->EFlags |= 0x10000;                               /* RF: de instructie niet nog eens */
+    return EXCEPTION_CONTINUE_EXECUTION;
+}
+
+/* Leest RG_HOOK_WATCH en zet het instrument aan. */
+static void rg_start_wacht(void)
+{
+    const char *s = getenv("RG_HOOK_WATCH");
+    const char *s0 = s;
+    if (!s || !*s || !G_basis)
+        return;
+    while (*s && G_w_n < RG_W_MAX) {
+        char *e;
+        unsigned long long rva = strtoull(s, &e, 16);
+        int len = 4;
+        char modus = 'r';
+        if (e == s)
+            break;
+        s = e;
+        if (*s == ':') {
+            len = (int)strtol(s + 1, &e, 10);
+            s = e;
+        }
+        if (*s == ':') {
+            int breed = 2;
+            if (s[1] == 'x' || s[1] == 'X') modus = 'x';
+            else if (s[1] == 'w' || s[1] == 'W') modus = 'w';
+            else { modus = 'r'; if (s[2] == 'w' || s[2] == 'W') breed = 3; }
+            s += breed;
+        }
+        if (len != 1 && len != 2 && len != 4 && len != 8)
+            len = 4;
+        G_w[G_w_n].rva = rva;
+        G_w[G_w_n].len = len;
+        G_w[G_w_n].modus = modus;
+        G_w[G_w_n].treffers = 0;
+        G_w_n++;
+        while (*s == ',' || *s == ' ')
+            s++;
+    }
+    if (!G_w_n)
+        return;
+    rg_meld("[wacht] %d hardware-watchpoint(s) uit RG_HOOK_WATCH = %s; ze worden gezet zodra de "
+            "regels zijn toegepast (niet eerder: een breekpunt op de pakker verandert zijn route)", G_w_n, s0);
+    {
+        int i;
+        for (i = 0; i < G_w_n; i++)
+            rg_meld("[wacht]   slot %d: rva 0x%llx len %d modus %c", i, (unsigned long long)G_w[i].rva,
+                    G_w[i].len, G_w[i].modus);
+    }
+}
+
+/* Zet de punten NU: de VEH, de huidige thread en alle andere threads. Aangeroepen direct na het
+   toepassen van de regels (dus op de thread van de pakker, die ook de exit bereikt). */
+/* Een hulpthread: die zet de punten op DEZE thread. Je kunt je eigen context niet lezen of
+   schrijven (SuspendThread op jezelf gevolgd door SetThreadContext laat het proces hard
+   vastlopen -- gemeten 2026-10-22: 2 threads, 0,1 % cpu), een andere thread kan dat wel. */
+typedef struct {
+    HANDLE doel;                    /* dup van de thread die de punten moet krijgen */
+    volatile LONG klaar;
+} rg_w_klus;
+
+static DWORD WINAPI rg_w_hulp(LPVOID arg)
+{
+    rg_w_klus *k = (rg_w_klus *)arg;
+    if (!SuspendThread(k->doel)) {
+        rg_w_zet_thread(k->doel);
+        ResumeThread(k->doel);
+    }
+    k->klaar = 1;
+    return 0;
+}
+
+static void rg_w_nu(void)
+{
+    rg_w_klus klus;
+    HANDLE h;
+    int wacht;
+    if (!G_w_n || G_w_aan)
+        return;
+    G_w_veh = (void *)AddVectoredExceptionHandler(1, rg_w_veh);
+    G_w_aan = 1;
+    /*
+     * De pakker, de start van het spel en de exit draaien op de thread die ons hier aanroept
+     * (zelfde tid in het logboek), dus die krijgt de punten als eerste. RG_HOOK_WATCH_ALL=1 zet ze
+     * ook op de andere threads -- dat stilleggen van alles bleek de game te laten vastlopen, dus het
+     * staat uit tenzij je het vraagt.
+     */
+    klus.doel = NULL;
+    klus.klaar = 0;
+    if (DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &klus.doel, 0,
+                        FALSE, DUPLICATE_SAME_ACCESS)) {
+        h = CreateThread(NULL, 0, rg_w_hulp, &klus, 0, NULL);
+        if (h) {
+            for (wacht = 0; wacht < 400 && !klus.klaar; wacht++)
+                Sleep(1);
+            CloseHandle(h);
+        }
+        CloseHandle(klus.doel);
+    }
+    if (getenv("RG_HOOK_WATCH_ALL"))
+        rg_w_alle_threads();
+    {
+        char b[256];
+        snprintf(b, sizeof b, "[rg-pe-hook] [wacht] gezet: %s; DR7 0x%lx\n",
+                 klus.klaar ? "deze thread" : "MISLUKT (deze thread)", rg_w_dr7());
+        rg_regel_uit(b);
+    }
+}
+
 static DWORD WINAPI rg_werk_thread(LPVOID arg)
 {
     int n;
@@ -318,6 +583,7 @@ static DWORD WINAPI rg_werk_thread(LPVOID arg)
     }
     n = rg_pe_hook(&G);
     rg_meld("resultaat: %d van %d aangehaakt", n, G.n);
+    rg_w_nu();
     return 0;
 }
 
@@ -471,6 +737,7 @@ static void rg_init(void)
                 (unsigned long long)kop.imagebase, kop.grootte_beeld);
     }
     rg_start_dump();
+    rg_start_wacht();
 
     v = rg_pe_voorbereid(&G);
     if (v < 0) {
