@@ -1,7 +1,7 @@
 {
   "title": "The Walking Dead (Raw Thrills)",
   "enabled": true,
-  "status": "demo",
+  "status": "niet-getest",
   "arch": "i386",
   "loader": "rg-elfloader",
   "launcher": "gamescope",
@@ -22,7 +22,7 @@
       "dst": "/rg/hasp-haken.ini"
     },
     {
-      "src": "@data/patches/WalkingDead/heap.tsv",
+      "src": "@patches/WalkingDead/heap.tsv",
       "dst": "/rg/heap.tsv"
     }
   ],
@@ -34,6 +34,42 @@
     {
       "src": "@patches/WalkingDead/private/ravengun-hasp-responses",
       "dst": "/pm/ravengun-hasp-responses"
+    },
+    {
+      "src": "@patches/WalkingDead/data/adj/playerCost/freeplay.0.txt",
+      "dst": "/pm/g6/walkingdead/pmuser/adj/save/playerCost/freeplay.0.txt"
+    },
+    {
+      "src": "@patches/WalkingDead/data/adj/playerCost/freeplay.1.txt",
+      "dst": "/pm/g6/walkingdead/pmuser/adj/save/playerCost/freeplay.1.txt"
+    },
+    {
+      "src": "@patches/WalkingDead/data/adj/playerCost/freeplay.2.txt",
+      "dst": "/pm/g6/walkingdead/pmuser/adj/save/playerCost/freeplay.2.txt"
+    },
+    {
+      "src": "@patches/WalkingDead/data/aud/mountedGun0Calibration.0.xml",
+      "dst": "/pm/g6/walkingdead/pmuser/aud/save/mountedGun0Calibration.0.xml"
+    },
+    {
+      "src": "@patches/WalkingDead/data/aud/mountedGun0Calibration.1.xml",
+      "dst": "/pm/g6/walkingdead/pmuser/aud/save/mountedGun0Calibration.1.xml"
+    },
+    {
+      "src": "@patches/WalkingDead/data/aud/mountedGun0Calibration.2.xml",
+      "dst": "/pm/g6/walkingdead/pmuser/aud/save/mountedGun0Calibration.2.xml"
+    },
+    {
+      "src": "@patches/WalkingDead/data/aud/mountedGun1Calibration.0.xml",
+      "dst": "/pm/g6/walkingdead/pmuser/aud/save/mountedGun1Calibration.0.xml"
+    },
+    {
+      "src": "@patches/WalkingDead/data/aud/mountedGun1Calibration.1.xml",
+      "dst": "/pm/g6/walkingdead/pmuser/aud/save/mountedGun1Calibration.1.xml"
+    },
+    {
+      "src": "@patches/WalkingDead/data/aud/mountedGun1Calibration.2.xml",
+      "dst": "/pm/g6/walkingdead/pmuser/aud/save/mountedGun1Calibration.2.xml"
     }
   ],
   "libs": [
@@ -74,5 +110,5 @@
   "extra_ro": [
     "/dev/shm/ravengun_JvsState"
   ],
-  "note": "2026-10-17: vijf minuten native attract bewezen 23:25:11-23:30:12 (+02:00), zelfde PID 2581518, verse start 23:24:03 zonder debugger. Log native-WalkingDead-20261017-232403.log; screenshots rg-walkingdead-proof-minute-1.png t/m -5.png. Gecontroleerd heapherstel van timeval-slot 0x0900efcc via RG_ELF_HEAP_TABLE; 806 PLT-slots hersteld. Decoderantwoorden blijven uitsluitend lokaal in de schrijflaag, niet meegeleverd. Beide kalibraties overgeslagen via TEST (toets 0). Gun-not-calibrated, UMC en 12V-waarschuwingen blijven; geweerbediening en herstart met ontbrekende TP-runtime niet bewezen. Attract bewezen, niet volledig speelbaar."
+  "note": "2026-10-17: native attract proven (five minutes, same PID). The HASP answers are local reference answers kept in the write layer, not shipped. 2026-10-22: the mounted crossbows (aim, trigger, reload lever) turned out to be on the UMC board (/dev/umc), not on the RIO board; the RIO bridge now answers as the UMC board (rio-invoer.ini). Free play and both gun calibrations are seeded from patches/WalkingDead/data (made with the game's own Adjustments and calibration screens), so the game boots straight to attract. Play with the PS Move not yet confirmed by the owner."
 }

@@ -69,6 +69,7 @@
 #include <fcntl.h>
 #include <link.h>
 #include <math.h>
+#include <poll.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdint.h>
@@ -76,6 +77,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <errno.h>
+#include <linux/sockios.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
@@ -121,6 +125,10 @@ static struct {
     struct { int bit, byte; uint8_t mask; } st_bit[16]; int nst_bit;
     /* Het UMC-bord (Walking Dead): een tweede USB-apparaat, door de game als seriele poort /dev/umc gebruikt. */
     int umc_aan, umc_vid, umc_pid; char umc_pad[64];
+    /* UMC answers (optional, `umc ... crc= begin=` plus `umcframe`/`umcveld`): the bridge streams the board's ASCII status
+       frames into /dev/umc. umc_lengte[t] = body length of frame type t (0 = not sent). */
+    int umc_crc, umc_interval; uint8_t umc_poly, umc_begin; int umc_lengte[10];
+    struct rg_umcveld { int type, pos, breedte, soort, bit, ch; unsigned aan, uit; } uv[48]; int nuv;
 } U;
 static _Atomic int usb_klaar;
 /* Onderzoek (statusbit live): RG_RIO_SPROBE=pad, regels "bit byte masker(hex)", elke 250 ms herlezen: extra statusbits bovenop de tabel,
@@ -275,6 +283,31 @@ static int lees_tabel(const char *pad) {
             const char *v = waarde(kv, nkv, "vid"), *p = waarde(kv, nkv, "pid"), *pd = waarde(kv, nkv, "pad");
             if (!v || !p || !pd || strlen(pd) >= sizeof U.umc_pad) { fout = nr; continue; }
             U.umc_vid = (int)strtol(v, 0, 16); U.umc_pid = (int)strtol(p, 0, 16); snprintf(U.umc_pad, sizeof U.umc_pad, "%s", pd); U.umc_aan = 1;
+            const char *cr = waarde(kv, nkv, "crc"), *bg = waarde(kv, nkv, "begin");
+            if (cr || bg) {
+                if (!cr || !bg) { fout = nr; continue; }
+                U.umc_poly = (uint8_t)strtol(cr, 0, 16); U.umc_begin = (uint8_t)strtol(bg, 0, 16); U.umc_crc = 1;
+            }
+            U.umc_interval = getal(waarde(kv, nkv, "interval"), &a) && a >= 1 && a <= 1000 ? (int)a : 10;
+        } else if (!strcmp(s, "umcframe")) {
+            /* umcframe type=2 lengte=24: frame "W2..." of 24 characters before the checksum (2 hex) and the closing 'z' */
+            if (!getal(waarde(kv, nkv, "type"), &a) || !getal(waarde(kv, nkv, "lengte"), &b) || a < 0 || a > 9 || b < 2 || b > 124) { fout = nr; continue; }
+            U.umc_lengte[(int)a] = (int)b;
+        } else if (!strcmp(s, "umcveld") && U.nuv < 48) {
+            /* umcveld type=2 pos=4 breedte=2 (waarde=hex | bit=N aan=hex [uit=hex] | ch=N | id=N): one hex field of a frame.
+               ch = a `kanaal` value; id = the transition counter of a `schakelaar` id (odd = pressed), like the board's switches. */
+            struct rg_umcveld *f = &U.uv[U.nuv]; double t, po, br, x;
+            if (!getal(waarde(kv, nkv, "type"), &t) || !getal(waarde(kv, nkv, "pos"), &po) || !getal(waarde(kv, nkv, "breedte"), &br) ||
+                t < 0 || t > 9 || br < 1 || br > 4 || po < 2 || po + br > 124) { fout = nr; continue; }
+            f->type = (int)t; f->pos = (int)po; f->breedte = (int)br;
+            if (waarde(kv, nkv, "waarde")) { f->soort = 0; f->aan = (unsigned)strtoul(waarde(kv, nkv, "waarde"), 0, 16); }
+            else if (getal(waarde(kv, nkv, "bit"), &x) && x >= 0 && x <= 31 && waarde(kv, nkv, "aan")) {
+                f->soort = 1; f->bit = (int)x; f->aan = (unsigned)strtoul(waarde(kv, nkv, "aan"), 0, 16);
+                f->uit = waarde(kv, nkv, "uit") ? (unsigned)strtoul(waarde(kv, nkv, "uit"), 0, 16) : 0;
+            } else if (getal(waarde(kv, nkv, "ch"), &x) && x >= 0 && x < RG_MAX_CH) { f->soort = 2; f->ch = (int)x; }
+            else if (getal(waarde(kv, nkv, "id"), &x) && x >= 0 && x < RG_MAX_ID) { f->soort = 3; f->ch = (int)x; }
+            else { fout = nr; continue; }
+            U.nuv++;
         } else if (!strcmp(s, "versleuteling") && nkv == 1 && !strcmp(kv[0], "geen")) {
             U.zonder = 1; U.xrtea = 0; U.nxsig = 0;
         } else if (!strcmp(s, "versleuteling")) {
@@ -500,12 +533,17 @@ static intptr_t usb_sluit(intptr_t dev, intptr_t b, intptr_t c, intptr_t d, intp
 /* De game zoekt het UMC-bord met pmrt_usb_count(0c70, 0784) en opent het dan als seriele poort /dev/umc (open + termios, niet-
    blokkerend lezen/schrijven van een ASCII-protocol "W...z"). "Verbonden" is voor de game: de poort is geopend. De hulp laat
    de telling 1 geven en geeft bij het openen van /dev/umc het ene eind van een socketpaar (geen tty nodig, dus ook in de
-   sandbox); het andere eind wordt leeggelezen en niets terug gestuurd. Wat de game schrijft staat (RG_RIO_LOG=1) in hex in het logboek. */
+   sandbox); het andere eind wordt leeggelezen. Wat de game schrijft staat (RG_RIO_LOG=1) in hex in het logboek.
+   With `crc=`/`begin=` on the `umc` line and `umcframe`/`umcveld` lines the bridge also answers as the board: see umc_zender. */
 static int umc_meester = -1;
 static void *umc_afvoer(void *arg) {
-    (void)arg; uint8_t b[256]; uint32_t totaal = 0;
+    /* Our end is non-blocking: "nothing to read yet" (EAGAIN) is not the end. Before 2026-10-22 this thread stopped on the
+       first EAGAIN, nothing drained the socket any more, the game's poll writes ("W033..z") then failed once the buffer was
+       full and the game closed /dev/umc and reopened it (gamelog: endless "CMGR-Device:UMC State:IO_CMRG_STATE_RETRY"). */
+    int fd = (int)(intptr_t)arg; uint8_t b[256]; uint32_t totaal = 0;
     for (;;) {
-        ssize_t n = read(umc_meester, b, sizeof b);
+        ssize_t n = read(fd, b, sizeof b);
+        if (n < 0 && (errno == EAGAIN || errno == EINTR)) { struct pollfd pf = {fd, POLLIN, 0}; poll(&pf, 1, 200); continue; }
         if (n <= 0) return 0;
         if (log_on && totaal < 512) {
             char m[700]; int o = snprintf(m, sizeof m, "umc: de game schrijft %d bytes:", (int)n);
@@ -514,6 +552,68 @@ static void *umc_afvoer(void *arg) {
         }
         totaal += (uint32_t)n;
     }
+}
+/* UMC answers. Measured statically on the Walking Dead image (2026-10-22, objdump): the serial reader 0x081cd52e collects bytes
+   from 'W' up to 'z' (at most 0x7f) and the parser 0x081ce0ff checks the frame: the two hex digits before 'z' must equal a
+   table-driven CRC-8 (0x081ce88d: reflected, start value = NOT of the byte at 0x08a6e080, result inverted) over everything
+   before them; the second character is the frame type ('1'..'4'). Type '2' fills four 2-digit switch values and four 3-digit
+   analog values of the board, type '3' the next four of each; 0x081cb3b2 hands those eight switches and eight analogs to the
+   game. The bridge generates the CRC table from the polynomial (`crc=`), it does not copy the game's table. Frames are only
+   written when the game has read the previous ones (at most 256 bytes waiting), so the game never sees stale positions.
+   Research: RG_RIO_UPROBE=path, lines "type pos width hex" (re-read every 250 ms) override fields with constants. */
+static uint64_t nu_ms(void);
+static uint8_t umc_tab[256]; static _Atomic int umc_zender_loopt;
+static struct { int type, pos, breedte; unsigned w; } uprobe[16]; static int nuprobe;
+static uint8_t umc_som(const char *b, int n) {
+    uint8_t c = (uint8_t)~U.umc_begin;
+    for (int i = 0; i < n; i++) c = umc_tab[(uint8_t)b[i] ^ c];
+    return (uint8_t)~c;
+}
+static void zet_hex(char *b, int pos, int breedte, unsigned v) {
+    unsigned max = (1u << (4 * breedte)) - 1; if (v > max) v = max;
+    for (int i = breedte - 1; i >= 0; i--) { b[pos + i] = "0123456789ABCDEF"[v & 0xf]; v >>= 4; }
+}
+static void lees_uprobe(const char *pad) {
+    int t, po, br; unsigned w; int n = 0;
+    FILE *f = fopen(pad, "r");
+    __typeof__(uprobe) nieuw;
+    if (f) { while (n < 16 && fscanf(f, "%d %d %d %x", &t, &po, &br, &w) == 4) if (t >= 0 && t <= 9 && br >= 1 && br <= 4 && po >= 2 && po + br <= 124) { nieuw[n].type = t; nieuw[n].pos = po; nieuw[n].breedte = br; nieuw[n].w = w; n++; } fclose(f); }
+    if (n == nuprobe && !memcmp(nieuw, uprobe, sizeof(uprobe[0]) * (size_t)n)) return;
+    memcpy(uprobe, nieuw, sizeof(uprobe[0]) * (size_t)n); nuprobe = n;
+    char m[300]; int o = snprintf(m, sizeof m, "uprobe:");
+    for (int i = 0; i < n && o < 280; i++) o += snprintf(m + o, sizeof m - (size_t)o, " W%d@%d/%d=%x", uprobe[i].type, uprobe[i].pos, uprobe[i].breedte, uprobe[i].w);
+    if (!n) snprintf(m + o, sizeof m - (size_t)o, " (empty)");
+    meld(m);
+}
+static void *umc_zender(void *arg) {
+    (void)arg;
+    const char *upad = getenv("RG_RIO_UPROBE"); uint64_t volgende_up = 0; uint32_t gelogd = 0;
+    for (;;) {
+        int fd = umc_meester;
+        if (fd < 0) { usleep(100000); continue; }
+        if (upad && nu_ms() >= volgende_up) { lees_uprobe(upad); volgende_up = nu_ms() + 250; }
+        int wacht = 0;
+        if (ioctl(fd, SIOCOUTQ, &wacht) == 0 && wacht <= 256) {
+            uint32_t bits = atomic_load(&laatste_bits);
+            for (int t = 0; t <= 9; t++) {
+                int l = U.umc_lengte[t]; if (!l) continue;
+                char b[128]; memset(b, '0', sizeof b); b[0] = 'W'; b[1] = (char)('0' + t);
+                for (int i = 0; i < U.nuv; i++) {
+                    const struct rg_umcveld *f = &U.uv[i]; if (f->type != t || f->pos + f->breedte > l) continue;
+                    int32_t kv = f->soort == 2 ? atomic_load(&kwaarde[f->ch]) : 0;
+                    unsigned v = f->soort == 0 ? f->aan : f->soort == 1 ? ((bits >> f->bit & 1) ? f->aan : f->uit)
+                               : f->soort == 3 ? (atomic_load(&teller[f->ch]) & ((1u << (4 * f->breedte)) - 1)) : (unsigned)(kv < 0 ? 0 : kv);
+                    zet_hex(b, f->pos, f->breedte, v);
+                }
+                for (int i = 0; i < nuprobe; i++) if (uprobe[i].type == t && uprobe[i].pos + uprobe[i].breedte <= l) zet_hex(b, uprobe[i].pos, uprobe[i].breedte, uprobe[i].w);
+                zet_hex(b, l, 2, umc_som(b, l)); b[l + 2] = 'z';
+                if (send(fd, b, (size_t)l + 3, MSG_DONTWAIT | MSG_NOSIGNAL) < 0 && errno != EAGAIN) break;   /* closed: retry on the next open */
+                if (log_on && gelogd < 8) { gelogd++; char m[200]; snprintf(m, sizeof m, "umc: the bridge sends %.*s", l + 3, b); meld(m); }
+            }
+        }
+        usleep((useconds_t)U.umc_interval * 1000);
+    }
+    return 0;
 }
 static intptr_t usb_tel(intptr_t vid, intptr_t pid, intptr_t c, intptr_t d, intptr_t e) {
     if (U.umc_aan && (vid & 0xffff) == U.umc_vid && (pid & 0xffff) == U.umc_pid) return 1;
@@ -526,7 +626,11 @@ static intptr_t usb_seriel(intptr_t h, intptr_t pad, intptr_t c, intptr_t d, int
         if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, sp) == 0) {
             if (umc_meester >= 0) close(umc_meester);
             umc_meester = sp[0];
-            pthread_t th; if (pthread_create(&th, 0, umc_afvoer, 0) == 0) pthread_detach(th);
+            pthread_t th; if (pthread_create(&th, 0, umc_afvoer, (void *)(intptr_t)sp[0]) == 0) pthread_detach(th);
+            if (U.umc_crc) {
+                for (int i = 0; i < 256; i++) { uint8_t c = (uint8_t)i; for (int k = 0; k < 8; k++) c = (c & 1) ? (uint8_t)((c >> 1) ^ U.umc_poly) : (uint8_t)(c >> 1); umc_tab[i] = c; }
+                if (!atomic_exchange(&umc_zender_loopt, 1) && pthread_create(&th, 0, umc_zender, 0) == 0) pthread_detach(th);
+            }
             *(int *)h = sp[1]; if (e) *(int *)e = 0;
             meld("umc: /dev/umc geopend (ons uiteinde van een socketpaar)");
             return 0;
