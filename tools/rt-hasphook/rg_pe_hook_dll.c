@@ -44,13 +44,15 @@
 #include <tlhelp32.h>
 
 static rg_pe_ctx G;
-static void rg_w_nu(void);   /* [wacht]: bestaande hardware-watchpoints nu zetten */
+static void rg_w_nu(void);
+static void rg_start_tekst(void);   /* [wacht]: bestaande hardware-watchpoints nu zetten */
 static FILE *G_log;
 static HANDLE G_uit_h = INVALID_HANDLE_VALUE;   /* ongebufferd logboek (WriteFile) voor handlers */
 static char G_logpad[MAX_PATH];
 static ULONG_PTR G_basis;
 static char G_modnaam[64] = "hoofdmodule";
 static int G_trigger_ok;
+static const char *G_tekst_filter = "";
 
 typedef LONG (NTAPI *nt_protect_t)(HANDLE, PVOID *, PSIZE_T, ULONG, PULONG);
 typedef void (NTAPI *rtl_exit_t)(NTSTATUS);
@@ -269,6 +271,7 @@ static LONG NTAPI rg_det_protect(HANDLE h, PVOID *base, PSIZE_T size, ULONG prot
                 (unsigned long)prot, G.trigger_sectie);
         n = rg_pe_pas_toe(&G, "trigger");
         rg_w_nu();
+        rg_start_tekst();       /* de pakker kan de importtabel hebben herschreven */
         rg_meld("resultaat (trigger): %d van %d functie(s) aangehaakt; de aanroep wordt nu doorgegeven", n, G.n);
     }
     return G_real_protect(h, base, size, prot, oud);
@@ -317,6 +320,86 @@ static int rg_installeer_protect(void)
 }
 
 /* ------------------------------------------------------------------ de eigen thread */
+
+/* ------------------------------------------------------- [tekst]: MultiByteToWideChar meetlek */
+
+/*
+ * RG_HOOK_WATCH_TEXT=1 (en RG_HOOK_TEXT_FILTER=<tekst>, standaard "Texture"): zet een
+ * doorgeefhaak op kernel32!MultiByteToWideChar in de importtabel van de hoofdmodule en logt elke
+ * aanroep waarvan de brontekst het filter bevat. Een MEETINSTRUMENT: het gedrag verandert niet
+ * (de echte functie wordt aangeroepen en het resultaat gaat ongewijzigd terug). Gebruikt om te zien
+ * of een pad dat het spel zelf samenstelt (via de door de pakker gevirtualiseerde std::string) ook
+ * echt gevuld raakt -- bijvoorbeeld "System/Texture/dummy1111.dds" bij de start.
+ */
+typedef int (WINAPI *mbtowc_t)(UINT, DWORD, const char *, int, wchar_t *, int);
+static mbtowc_t G_echte_mbtowc;
+
+static int WINAPI rg_mbtowc_haak(UINT cp, DWORD vlaggen, const char *s, int n, wchar_t *w, int wn)
+{
+    if (s && G_tekst_filter[0] && n > 0) {
+        char kop[200];
+        int k = n < (int)sizeof kop - 1 ? n : (int)sizeof kop - 1;
+        memcpy(kop, s, (size_t)k);
+        kop[k] = 0;
+        if (strstr(kop, G_tekst_filter)) {
+            char buf[512], wie[128];
+            rg_adres_tekst(wie, sizeof wie, (uint64_t)(uintptr_t)__builtin_return_address(0));
+            snprintf(buf, sizeof buf, "[rg-pe-hook] [tekst] tick %llu tid %lu %.*s (terugkeer=%s)\n",
+                     (unsigned long long)GetTickCount64(), (unsigned long)GetCurrentThreadId(), k, s, wie);
+            rg_regel_uit(buf);
+        }
+    }
+    return G_echte_mbtowc(cp, vlaggen, s, n, w, wn);
+}
+
+/* Vervangt in de importtabel elke kernel32!MultiByteToWideChar door de meetlek. */
+static void rg_start_tekst(void)
+{
+    const char *aan = getenv("RG_HOOK_WATCH_TEXT");
+    const char *f = getenv("RG_HOOK_TEXT_FILTER");
+    unsigned char *b = (unsigned char *)G_basis;
+    IMAGE_DOS_HEADER *dos;
+    IMAGE_NT_HEADERS64 *nt;
+    IMAGE_IMPORT_DESCRIPTOR *imp;
+    int aantal = 0;
+    if (!aan || !*aan || !G_basis || !b)
+        return;
+    G_tekst_filter = (f && *f) ? f : "Texture";
+    G_echte_mbtowc = (mbtowc_t)(void *)GetProcAddress(GetModuleHandleA("kernel32.dll"),
+                                                     "MultiByteToWideChar");
+    if (!G_echte_mbtowc) {
+        rg_meld("[tekst] GEEN meetlek: kernel32!MultiByteToWideChar niet gevonden");
+        return;
+    }
+    dos = (IMAGE_DOS_HEADER *)b;
+    nt = (IMAGE_NT_HEADERS64 *)(b + dos->e_lfanew);
+    imp = (IMAGE_IMPORT_DESCRIPTOR *)(b + nt->OptionalHeader.DataDirectory[1].VirtualAddress);
+    for (; imp->Name; imp++) {
+        IMAGE_THUNK_DATA64 *t = (IMAGE_THUNK_DATA64 *)(b + (imp->OriginalFirstThunk
+                                                          ? imp->OriginalFirstThunk : imp->FirstThunk));
+        IMAGE_THUNK_DATA64 *iat = (IMAGE_THUNK_DATA64 *)(b + imp->FirstThunk);
+        for (; t->u1.AddressOfData; t++, iat++) {
+            IMAGE_IMPORT_BY_NAME *naam;
+            if (t->u1.Ordinal & IMAGE_ORDINAL_FLAG64)
+                continue;
+            naam = (IMAGE_IMPORT_BY_NAME *)(b + t->u1.AddressOfData);
+            if (strcmp((const char *)naam->Name, "MultiByteToWideChar"))
+                continue;
+            if (iat->u1.Function == (ULONGLONG)(uintptr_t)&rg_mbtowc_haak)
+                continue;                          /* al omgezet */
+            {
+                DWORD oud;
+                if (VirtualProtect(iat, sizeof *iat, PAGE_READWRITE, &oud)) {
+                    iat->u1.Function = (ULONGLONG)(uintptr_t)&rg_mbtowc_haak;
+                    VirtualProtect(iat, sizeof *iat, oud, &oud);
+                    aantal++;
+                }
+            }
+        }
+    }
+    rg_meld("[tekst] meetlek op MultiByteToWideChar: %d importslot(s) omgezet, filter \"%s\"",
+            aantal, G_tekst_filter);
+}
 
 /* ------------------------------------------------------------------ [wacht]: hardware watchpoints */
 
@@ -738,6 +821,7 @@ static void rg_init(void)
     }
     rg_start_dump();
     rg_start_wacht();
+    rg_start_tekst();
 
     v = rg_pe_voorbereid(&G);
     if (v < 0) {
