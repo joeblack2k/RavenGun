@@ -678,6 +678,28 @@ void test_lindbergh() {
     const Bytes plain = ask(bus, 0x01, "10");
     CHECK(lindbergh_reader(plain, false) == plain.size() && lindbergh_reader(plain, true) == plain.size());
     CHECK(hex(plain).find(hex(Bytes(t3->identify.begin(), t3->identify.end()))) != std::string::npos);
+
+    // The 8-bit Type 1 board sends [value, 0] like lindbergh-loader (Ghost Squad Evolution misread value*257); the 10-bit boards
+    // above keep both bytes (0xD0D0).
+    JvsBus b1;
+    b1.add_node(*t1);
+    talk(b1, "E0 FF 03 F1 01 F4");
+    s.player[0].x = 1.0;
+    s.player[0].y = 0.0;
+    b1.set_input(s);
+    CHECK(hex(ask(b1, 0x01, "22 03")) == "E0 00 09 01 01 FF 00 00 00 80 00 8A");   // p1.x, p1.y, p2.x idle
+    s.player[0].x = 200.0 / 255.0;
+    s.player[0].y = 208.0 / 255.0;
+    b1.set_input(s);
+    CHECK(hex(ask(b1, 0x01, "22 02")) == "E0 00 07 01 01 C8 00 D0 CF 00 A1");     // 0xD0 escaped, low byte 0
+    s.player[0].x = 127.0 / 255.0;
+    b1.set_input(s);
+    const Bytes lo = ask(b1, 0x01, "22 01");
+    CHECK(lo.size() == 8 && lo[5] == 127 && lo[6] == 0);
+    s.player[0].x = 128.0 / 255.0;
+    b1.set_input(s);
+    const Bytes hi = ask(b1, 0x01, "22 01");
+    CHECK(hi.size() == 8 && hi[5] == 128 && hi[6] == 0);
 }
 
 int main() {

@@ -427,6 +427,9 @@ std::vector<uint8_t> JvsNode::handle(const std::vector<uint8_t>& d, bool broadca
                 // een bord met 8, en een foutrapport geeft "I/O ERROR". Kanalen zonder bron staan in rust.
                 const int ch = a[0];
                 if (ch > kJvsMaxAnalogChannels) { rep.push_back(kJvsReportBadParamData); break; }
+                // A board of 8 bits or fewer (only LindberghType1) sends its value left-aligned with a zero low byte, like
+                // lindbergh-loader's own emulation ([adc, 0]); Ghost Squad Evolution misreads a non-zero low byte (GSEVO NoteEN).
+                const bool zero_low = board_.analog_bits > 0 && board_.analog_bits <= 8;
                 rep.push_back(kJvsReportOk);
                 for (int i = 0; i < ch; ++i) {
                     JvsAnalogChannel c;
@@ -434,7 +437,7 @@ std::vector<uint8_t> JvsNode::handle(const std::vector<uint8_t>& d, bool broadca
                     else c.min = 0, c.max = 255;
                     const uint16_t v = jvs_analog_value(c, in_);
                     rep.push_back(static_cast<uint8_t>(v >> 8));   // 16 bit, hoogste byte eerst
-                    rep.push_back(static_cast<uint8_t>(v & 0xFF));
+                    rep.push_back(zero_low ? 0 : static_cast<uint8_t>(v & 0xFF));
                 }
                 break;
             }

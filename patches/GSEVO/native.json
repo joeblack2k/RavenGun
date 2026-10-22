@@ -2,7 +2,7 @@
   "title": "Ghost Squad Evolution",
   "enabled": true,
   "status": "werkt",
-  "note": "WERKT 2026-10-15: dubbelklik, 5,5 min gespeeld in muismodus (bench-captures/GSEVO); richtvenster nog niet gekalibreerd. Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0029A, Type 1-bord (LindberghType1, 8-bits assen). Mesa: de laag patcht de ARB-shaders. Nog niet gestart.",
+  "note": "WERKT 2026-10-15: dubbelklik, 5,5 min gespeeld in muismodus (bench-captures/GSEVO); richten gekalibreerd 2026-10-22 (seed/eeprom.bin, zie game.ini NoteEN). Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0029A, Type 1-bord (LindberghType1, 8-bits assen, als [waarde, 0] verstuurd). Mesa: de laag patcht de ARB-shaders.",
   "arch": "i386",
   "launcher": "gamescope",
   "route": "jvs",
@@ -17,6 +17,13 @@
       "src": "@nas/Ghost Squad Evolution",
       "dst": "/lb",
       "mode": "overlay"
+    }
+  ],
+  "seed": [
+    {
+      "src": "@patches/GSEVO/seed/eeprom.bin",
+      "dst": "/lb/vsg_l/eeprom.bin",
+      "note": "Gun calibration for P1 and P2 made with the game's own test menu (GUN ADJUSTMENT, five marks), 2026-10-22, after the Type 1 board's analog low byte was fixed; the game's default calibration is off by up to 95 px (15% of the width) and leaves parts of the screen unreachable. Only used while the write layer has no eeprom.bin yet."
     }
   ],
   "libdirs": [
