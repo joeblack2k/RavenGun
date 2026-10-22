@@ -20,6 +20,13 @@
       "mode": "overlay"
     }
   ],
+  "seed": [
+    {
+      "src": "@patches/2Spicy/seed/eeprom.bin",
+      "dst": "/lb/elf/eeprom.bin",
+      "note": "Gun calibration made with the game's own test menu (GUN ADJUSTMENT: TOP, LEFT, CENTER, RIGHT, BOTTOM), 2026-10-22; without it the game's default calibration is off by 3.4% of the screen width at the edges. Only used while the write layer has no eeprom.bin yet."
+    }
+  ],
   "libdirs": [
     {
       "src": "@lib32",

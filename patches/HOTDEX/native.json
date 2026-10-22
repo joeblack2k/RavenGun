@@ -20,6 +20,13 @@
       "mode": "overlay"
     }
   ],
+  "seed": [
+    {
+      "src": "@patches/HOTDEX/seed/eeprom.bin",
+      "dst": "/lb/elf/eeprom.bin",
+      "note": "Gun calibration for P1 and P2 made with the game's own test menu (CONTROLLER CALIBRATION SETTING), 2026-10-22; without it the game's default calibration is off by 2.2% of the screen width at the edges. Only used while the write layer has no eeprom.bin yet."
+    }
+  ],
   "libdirs": [
     {
       "src": "@lib32",

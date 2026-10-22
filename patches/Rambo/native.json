@@ -19,6 +19,13 @@
       "mode": "overlay"
     }
   ],
+  "seed": [
+    {
+      "src": "@patches/Rambo/seed/eeprom.bin",
+      "dst": "/lb/elf/eeprom.bin",
+      "note": "Gun calibration for P1 and P2 made with the game's own test menu (CONTROLLER ADJUSTMENT; the test menu starts with the argument -t), 2026-10-22; without it the game's default calibration is off by up to 9% of the screen width. Only used while the write layer has no eeprom.bin yet."
+    }
+  ],
   "libdirs": [
     {
       "src": "@lib32",
