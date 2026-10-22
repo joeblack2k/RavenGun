@@ -259,7 +259,44 @@ static void test_ipc_roundtrip() {
         CHECK(std::get_if<ipc::Error>(&(pr = ipc::parse_request(bad))) != nullptr);
 }
 
+// Game-driven continuous rumble (RumbleInput::hold, from the game's motor output): hold x strength while armed and connected,
+// 0 as soon as hold is 0, disarmed, disconnected or rumble off; a shot pulse on top takes the larger value.
+static void test_game_hold() {
+    RumbleEngine e;
+    e.set_config(cfg());
+    RumbleInput r = in(true, false);
+    r.hold = 0.5;
+    CHECK(e.update(0, r) == 90);
+    r.hold = 1.0;
+    CHECK(e.update(1 * kMs, r) == 180);
+    r.hold = 2.0;                                       // clamped
+    CHECK(e.update(2 * kMs, r) == 180);
+    r.hold = 0.0;
+    CHECK(e.update(3 * kMs, r) == 0);                   // the motor stopped: off at once
+    r.hold = 0.125;
+    CHECK(e.update(4 * kMs, r) == 23);
+    r.armed = false;
+    CHECK(e.update(5 * kMs, r) == 0);                   // disarmed
+    r.armed = true; r.connected = false;
+    CHECK(e.update(6 * kMs, r) == 0);                   // connection lost
+    r.connected = true;
+    RumbleConfig c = cfg(); c.strength = 255;           // the owner's strength scales it
+    e.set_config(c);
+    r.hold = 0.5;
+    CHECK(e.update(7 * kMs, r) == 128);
+    c.enabled = false;                                  // rumble off in the settings: no game rumble either
+    e.set_config(c);
+    CHECK(e.update(8 * kMs, r) == 0);
+    c.enabled = true; c.strength = 180;
+    e.set_config(c);
+    r.hold = 0.25;
+    e.test(9 * kMs, 60);                                // a solenoid pulse on top of a weak motor: the pulse wins
+    CHECK(e.update(10 * kMs, r) == 180);
+    CHECK(e.update(80 * kMs, r) == 45);                 // after the pulse: back to the motor
+}
+
 int main() {
+    test_game_hold();
     test_defaults_and_validation();
     test_single_shot();
     test_repeat_while_held();

@@ -87,6 +87,7 @@ add_library(ravengun STATIC
   src/ravengun/iobridge/jvs.cpp
   src/ravengun/iobridge/jvs_dialect.cpp
   src/ravengun/iobridge/routes.cpp
+  src/ravengun/iobridge/game_out.cpp
   src/ravengun/iobridge/unity_tcp.cpp
   src/ravengun/sysinfo/navcon.cpp
   src/ravengun/sysinfo/mice.cpp
@@ -412,6 +413,9 @@ if(RAVENGUN_BUILD_TESTS)
   add_executable(ravengun_rumble_tests tests/test_rumble.cpp)
   target_link_libraries(ravengun_rumble_tests PRIVATE ravengun)
   add_test(NAME ravengun_rumble_tests COMMAND ravengun_rumble_tests)
+  add_executable(ravengun_game_out_tests tests/test_game_out.cpp)
+  target_link_libraries(ravengun_game_out_tests PRIVATE ravengun)
+  add_test(NAME ravengun_game_out_tests COMMAND ravengun_game_out_tests)
   add_executable(ravengun_vqf_tests tests/test_vqf.cpp)
   target_link_libraries(ravengun_vqf_tests PRIVATE ravengun)
   add_test(NAME ravengun_vqf_tests COMMAND ravengun_vqf_tests)

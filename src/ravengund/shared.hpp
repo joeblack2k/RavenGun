@@ -209,6 +209,11 @@ public:
     }
     // Aantal Recoil-vlaggen per speler (door de klantthread opgehoogd, door de HID-thread gelezen).
     std::array<std::atomic<uint64_t>, kPlayers> game_recoil{};
+    // Continuous rumble from the game itself (its gun motor, [Input] Rumble = game), 0..255 = 0..1 of the rumble strength.
+    // Written by the IO bridge from the game-out file (ravengun/iobridge/game_out.hpp), read by the HID thread; only used for a
+    // player whose bit is set in game_rumble_mask. The bridge puts it back to 0 when the motor stops, the file goes stale or the
+    // route stops.
+    std::array<std::atomic<unsigned>, kPlayers> game_rumble_hold{};
 
 private:
     mutable std::mutex controls_m_;

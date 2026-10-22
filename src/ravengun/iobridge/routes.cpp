@@ -51,6 +51,8 @@ bool validate_route(const IoRoute& r, std::string& err) {
     }
     if (r.route == kRouteHidBoard && r.board.empty() && r.boards.empty()) { err = r.game + ": route hid-board vraagt een Board of Boards in [Input]"; return false; }
     if (r.route == kRouteJvs && r.board.empty() && r.boards.empty()) { err = r.game + ": route jvs vraagt een Board of Boards in [Input]"; return false; }
+    if (!r.rumble.empty() && r.rumble != "game") { err = r.game + ": invalid Rumble '" + r.rumble + "' in [Input] (empty or game)"; return false; }
+    if (r.rumble == "game" && r.route != kRouteTpShm) { err = r.game + ": Rumble = game in [Input] needs route tp-shm (not " + r.route + ")"; return false; }
     for (const auto& k : r.coin_keys)
         if (ravengun::output::key_code(k) < 0) { err = r.game + ": onbekende toets '" + k + "' in CoinKeys"; return false; }
     return true;
@@ -73,6 +75,7 @@ IoRoute build(const gs::Game& g) {
     r.com_port = g.get("Input", "ComPort");
     r.note = g.get("Input", "Note");
     r.coin_keys = split_list(g.get("Input", "CoinKeys"));
+    r.rumble = g.get("Input", "Rumble");
     return r;
 }
 

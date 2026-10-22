@@ -81,6 +81,17 @@ std::string iobridge_text(const json::Value& a) {
         }
         const std::string sysb = str(*d3, {"system"}, "");
         if (!sysb.empty()) t += ", systeem " + sysb;
+        if (const json::Value* go = path(a, {"game_out"}); go && go->is_object()) {
+            // [Input] Rumble = game: what the daemon reads from the game's own outputs (motor level and solenoid pulses per player).
+            t += ", game rumble " + std::string(boolean(*go, {"present"}) ? (boolean(*go, {"stale"}) ? "STALE" : "live") : "no file");
+            if (const json::Value* ps = path(*go, {"players"}); ps && ps->is_array())
+                for (size_t i = 0; i < ps->arr.size() && i < 2; ++i) {
+                    const json::Value& p = ps->arr[i];
+                    t += " P" + std::to_string(i + 1) + " motor " + fmt(num(p, {"motor"}, 0), "%.0f") + "/" + fmt(num(p, {"motor_max"}, 0), "%.0f") +
+                         " hold " + fmt(num(p, {"hold"}, 0), "%.0f") + " pulses " + fmt(num(p, {"pulses"}, 0), "%.0f") + " changes " +
+                         fmt(num(p, {"changes"}, 0), "%.0f");
+                }
+        }
         if (boolean(a, {"resumes"}) || num(a, {"resumes"}, 0) > 0) t += ", " + fmt(num(a, {"resumes"}, 0), "%.0f") + "x hervat na een herstart";
     }
     return t;

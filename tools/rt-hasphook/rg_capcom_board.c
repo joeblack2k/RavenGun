@@ -20,7 +20,23 @@
  *     ships with (min 0, max 1024 on both axes, solved from INPUT TEST readings) X px = (raw - 256) * 1920 / 1024
  *     and Y px = (1279 - raw) * 1080 / 1024, so the default range below is raw 256..1280 (X) and 1279..255 (Y).
  *   - Outputs seen in CONTROLLER TEST: MO:8,0 / MO:0,8 = motor P1/P2 on, SO:1,0 = solenoid P1 pulse.
+ *     In play (2026-10-22): MO is the vacuum-gun motor per player, 0..8 (see GAME OUTPUTS below for what drives it);
+ *     SO is a solenoid pulse per player that lasts one request (~28 ms).
  *   Without an answer on COM1 the game has no input at all: no coin, no TEST, no gun.
+ *
+ * BOARD IMAGE -> G1 (layout LuigisMansion, packaging/tp-shm-profiles.json; the profile decides which RavenGun signal
+ * lands on which bit, this file only knows the cabinet meaning of the bits)
+ *   offset 8 bit 1 / 4  P1 / P2 controller button (Strobulb)  -> G1 X 0x2000
+ *   offset 8 bit 2 / 5  P1 / P2 controller lever (vacuum)     -> G1 X 0x4000
+ *   offset 8 bit 16/17  P1 / P2 screen out                    -> G1 X 0x8000 (the profile maps nothing there now)
+ *   offset 8 bit 0 / 3  P1 / P2 START                         -> G1 X 0x1000
+ *
+ * GAME OUTPUTS -> RavenGun (the PS Move rumble)
+ *   Every change of MO (motor, 0..8 per player) or SO (solenoid per player) is copied into a small file the daemon
+ *   reads ([Input] Rumble = game; layout in src/ravengun/iobridge/game_out.hpp): magic "RGGO", version 1, players 2,
+ *   sequence, per player motor level, maximum 8, solenoid state and a count of solenoid rising edges, sequence again.
+ *   While a motor or solenoid is on the file is rewritten at least every 100 ms (heartbeat), so the daemon can switch
+ *   the rumble off when the game stops writing (crash, stop). Nothing is written while everything stays off.
  *
  * HOW IT GETS IN BETWEEN
  *   The unpacked game calls kernel32 through its own pointer table (in a read-only data section, filled by
@@ -35,7 +51,9 @@
  *   RG_CAPCOM_BOARD_LOG  log file: start-up, every change of the game's outputs (CO/SW/SO/MO/ST) and inputs
  *   RG_CAPCOM_AIM        raw position at the screen edges: "x_left,x_right,y_top,y_bottom" (12-bit values)
  *                        (default 256,1280,1279,255)
- *   RG_CAPCOM_BITS       G1 X bits: "trigger,grenade,reload,start" in hex (default 4000,2000,8000,1000)
+ *   RG_CAPCOM_BITS       G1 X bits for image bit 2, 1, 16, 0 (lever, button, screen out, START) in hex
+ *                        (default 4000,2000,8000,1000)
+ *   RG_CAPCOM_GAMEOUT    game-out file (default Z:\dev\shm\ravengun_GameOut); "-" = do not write it
  *   RG_CAPCOM_SW         SW word bits: "test,service,aux1" in hex (default 4,2,8)
  */
 #if defined(_WIN32)
@@ -55,7 +73,7 @@ static char B_shm_path[MAX_PATH] = "Z:\\dev\\shm\\ravengun_JvsState";
 static FILE *B_log;
 static CRITICAL_SECTION B_mu;
 static int B_aim[4] = { 256, 1280, 1279, 255 };          /* raw at x=0, x=1, y=0, y=1 (overridden by RG_CAPCOM_AIM) */
-static unsigned B_bit_trigger = 0x4000, B_bit_grenade = 0x2000, B_bit_reload = 0x8000, B_bit_start = 0x1000;
+static unsigned B_bit_lever = 0x4000, B_bit_button = 0x2000, B_bit_screenout = 0x8000, B_bit_start = 0x1000;
 static unsigned B_sw_test = 0x4, B_sw_service = 0x2, B_sw_aux1 = 0x8;
 
 static void b_log(const char *fmt, ...)
@@ -190,13 +208,13 @@ static void b_reply(void)
     y1 = b_raw(18, B_aim[2], B_aim[3]);
     x2 = b_raw(20, B_aim[0], B_aim[1]);
     y2 = b_raw(22, B_aim[2], B_aim[3]);
-    if (b_bit(8, 2)) x1 |= B_bit_trigger;
-    if (b_bit(8, 1)) x1 |= B_bit_grenade;
-    if (b_bit(8, 16)) x1 |= B_bit_reload;
+    if (b_bit(8, 2)) x1 |= B_bit_lever;
+    if (b_bit(8, 1)) x1 |= B_bit_button;
+    if (b_bit(8, 16)) x1 |= B_bit_screenout;
     if (b_bit(8, 0)) x1 |= B_bit_start;
-    if (b_bit(8, 5)) x2 |= B_bit_trigger;
-    if (b_bit(8, 4)) x2 |= B_bit_grenade;
-    if (b_bit(8, 17)) x2 |= B_bit_reload;
+    if (b_bit(8, 5)) x2 |= B_bit_lever;
+    if (b_bit(8, 4)) x2 |= B_bit_button;
+    if (b_bit(8, 17)) x2 |= B_bit_screenout;
     if (b_bit(8, 3)) x2 |= B_bit_start;
     y1 |= 0x8000;                                   /* gun data valid */
     if (b_bit(8, 8)) sw |= B_sw_test;
@@ -218,6 +236,76 @@ static void b_reply(void)
     memcpy(B_rx, out, (size_t)n);
     B_rx_len = (DWORD)n;
     B_rx_pos = 0;
+}
+
+/* ------------------------------------------------------------------ game outputs -> RavenGun */
+
+static char B_go_path[MAX_PATH] = "Z:\\dev\\shm\\ravengun_GameOut";
+static HANDLE B_go = INVALID_HANDLE_VALUE;
+static int B_go_off;                     /* RG_CAPCOM_GAMEOUT=- or the file could not be opened */
+static uint32_t B_go_seq;
+static uint32_t B_go_pulses[2];
+static int B_go_mo[2] = { -1, -1 }, B_go_so[2];
+static ULONGLONG B_go_last;
+
+static void b_put32(unsigned char *p, uint32_t v)
+{
+    p[0] = (unsigned char)v, p[1] = (unsigned char)(v >> 8), p[2] = (unsigned char)(v >> 16), p[3] = (unsigned char)(v >> 24);
+}
+
+/* Called with every request (B_mu held): copy MO/SO into the game-out file on change, and as a heartbeat every 100 ms
+   while something is on. */
+static void b_gameout(int mo1, int mo2, int so1, int so2)
+{
+    int mo[2], so[2], k, changed = 0;
+    ULONGLONG now = GetTickCount64();
+    unsigned char b[64];
+    DWORD n = 0;
+    if (B_go_off)
+        return;
+    mo[0] = mo1 < 0 ? 0 : mo1 > 255 ? 255 : mo1;
+    mo[1] = mo2 < 0 ? 0 : mo2 > 255 ? 255 : mo2;
+    so[0] = so1 != 0;
+    so[1] = so2 != 0;
+    for (k = 0; k < 2; k++) {
+        if (so[k] && !B_go_so[k])
+            B_go_pulses[k]++;
+        if (mo[k] != B_go_mo[k] || so[k] != B_go_so[k])
+            changed = 1;
+        B_go_mo[k] = mo[k];
+        B_go_so[k] = so[k];
+    }
+    if (!changed && !((mo[0] || mo[1] || so[0] || so[1]) && now - B_go_last >= 100))
+        return;
+    if (B_go == INVALID_HANDLE_VALUE) {
+        B_go = CreateFileA(B_go_path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (B_go == INVALID_HANDLE_VALUE) {
+            b_log("game-out file %s: cannot open (error %lu); the game's outputs stay in this log only", B_go_path,
+                  (unsigned long)GetLastError());
+            B_go_off = 1;
+            return;
+        }
+        b_log("game-out file open: %s", B_go_path);
+    }
+    B_go_seq++;
+    memset(b, 0, sizeof b);
+    memcpy(b, "RGGO", 4);
+    b[4] = 1;                  /* version */
+    b[6] = 2;                  /* players */
+    b_put32(b + 8, B_go_seq);
+    for (k = 0; k < 2; k++) {
+        unsigned char *q = b + 16 + 8 * k;
+        q[0] = (unsigned char)mo[k];
+        q[1] = 8;              /* MO runs 0..8 (CONTROLLER TEST drives 8) */
+        q[2] = (unsigned char)so[k];
+        b_put32(q + 4, B_go_pulses[k]);
+    }
+    b_put32(b + 48, B_go_seq);
+    SetFilePointer(B_go, 0, NULL, FILE_BEGIN);
+    if (!R_WriteFile(B_go, b, sizeof b, &n, NULL) || n != sizeof b)
+        b_log("game-out write failed (error %lu)", (unsigned long)GetLastError());
+    B_go_last = now;
 }
 
 static void b_request(const char *s)
@@ -244,6 +332,7 @@ static void b_request(const char *s)
         b_log("game booked %d coin(s); coins waiting: %u", v[0], B_coins);
     }
     B_last_clear = v[0];
+    b_gameout(v[5], v[6], v[3], v[4]);
     if (!B_out_seen || memcmp(v, B_out, sizeof v)) {
         char t[200];
         int k = 0;
@@ -519,18 +608,25 @@ void rg_capcom_board_start(void)
     if ((s = getenv("RG_CAPCOM_AIM")) && *s)
         sscanf(s, "%d,%d,%d,%d", &B_aim[0], &B_aim[1], &B_aim[2], &B_aim[3]);
     if ((s = getenv("RG_CAPCOM_BITS")) && *s) {
-        unsigned v[4] = { B_bit_trigger, B_bit_grenade, B_bit_reload, B_bit_start };
+        unsigned v[4] = { B_bit_lever, B_bit_button, B_bit_screenout, B_bit_start };
         b_parse_hex_list(s, v, 4);
-        B_bit_trigger = v[0], B_bit_grenade = v[1], B_bit_reload = v[2], B_bit_start = v[3];
+        B_bit_lever = v[0], B_bit_button = v[1], B_bit_screenout = v[2], B_bit_start = v[3];
+    }
+    if ((s = getenv("RG_CAPCOM_GAMEOUT")) && *s) {
+        if (!strcmp(s, "-"))
+            B_go_off = 1;
+        else
+            snprintf(B_go_path, sizeof B_go_path, "%s", s);
     }
     if ((s = getenv("RG_CAPCOM_SW")) && *s) {
         unsigned v[3] = { B_sw_test, B_sw_service, B_sw_aux1 };
         b_parse_hex_list(s, v, 3);
         B_sw_test = v[0], B_sw_service = v[1], B_sw_aux1 = v[2];
     }
-    b_log("start (pid %lu): ports %s, image %s, aim x %d..%d y %d..%d, G1 bits trigger %x grenade %x reload %x start %x, "
-          "SW test %x service %x aux1 %x", (unsigned long)GetCurrentProcessId(), ports, B_shm_path, B_aim[0], B_aim[1],
-          B_aim[2], B_aim[3], B_bit_trigger, B_bit_grenade, B_bit_reload, B_bit_start, B_sw_test, B_sw_service, B_sw_aux1);
+    b_log("start (pid %lu): ports %s, image %s, aim x %d..%d y %d..%d, G1 bits lever %x button %x screenout %x start %x, "
+          "SW test %x service %x aux1 %x, game-out %s", (unsigned long)GetCurrentProcessId(), ports, B_shm_path, B_aim[0],
+          B_aim[1], B_aim[2], B_aim[3], B_bit_lever, B_bit_button, B_bit_screenout, B_bit_start, B_sw_test, B_sw_service,
+          B_sw_aux1, B_go_off ? "off" : B_go_path);
     k32 = GetModuleHandleA("kernel32.dll");
     for (k = 0; k < B_NSWAP; k++) {
         FARPROC f = k32 ? GetProcAddress(k32, B_swaps[k].name) : NULL;

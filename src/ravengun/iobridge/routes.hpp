@@ -36,6 +36,9 @@ struct IoRoute {
     // Toetsen die de daemon ook indrukt zolang de munt van een speler ingedrukt is (games die hun munt uit het toetsenbord lezen,
     // bv. Time Crisis 5: Shift+T). Namen uit ravengun/output/key_table.hpp.
     std::vector<std::string> coin_keys;
+    // Where the PS Move rumble comes from while this game runs. Empty = the trigger and pump (the owner's "rumble when
+    // shooting"); "game" = the game's own outputs, read from the game-out file a hook writes (game_out.hpp; route tp-shm only).
+    std::string rumble;
 };
 
 struct IoRoutes {
@@ -48,7 +51,7 @@ struct IoRoutes {
 
 // Leest de invoerroute van alle games uit hun instellingen: [Input] in patches/<Game>/game.ini (met _defaults/<Type>.ini eronder en de
 // gebruikerslaag eroverheen, ravengun/gamesettings). Sleutels: Route, Layout, ControlPipe, Board, Boards (komma's), ComPort, CoinKeys
-// (komma's), Note. Klopt de samenvoeging niet (bv. route tp-shm zonder Layout), dan telt de gebruikerslaag niet mee; klopt ook de meegeleverde laag
+// (komma's), Rumble, Note. Klopt de samenvoeging niet (bv. route tp-shm zonder Layout), dan telt de gebruikerslaag niet mee; klopt ook de meegeleverde laag
 // niet, dan krijgt de game geen eigen route (evdev). De eerste melding staat in err (Nederlands), leeg als alles klopt.
 // De brug leest dit bij elke start opnieuw, dus een keuze in de app geldt zonder herstart van de daemon.
 IoRoutes load_io_routes(const ravengun::gamesettings::Dirs& dirs, std::string& err);

@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <climits>
+#include <cmath>
 #include <cstdlib>
 #include <chrono>
 #include <cstdio>
+#include <fcntl.h>
 #include <fstream>
 #include <sstream>
 #include <unistd.h>
@@ -146,8 +148,9 @@ void IoBridgeService::main_loop() {
         dialect_->write(s);
         apply_coin_keys(s);
         ++ticks_;
-        // Bewaking: de game is weg (de unit ravengun-tpui is leeg) of verscheen nooit.
         const int64_t now = steady_ms();
+        if (game_out_) game_out_poll_locked(now);
+        // Bewaking: de game is weg (de unit ravengun-tpui is leeg) of verscheen nooit.
         if (!cfg_.tpui_procs.empty() && now - last_watch >= 500) {
             last_watch = now;
             const bool alive = ravengun::games::unit_alive(cfg_.tpui_procs);
@@ -241,11 +244,13 @@ std::string IoBridgeService::start_route(const std::string& game, const std::str
     route_ = kRouteTpShm;
     shm_ = false;
     control_ = !cp_note.empty();
+    game_out_enable_locked(r->rumble == "game");
     seen_alive_ = false;
     gone_since_ms_ = 0;
     started_ms_ = steady_ms();
     write_state_file(route_, game_);
-    logf("info", "IO-brug: tp-shm voor %s (indeling %s, %s%s)", game.c_str(), prof->name.c_str(), cfg_.shm_path.c_str(), cp_note.c_str());
+    logf("info", "IO-brug: tp-shm voor %s (indeling %s, %s%s%s)", game.c_str(), prof->name.c_str(), cfg_.shm_path.c_str(), cp_note.c_str(),
+         game_out_ ? (", rumble from the game via " + cfg_.game_out_path).c_str() : "");
     cv_.notify_all();
     return {};
 }
@@ -288,6 +293,7 @@ std::string IoBridgeService::start_hid_board(const std::string& game, const IoRo
     for (const auto& k : r->coin_keys) coin_codes_.push_back(ravengun::output::key_code(k));
     game_ = game;
     route_ = kRouteHidBoard;
+    game_out_enable_locked(false);
     shm_ = false;
     seen_alive_ = false;
     gone_since_ms_ = 0;
@@ -339,6 +345,7 @@ std::string IoBridgeService::start_jvs(const std::string& game, const IoRoute* r
     for (const auto& k : r->coin_keys) coin_codes_.push_back(ravengun::output::key_code(k));
     game_ = game;
     route_ = kRouteJvs;
+    game_out_enable_locked(false);
     seen_alive_ = false;
     gone_since_ms_ = 0;
     started_ms_ = steady_ms();
@@ -424,6 +431,7 @@ void IoBridgeService::stop_locked() {
     apply_coin_keys(IoState{});   // vastgehouden munttoetsen loslaten
     dialect_->neutral();
     dialect_->close();
+    game_out_enable_locked(false);
     if (route_ == kRouteTpShm || shm_) ::unlink(cfg_.shm_path.c_str());
     if (control_) ::unlink(cfg_.control_pipe_path.c_str());
     shm_ = false;
@@ -434,6 +442,60 @@ void IoBridgeService::stop_locked() {
     game_.clear();
     if (!cfg_.state_path.empty()) ::unlink(cfg_.state_path.c_str());
     logf("info", "IO-brug gestopt");
+}
+
+void IoBridgeService::game_out_enable_locked(bool on) {
+    for (int p = 0; p < kPlayers; ++p) sh_.game_rumble_hold[static_cast<size_t>(p)].store(0, std::memory_order_relaxed);
+    if (game_out_mask_) sh_.game_rumble_mask.fetch_and(~game_out_mask_);
+    game_out_mask_ = 0;
+    if (game_out_ && !on) {
+        const GameOutView& v = game_out_tracker_.view();
+        logf("info", "game-out: off (P1 %llu solenoid pulse(s), %llu motor change(s); P2 %llu, %llu)", (unsigned long long)v.pulses[0],
+             (unsigned long long)v.changes[0], (unsigned long long)v.pulses[1], (unsigned long long)v.changes[1]);
+        ::unlink(cfg_.game_out_path.c_str());
+    }
+    game_out_ = on;
+    game_out_tracker_ = GameOutTracker(cfg_.game_out_stale_ms);
+    game_out_on_ = {};
+    game_out_stale_logged_ = false;
+    if (!on) return;
+    // Every player: while this route runs, the rumble comes from the game (trigger/pump rumble off, see MoveSlot::rumble_step).
+    game_out_mask_ = (1u << std::min(kPlayers, kIoPlayers)) - 1u;
+    sh_.game_rumble_mask.fetch_or(game_out_mask_);
+}
+
+void IoBridgeService::game_out_poll_locked(int64_t now_ms) {
+    unsigned char buf[kGameOutSize];
+    GameOutFrame f;
+    std::array<uint32_t, kIoPlayers> pulses{};
+    const int fd = ::open(cfg_.game_out_path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        pulses = game_out_tracker_.update(now_ms, nullptr);
+    } else {
+        const ssize_t n = ::pread(fd, buf, sizeof buf, 0);
+        ::close(fd);
+        if (n == static_cast<ssize_t>(sizeof buf) && parse_game_out(buf, sizeof buf, f)) pulses = game_out_tracker_.update(now_ms, &f);
+        else game_out_tracker_.invalid();
+    }
+    const GameOutView& v = game_out_tracker_.view();
+    for (int p = 0; p < std::min(kPlayers, kIoPlayers); ++p) {
+        const size_t i = static_cast<size_t>(p);
+        const unsigned hold = static_cast<unsigned>(std::lround(v.level[i] * 255.0));
+        sh_.game_rumble_hold[i].store(hold, std::memory_order_relaxed);
+        if (pulses[i]) {
+            sh_.game_recoil[i].fetch_add(pulses[i], std::memory_order_relaxed);
+            logf("info", "game-out: P%d solenoid pulse (total %llu)", p + 1, (unsigned long long)v.pulses[i]);
+        }
+        const bool on = v.motor[i] > 0;
+        if (on != game_out_on_[i]) {
+            game_out_on_[i] = on;
+            logf("info", "game-out: P%d motor %s (level %d/%d)", p + 1, on ? "on" : "off", v.motor[i], v.motor_max[i]);
+        }
+    }
+    if (v.stale != game_out_stale_logged_) {
+        game_out_stale_logged_ = v.stale;
+        if (v.stale) logf("warn", "game-out: the writer stopped updating while a motor was on: rumble forced off");
+    }
 }
 
 void IoBridgeService::stop() {
@@ -481,6 +543,21 @@ std::string IoBridgeService::status_json() const {
     if (dialect_) {
         w.key("dialect").value(dialect_->name());
         w.key("detail").raw(dialect_->status_json());
+        if (game_out_) {
+            const GameOutView& v = game_out_tracker_.view();
+            w.key("game_out").begin_object();
+            w.key("path").value(cfg_.game_out_path);
+            w.key("present").value(v.present).key("fresh").value(v.fresh).key("stale").value(v.stale);
+            w.key("seq").value(static_cast<uint64_t>(v.seq)).key("frames").value(v.frames);
+            w.key("players").begin_array();
+            for (int p = 0; p < std::min(kPlayers, kIoPlayers); ++p) {
+                const size_t i = static_cast<size_t>(p);
+                w.begin_object().key("motor").value(v.motor[i]).key("motor_max").value(v.motor_max[i]).key("level").value(v.level[i]);
+                w.key("hold").value(static_cast<uint64_t>(sh_.game_rumble_hold[i].load(std::memory_order_relaxed)));
+                w.key("solenoid").value(v.solenoid[i]).key("pulses").value(v.pulses[i]).key("changes").value(v.changes[i]).end_object();
+            }
+            w.end_array().end_object();
+        }
     } else if (!ext_route_.empty()) {
         w.key("dialect").value(ext_route_);
     }

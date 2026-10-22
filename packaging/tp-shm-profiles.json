@@ -781,7 +781,7 @@
    ]
   },
   "LuigisMansion": {
-   "description": "SEGA Nu 1.1 (Luigi's Mansion Arcade, inputProtocol shared-luigi-mansion). Control 32 bit op offset 8: start (bit 0/3), vacuumknop = Strobulb (Button1, bit 1/4; bij ons granaat), vacuumhendel (Button2, bit 2/5; bij ons trekker), test (8), select switch P1 (9; bij ons aux1), service (10), screen-out (Button3, bit 16/17; bij ons herladen). Assen: vier bytes op 12..15 (P1Y, P1X, P2Y, P2X), kalibratie X 3..252, Y 6..250 (GameProfiles/LuigisMansion.xml), links/boven = 0 (InvertedMouseAxis). Munten lopen niet via dit blok. Bron: findings/05_target_games.md, antwoorden_ronde2.md. Own route (2026-10-22): rg-pe-hook.dll emulates the Capcom COM1 board from this image; it reads the bits at offset 8 (start, grenade, trigger, reload, test, aux1, service, coin1/coin2 at bit 24/25) and the 16-bit little-endian axes at 16..23 (p1.x, p1.y, p2.x, p2.y, 0..65535, left/top = 0).",
+   "description": "SEGA Nu 1.1 (Luigi's Mansion Arcade, inputProtocol shared-luigi-mansion). Control 32 bit op offset 8: start (bit 0/3), vacuumknop = Strobulb (Button1, bit 1/4; ours: trigger), vacuumhendel (Button2, bit 2/5; ours: reload, held = suck), test (8), select switch P1 (9; bij ons aux1), service (10), screen-out (Button3, bit 16/17; ours: nothing, the game plays without it). Assen: vier bytes op 12..15 (P1Y, P1X, P2Y, P2X), kalibratie X 3..252, Y 6..250 (GameProfiles/LuigisMansion.xml), links/boven = 0 (InvertedMouseAxis). Munten lopen niet via dit blok. Bron: findings/05_target_games.md, antwoorden_ronde2.md. Own route (2026-10-22): rg-pe-hook.dll emulates the Capcom COM1 board from this image; it reads the bits at offset 8 (start, Strobulb button, vacuum lever, screen out, test, aux1, service, coin1/coin2 at bit 24/25) and the 16-bit little-endian axes at 16..23 (p1.x, p1.y, p2.x, p2.y, 0..65535, left/top = 0).",
    "size": 64,
    "mirror_bytes": [
     0,
@@ -794,12 +794,12 @@
      "bit": 0
     },
     {
-     "signal": "p1.grenade",
+     "signal": "p1.trigger",
      "offset": 8,
      "bit": 1
     },
     {
-     "signal": "p1.trigger",
+     "signal": "p1.reload",
      "offset": 8,
      "bit": 2
     },
@@ -809,12 +809,12 @@
      "bit": 3
     },
     {
-     "signal": "p2.grenade",
+     "signal": "p2.trigger",
      "offset": 8,
      "bit": 4
     },
     {
-     "signal": "p2.trigger",
+     "signal": "p2.reload",
      "offset": 8,
      "bit": 5
     },
@@ -832,16 +832,6 @@
      "signal": "service",
      "offset": 8,
      "bit": 10
-    },
-    {
-     "signal": "p1.reload",
-     "offset": 8,
-     "bit": 16
-    },
-    {
-     "signal": "p2.reload",
-     "offset": 8,
-     "bit": 17
     },
     {
      "signal": "coin1",

@@ -13,6 +13,8 @@
 //    pulse_ms, minstens 20 ms); pump_strength = 0 zet hem uit.
 //  - Schotpulsen en pomppulsen horen bij een gewapende uitvoer: bij disarm meteen uit. Verbindingsverlies zet
 //    alles uit, ook een testpuls. enabled = false geeft altijd 0.
+//  - hold (0..1, from the game's own motor output): continuous rumble at hold x strength while armed and connected;
+//    it stops as soon as hold goes back to 0 (the caller makes sure it does, see game_out.hpp).
 //  - test() geeft een enkele puls, ook ongewapend (voor `ravengunctl rumble test`).
 #include <cstdint>
 #include <string>
@@ -35,6 +37,8 @@ struct RumbleInput {
     bool armed = false;        // virtuele lightgun gewapend
     bool trigger = false;      // trekker ingedrukt (LiveGunFeed::trigger_down)
     bool pump = false;         // pomp (Sharp Shooter)
+    // Continuous rumble driven by the game (its gun motor), 0..1 of `strength`. Only while armed; 0 = none.
+    double hold = 0.0;
 };
 
 class RumbleEngine {

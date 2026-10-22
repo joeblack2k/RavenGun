@@ -65,6 +65,7 @@ uint8_t RumbleEngine::update(int64_t now_ns, const RumbleInput& in) {
     if (now_ns < shot_until_) v = std::max(v, cfg_.strength);
     if (now_ns < pump_until_) v = std::max(v, cfg_.pump_strength);
     if (now_ns < test_until_) v = std::max(v, static_cast<int>(test_value_));
+    if (in.armed && in.hold > 0) v = std::max(v, static_cast<int>(std::lround(std::min(in.hold, 1.0) * cfg_.strength)));
     return value_ = static_cast<uint8_t>(std::clamp(v, 0, 255));
 }
 

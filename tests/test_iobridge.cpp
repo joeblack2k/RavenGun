@@ -19,6 +19,7 @@
 #include "iobridge_service.hpp"
 #include "output_service.hpp"
 #include "ravengun/iobridge/control_pipe.hpp"
+#include "ravengun/iobridge/game_out.hpp"
 #include "ravengun/iobridge/hid_board.hpp"
 #include "ravengun/iobridge/jvs_dialect.hpp"
 #include "ravengun/iobridge/routes.hpp"
@@ -735,6 +736,82 @@ void test_user_routes(const std::string& dir) {
     br.shutdown();
 }
 
+// [Input] Rumble = game (Luigi's Mansion): the bridge reads the game-out file, turns the motor level into
+// SharedState::game_rumble_hold and solenoid edges into game_recoil, takes the rumble from the game for every player
+// (game_rumble_mask), and puts everything back to 0 when the writer goes stale and when the route stops.
+void test_game_out_service(const std::string& dir) {
+    SharedState sh;
+    IoBridgeService::Config cfg;
+    cfg.dirs.shipped = repo_patches();
+    cfg.profiles = load_profiles();
+    cfg.shm_path = dir + "/go-shm";
+    cfg.tpui_shm_path = dir + "/go-geen-tpui";
+    cfg.game_out_path = dir + "/go-out";
+    std::string err;
+    const IoRoutes routes = load_io_routes(cfg.dirs, err);
+    CHECK(routes.find("LuigisMansion") && routes.find("LuigisMansion")->rumble == "game");
+    // Validation: only "game", only on tp-shm.
+    const std::string sh2 = dir + "/go-shipped";
+    put(sh2 + "/A/game.ini", "[Input]\nRoute = tp-shm\nLayout = TimeCrisis5\nRumble = loud\n");
+    put(sh2 + "/B/game.ini", "[Input]\nRoute = jvs\nBoard = LGS\nRumble = game\n");
+    put(sh2 + "/C/game.ini", "[Input]\nRoute = tp-shm\nLayout = TimeCrisis5\n");
+    const IoRoutes bad = load_io_routes(gamesettings::Dirs{sh2, {}}, err);
+    CHECK(!bad.find("A") && !bad.find("B") && bad.find("C") && bad.find("C")->rumble.empty() && !err.empty());
+
+    auto write = [&](uint32_t seq, int m1, int m2, uint32_t p1, uint32_t p2) {
+        GameOutFrame f;
+        f.seq = seq; f.players = 2;
+        f.motor[0] = m1; f.motor[1] = m2; f.motor_max[0] = f.motor_max[1] = 8;
+        f.pulses[0] = p1; f.pulses[1] = p2;
+        unsigned char b[kGameOutSize];
+        encode_game_out(f, b);
+        {   // whole frames only (the hook rewrites in place; a truncate here would be a half-written file)
+            std::ofstream o(cfg.game_out_path + ".tmp", std::ios::binary | std::ios::trunc);
+            o.write(reinterpret_cast<const char*>(b), sizeof b);
+        }
+        fs::rename(cfg.game_out_path + ".tmp", cfg.game_out_path);
+    };
+    auto settle = [] { std::this_thread::sleep_for(std::chrono::milliseconds(60)); };
+    // Waits until the bridge thread has caught up (it polls at tick_hz, but a loaded machine can delay it).
+    auto settled = [](auto pred) {
+        for (int i = 0; i < 400 && !pred(); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        return pred();
+    };
+    // A file left over from an earlier run with the motor on: ignored.
+    write(9, 8, 8, 4, 4);
+    IoBridgeService br(sh, cfg);
+    CHECK(br.start("LuigisMansion").empty() && br.active());
+    CHECK(sh.game_rumble_mask.load() == 0xfu);
+    settle();
+    CHECK(sh.game_rumble_hold[0].load() == 0 && sh.game_recoil[0].load() == 0);
+    // The game writes: P1 motor 4/8, one solenoid pulse for P2.
+    write(10, 4, 0, 4, 5);
+    CHECK(settled([&] { return sh.game_rumble_hold[0].load() == 128 && sh.game_recoil[1].load() == 1; }));
+    CHECK(sh.game_rumble_hold[1].load() == 0 && sh.game_recoil[0].load() == 0);
+    auto js = json::parse(br.status_json());
+    const json::Value* go = js.ok ? js.value.find("game_out") : nullptr;
+    CHECK(go && go->find("present")->b && go->find("players")->arr.size() == 4 && go->find("players")->arr[0].find("motor")->num == 4 &&
+          go->find("players")->arr[1].find("pulses")->num == 1);
+    // The writer stops (game crashed) with the motor on: off after the stale time.
+    std::this_thread::sleep_for(std::chrono::milliseconds(650));
+    CHECK(settled([&] { return sh.game_rumble_hold[0].load() == 0; }));
+    js = json::parse(br.status_json());
+    go = js.ok ? js.value.find("game_out") : nullptr;
+    CHECK(go && go->find("stale")->b);
+    // Alive again, then the route stops: hold 0, mask cleared, file removed.
+    write(11, 8, 2, 4, 5);
+    CHECK(settled([&] { return sh.game_rumble_hold[0].load() == 255 && sh.game_rumble_hold[1].load() == 64; }));
+    br.stop();
+    CHECK(sh.game_rumble_hold[0].load() == 0 && sh.game_rumble_hold[1].load() == 0 && sh.game_rumble_mask.load() == 0);
+    CHECK(!fs::exists(cfg.game_out_path));
+    // A route without Rumble = game leaves the mask alone (the Unity route owns it then).
+    sh.game_rumble_mask.store(0x3u);
+    CHECK(br.start("TC5").empty() && sh.game_rumble_mask.load() == 0x3u);
+    br.stop();
+    CHECK(sh.game_rumble_mask.load() == 0x3u);
+    br.shutdown();
+}
+
 void test_service(const std::string& dir) {
     SharedState sh;
     fs::create_directories(dir + "/svc");
@@ -1083,6 +1160,7 @@ int main() {
     test_control_pipe(dir);
     test_service(dir);
     test_user_routes(dir);
+    test_game_out_service(dir);
     test_game_camera(dir);
     fs::remove_all(dir);
     std::printf("%d controles, %d mislukt\n", g_checks, g_failures);

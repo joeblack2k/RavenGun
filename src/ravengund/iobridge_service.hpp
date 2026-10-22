@@ -20,6 +20,7 @@
 
 #include "ravengun/iobridge/control_pipe.hpp"
 #include "ravengun/iobridge/dialect.hpp"
+#include "ravengun/iobridge/game_out.hpp"
 #include "ravengun/iobridge/hid_board.hpp"
 #include "ravengun/iobridge/jvs.hpp"
 #include "ravengun/iobridge/jvs_dialect.hpp"
@@ -55,6 +56,9 @@ public:
         std::string tpui_shm_path = ravengun::iobridge::kTpuiShmPath;
         // ravengun-app.conf van de app ([Games] camera: welke camera een spel krijgt); leeg = alleen [Camera] uit game.ini.
         std::string app_conf;
+        // Game outputs written by a hook in the game ([Input] Rumble = game, ravengun/iobridge/game_out.hpp).
+        std::string game_out_path = ravengun::iobridge::kDefaultGameOutPath;
+        int game_out_stale_ms = static_cast<int>(ravengun::iobridge::kGameOutStaleMs);
         int tick_hz = 250;
         int grace_ms = 8000;          // zo lang na het verdwijnen van de game stopt de route
         int never_ms = 10 * 60 * 1000; // zo lang wachten op een game die niet verschijnt
@@ -96,6 +100,10 @@ private:
     void apply_coin_keys(const ravengun::iobridge::IoState& s);
     void write_state_file(const std::string& route, const std::string& game);
     void stop_locked();
+    // [Input] Rumble = game: switch the game-out reader on or off (m_ held). Off puts every game rumble back to 0.
+    void game_out_enable_locked(bool on);
+    // One poll of the game-out file (m_ held): motor level -> SharedState::game_rumble_hold, solenoid edges -> game_recoil.
+    void game_out_poll_locked(int64_t now_ms);
     // De camera voor deze game ([Camera] in game.ini en de keuze in de app): de daemon zet het beeld van zijn camera aan of uit
     // voor het spel (CameraService::set_game_feed; src/ravengun/vision/camera_feed.hpp).
     void apply_game_camera(const std::string& game);
@@ -117,6 +125,11 @@ private:
     uint64_t ticks_ = 0, resumes_ = 0;
     bool seen_alive_ = false;
     int64_t started_ms_ = 0, gone_since_ms_ = 0;
+    bool game_out_ = false;                             // [Input] Rumble = game for the active route
+    unsigned game_out_mask_ = 0;                        // bits this bridge set in SharedState::game_rumble_mask
+    ravengun::iobridge::GameOutTracker game_out_tracker_;
+    std::array<bool, ravengun::iobridge::kIoPlayers> game_out_on_{};   // last logged motor state per player
+    bool game_out_stale_logged_ = false;
     // extern (unity-tcp)
     std::string ext_route_, ext_game_;
 };
