@@ -237,8 +237,8 @@ aanwezig meldt en `GetIoData`/`GetESIoData`/`GetGunData` bouwt uit `TeknoParrot_
    (vermoedelijk uit `UsbIo`). Staat de banner "The guns are not calibrated" er na de proef nog, probeer dan `usbio = 0|2|3` in `rg-unis.ini`. De banner zelf (Blueprint in de pak) is niet gelezen.
 3. **Geweerkalibratie van speler 2..4 (Raccoon)**: `Setting_Hardware.ini` heeft alleen speler 1 (`bIsHandleVerify_1P=1`). De game kan voor 2..4 om kalibratie vragen of de banner houden; dan in het testmenu kalibreren
    (de assen zijn 0..255 over het hele scherm) of het rooster van speler 1 kopieren. Niet gemeten of de banner daar van afhangt.
-4. **Waterstand "hoog" aan (Raccoon, `water = 1`)**: afgeleid uit `CheckIsOpenWaterTank` (zonder laag/midden/hoog meldt de game een lege tank). Of "aan" echt "vol" betekent is niet bewezen (`Setting_Water.ini`:
-   `bEnableWater=true`).
+4. **Waterstand (Raccoon, `water = 1`)**: gelezen uit `CheckIsOpenWaterTank` (RVA 0x9ab780) en gemeten op het scherm (2026-10-22, headless): bit 1 aan = "Water level is too high",
+   bits 3, 2 en 1 alle uit = "Water level low / please add water", bit 3 en bit 2 aan met bit 1 uit = geen melding. `water = 1` (standaard) zet dus bit 3 en 2 aan; `water = 0` laat alle drie uit.
 5. **Raccoon: start/munt.** Het TeknoParrot-profiel noemt de startknoppen "Credits P1..P4" en de trekker is de start in het spel; daarom tellen start 1..4 (bits 6/11/16/21) als munt 1..4 en ook de muntknoppen (bit 2/3)
    voor speler 1/2. Enter van het testmenu = volume omhoog (F4), omdat de huidige `game.ini` zegt: "service (F3) = omlaag, F4 = enter"; het profiel zegt `Enter = P1Button5`, een knop die de indeling WartranTroopers niet heeft.
 6. **Elevator Action: de CRC van het ES-rapport** (zelfde som als Raccoon: gegokt; de game leest hem niet) en **de deursensoren** (0).

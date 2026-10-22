@@ -1,8 +1,8 @@
 UsbPluginsDll.dll = rg-unis (GPL-3.0), RavenGuns eigen UNIS-bord
 bron:
   351ddfd0d7b508046c6f1b9f5dbf01d1f376533f386382f0a2e98115c4c69e16  tools/rg-unis/rg_unis.c
-  f2295f575228cc5ef1ac2b154abd9d405059fdd15322df2e858592632242f8cd  tools/rg-unis/rg_unis_kern.c
-  18bed9ce653fae843fc9af4b5b2321f063d600f02206c5885bcbdbac585748cc  tools/rg-unis/rg_unis_kern.h
+  51e6bf7283a85b22d9b24e666848eda85d042ba6e96815bf87d34980d6f352a2  tools/rg-unis/rg_unis_kern.c
+  eb518253a9cb7225838f40c9f1fa0d169f80f79631735624264659b06ab4c92f  tools/rg-unis/rg_unis_kern.h
 toolchain: x86_64-w64-mingw32-gcc (GCC) 16.2.0
 uitvoer:
-  8440d5e6b06d424a127293ca919b2e7a0bc9a0942084415592af57e401c2b444  UsbPluginsDll.dll
+  a12c5218a6a4d17ee091d9547fda425eb84450bb8799e8a41ae8f512f0bf1efe  UsbPluginsDll.dll

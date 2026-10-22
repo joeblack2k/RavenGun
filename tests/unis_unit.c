@@ -81,14 +81,14 @@ int main(int argc, char **argv)
     uint8_t rrio[RGU_RR_IO_LEN];
     rgu_bouw_rr(&rr, &be, rrio);
     EIS(rrio[0] == 1 && rrio[1] == 0xAA, "UsbIo/Mark: %02x %02x", rrio[0], rrio[1]);
-    EIS(rrio[2] == 0 && rrio[5] == 0x02, "rust: geen knoppen, waterstand hoog (byte 5: %02x)", rrio[5]);
+    EIS(rrio[2] == 0 && rrio[5] == 0x0c, "rest: no buttons, water tank OK = low + middle on, high off (byte 5: %02x)", rrio[5]);
     EIS(rrio[48] == crc(rrio, 1, 48), "Crc");
     be.bits = b(0) | b(1) | b(4);
     rgu_bouw_rr(&rr, &be, rrio);
     EIS(rrio[2] == 7, "test=bit2, service=bit1, enter=bit0 (F4): %02x", rrio[2]);
     be.bits = b(7) | b(22);
     rgu_bouw_rr(&rr, &be, rrio);
-    EIS(rrio[5] == (0x80 | 0x10 | 0x02), "trekker 1 en 4: %02x", rrio[5]);
+    EIS(rrio[5] == (0x80 | 0x10 | 0x0c), "trekker 1 en 4: %02x", rrio[5]);
     be.bits = 0;
     for (int i = 0; i < 8; i++) be.as[i] = (uint8_t)(10 + i * 30);
     rgu_bouw_rr(&rr, &be, rrio);

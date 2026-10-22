@@ -47,7 +47,7 @@ typedef struct {
 typedef struct {
     int game;                  /* RGU_GAME_* */
     int usbio;                 /* FCoUnisIoData.UsbIo (GEGOKT: 1) */
-    int water;                 /* Raccoon: waterstand "hoog" aan (GEGOKT: 1) */
+    int water;                 /* Raccoon: 1 = water tank OK (low and middle on, high off), 0 = empty tank (all three off) */
     int aim_kolom;             /* 1 = het spelbeeld is een kolom midden in de uitvoer (staande kast), 0 = vult de uitvoer */
     int uit_b, uit_h;          /* afmetingen van de uitvoer waarin het beeld staat (standaard 1920x1080) */
     rgu_bron bron[RGU_AANTAL];

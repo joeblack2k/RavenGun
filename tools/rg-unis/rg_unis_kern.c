@@ -187,8 +187,11 @@ static uint8_t crc_van(const uint8_t *b, int van, int tot)
  *   byte 2 (IoData1): bit 2 = Test (Control_Move_Up), bit 1 = Service (Control_Move_Down), bit 0 = Enter (Control_Enter);
  *                     bit 7 -> [GI+0x2a4] (iIOState), bit 6 -> [GI+0x2a8] (bResetFlag): beide 0.
  *   byte 5 (IoData4): bit 7/6/5/4 = trekker speler 1/2/3/4 (FPACKET.bLeftBtn; de opgaande flank roept ABPPC::StartPlay(speler) aan);
- *             bit 3/2/1 = waterstand laag/midden/hoog (CheckIsOpenWaterTank, RVA 0x9ab780: zonder een van de drie meldt de game een lege
- *                     tank; GEGOKT dat dit de goede lezing is: hier staat "hoog" aan, tenzij water = 0 in rg-unis.ini);
+ *             bit 3/2/1 = the three water tank level inputs (CheckIsOpenWaterTank, RVA 0x9ab780; this+0x2b4/0x2b5/0x2b6 = bit 3/2/1;
+ *                     file offset = RVA - 0x1000 + 0x600 in .text). Read from the game's code and measured on screen: bit 1 on = the message
+ *                     "Water level is too high"; bits 3, 2 and 1 all off = "Water level low / please add water"; bit 3 or bit 2 on with
+ *                     bit 1 off = no message (a tank that is not empty and not too full). So water = 1 (default) reports bits 3 and 2 on,
+ *                     bit 1 off; water = 0 reports all three off (the empty-tank message, only useful to test that message).
  *   byte 7 (IoData6): muntingangen: die telt de DLL zelf (BIND_GetCoinNumByPlayer), ParseIOData slaat deze byte over;
  *   byte 10..25: ruwe 16-bits aanwijspunten big-endian X,Y van speler 1..4 (FPACKET.iOriginal_X/Y), omgerekend door GunDataToScreen
  *                (RVA 0x9b3110) met het 4x4-rooster van Setting_Hardware.ini;
@@ -203,7 +206,7 @@ void rgu_bouw_rr(const rgu_cfg *c, const rgu_beeld *b, uint8_t o[RGU_RR_IO_LEN])
     o[2] = (uint8_t)((rgu_aan(c, RGU_TEST, b->bits) << 2) | (rgu_aan(c, RGU_SERVICE, b->bits) << 1) | rgu_aan(c, RGU_ENTER, b->bits));
     o[5] = (uint8_t)((rgu_aan(c, RGU_TRIG1, b->bits) << 7) | (rgu_aan(c, RGU_TRIG2, b->bits) << 6) |
                      (rgu_aan(c, RGU_TRIG3, b->bits) << 5) | (rgu_aan(c, RGU_TRIG4, b->bits) << 4));
-    if (c->water) o[5] |= 0x02;
+    if (c->water) o[5] |= 0x0c;                 /* tank OK: low (bit 3) and middle (bit 2) on, high (bit 1) off */
     for (int i = 0; i < 8; i++) {
         o[10 + 2 * i] = b->as[i];
         o[11 + 2 * i] = b->as[i];
