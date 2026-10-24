@@ -81,7 +81,7 @@ Er is geen `[Dongle]`-sectie en die hoort er ook niet te komen: de loader kent g
 ## Verifiëren
 
 ```sh
-cd ~/projects/ravengun-patches
+cd ~/projects/ravengun/research
 python3 patches/stand-gen.py                      # de tabel en de tellingen in patches/STAND.md
 
 cd ~/projects/ravengun

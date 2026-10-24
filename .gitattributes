@@ -1,0 +1,4 @@
+# research/ (the former ravengun-patches repository: measurements, evidence, dongle research) and the wiki drafts never go
+# into a release: tools/dev/make-release.sh builds from `git archive HEAD`.
+research/ export-ignore
+docs/wiki/ export-ignore

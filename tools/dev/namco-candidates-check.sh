@@ -3,12 +3,12 @@
 # Controleert de kandidaten van docs/research/namco/patches/<Game>/ (TC5, HOTDSD) zonder TeknoParrot: legt ze over de echte patches-map
 # (alleen lezen, in een tijdelijke kopie) en laat rg-direct een plan maken met een TeknoParrot-map die niet bestaat. Start niets.
 #
-# Gebruik: tools/dev/namco-candidates-check.sh [patches-map]   (standaard ~/projects/ravengun-patches/patches)
+# Gebruik: tools/dev/namco-candidates-check.sh [patches-map]   (standard: patches/ in this repo)
 # Vereist: build/rg-direct (cmake -S . -B build && cmake --build build -j) en de gebouwde DLL's in de dropin-mappen
 # (tools/dev/build-winusb.sh, tools/dev/build-allsio.sh).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-BASE="${1:-$HOME/projects/ravengun-patches/patches}"
+BASE="${1:-$ROOT/patches}"
 [[ -x "$ROOT/build/rg-direct" ]] || { echo "build/rg-direct ontbreekt" >&2; exit 2; }
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

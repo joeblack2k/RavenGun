@@ -123,7 +123,7 @@ eerste groep als besmetting.
 
 `python3 tools/dev/patchlayout.py [wortel ...]` toont dezelfde afwijkingen.
 
-**Een map of twee?** Op een ontwikkelmachine is `patches/` van de loader een koppeling naar `../ravengun-patches/patches`: dezelfde map. De
+**One folder or two?** Since 2026-10-24 there is one repository: `patches/` is a real folder here, and the former ravengun-patches repository (research, measurements, evidence) lives in `research/`. Older notes: on a development machine `patches/` of the loader used to be a link to `../ravengun-patches/patches`: the same folder. De
 test stelt dat vast met `st_dev`/`st_ino` (niet met de tekst van het pad), legt die ene map tegen het schema en meldt dat hij geen
 vergelijking tussen twee repo's heeft gedaan; hij beweert dus nooit dat "de twee indelingen overeenkomen". Zijn het twee verschillende
 mappen (andere machine, of gamemappen zijn naar de loader verhuisd), dan worden beide tegen het schema gelegd en wordt elke game die op

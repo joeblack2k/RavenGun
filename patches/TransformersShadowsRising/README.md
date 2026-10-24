@@ -91,7 +91,7 @@ in `docs/loskoppelen-per-game.md`: wordt `sega-scan` een vijfde `kind`, of valt 
 ## Verifiëren
 
 ```sh
-cd ~/projects/ravengun-patches
+cd ~/projects/ravengun/research
 python3 patches/stand-gen.py                            # de tabel en de tellingen in patches/STAND.md
 
 cd ~/projects/ravengun

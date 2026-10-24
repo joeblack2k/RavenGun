@@ -10,7 +10,7 @@
 #   --no-test           de ctest-suites in de container overslaan
 #   --allow-dirty       ook bouwen als er niet-gecommitte wijzigingen zijn (die komen NIET in het archief: alleen HEAD)
 #   --psmoveapi-src MAP een git-kloon van thp/psmoveapi (standaard ~/.cache/ravengun/src/psmoveapi; ontbreekt die, dan wordt hij gekloond)
-#   --patches MAP       de patches-map van de patches-repo (standaard: ./patches, anders ../ravengun-patches/patches); alleen de levering gaat mee
+#   --patches MAP       de patches-map van de patches-repo (standaard: ./patches); alleen de levering gaat mee
 #   --no-components     de eigen runtime-onderdelen niet bouwen (snelle proef; het archief mist dan share/ravengun/components)
 #   --with-lindbergh    ook de Lindbergh-laag bouwen en meenemen (NIET voor verspreiding: CC BY-NC-SA-bron en Nvidia Cg; alleen eigen gebruik)
 #

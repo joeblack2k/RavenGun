@@ -1,0 +1,1 @@
+Every claim on these pages is tagged **MEASURED**, **READ**, **DERIVED** or **NOT MEASURED**; see [Home](Home). This wiki is about the games and the loader, not about the cabinets' hardware security or licensing layers.

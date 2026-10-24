@@ -1,3 +1,8 @@
+> **Merged 2026-10-24.** This was the separate `ravengun-patches` repository; it is now the `research/` folder of the one
+> RavenGun repository (history kept in the merge commit). The live per-game files are in `patches/` at the top of the repo;
+> this folder holds the research, measurements and evidence, and is neither installed nor part of a release
+> (`.gitattributes`). Paths below that say `patches/<Game>/` mean `research/patches/<Game>/` here.
+
 # RavenGun-patches
 
 De patches per game voor [RavenGun](https://github.com/ravengun). **Dit staat bewust in een eigen

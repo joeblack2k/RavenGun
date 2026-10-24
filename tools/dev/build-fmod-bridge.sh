@@ -5,12 +5,12 @@
 # TeknoParrot-installatie). De twee .so-bestanden bouwt cmake ook (doelen rg_fmod10 en rg_fmodstudio10, in build/fmod).
 #   tools/dev/build-fmod-bridge.sh [--lib MAP] [--exe MAP]
 #     --lib MAP  standaard build/fmod in de repo (de libdir @build/fmod van patches/Halo/native.json)
-#     --exe MAP  standaard patches/Halo/data/fmod in ../ravengun-patches (de levering per game)
+#     --exe MAP  standard patches/Halo/data/fmod in this repo (the delivery per game)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$ROOT/tools/fmod-bridge"
 LIB="$ROOT/build/fmod"
-EXE="$ROOT/../ravengun-patches/patches/Halo/data/fmod"
+EXE="$ROOT/patches/Halo/data/fmod"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --lib) LIB="$2"; shift 2 ;;

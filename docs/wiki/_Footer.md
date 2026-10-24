@@ -1,0 +1,1 @@
+Every claim on these pages is tagged **MEASURED**, **INFERRED** or **assumption**; see [Home](Home). This wiki covers the games and the loader: what you need in order to run these titles on Linux, how they are started, how their cabinet input reaches them, and where they stop.
