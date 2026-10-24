@@ -1,34 +1,82 @@
 {
   "title": "Terminator Salvation",
   "enabled": false,
-  "status": "geparkeerd",
-  "note": "Werkt al via TeknoParrot+gamescope. Native: laadt, maar stopt direct met exit 255 (DongleInitialize() FAILED: de game wil de HASP-dongle); niet omzeild.",
+  "status": "niet-getest",
+  "note": "Native route zonder TeknoParrot (kandidaat, 2026-10-18; nog niet op de bench). i386, ongepakt, eigen lader. Alles wat BudgieLoader deed is eigen code of eigen meting: HASP-haak met adreslijst + emulator + antwoordtafel uit de eigen hasp/-map van de game (dropin/), PR_SET_PTRACER_ANY (RG_ELF_PTRACER_ANY, BESCHERMINGSLAAG-PTRACE.md), /g3 en /T4User als overlay, /dev/ttyS0 en /dev/sierra2 via librg_ptylink.so met de bordkant in librg-t4-io.so (schakelaars uit het bordbeeld van de daemon, route tp-shm), het richtpunt (twee floats op 0x8b0da00 + geweer*0x30, game-functie 0x842e36f) uit dezelfde assen, /dev/js0 = /dev/null, /dev/dsp via librg-oss-stub.so, force_glsl_version=120 (13 shaderfouten -> 1), het hardgecodeerde -display :0.0 van glutInit vervangen door $DISPLAY. Bewezen op de eigen lader (bench 2026-10-13, r4): attract 19 min. Niet bewezen: elke regel van dit profiel als geheel, de pomp-knop, het richtpunt (de 800x600-ruimte en de strook van het scherm), geluid, het spelen. Open: de waarschuwing 'Data Files Corrupted' vraagt elke start een START (shader frag_shadmap.gls op de NAS is gewijzigd); de unit meldt zich als UK (landbyte 3 in de dongledump). Voor de proef: enabled=true in de gebruikerslaag. Bench 42 (2026-10-18): de game sloot direct na het laden van de dongle (geen eigen logboek); RG_ELFLOADER_VERBOSE en RG_T4_DIAG staan aan om te zien wie afsluit en of PR_SET_PTRACER gezet is. De build-controle van het richtpunt faalde omdat de lader het spelbeeld pas na het laden van de hulp neerlegt: nu herhaald.",
   "arch": "i386",
+  "loader": "rg-elfloader",
+  "launcher": "gamescope",
   "mounts": [
     {
       "src": "@nas/Terminator Salvation ",
-      "dst": "/pm",
+      "dst": "/g3",
+      "mode": "overlay"
+    },
+    {
+      "src": "@nas/Terminator Salvation /T4User",
+      "dst": "/T4User",
       "mode": "overlay"
     }
   ],
+  "files": [
+    {
+      "src": "@patches/Terminator/dropin/hasp-haken.ini",
+      "dst": "/rg/hasp-haken.ini"
+    },
+    {
+      "src": "/dev/null",
+      "dst": "/dev/js0"
+    }
+  ],
+  "seed": [
+    {
+      "src": "@patches/Terminator/dropin/ravengun-hasp",
+      "dst": "/g3/ravengun-hasp"
+    }
+  ],
   "libs": [
-    "@tpui/ElfLdr2/libs/libPhysXLoader.so.1",
-    "@tpui/ElfLdr2/libs/libPhysXCore.so",
-    "@tpui/ElfLdr2/libs/libNxCharacter.so.1",
-    "@tpui/ElfLdr2/libs/libNxCooking.so",
+    "@lib32/libPhysXLoader.so.1",
+    "@lib32/libPhysXCore.so",
+    "@lib32/libNxCharacter.so.1",
+    "@lib32/libNxCooking.so",
     "@lib32/libtheora.so.0",
     "@lib32/libglut.so.3",
     "@lib32/libXi.so.6",
-    "@lib32/libGLU.so.1"
+    "@lib32/libGLU.so.1",
+    "@build/lib32/librg_ptylink.so",
+    "@build/lib32/librg-oss-stub.so",
+    "@build/lib32/librg-t4-io.so",
+    "@patches/Terminator/dropin/libravengun-hasphook.so",
+    "@patches/Terminator/dropin/ravengun-hasp.so"
   ],
-  "preload": "",
-  "exe": "/pm/game",
-  "cwd": "/pm",
-  "home": "/pm",
-  "args": [
-    "-n",
-    "-f{res}"
-  ],
+  "preload": "/rg/lib/librg_ptylink.so:/rg/lib/libravengun-hasphook.so:/rg/lib/librg-oss-stub.so:/rg/lib/librg-t4-io.so",
+  "env": {
+    "RG_ELF_PTRACER_ANY": "1",
+    "RG_PTYLINK": "/dev/ttyS0=/tmp/ttyJamma;/dev/sierra2=/tmp/ttySierra",
+    "RG_PTYLINK_LOG": "1",
+    "RG_T4_LOG": "1",
+    "RG_GLUT_DISPLAY_FROM_ENV": "1",
+    "force_glsl_version": "120",
+    "RAVENGUN_HASP_GAME": "Terminator",
+    "RAVENGUN_HASP_DIR": "/g3/ravengun-hasp",
+    "RAVENGUN_HASP_CRYPTO_TABLE": "/g3/hasp",
+    "RAVENGUN_HASP_ELF_LIB": "/rg/lib/ravengun-hasp.so",
+    "RAVENGUN_HASP_ELF_ADRESLIJST": "/rg/hasp-haken.ini",
+    "RAVENGUN_HASP_ELF_LOG": "/g3/hasphook.log",
+    "RAVENGUN_HASP_VERBOSE": "1",
+    "RG_OSS_STUB_LOG": "1",
+    "RG_OSS_PLAY": "1",
+    "RG_OSS_NAME": "Terminator Salvation",
+    "RG_ELFLOADER_VERBOSE": "1",
+    "RG_T4_DIAG": "1"
+  },
+  "exe": "/g3/game",
+  "cwd": "/g3",
+  "home": "/g3",
+  "args": [],
   "res": "1360x768",
-  "route": "evdev"
+  "route": "tp-shm",
+  "extra_ro": [
+    "/dev/shm/ravengun_JvsState"
+  ]
 }
