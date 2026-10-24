@@ -1,0 +1,47 @@
+RUN m1 -- MenInBlack -- started 2026-10-14 02:31:34
+DECLARED: core=ravengun  share=overlay-keep  shm-source=launcher default  limit=150s  captures every 6s
+user layer (/home/deck/.local/share/ravengun/patches/MenInBlack/game.ini) at start:
+    (none)
+launcher plan (scripts/launch-direct.py MenInBlack --plan):
+    game: /home/deck/.local/share/ravengun/runtime/views/MenInBlack/shell/Shell.exe
+    wine: /home/deck/.local/share/ravengun/wrappers/wine-prefix
+    prefix: /home/deck/.local/share/ravengun/prefixes/ravengun-test-mib
+    core_dll: /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll
+    core_sha256: 413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc
+    core_source: ravengun
+    profile_env: {'TP_REMOTETHREAD': 'off', 'RG_WINEPREFIX': '/home/deck/.local/share/ravengun/prefixes/ravengun-test-mib', 'WINEDLLOVERRIDES': 'd3d11,d3d10core,dxgi=n,b'}
+inside the sandbox, the share folder is mounted as: overlay rw,nosuid,nodev,relatime,lowerdir=/proc/self/fd/10,upperdir=/proc/self/fd/6,workdir=/proc/self/fd/9,redirect_dir=nofollow,index=off,uuid=on,xi
+game process first seen 02:31:36
+launcher says: [launch-direct 02:31:35] kern (ravengun): /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll sha256 413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc
+02:31:46 alive: pid 1916459, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:32:17 alive: pid 1916459, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:32:47 alive: pid 1916459, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:33:17 alive: pid 1916459, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:33:47 alive: pid 1916459, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+ENDED 2026-10-14 02:34:08 -- launcher: 02:34:07 klaar (exitcode gestopt) -- rc=124 (124 = stopped by the run's own limit)
+left running afterwards:
+    now 02:34:08
+    (end of list)
+files in the share's game folder newer than the start of this run: 0
+what the game wrote into the kept write layer (/home/deck/.local/state/ravengun/bench-upper/m1/upper):
+    02:31:41.4001238720        76 ./shell/teknoparrot.ini
+    02:31:41.7106652570        78 ./shell/hwticketvend - 261014.log
+    02:31:42.7274863920       253 ./shell/ioboard - 261014.log
+    02:31:44.2404726340        88 ./shell/system - 261014.log
+    02:31:44.2620325630        41 ./shell/ErrorHandler - 261014.log
+    02:31:44.3650505550        41 ./shell/TestOutputs - 261014.log
+    02:31:44.5144701430        86 ./shell/Cabinet - 261014.log
+    02:31:44.5214700790       337 ./shell/Mainthread - 261014.log
+    02:31:44.5286722260        41 ./shell/Lighting - 261014.log
+    02:31:44.5462121610        80 ./shell/Security - 261014.log
+    02:31:44.6394690060       465 ./shell/RecoilPattern - 261014.log
+    02:31:44.9494661870       202 ./shell/Credit - 261014.log
+    02:31:44.9631844730        41 ./shell/SoftwareMeters - 261014.log
+    02:31:44.9694944280        41 ./shell/Networking - 261014.log
+    02:31:44.9812498910       129 ./shell/GameStateMachine - 261014.log
+    02:31:44.9884568440        89 ./shell/TicketVendManager - 261014.log
+    02:31:44.9944657780       119 ./shell/TicketVend1 - 261014.log
+    02:31:45.0014657150       119 ./shell/TicketVend2 - 261014.log
+    02:33:44.6473769690         8 ./shell/variables/tton
+    02:33:44.6473769690         8 ./shell/variables/tton.bak
+captures: 23, first shot-001-023134.png, last shot-024-023401.png

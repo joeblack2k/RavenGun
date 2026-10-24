@@ -1,0 +1,38 @@
+game process seen 02:18:37; untouched for 325 s from now
+IO-brug: route tp-shm voor RaccoonRampage, dialect tp-shm, indeling WartranTroopers, 82081 schrijfacties, bytes 8..27: 00000000668c8080808080800000000000000000, P1 aim 0.400,0.550
+  shm before START 02:24:02: 000000000000000000000000668c8080808080800000000000000000
+START down 02:24:02
+Toets 1: down.
+  shm during START 02:24:03: 000000000000000040000000668c8080808080800000000000000000
+Toets 1: up.
+Uitvoer:      GEWAPEND; apparaat aangemaakt (1209:7202), event /dev/input/event13, abs 0..32767
+trigger at 0.5 0.5 02:24:16
+Knop trigger: down.
+  shm during trigger 02:24:16: 00000000000000008000000080808080808080800000000000000000
+Knop trigger: up.
+Knop trigger: tap.
+Uitvoer:      GEWAPEND; apparaat aangemaakt (1209:7202), event /dev/input/event13, abs 0..32767
+trigger at 0.25 0.4 02:24:20
+Knop trigger: down.
+  shm during trigger 02:24:21: 00000000000000008000000040668080808080800000000000000000
+Knop trigger: up.
+Knop trigger: tap.
+Uitvoer:      GEWAPEND; apparaat aangemaakt (1209:7202), event /dev/input/event13, abs 0..32767
+trigger at 0.75 0.4 02:24:25
+Knop trigger: down.
+  shm during trigger 02:24:25: 000000000000000080000000bf668080808080800000000000000000
+Knop trigger: up.
+Knop trigger: tap.
+Uitvoer:      GEWAPEND; apparaat aangemaakt (1209:7202), event /dev/input/event13, abs 0..32767
+trigger at 0.5 0.75 02:24:30
+Knop trigger: down.
+  shm during trigger 02:24:30: 00000000000000008000000080bf8080808080800000000000000000
+Knop trigger: up.
+Knop trigger: tap.
+Uitvoer:      GEWAPEND; apparaat aangemaakt (1209:7202), event /dev/input/event13, abs 0..32767
+trigger at 0.4 0.55 02:24:34
+Knop trigger: down.
+  shm during trigger 02:24:34: 000000000000000080000000668c8080808080800000000000000000
+Knop trigger: up.
+Knop trigger: tap.
+presses done 02:24:37

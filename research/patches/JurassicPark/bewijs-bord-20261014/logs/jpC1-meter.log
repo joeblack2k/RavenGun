@@ -1,0 +1,280 @@
+meter pid 2 start; /proc/self/mem fd 5
+beeld herkend na 0.1 s; RIO_Connected begint 31 c0 c3, RIO_Connect begint 31 c0 c3
+0.1 io-masker=0x0 rio-actief=0 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=0 io_rio_loop-arg=0 record=0x0 sw[druk/los]:
+1.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=52 io_rio_loop-arg=0 record=0x8baa4a0 sw[druk/los]:
+2.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=0 record=0x8baa4a0 sw[druk/los]:
+3.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=0 record=0x8baa4a0 sw[druk/los]:
+4.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=46 record=0x8baa4a0 sw[druk/los]:
+5.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=41 record=0x8baa4a0 sw[druk/los]:
+6.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=56 record=0x8baa4a0 sw[druk/los]:
+7.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=27 record=0x8baa4a0 sw[druk/los]:
+8.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=36 record=0x8baa4a0 sw[druk/los]:
+9.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=46 record=0x8baa4a0 sw[druk/los]:
+10.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=49 record=0x8baa4a0 sw[druk/los]:
+11.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=261 record=0x8baa4a0 sw[druk/los]:
+12.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=62 record=0x8baa4a0 sw[druk/los]:
+13.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=15 record=0x8baa4a0 sw[druk/los]:
+14.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=16 record=0x8baa4a0 sw[druk/los]:
+15.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=123 record=0x8baa4a0 sw[druk/los]:
+16.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=392 record=0x8baa4a0 sw[druk/los]:
+17.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=79 record=0x8baa4a0 sw[druk/los]:
+18.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=523 record=0x8baa4a0 sw[druk/los]:
+19.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=131 record=0x8baa4a0 sw[druk/los]:
+20.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=12 record=0x8baa4a0 sw[druk/los]:
+21.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=43 record=0x8baa4a0 sw[druk/los]:
+22.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=43 record=0x8baa4a0 sw[druk/los]:
+23.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=43 record=0x8baa4a0 sw[druk/los]:
+24.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=43 record=0x8baa4a0 sw[druk/los]:
+25.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=43 record=0x8baa4a0 sw[druk/los]:
+26.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+27.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+28.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+29.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+30.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+31.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+32.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+33.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+34.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+35.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+36.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+37.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+38.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+39.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+40.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+41.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+42.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+43.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+44.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+45.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+46.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+47.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+48.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+49.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+50.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+51.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+52.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+53.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+54.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+55.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+56.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+57.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+58.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+59.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+60.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+61.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+62.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+63.1 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+64.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+65.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+66.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+67.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+68.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+69.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+70.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+71.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+72.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+73.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+74.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+75.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+76.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+77.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+78.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+79.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+80.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+81.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+82.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+83.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+84.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+85.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+86.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+87.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+88.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+89.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=0 lees=0 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+89.5 INJECT sw id=7 waarde=1 fn=0x0836935d wachtrij 0->1 (lees 0)
+90.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=1 lees=1 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+91.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=1 lees=1 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+91.4 INJECT sw id=7 waarde=2 fn=0x0836935d wachtrij 1->2 (lees 1)
+92.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=2 lees=2 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+93.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=2 lees=2 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+94.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=2 lees=2 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+95.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=2 lees=2 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+96.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=2 lees=2 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+96.3 INJECT sw id=8 waarde=1 fn=0x0836935d wachtrij 2->3 (lees 2)
+97.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=3 lees=3 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+98.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=3 lees=3 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+98.3 INJECT sw id=8 waarde=2 fn=0x0836935d wachtrij 3->4 (lees 3)
+99.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=4 lees=4 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+100.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=4 lees=4 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+101.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=4 lees=4 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+102.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=4 lees=4 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+103.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=4 lees=4 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+103.4 INJECT sw id=0 waarde=1 fn=0x0836935d wachtrij 4->5 (lees 4)
+104.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=5 lees=5 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+105.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=5 lees=5 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+105.3 INJECT sw id=0 waarde=2 fn=0x0836935d wachtrij 5->6 (lees 5)
+106.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=6 lees=6 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+107.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=6 lees=6 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+108.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=6 lees=6 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+109.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=6 lees=6 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+110.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=6 lees=6 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+110.3 INJECT sw id=1 waarde=1 fn=0x0836935d wachtrij 6->7 (lees 6)
+111.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=7 lees=7 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+112.2 INJECT sw id=1 waarde=2 fn=0x0836935d wachtrij 7->8 (lees 7)
+112.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=8 lees=8 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]: 1:0/1
+113.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=8 lees=8 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+114.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=8 lees=8 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+115.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=8 lees=8 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+116.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=8 lees=8 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+117.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=8 lees=8 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+117.3 INJECT sw id=2 waarde=1 fn=0x0836935d wachtrij 8->9 (lees 8)
+118.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=9 lees=9 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+119.2 INJECT sw id=2 waarde=2 fn=0x0836935d wachtrij 9->10 (lees 9)
+119.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=10 lees=9 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+120.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=10 lees=10 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+121.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=10 lees=10 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+122.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=10 lees=10 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+123.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=10 lees=10 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+124.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=10 lees=10 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+124.4 INJECT sw id=4 waarde=1 fn=0x0836935d wachtrij 10->11 (lees 10)
+125.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=11 lees=11 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+126.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=11 lees=11 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+126.3 INJECT sw id=4 waarde=2 fn=0x0836935d wachtrij 11->12 (lees 11)
+127.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=12 lees=12 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+128.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=12 lees=12 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+129.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=12 lees=12 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+130.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=12 lees=12 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+131.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=12 lees=12 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+131.3 INJECT sw id=5 waarde=1 fn=0x0836935d wachtrij 12->13 (lees 12)
+132.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=13 lees=13 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+133.2 INJECT sw id=5 waarde=2 fn=0x0836935d wachtrij 13->14 (lees 13)
+133.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=14 lees=13 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+134.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=14 lees=14 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+135.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=14 lees=14 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+136.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=14 lees=14 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+137.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=14 lees=14 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+138.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=14 lees=14 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+138.3 INJECT sw id=6 waarde=1 fn=0x0836935d wachtrij 14->15 (lees 14)
+139.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=15 lees=15 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+140.2 INJECT sw id=6 waarde=2 fn=0x0836935d wachtrij 15->16 (lees 15)
+140.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=16 lees=15 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+141.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=16 lees=16 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+142.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=16 lees=16 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+143.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=16 lees=16 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+144.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=16 lees=16 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+145.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=16 lees=16 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+145.4 INJECT sw id=9 waarde=1 fn=0x0836935d wachtrij 16->17 (lees 16)
+146.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=17 lees=17 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+147.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=17 lees=17 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+147.3 INJECT sw id=9 waarde=2 fn=0x0836935d wachtrij 17->18 (lees 17)
+148.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=18 lees=18 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+149.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=18 lees=18 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+150.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=18 lees=18 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+151.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=18 lees=18 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+152.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=18 lees=18 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+152.3 INJECT sw id=10 waarde=1 fn=0x0836935d wachtrij 18->19 (lees 18)
+153.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=19 lees=19 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+154.2 INJECT sw id=10 waarde=2 fn=0x0836935d wachtrij 19->20 (lees 19)
+154.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=20 lees=19 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+155.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=20 lees=20 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+156.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=20 lees=20 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+157.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=20 lees=20 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+158.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=20 lees=20 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+159.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=20 lees=20 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+159.3 INJECT sw id=11 waarde=1 fn=0x0836935d wachtrij 20->21 (lees 20)
+160.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=21 lees=21 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+161.2 INJECT sw id=11 waarde=2 fn=0x0836935d wachtrij 21->22 (lees 21)
+161.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=22 lees=21 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+162.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=22 lees=22 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+163.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=22 lees=22 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+164.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=22 lees=22 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+165.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=22 lees=22 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+166.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=22 lees=22 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+166.4 INJECT sw id=12 waarde=1 fn=0x0836935d wachtrij 22->23 (lees 22)
+167.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=23 lees=23 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+168.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=23 lees=23 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+168.4 INJECT sw id=12 waarde=2 fn=0x0836935d wachtrij 23->24 (lees 23)
+169.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=24 lees=24 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+170.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=24 lees=24 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+171.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=24 lees=24 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+172.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=24 lees=24 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+173.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=24 lees=24 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+173.4 INJECT sw id=13 waarde=1 fn=0x0836935d wachtrij 24->25 (lees 24)
+174.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=25 lees=25 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+175.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=25 lees=25 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+175.3 INJECT sw id=13 waarde=2 fn=0x0836935d wachtrij 25->26 (lees 25)
+176.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=26 lees=26 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+177.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=26 lees=26 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+178.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=26 lees=26 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+179.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=26 lees=26 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+180.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=26 lees=26 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+180.3 INJECT sw id=14 waarde=1 fn=0x0836935d wachtrij 26->27 (lees 26)
+181.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=27 lees=27 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+182.2 INJECT sw id=14 waarde=2 fn=0x0836935d wachtrij 27->28 (lees 27)
+182.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=28 lees=27 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+183.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=28 lees=28 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+184.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=28 lees=28 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+185.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=28 lees=28 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+186.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=28 lees=28 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+187.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=28 lees=28 ids-geregistreerd=54 io_rio_loop-arg=7 record=0x8baa4a0 sw[druk/los]:
+187.3 INJECT sw id=15 waarde=1 fn=0x0836935d wachtrij 28->29 (lees 28)
+188.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=29 lees=29 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+189.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=29 lees=29 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+189.3 INJECT sw id=15 waarde=2 fn=0x0836935d wachtrij 29->30 (lees 29)
+190.2 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=30 lees=30 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+191.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=30 lees=30 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+192.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=30 lees=30 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+193.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=30 lees=30 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+194.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=30 lees=30 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+194.4 INJECT sw id=16 waarde=1 fn=0x0836935d wachtrij 30->31 (lees 30)
+195.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=31 lees=31 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+196.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=31 lees=31 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+196.4 INJECT sw id=16 waarde=2 fn=0x0836935d wachtrij 31->32 (lees 31)
+197.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=32 lees=32 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+198.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=32 lees=32 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+199.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=32 lees=32 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+200.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=32 lees=32 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+201.3 INJECT sw id=17 waarde=1 fn=0x0836935d wachtrij 32->33 (lees 32)
+201.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=33 lees=32 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+202.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=33 lees=33 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+203.3 INJECT sw id=17 waarde=2 fn=0x0836935d wachtrij 33->34 (lees 33)
+203.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=34 lees=33 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+204.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=34 lees=34 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+205.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=34 lees=34 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+206.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=34 lees=34 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+207.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=34 lees=34 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+208.3 INJECT sw id=18 waarde=1 fn=0x0836935d wachtrij 34->35 (lees 34)
+208.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=35 lees=34 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+209.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=35 lees=35 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+210.3 INJECT sw id=18 waarde=2 fn=0x0836935d wachtrij 35->36 (lees 35)
+210.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=36 lees=35 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+211.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=36 lees=36 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+212.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=36 lees=36 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+213.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=36 lees=36 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+214.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=36 lees=36 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+215.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=36 lees=36 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+215.5 INJECT sw id=3 waarde=1 fn=0x0836935d wachtrij 36->37 (lees 36)
+216.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=37 lees=37 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+217.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=37 lees=37 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+217.4 INJECT sw id=3 waarde=2 fn=0x0836935d wachtrij 37->38 (lees 37)
+218.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+219.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+220.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+221.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+222.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+223.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+224.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+225.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+226.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+227.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+228.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+229.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+230.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=8 record=0x8baa4a0 sw[druk/los]:
+231.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+232.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+233.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+234.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+235.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+236.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+237.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+238.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:
+239.3 io-masker=0x1242 rio-actief=1 devp=0x0 verbonden=0 leesdraad-tikken=0 wachtrij schrijf=38 lees=38 ids-geregistreerd=54 io_rio_loop-arg=9 record=0x8baa4a0 sw[druk/los]:

@@ -1,0 +1,13 @@
+{
+  "kind": "hasp",
+  "game": "<JouwGame>",
+  "notes": "Aanwezigheid van dit bestand betekent: deze game vraagt een dongle. Laat het weg als dat niet zo is. Kies `kind` en de rest van de velden met de tabel in README.md van deze map; voor hasp zijn er memory-items (hieronder), en haspid/features/keycaps alleen als je ze gemeten hebt. Schrijf in notes wat je gemeten hebt en wat niet.",
+  "memory": [
+    {
+      "name": "read/write",
+      "fileid": 65524,
+      "size": 112,
+      "file": "memory/00000000000000001111111111110100"
+    }
+  ]
+}

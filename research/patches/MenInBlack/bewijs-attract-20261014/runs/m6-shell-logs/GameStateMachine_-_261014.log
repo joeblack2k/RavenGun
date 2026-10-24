@@ -1,0 +1,30 @@
+Log Started : 14/10/2026 - 00:52:04:492
+[ 00:52:04:497 ] GameStateMachine Reset
+[ 00:52:04:497 ] GameStateMachine initialised
+[ 00:52:13:290 ] GameStateMachine Reset
+[ 00:52:23:633 ] GAME_MSG_LAUNCHED_OK
+[ 00:52:23:646 ] GAMETEVENT - Got Credit = 0
+[ 00:53:00:713 ] GAME_MSG_ASSETS_LOADED, Load Time = 37 sec
+[ 00:53:10:145 ] GameStateMachine Reset
+[ 00:53:19:596 ] GAME_MSG_LAUNCHED_OK
+[ 00:53:19:607 ] GAMETEVENT - Got Credit = 0
+[ 00:53:35:769 ] GAME_MSG_ASSETS_LOADED, Load Time = 16 sec
+[ 00:53:44:016 ] GameStateMachine Reset
+[ 00:53:52:860 ] GAME_MSG_LAUNCHED_OK
+[ 00:53:52:871 ] GAMETEVENT - Got Credit = 0
+[ 00:54:07:403 ] GAME_MSG_ASSETS_LOADED, Load Time = 14 sec
+[ 00:54:15:591 ] GameStateMachine Reset
+[ 00:54:24:220 ] GAME_MSG_LAUNCHED_OK
+[ 00:54:24:230 ] GAMETEVENT - Got Credit = 0
+[ 00:54:37:468 ] GAME_MSG_ASSETS_LOADED, Load Time = 13 sec
+[ 00:54:45:689 ] GameStateMachine Reset
+[ 00:54:54:316 ] GAME_MSG_LAUNCHED_OK
+[ 00:54:54:326 ] GAMETEVENT - Got Credit = 0
+[ 00:55:10:109 ] GAME_MSG_ASSETS_LOADED, Load Time = 15 sec
+[ 00:55:18:355 ] GameStateMachine Reset
+[ 00:55:26:930 ] GAME_MSG_LAUNCHED_OK
+[ 00:55:26:941 ] GAMETEVENT - Got Credit = 0
+[ 00:55:39:896 ] GAME_MSG_ASSETS_LOADED, Load Time = 12 sec
+[ 00:55:48:118 ] GameStateMachine Reset
+[ 00:55:56:716 ] GAME_MSG_LAUNCHED_OK
+[ 00:55:56:726 ] GAMETEVENT - Got Credit = 0

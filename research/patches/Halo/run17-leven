@@ -1,0 +1,57 @@
+  *** NIEUWE attract-regel na 12 pulsen (t=44s, 13:32:47)
+    blok+0 (aanwezig)          u32=1            f32=1.4013e-45
+    blok+0x3c (spelernr)       u32=0            f32=0
+    teller knop0 (bit7)        u32=0            f32=0
+    teller knop1 (bit8)        u32=0            f32=0
+    teller knop3 (bit9)        u32=0            f32=0
+    aim x (f32)                u32=3212836864   f32=-1
+    aim y (f32)                u32=3212836864   f32=-1
+    spelersaantal [0x1f392d0]  u32=0            f32=0
+    blok+0 (aanwezig)          u32=1            f32=1.4013e-45
+    blok+0x3c (spelernr)       u32=0            f32=0
+    teller knop0 (bit7)        u32=0            f32=0
+    teller knop1 (bit8)        u32=0            f32=0
+    teller knop3 (bit9)        u32=0            f32=0
+    aim x (f32)                u32=3212836864   f32=-1
+    aim y (f32)                u32=3212836864   f32=-1
+    spelersaantal [0x1f392d0]  u32=0            f32=0
+    blok+0 (aanwezig)          u32=1            f32=1.4013e-45
+    blok+0x3c (spelernr)       u32=0            f32=0
+    teller knop0 (bit7)        u32=0            f32=0
+    teller knop1 (bit8)        u32=0            f32=0
+    teller knop3 (bit9)        u32=0            f32=0
+    aim x (f32)                u32=3212836864   f32=-1
+    aim y (f32)                u32=3212836864   f32=-1
+    spelersaantal [0x1f392d0]  u32=0            f32=0
+  t=67s test-pattern point 0.5 0.5
+    aim x (f32)                u32=3212836864   f32=-1
+    aim y (f32)                u32=3212836864   f32=-1
+    spelersaantal [0x1f392d0]  u32=0            f32=0
+  t=71s test-pattern point 0.2 0.2
+    aim x (f32)                u32=3212836864   f32=-1
+    aim y (f32)                u32=3212836864   f32=-1
+    spelersaantal [0x1f392d0]  u32=0            f32=0
+  t=74s test-pattern point 0.8 0.8
+    aim x (f32)                u32=3212836864   f32=-1
+    aim y (f32)                u32=3212836864   f32=-1
+    spelersaantal [0x1f392d0]  u32=0            f32=0
+  t=78s KANDIDAAT knop0: output-button trigger tap (bit 7) x3
+    teller knop0 (bit7)        u32=0            f32=0
+    teller knop1 (bit8)        u32=0            f32=0
+    teller knop3 (bit9)        u32=0            f32=0
+  t=87s KANDIDAAT knop1: output-button reload tap (bit 8) x3
+    teller knop0 (bit7)        u32=0            f32=0
+    teller knop1 (bit8)        u32=0            f32=0
+    teller knop3 (bit9)        u32=0            f32=0
+  t=95s KANDIDAAT knop3: output-button grenade tap (bit 9) x3
+    teller knop0 (bit7)        u32=0            f32=0
+    teller knop1 (bit8)        u32=0            f32=0
+    teller knop3 (bit9)        u32=0            f32=0
+    blok+0 (aanwezig)          u32=1            f32=1.4013e-45
+    blok+0x3c (spelernr)       u32=0            f32=0
+    teller knop0 (bit7)        u32=0            f32=0
+    teller knop1 (bit8)        u32=0            f32=0
+    teller knop3 (bit9)        u32=0            f32=0
+    aim x (f32)                u32=3212836864   f32=-1
+    aim y (f32)                u32=3212836864   f32=-1
+    spelersaantal [0x1f392d0]  u32=0            f32=0

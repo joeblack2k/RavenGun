@@ -1,0 +1,20 @@
+Harness of the attract runs r1-r4 (2026-10-13). Test scripts, not product code: they hold absolute paths to the session's
+scratch directory and to /tmp/ts-c. They are kept so the runs can be read back and repeated, see ../../ATTRACT-RUN.md.
+
+  c-outer.sh <tag>      runs INSIDE scripts/rg-tv-env.sh: capture loop (spectacle, every 10 s) + gamescope + c-game.sh
+  c-game.sh <tag>       view directory, drop-in applied from dropin.ini, bwrap sandbox, ptys, drainers, preloads, loader
+                        env: FFF2_FILE/FFF0_FILE (override a dongle memory file in the VIEW copy), GAME_ENV (extra
+                        environment for the game), RUNSECS, JS0_SRC, EXTRA_BW, TRACELIST
+  c-probe.sh <tag>      waits for the warning screen, presses START once, captures; leaves the game alone unless the
+                        lockout screen is back
+  c-press.sh <tag> sw.. presses switches over the serial link and captures the TV
+  c-loaded.sh <tag>     which preloads are REALLY mapped in the game process, and who printed the ld.so refusals
+  c-state.sh, c-stop.sh state of a run; stop a run
+  ts-jamma-inject.py    the serial switch injector (frame format in ATTRACT-RUN.md 2.2); model-reader.py is its self-test
+  merged5.lst           trace list (merged4 + the warning screen's START callback)
+../instr/               sources of the three instrument libraries that are not in the repository elsewhere:
+                        ioctl-log.c (carries RG_FAKE_DSP), exit-log.c (carries the glutInit -display rewrite), trace2.c
+
+How r3/r4 were started:
+  GAME_ENV="force_glsl_version=120" RUNSECS=1200 scripts/rg-tv-env.sh -- bash c-outer.sh r4   (background)
+  bash c-probe.sh r4

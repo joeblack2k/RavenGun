@@ -1,0 +1,35 @@
+# /home/deck/.local/state/ravengun/logs/native-JurassicPark-20261014-130007.log (app-started run, double-click 13:00:06): identity block and every RIO-bridge line
+== play-native JurassicPark 20261014-130007
+script: /home/deck/.local/opt/ravengun/share/ravengun/scripts/play-native.sh
+  de GEINSTALLEERDE versie (0.1.0 v0.1.0-192-g8286b6a71041-dirty); sha256 281bba8be5bba0722c84ada250994a0d7149f4199c129250292f2bd93ce7a285
+  gegevens: /home/deck/.local/opt/ravengun/share/ravengun/packaging/native-games.json sha256 c0c59e4922ba53c4d0dacfd7e91516d8453510234be7921e5aa80378619cf1db
+  lader: /home/deck/.local/share/ravengun/bin/rg-elfloader sha256 2792521b0174ab1a3abf359d51a2b1f0ffa9fcc98deb6bef05ff30b928b620e0
+  bibliotheek: /home/deck/.local/opt/ravengun/share/ravengun/patches/JurassicPark/dropin/libravengun-hasphook.so sha256 de9bf43137907e3d70195c9c6142752b9f4d6c9a70e2f7a6d8796f4a0990e233
+  bibliotheek: /home/deck/.local/opt/ravengun/share/ravengun/patches/JurassicPark/dropin/ravengun-hasp.so sha256 6c7833dc8ed65fa5a78c93834843eacff432f561155119e044cf3ec30ef5a0f8
+  bibliotheek: /home/deck/.local/opt/ravengun/lib/lib32/librg-threadprio.so sha256 7f0acb0ef5286c62a952998db59dce61aceb9dd761f8cbb27369fb933bde6d10
+  bibliotheek: /home/deck/.local/opt/ravengun/lib/lib32/librg_rio_bridge.so sha256 39f8dbafc04cbed95698953f1194c0a0af3117e86476eff55f54854063267972
+  meegegeven: /home/deck/.local/opt/ravengun/share/ravengun/patches/JurassicPark/dropin/eerste-plt-slots.tsv sha256 047d209f34bcf96bb92a9ea0be79b879b44f2e3ffd1d7ccd6a7850c27405c6e7
+  meegegeven: /home/deck/.local/opt/ravengun/share/ravengun/patches/JurassicPark/data/shaders/shader108.shader sha256 7cad2c70e30b116d08a2f279a1a9d15e64c35ef0acba87765ed8a20232e957bf
+  meegegeven: /home/deck/.local/opt/ravengun/share/ravengun/patches/JurassicPark/data/shaders/shader108/frag.gls sha256 8177d095a294790a4a80b071983fe08a88c78ee608d68a7560afdcbf453300ac
+  meegegeven: /home/deck/.local/opt/ravengun/share/ravengun/patches/JurassicPark/data/shaders/shader108d/frag.gls sha256 b4a445a4a2bf190d5314bb6e9f41ea41ba2eccc33467899e4b345cddebb1b52c
+  meegegeven: /home/deck/.local/opt/ravengun/share/ravengun/patches/JurassicPark/data/shaders/shader108c_sk/frag.gls sha256 e618f4ec13939d025ddbe67cdeb700346117e6bd326aed40e33d94bbb66c9ccd
+  meegegeven: /home/deck/.local/opt/ravengun/share/ravengun/patches/JurassicPark/data/shaders/shader108d_sk/frag.gls sha256 d91ba2148e8618d8cb7eb54f29489e9dbe69eb589cb61c6e99743527c6e5ba5a
+  meegegeven: /home/deck/.local/opt/ravengun/share/ravengun/patches/JurassicPark/rio-invoer.ini sha256 7bbb74329d66cc54d85ed5d099ee62144c80ed0d7b3e786e179cba76e3e1f732
+camera: geen (rol none: dit spel vraagt geen camera)
+invoerroute: tp-shm; IO-brug: route tp-shm voor JurassicPark, dialect tp-shm, indeling RawThrillsGUN, 83 schrijfacties, bytes 8..27: 0000000080000000800000008000000080000000
+display=:1 res=1360x768 headless=0 preload=/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so
+cmd: /rg/bin/rg-elfloader /pm/game -n -f1360x768
+seed: /pm/ravengun-hasp bestaat al (blijft)
+  bibliotheek: /home/deck/.local/opt/ravengun/lib/lib32/librg_rio_bridge.so sha256 39f8dbafc04cbed95698953f1194c0a0af3117e86476eff55f54854063267972
+display=:1 res=1360x768 headless=0 preload=/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so
+[rg_rio_bridge] tabel /rg/tabel/rio-invoer.ini: usb-bord 0c70:0780, 11 schakelaars, 4 kanalen, 19 velden, 4 kanaalvelden
+[rg_rio_bridge] bordbeeld gekoppeld: /dev/shm/ravengun_JvsState
+[rg_rio_bridge] usb: bord 0c70:0780 aangehaakt (4 haken, 19 velden, 4 kanalen, elke 4 ms)
+[rg_rio_bridge] usb: versleuteling van de game heen en terug in orde
+[rg_rio_bridge] usb: bord 0c70:0780 geopend (ons handvat)
+[rg_rio_bridge] usb: de game stuurt (64 bytes, ontsleuteld): 01 23 c6 ff ff 01 00 00 0a 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
+[rg_rio_bridge] usb: de game stuurt (64 bytes, ontsleuteld): 01 23 c6 05 05 01 00 00 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 00
+[rg_rio_bridge] usb: de game stuurt (64 bytes, ontsleuteld): 09 23 c6 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 3=0 0=0 1=0 4=0 7=0 15=0 13=0 8=0 12=0 5=0 6=0 | kanalen 19=2056 20=2056 21=2056 22=2056 | usb aangehaakt: open=1 rapporten=1065 van-de-game=3 sluit=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 3=0 0=0 1=0 4=0 7=0 15=0 13=0 8=0 12=0 5=0 6=0 | kanalen 19=2056 20=2056 21=2056 22=2056 | usb aangehaakt: open=1 rapporten=2315 van-de-game=3 sluit=0
+[rg_rio_bridge] beeld=ja bits=0x00000000 | tellers 3=0 0=0 1=0 4=0 7=2 15=180 13=0 8=0 12=0 5=0 6=0 | kanalen 19=2496 20=2725 21=2056 22=2056 | usb aangehaakt: open=1 rapporten=108566 van-de-game=928 sluit=0

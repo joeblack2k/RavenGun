@@ -1,0 +1,69 @@
+rg-elfloader: beeld-bereik 0x8048000..0x8cee000 (12952 KB)
+rg-elfloader: 1020 gast-symbolen (bron: (DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH)
+rg-elfloader: lib-defs: 16440 gedefinieerde symbolen uit de NEEDED-libs gelezen
+rg-elfloader: shim bouwen (515 gast-symbolen): gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-726695/shim.so' '/run/user/1000/rg-elfloader-726695/shim.c' 2>&1
+rg-elfloader: shim geladen: 515 gast-symbolen in de globale scope
+rg-elfloader: geladen: libGL.so.1
+rg-elfloader: geladen: libglut.so.3
+rg-elfloader: geladen: libpthread.so.0
+rg-elfloader: geladen: librt.so.1
+rg-elfloader: geladen: libogg.so.0
+rg-elfloader: geladen: libPhysXLoader.so.1
+rg-elfloader: geladen: libm.so.6
+rg-elfloader: geladen: libgcc_s.so.1
+rg-elfloader: geladen: libc.so.6
+rg-elfloader: geladen: libdl.so.2
+rg-elfloader: geladen: libstdc++.so.6
+rg-elfloader: geladen (2e poging): libGLU.so.1
+rg-elfloader: geladen (2e poging): libtheora.so.0
+rg-elfloader: stale-map: 496 JMPREL-entries, 0 met stale 0xb7-adres + naam
+rg-elfloader: DT_REL: 510 toegepast, 6 COPY, 1 onopgelost
+rg-elfloader: DT_JMPREL: 495 toegepast, 0 COPY, 1 onopgelost
+ontleed-alleen: /tmp/ts-bench/game
+gast-dynsyms: 1020 (bron: (DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH)
+shim geladen: 515 van de 1020 gast-symbolen in de globale scope
+bibliotheken (13):
+  libGL.so.1                   /usr/lib32/libGL.so.1: 3489 dynsyms (STRTAB-SYMTAB)
+  libGLU.so.1                  /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1: 1439 dynsyms (DT_HASH)
+  libglut.so.3                 /home/deck/.local/share/ravengun/runtime/lib32/libglut.so.3: 409 dynsyms (STRTAB-SYMTAB)
+  libpthread.so.0              /usr/lib32/libpthread.so.0: 39 dynsyms (STRTAB-SYMTAB)
+  librt.so.1                   /usr/lib32/librt.so.1: 19 dynsyms (STRTAB-SYMTAB)
+  libtheora.so.0               /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0: 179 dynsyms (DT_HASH)
+  libogg.so.0                  /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libogg.so.0: 112 dynsyms (DT_HASH)
+  libPhysXLoader.so.1          /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libPhysXLoader.so.1: 62 dynsyms (DT_HASH)
+  libm.so.6                    /usr/lib32/libm.so.6: 1424 dynsyms (STRTAB-SYMTAB)
+  libgcc_s.so.1                /usr/lib32/libgcc_s.so.1: 210 dynsyms (STRTAB-SYMTAB)
+  libc.so.6                    /usr/lib32/libc.so.6: 3463 dynsyms (STRTAB-SYMTAB)
+  libdl.so.2                   /usr/lib32/libdl.so.2: 13 dynsyms (STRTAB-SYMTAB)
+  libstdc++.so.6               /usr/lib32/libstdc++.so.6: 6315 dynsyms (STRTAB-SYMTAB)
+lib-defs: 16440 gedefinieerde symbolen uit de NEEDED-libs
+relocaties: 1011 toegepast, 0 RELATIVE (ongewijzigd), 2 onopgelost (2 zwak, 0 sterk)
+relocatiedoelen per module:
+     509  (de gast zelf, via de shim)
+     247  /usr/lib32/libc.so.6
+      13  /usr/lib32/libstdc++.so.6
+      15  /home/deck/.local/share/ravengun/runtime/lib32/libglut.so.3
+     161  /usr/lib32/libGL.so.1
+      21  /usr/lib32/libm.so.6
+      14  /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libogg.so.0
+      19  /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0
+       3  /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libPhysXLoader.so.1
+       8  /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1
+       1  /usr/lib32/libgcc_s.so.1
+eerste onopgeloste symbolen, zwak (mogen leeg blijven):
+  DT_REL __gmon_start__
+  DT_JMPREL __gmon_start__
+eerste toegepaste relocaties:
+  DT_REL    R_386_GLOB_DAT @0x08598ef0 icvNorm_Inf_64f_C1MR_p           -> 0x87a3218
+  DT_REL    R_386_GLOB_DAT @0x08598ef4 _Z14icvSum_64f_C3RPKdi6CvSizePd  -> 0x84ccfc0
+  DT_REL    R_386_GLOB_DAT @0x08598ef8 icv8x32fTab                      -> 0x858bb20
+  DT_REL    R_386_GLOB_DAT @0x08598efc icvCopy_16s_C3P3R_p              -> 0x87a2a14
+  DT_REL    R_386_GLOB_DAT @0x08598f00 _Z20icvNorm_Inf_16u_C1MRPKtiPKhi6CvSizePd -> 0x84bcbf0
+  DT_REL    R_386_GLOB_DAT @0x08598f04 icvSqrt_32f_p                    -> 0x87a2fe8
+  DT_REL    R_386_GLOB_DAT @0x08598f08 _Z22icvCountNonZero_8u_C1RPKhi6CvSizePi -> 0x84cd3e0
+  DT_REL    R_386_GLOB_DAT @0x08598f0c _Z22icvNormDiff_L2_8u_C1MRPKhiS0_iS0_i6CvSizePd -> 0x84c1ba0
+  DT_REL    R_386_GLOB_DAT @0x08598f10 icvSet_32f_C4MR_p                -> 0x87a2ad4
+  DT_REL    R_386_GLOB_DAT @0x08598f14 _Z23icvNormDiff_L1_32s_C1MRPKiiS0_iPKhi6CvSizePd -> 0x84c1620
+  DT_REL    R_386_GLOB_DAT @0x08598f18 icvMean_StdDev_32s_C1MR_p        -> 0x87a3168
+  DT_REL    R_386_GLOB_DAT @0x08598f1c icvMean_StdDev_16s_C3R_p         -> 0x87a3140
+spel NIET gestart (--ontleed-alleen)

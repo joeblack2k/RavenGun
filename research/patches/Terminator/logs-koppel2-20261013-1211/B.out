@@ -1,0 +1,29 @@
+rg-elfloader: beeld-bereik 0x8048000..0x8cee000 (12952 KB)
+rg-elfloader: 1020 gast-symbolen (bron: (DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH)
+rg-elfloader: lib-defs: 16440 gedefinieerde symbolen uit de NEEDED-libs gelezen
+rg-elfloader: shim bouwen (515 gast-symbolen): gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-913446/shim.so' '/run/user/1000/rg-elfloader-913446/shim.c' 2>&1
+rg-elfloader: shim geladen: 515 gast-symbolen in de globale scope
+rg-elfloader: geladen: libGL.so.1
+rg-elfloader: nog niet geladen (volgende ronde): libGLU.so.1: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor
+rg-elfloader: geladen: libglut.so.3
+rg-elfloader: geladen: libpthread.so.0
+rg-elfloader: geladen: librt.so.1
+rg-elfloader: nog niet geladen (volgende ronde): libtheora.so.0: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0: undefined symbol: oggpackB_readinit
+rg-elfloader: geladen: libogg.so.0
+rg-elfloader: geladen: libPhysXLoader.so.1
+rg-elfloader: geladen: libm.so.6
+rg-elfloader: geladen: libgcc_s.so.1
+rg-elfloader: geladen: libc.so.6
+rg-elfloader: geladen: libdl.so.2
+rg-elfloader: geladen: libstdc++.so.6
+rg-elfloader: geladen in een latere ronde: libGLU.so.1 (eerste poging: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor)
+rg-elfloader: geladen in een latere ronde: libtheora.so.0 (eerste poging: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0: undefined symbol: oggpackB_readinit)
+rg-elfloader: stale-map: 496 JMPREL-entries, 0 met stale 0xb7-adres + naam
+rg-elfloader:   onopgelost DT_REL: __gmon_start__ (zwak)
+rg-elfloader: DT_REL: 510 toegepast, 6 COPY, 1 onopgelost
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_REL
+rg-elfloader:   onopgelost DT_JMPREL: __gmon_start__ (zwak)
+rg-elfloader: DT_JMPREL: 495 toegepast, 0 COPY, 1 onopgelost
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_JMPREL
+rg-elfloader: geladen; spel /tmp/ts-koppel2/view/game krijgt argv[0]=/tmp/ts-koppel2/view/game
+rg-elfloader: spring naar e_entry 0x8057240 (esp 0xf7b67e90, argc 1, envc 24, 17 auxv)

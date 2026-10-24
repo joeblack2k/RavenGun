@@ -1,0 +1,9 @@
+# In-memory patches for Silent Hill: The Arcade, KSHG.exe sha256 9b8a6c1bf81f9d690e2bedb94e3ab2844313a83758923c22704da3241e492995.
+# Format: <address> <expected bytes> <new bytes>   (hex). A line is applied only if the expected bytes are there.
+#
+# 0x401ebf  call [edx+0x3c] = IMediaControl::StopWhenReady(graph), right after RenderFile in the movie setup; the
+#           return value is not used. The game then calls Run from another thread. Under Wine the stop that
+#           StopWhenReady defers arrives AFTER that Run and stops the movie for good: the graph is built, the decoder
+#           produces frames, and the picture stays black (run 5, 2026-10-13). Replaced by "add esp,4" (drop the pushed
+#           argument): the graph simply stays stopped until the game's own Run.
+0x00401ebf ff523c 83c404

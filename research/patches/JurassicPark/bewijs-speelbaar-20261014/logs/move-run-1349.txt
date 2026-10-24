@@ -1,0 +1,25 @@
+# PS Move run, played by the owner: double-click 13:49:38 (after the Y-axis fix), Move ZCM1 over Bluetooth
+## daemon aim samples (ravengunctl iobridge)
+13:50:20 P1 aim 0.507,0.534
+13:50:30 P1 aim 0.496,0.629
+13:50:41 P1 aim 0.420,0.636
+13:50:51 P1 aim 0.494,0.545
+13:51:02 P1 aim 0.603,0.593
+13:51:13 P1 aim 0.254,0.550
+13:51:23 P1 aim 0.520,0.533
+13:51:34 P1 aim 0.724,0.475
+13:51:44 P1 aim 0.806,0.205
+13:51:55 P1 aim 0.190,0.490
+13:52:05 P1 aim 0.585,0.542
+13:52:16 P1 aim 0.482,0.378
+13:52:26 P1 aim 0.524,0.776
+13:52:37 P1 aim 0.545,0.766
+13:52:47 P1 aim 0.480,0.555
+## bridge, last counter line
+[rg_rio_bridge] beeld=ja bits=0x00000020 | tellers 3=0 0=0 1=0 4=0 7=2 15=111 13=0 8=0 12=0 5=0 6=0 | kanalen 19=1827 20=1941 21=2056 22=2039 | usb aangehaakt: open=1 rapporten=56109 van-de-game=1124 sluit=0
+## game log (kills counted: 58)
+Wed Oct 14 13:50:02 2026: Player 1 joined.
+Wed Oct 14 13:50:02 2026: Game Started
+Wed Oct 14 13:50:05 2026: Level Selected: level=0 act=0
+Wed Oct 14 13:51:28 2026: Frame 4314:	Player 1 died.
+Wed Oct 14 13:51:31 2026: Frame 4345:	Player 1 continued.

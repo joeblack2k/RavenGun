@@ -1,0 +1,36 @@
+Tue Oct 13 23:08:11 2026: -------------------------------------------------------------------------------
+Tue Oct 13 23:08:11 2026: Application Started
+Tue Oct 13 23:08:11 2026: Current time: October 13 2026 23:08:11
+Tue Oct 13 23:08:11 2026: Build: May 13 2015 15:34:06
+Tue Oct 13 23:08:11 2026: -------------------------------------------------------------------------------
+Tue Oct 13 23:08:12 2026: InputInit(): RIO not connected (error code: -3)
+Tue Oct 13 23:08:12 2026: SDL_Mixer - opened 1 times, frequency=44100Hz, format=S16LSB, channels=2
+Tue Oct 13 23:08:13 2026: Welcome to 1.08
+Tue Oct 13 23:08:14 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 23:08:14 2026: Assert File: g5/shader_gl.c line: 2180
+Tue Oct 13 23:08:14 2026: Failed to load shader: shader108 (ec=-9596, shdr=0, prgm=0)
+
+Tue Oct 13 23:08:14 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 23:08:14 2026: Assert File: g5/shader_gl.c line: 2180
+Tue Oct 13 23:08:14 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+
+Tue Oct 13 23:08:14 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 23:08:14 2026: Assert File: g5/shader_gl.c line: 2180
+Tue Oct 13 23:08:14 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+
+Tue Oct 13 23:08:14 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 23:08:14 2026: Assert File: g5/shader_gl.c line: 2180
+Tue Oct 13 23:08:14 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+
+Tue Oct 13 23:08:14 2026: Before ImgLoad - glError(1280): invalid enumerant
+Tue Oct 13 23:08:14 2026: RIO Disconnected
+Tue Oct 13 23:08:16 2026: Boot proc start.
+Tue Oct 13 23:08:16 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+Tue Oct 13 23:08:16 2026: Loading perm assets.
+Tue Oct 13 23:08:26 2026: DuplicateTextures: blastsphere=r1particles_difa
+Tue Oct 13 23:08:33 2026: Loading perm sound bank.
+Tue Oct 13 23:08:39 2026: Loading perm programs.
+Tue Oct 13 23:08:39 2026: Boot proc kill.
+Tue Oct 13 23:08:39 2026: Entering attract mode.
+Tue Oct 13 23:08:40 2026: Compressor Tank Purge Valve Open
+Tue Oct 13 23:08:50 2026: Compressor Tank Purge Valve Closed

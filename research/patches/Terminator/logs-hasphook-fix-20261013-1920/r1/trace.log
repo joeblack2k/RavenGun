@@ -1,0 +1,35 @@
+[trace] + 0.000083 ctor pid 1253092: 2 tracepoints
+[trace] + 0.004685 WATCH: hasp_get_sessioninfo byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004775 WATCH: hasp_login byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004780 WATCH: hasp_login_scope byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004784 WATCH: hasp_logout byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004788 WATCH: hasp_read byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004792 WATCH: hasp_write byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004796 WATCH: hasp_encrypt byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004800 WATCH: hasp_decrypt byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004804 WATCH: hasp_get_size byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004808 WATCH: hasp_get_info byte0 (eerste waarneming) 0x00 -> 0x00
+[trace] + 0.004860 pid 1253092 patched pc_reinit_aladdin at 0x080aaec0 (6 bytes displaced)
+[trace] + 0.004873 pid 1253092 patched pc_failed_aldeen at 0x080abf50 (5 bytes displaced)
+[trace] + 0.004877 spin done, 2 of 2 patched
+[trace] + 0.005518 WATCH: hasp_login byte0 0x00 -> 0x53 (= origineel)
+[trace] + 0.005522 WATCH: hasp_login_scope byte0 0x00 -> 0x56 (= origineel)
+[trace] + 0.005526 WATCH: hasp_logout byte0 0x00 -> 0x53 (= origineel)
+[trace] + 0.005530 WATCH: hasp_read byte0 0x00 -> 0x57 (= origineel)
+[trace] + 0.005533 WATCH: hasp_write byte0 0x00 -> 0x57 (= origineel)
+[trace] + 0.005537 WATCH: hasp_encrypt byte0 0x00 -> 0x53 (= origineel)
+[trace] + 0.005541 WATCH: hasp_decrypt byte0 0x00 -> 0x53 (= origineel)
+[trace] + 0.005544 WATCH: hasp_get_size byte0 0x00 -> 0x57 (= origineel)
+[trace] + 0.005548 WATCH: hasp_get_info byte0 0x00 -> 0x55 (= origineel)
+[trace] + 0.005551 WATCH: hasp_get_sessioninfo byte0 0x00 -> 0x55 (= origineel)
+[trace] + 0.010388 WATCH: hasp_login byte0 0x53 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.010471 WATCH: hasp_login_scope byte0 0x56 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.010554 WATCH: hasp_logout byte0 0x53 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.010558 WATCH: hasp_read byte0 0x57 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.010641 WATCH: hasp_write byte0 0x57 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.010644 WATCH: hasp_encrypt byte0 0x53 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.010648 WATCH: hasp_decrypt byte0 0x53 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.010731 WATCH: hasp_get_size byte0 0x57 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.010734 WATCH: hasp_get_info byte0 0x55 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.010817 WATCH: hasp_get_sessioninfo byte0 0x55 -> 0xe9 (= jmp rel32, een haak)
+[trace] + 0.031597 pid 1253102 aanroep: pc_failed_aldeen (#1) ret=0x080c2331 args=0xf50b65e8,0x000001e0,0x58cc4c9c w: login=e9 login_scope=e9 logout=e9 read=e9 write=e9 encrypt=e9 decrypt=e9 get_size=e9 get_info=e9 get_sessioninfo=e9

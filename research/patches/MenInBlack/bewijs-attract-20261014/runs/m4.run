@@ -1,0 +1,30 @@
+RUN m4 -- MenInBlack -- started 2026-10-14 02:48:17
+DECLARED: core=ravengun  share=overlay-keep  shm-source=launcher default  exe=from the profile  limit=75s  captures every 5s
+THIS RUN: against m3: [Debug] SecurityDisabled=1 in the view's local Game.ini (view: shell/ is now a local folder of links). Shell unmodified, /k=0d051181, no I/O change.
+user layer (/home/deck/.local/share/ravengun/patches/MenInBlack/game.ini) at start:
+    (none)
+launcher plan (scripts/launch-direct.py MenInBlack --plan):
+    game: /home/deck/.local/share/ravengun/runtime/views/MenInBlack/shell/Shell.exe
+    wine: /home/deck/.local/share/ravengun/wrappers/wine-prefix
+    prefix: /home/deck/.local/share/ravengun/prefixes/ravengun-test-mib
+    core_dll: /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll
+    core_sha256: 413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc
+    core_source: ravengun
+    profile_env: {'TP_REMOTETHREAD': 'off', 'RG_WINEPREFIX': '/home/deck/.local/share/ravengun/prefixes/ravengun-test-mib', 'WINEDLLOVERRIDES': 'd3d11,d3d10core,dxgi=n,b'}
+inside the sandbox, the share folder is mounted as: overlay rw,nosuid,nodev,relatime,lowerdir=/proc/self/fd/10,upperdir=/proc/self/fd/6,workdir=/proc/self/fd/9,redirect_dir=nofollow,index=off,uuid=on,xi
+game process first seen 02:48:19
+launcher says: [launch-direct 02:48:17] kern (ravengun): /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll sha256 413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc
+02:48:29 alive: pid 1928907, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:48:59 alive: pid 1928907, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:49:29 alive: pid 1928907, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+ENDED 2026-10-14 02:49:36 -- launcher: 02:49:34 klaar (exitcode gestopt) -- rc=124 (124 = stopped by the run's own limit)
+left running afterwards:
+    now 02:49:36
+    (end of list)
+files in the share's game folder newer than the start of this run: 0
+what the game wrote into the kept write layer (/home/deck/.local/state/ravengun/bench-upper/m4/upper):
+    02:48:32.0982636020       204 ./shell/variables/erlg
+    02:48:32.1022635640       204 ./shell/variables/erlg.bak
+    02:49:26.8016179550         8 ./shell/variables/tton
+    02:49:26.8047549040         8 ./shell/variables/tton.bak
+captures: 15, first shot-001-024817.png, last shot-015-024932.png

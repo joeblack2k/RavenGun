@@ -1,0 +1,7 @@
+{
+  "kind": "hasp",
+  "game": "Time Crisis 5",
+  "haspid": 0,
+  "memory": [],
+  "notes": "Time Crisis 5 (TeknoParrot-lader, 64-bits) vraagt een HASP-dongle: TimeCrisisGame-Win64-Shipping.exe en RSLauncher.exe importeren hasp_windows_x64_105293.dll op ordinalen 2, 13, 14 en 15 (hasp_decrypt, hasp_login, hasp_logout, hasp_read). Onze vervanging staat in dropin/ en wordt met WINEDLLOVERRIDES in de view van de game gezet; de drop-in wordt pas geplaatst als er een lokale view is (scripts/tp-add-game.py TC5 <pad> --view --view-up 3). LET OP: de dongle-IMAGE van TC5 is nog niet vastgelegd -- er is geen memory-item, dus scripts/hasp.py meldt deze dongle als onvolledig en [Dongle] Enabled = true met Source = drop-in weigert met die melding. Tot dan emuleert de TeknoParrot-kern de dongle van TC5. Zie docs/hasp-layer.md. Ronde 35: gemeten dat onze DLL wel in het spelproces geladen wordt (het bestand staat in /proc/<pid>/maps met de sha256 van onze drop-in) maar dat de game hem niet aanspreekt -- met RAVENGUN_HASP_VERBOSE=1 in de omgeving van het spel en de stderr van het spel op de pijp van de launcher komen er nul regels. De gesloten kern handelt de dongle dus af voordat wij aan de beurt komen; de fileids zijn pas te meten als die kern niet meer in de keten zit."
+}

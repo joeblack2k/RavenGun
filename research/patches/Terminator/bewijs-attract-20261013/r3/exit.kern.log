@@ -1,0 +1,25 @@
+# exit.log van r3, alleen de regels system(), exit(), _exit(), glutInit en signalen (volledig: 6974254 regels, 618175324 B; vrijwel alles is 'CALL poll')
+[exitlog] + 0.000001 pid 1462970 CALL system("gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-1462970/shim.so' '/run/user/1000/rg-elfloader-1462970/shim.c' 2>&1") from 0x566284ec
+[exitlog] + 1.076799 pid 1462986 CALL system("ls -r /g3/irgun/firmware/ | grep ".mcs" | head -n 1 | sed 's/prom_//g' | sed 's/.mcs//g' > /g3/irgun/cmgr238335.txt") from 0x843b123
+[exitlog] + 1.080673 pid 1462986 CALL system("rm /g3/irgun/cmgr238335.txt") from 0x843b1bb
+[exitlog] + 1.082984 pid 1462986 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr885386.txt") from 0x843aced
+[exitlog] + 1.084740 pid 1462986 CALL system("rm /g3/irgun/cmgr885386.txt") from 0x843ad47
+[exitlog] + 3.076919 pid 1462986 CALL glutInit(argc=3) from 0x80c47ee
+[exitlog] + 3.077378 pid 1462986 CALL glutInitDisplayMode(0x3a,0xf618ebac,0x0) from 0x80c47fa
+[exitlog] + 3.077385 pid 1462986 CALL glutInitWindowSize(0x280,0x1e0,0x0) from 0x80c480c
+[exitlog] + 3.077391 pid 1462986 CALL glutInitWindowPosition(0x0,0x0,0x0) from 0x80c481e
+[exitlog] + 3.087030 pid 1462986 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr760492.txt") from 0x843aced
+[exitlog] + 3.089128 pid 1462986 CALL system("rm /g3/irgun/cmgr760492.txt") from 0x843ad47
+[exitlog] + 193.097727 pid 1462986 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr798560.txt") from 0x843aced
+[exitlog] + 193.099782 pid 1462986 CALL system("rm /g3/irgun/cmgr798560.txt") from 0x843ad47
+[exitlog] + 195.102515 pid 1462986 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr527903.txt") from 0x843aced
+[exitlog] + 195.104649 pid 1462986 CALL system("rm /g3/irgun/cmgr527903.txt") from 0x843ad47
+[exitlog] + 407.113643 pid 1462986 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr638465.txt") from 0x843aced
+[exitlog] + 407.116636 pid 1462986 CALL system("rm /g3/irgun/cmgr638465.txt") from 0x843ad47
+[exitlog] + 409.119027 pid 1462986 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr971002.txt") from 0x843aced
+[exitlog] + 409.121683 pid 1462986 CALL system("rm /g3/irgun/cmgr971002.txt") from 0x843ad47
+[exitlog] + 621.130912 pid 1462986 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr158422.txt") from 0x843aced
+[exitlog] + 621.134044 pid 1462986 CALL system("rm /g3/irgun/cmgr158422.txt") from 0x843ad47
+[exitlog] + 623.136320 pid 1462986 CALL system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgr117148.txt") from 0x843aced
+[exitlog] + 623.138859 pid 1462986 CALL system("rm /g3/irgun/cmgr117148.txt") from 0x843ad47
+# weggelaten: 67164 keer 'CALL exit(0) from 0x82f2e59' (de kortlevende kinderen die de game zelf blijft afsplitsen, ongeveer 90 per seconde)

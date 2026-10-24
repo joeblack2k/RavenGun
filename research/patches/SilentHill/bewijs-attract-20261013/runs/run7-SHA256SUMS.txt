@@ -1,0 +1,14 @@
+# sha256 of what Silent Hill run 7 used (2026-10-13 23:56:01 - 2026-10-14 00:09:01)
+9b8a6c1bf81f9d690e2bedb94e3ab2844313a83758923c22704da3241e492995  mnt/spidernas_emulation/Teknoparrot/Silent Hill The Arcade/KSHG.exe
+413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc  .local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll
+e6aa9a73e852780e6af5d10cb4d3cc9da5c02f0d4250990c22e7799c66b96c10  .local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe
+02468795cae29bb2baa48159d5ebe496b11a85fd08c34db414b836df762b2ff4  .local/share/ravengun/runtime/views/SilentHill/shaiolib.dll
+b9c55a28ae973b8ed56407cbd186b7b6608682c498b175a7c9fcac1696576dbc  .local/share/ravengun/runtime/views/SilentHill/rg-shaiolib.patches
+3731a5030f97fcbe0c8322a95bc7339fce4129032150e80b416fbbe368fe74f9  .local/share/ravengun/wine/proton-11.0-2/bin/wine
+474d3c4aba4cca5ceab5e23e7fe26f342a3301db15014d53c973f5722cb02f46  .local/share/ravengun/wine/proton-11.0-2/lib/wine/i386-unix/winegstreamer.so
+66eefd2b1bd0ded8be5679f31abcea51a7db56b894f24fd336e43fb8b6c92548  .local/share/Steam/compatibilitytools.d/GE-Proton10-34/files/lib/i386-linux-gnu/libgstreamer-1.0.so.0
+d23ab300464e7121435244c5abdbe752f10ade2fa5a8cd81a1b4d7ad10a1a51f  .local/share/Steam/compatibilitytools.d/GE-Proton10-34/files/lib/i386-linux-gnu/gstreamer-1.0/libgstlibav.so
+19597c3da8d0b5964b4e8e8ea705c6e7846ce5708f92acb497926df31cba1636  .local/share/ravengun/runtime/gst32/libvpx.so.6
+66b54659984e51ce9e33abcb57bb01d3c028b2e06c8fd6b2c437bcd97774f1c8  projects/ravengun/scripts/launch-direct.py
+9d622ec3379f888a8390ef3171e82d5259025bf9dc595466f5d6029d3df0a7fd  .local/share/ravengun/runtime/views/SilentHill/Data/TestDat/setting.1
+bef7642e644396f1b46c4d068af580271f502ca30584f8f9e34c9bbe433ae03b  .local/share/ravengun/runtime/views/SilentHill/Data/TestDat/gun.1

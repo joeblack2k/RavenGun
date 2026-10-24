@@ -1,0 +1,37 @@
+[ravengun-hasphook] === ravengun-hasphook voor 'JurassicPark' (pid 2, rg-elfloader) ===
+[ravengun-hasphook] spel-ELF gelezen uit /pm/game (cmdline-pad): 17694720 bytes, 7 program headers
+[ravengun-hasphook] aantal symbolen uit DT_HASH: 18811
+[ravengun-hasphook] dynsym: 18811 symbolen
+[ravengun-hasphook]   in de game: hasp_get_rtc                   0x08528350 (118 bytes)
+[ravengun-hasphook]   in de game: hasp_legacy_encrypt            0x08534ca0 (137 bytes)
+[ravengun-hasphook]   in de game: hasp_read                      0x08528520 (174 bytes)
+[ravengun-hasphook]   in de game: hasp_get_info                  0x08528090 (524 bytes)
+[ravengun-hasphook]   in de game: hasp_encrypt                   0x08529550 (125 bytes)
+[ravengun-hasphook]   in de game: hasp_login_scope               0x085282b0 (144 bytes)
+[ravengun-hasphook]   in de game: hasp_login                     0x08529650 (103 bytes)
+[ravengun-hasphook]   in de game: hasp_enable_trace              0x08527ab0 (6 bytes)
+[ravengun-hasphook]   in de game: hasp_legacy_set_idletime       0x085349e0 (138 bytes)
+[ravengun-hasphook]   in de game: hasp_logout                    0x085295f0 (90 bytes)
+[ravengun-hasphook]   in de game: hasp_legacy_decrypt            0x08534c10 (137 bytes)
+[ravengun-hasphook]   in de game: hasp_datetime_to_hasptime      0x085285d0 (120 bytes)
+[ravengun-hasphook]   in de game: hasp_cleanup                   0x085295d0 (29 bytes)
+[ravengun-hasphook]   in de game: hasp_echo                      0x08529470 (89 bytes)
+[ravengun-hasphook]   in de game: hasp_decrypt                   0x085294d0 (125 bytes)
+[ravengun-hasphook]   in de game: hasp_update                    0x08528900 (2913 bytes)
+[ravengun-hasphook]   in de game: hasp_hasptime_to_datetime      0x08528650 (5 bytes)
+[ravengun-hasphook]   in de game: hasp_get_trace                 0x08528660 (15 bytes)
+[ravengun-hasphook]   in de game: hasp_free                      0x085282a0 (5 bytes)
+[ravengun-hasphook]   in de game: hasp_detach                    0x08527ac0 (336 bytes)
+[ravengun-hasphook]   in de game: hasp_get_size                  0x085283d0 (154 bytes)
+[ravengun-hasphook]   in de game: hasp_monster_get_lms_version   0x08531340 (296 bytes)
+[ravengun-hasphook]   in de game: hasp_write                     0x08528470 (176 bytes)
+[ravengun-hasphook]   in de game: hasp_legacy_set_rtc            0x08534a70 (402 bytes)
+[ravengun-hasphook]   in de game: hasp_login_ex                  0x08528340 (5 bytes)
+[ravengun-hasphook]   in de game: hasp_get_sessioninfo           0x08528670 (649 bytes)
+...
+     10 aanroep: hasp_decrypt
+     21 aanroep: hasp_encrypt
+      1 aanroep: hasp_free
+      1 aanroep: hasp_get_sessioninfo
+      2 aanroep: hasp_login
+      5 aanroep: hasp_read

@@ -1,0 +1,14 @@
+# sha256 of everything run 11 used (2026-10-13 23:08:11 - 23:21:12)
+c18a9329e72a363937155d245440694e58b5a1e27984016ae7648af3413b4269  mnt/spidernas_emulation/Teknoparrot/Jurassic Park/game
+2792521b0174ab1a3abf359d51a2b1f0ffa9fcc98deb6bef05ff30b928b620e0  .local/share/ravengun/bin/rg-elfloader
+e834a0a59f8539f43f2f8324b0214cb80d8746d8a6d0f69c1edbbc0a571f1cc6  projects/ravengun/scripts/play-native.sh
+09bdded6cb9a1beea1882f3709801db0c87a9f4d5f147ad39be26e395563b263  projects/ravengun/packaging/native-games.json
+047d209f34bcf96bb92a9ea0be79b879b44f2e3ffd1d7ccd6a7850c27405c6e7  bench/jp-slots.tsv
+de9bf43137907e3d70195c9c6142752b9f4d6c9a70e2f7a6d8796f4a0990e233  .local/share/ravengun/native/JurassicPark/0/upper/libravengun-hasphook.so
+6c7833dc8ed65fa5a78c93834843eacff432f561155119e044cf3ec30ef5a0f8  .local/share/ravengun/native/JurassicPark/0/upper/ravengun-hasp.so
+7f0acb0ef5286c62a952998db59dce61aceb9dd761f8cbb27369fb933bde6d10  .local/share/ravengun/native/JurassicPark/0/upper/librg-threadprio.so
+095a9f5e6c84fcf7bb9b0bb842b7d318e9ac8ffe9a51b4e9e9af79922952af60  .local/share/ravengun/native/JurassicPark/0/upper/ravengun-hasp/JurassicPark/dongle.json
+670826fb09d4a41f768dbe4098efc375df28aa40a2f207922dfbf1c6be1009ab  .local/share/ravengun/native/JurassicPark/0/upper/ravengun-hasp/JurassicPark/memory/00000000000000001111111111110010
+797da63f32cbad13a4b9bafc45f5000bd119b4efef092fe932a2edcd58bba9bf  bench/udev-rules.d/10-usb-automount.rules
+11915dfc49b99ee448d4a6a77c8fa807b67b1d19b0b17581f89f4b0620c4c793  projects/ravengun/tools/rg-threadprio/rg_threadprio.c
+c96a548f210a58eb55065f7c37b5e4815fa43bb2e1b90f2c187672ed96945935  projects/ravengun/tools/rg-elfloader/rg_elfloader.c

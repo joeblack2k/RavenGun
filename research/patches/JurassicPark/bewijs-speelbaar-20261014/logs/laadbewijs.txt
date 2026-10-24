@@ -1,0 +1,19 @@
+# load proof, 2026-10-14 13:04:29: game process of the app-started run (double-click 13:00:06), read from /proc/<pid>/maps and environ
+pid 2473103 comm rg-elfloader  177 E L F 001
+/rg/lib/libravengun-hasphook.so
+/rg/lib/librg-threadprio.so
+/rg/lib/ravengun-hasp.so
+/usr/lib32/libGL.so.1.7.0
+/usr/lib32/libGLX_mesa.so.0.0.0
+/usr/lib32/libGLX.so.0.0.0
+/usr/lib32/libvulkan_radeon.so
+/usr/lib32/libvulkan.so.1.4.350
+LD_PRELOAD=/rg/lib/libravengun-hasphook.so:/rg/lib/librg-threadprio.so:/rg/lib/librg_rio_bridge.so
+RG_ELF_SLOT_TABLE=/rg/jp-slots.tsv
+SDL12COMPAT_OPENGL_SCALING=0
+RAVENGUN_HASP_GAME=JurassicPark
+RAVENGUN_HASP_DIR=/pm/ravengun-hasp
+RAVENGUN_HASP_ELF_LIB=/rg/lib/ravengun-hasp.so
+MESA_LOADER_DRIVER_OVERRIDE=zink
+/rg/lib/librg_rio_bridge.so
+/usr/lib32/libgallium-26.1.2.so

@@ -1,0 +1,263 @@
+{
+  "title": "Let's Go Safari",
+  "nas_folder": "Let's Go Safari",
+  "platform": "Sega RingWide (32-bit, steering wheel game)",
+  "exe": "GameSampR_RingWide.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput"
+      ],
+      "default": "DirectInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGS",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:LGS"
+      ]
+    },
+    {
+      "key": "general.dongleregion",
+      "name_en": "Dongle Region",
+      "type": "enum",
+      "values": [
+        "JAPAN",
+        "USA",
+        "JAP2N",
+        "EXPORT",
+        "CHINA"
+      ],
+      "default": "USA",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGS",
+        "category": "General",
+        "field": "DongleRegion",
+        "also_in_ini": {
+          "section": "General",
+          "key": "DongleRegion"
+        }
+      },
+      "description_en": "Region reported by the emulated dongle. Changes language, currency and test-menu defaults.",
+      "source": [
+        "tp_profile:LGS"
+      ]
+    },
+    {
+      "key": "general.pcbregion",
+      "name_en": "Pcb Region",
+      "type": "enum",
+      "values": [
+        "JAPAN",
+        "USA",
+        "JAP2N",
+        "EXPORT",
+        "CHINA"
+      ],
+      "default": "USA",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGS",
+        "category": "General",
+        "field": "PcbRegion",
+        "also_in_ini": {
+          "section": "General",
+          "key": "PcbRegion"
+        }
+      },
+      "description_en": "Region reported by the emulated PCB. Keep equal to DongleRegion.",
+      "source": [
+        "tp_profile:LGS"
+      ]
+    },
+    {
+      "key": "general.freeplay",
+      "name_en": "Free Play",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGS",
+        "category": "General",
+        "field": "FreePlay",
+        "also_in_ini": {
+          "section": "General",
+          "key": "FreePlay"
+        }
+      },
+      "description_en": "Free play: no coin needed to start.",
+      "source": [
+        "tp_profile:LGS"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGS",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:LGS"
+      ]
+    },
+    {
+      "key": "ffb_blaster.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGS",
+        "category": "FFB Blaster",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "FFB Blaster",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Load the FFB Blaster plugin for force feedback to a wheel or gun device. RavenGun does not use this.",
+      "source": [
+        "tp_profile:LGS"
+      ]
+    },
+    {
+      "key": "general.use_keyboard_button_for_axis",
+      "name_en": "Use Keyboard/Button For Axis",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGS",
+        "category": "General",
+        "field": "Use Keyboard/Button For Axis",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Keyboard/Button For Axis"
+        }
+      },
+      "description_en": "Drive the analog axis from keys or buttons instead of an analog device.",
+      "source": [
+        "tp_profile:LGS"
+      ]
+    },
+    {
+      "key": "general.keyboard_button_axis_wheel_sensitivity",
+      "name_en": "Keyboard/Button Axis Wheel Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 127,
+      "default": 10,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LGS",
+        "category": "General",
+        "field": "Keyboard/Button Axis Wheel Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Keyboard/Button Axis Wheel Sensitivity"
+        }
+      },
+      "description_en": "Steering speed when the wheel axis is driven by keys or buttons.",
+      "source": [
+        "tp_profile:LGS"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "LGS",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/LGS.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "gameconfig.language_left",
+      "name_en": "Left side language",
+      "type": "string",
+      "default": "e",
+      "target": {
+        "kind": "game_config_file",
+        "path": "GameConfig.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "language",
+        "key": "left"
+      },
+      "description_en": "Language code of the left screen half (ce, cj, es, ec for Chinese/English/Spanish; ie, ij, te, tj for Indonesian/Thai).",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:GameConfig.ini"
+      ]
+    },
+    {
+      "key": "gameconfig.language_right",
+      "name_en": "Right side language",
+      "type": "string",
+      "default": "c",
+      "target": {
+        "kind": "game_config_file",
+        "path": "GameConfig.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "language",
+        "key": "right"
+      },
+      "description_en": "Language code of the right screen half.",
+      "source": [
+        "findings/settings_per_game.md",
+        "gamemap:GameConfig.ini"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [],
+    "notes_en": "No save file in the dump. game.bat runs mxGetHwInfo.exe first; the TeknoParrot core does not replace that check (see digest)."
+  }
+}

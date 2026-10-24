@@ -1,0 +1,197 @@
+==============================================================================
+### sessie 5 (de crashsessie, 08:52:40)   [sessie5-08.55.41.log]
+    regels=601  niet-leeg=600  bytes=49042
+    open : ?Log file open, 10/11/26 08:52:40
+    eerste tijdstempel: 06.52.41   laatste: 06.54.54
+    laatste regel: [2026.10.11-06.54.54:987][578]Log file closed, 10/11/26 08:54:54
+    -- afsluitmarkeringen --
+       Log file closed                        1�  (regel 600)
+       Critical error                         1�  (regel 593)
+       Fatal error                            1�  (regel 595)
+       RequestExit                            1�  (regel 599)
+       Executing StaticShutdownAfterError     1�  (regel 598)
+       LogExit                                1�  (regel 598)
+    -- laatste 12 niet-lege regels --
+       [2026.10.11-06.54.54:967][578]LogMemory: Process Physical Memory: 1189.64 MB used, 1262.16 MB peak
+       [2026.10.11-06.54.54:967][578]LogMemory: Process Virtual Memory: 1084.94 MB used, 1084.94 MB peak
+       [2026.10.11-06.54.54:967][578]LogMemory: Physical Memory: 8945.98 MB used,  22759.14 MB free, 31705.13 MB total
+       [2026.10.11-06.54.54:967][578]LogMemory: Virtual Memory: 1189.64 MB used,  22759.14 MB free, 134217728.00 MB total
+       [2026.10.11-06.54.54:967][578]LogWindows: Error: === Critical error: ===
+       [2026.10.11-06.54.54:967][578]LogWindows: Error: 
+       [2026.10.11-06.54.54:967][578]LogWindows: Error: Fatal error!
+       [2026.10.11-06.54.54:967][578]LogWindows: Error: 
+       [2026.10.11-06.54.54:967][578]LogWindows: Error: 
+       [2026.10.11-06.54.54:984][578]LogExit: Executing StaticShutdownAfterError
+       [2026.10.11-06.54.54:987][578]LogWindows: FPlatformMisc::RequestExit(1)
+       [2026.10.11-06.54.54:987][578]Log file closed, 10/11/26 08:54:54
+    -- fouten in deze sessie (uniek) --
+         4�  LogSpawn: Warning: SpawnActor failed because no class was specified
+         3�  LogWindows: Error: 
+         1�  LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+         1�  LogWindows: Warning: CreateProc failed: File not found. (0x00000002)
+         1�  LogWindows: Warning: URL: ../../../Engine/Binaries/Win64/CrashReportClient.exe "C:/users/steamuser/AppData/Loca
+         1�  LogWindows: Error: === Critical error: ===
+         1�  LogWindows: Error: Fatal error!
+    -- LogAMDaemon in deze sessie --
+       r416    [2026.10.11-06.53.25:294][134]LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+
+==============================================================================
+### crashmap-kopie van sessie 5   [crashsessie-Hodzero.log]
+    regels=585  niet-leeg=584  bytes=47491
+    open : ?Log file open, 10/11/26 08:52:40
+    eerste tijdstempel: 06.52.41   laatste: 06.53.54
+    laatste regel: [2026.10.11-06.53.54:961][577]LogSlate: Took 0.063250 seconds to synchronously load lazily loaded font '../../
+    -- afsluitmarkeringen --
+       GEEN van de afsluitmarkeringen aanwezig
+    -- laatste 12 niet-lege regels --
+       [2026.10.11-06.53.54:770][576]LogApp:  P2_TopY    : 235
+       [2026.10.11-06.53.54:770][576]LogApp:  P2_LeftX   : 42
+       [2026.10.11-06.53.54:770][576]LogApp:  P2_CenterX : 474
+       [2026.10.11-06.53.54:770][576]LogApp:  P2_CenterY : 622
+       [2026.10.11-06.53.54:770][576]LogApp:  P2_RightX  : 890
+       [2026.10.11-06.53.54:770][576]LogApp:  P2_BottomY : 979
+       [2026.10.11-06.53.54:772][576]LogGameState: Match State Changed from WaitingToStart to InProgress
+       [2026.10.11-06.53.54:772][576]LogLoad: Took 5.198148 seconds to LoadMap(/Game/HodZero_v1/Maps/Stage0/PL_Stage0)
+       [2026.10.11-06.53.54:822][576]LogSlate: Took 0.019609 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/FOT-
+       [2026.10.11-06.53.54:832][577]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_TestSW 1 1 0
+       [2026.10.11-06.53.54:897][577]LogSlate: Took 0.062870 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/Noto
+       [2026.10.11-06.53.54:961][577]LogSlate: Took 0.063250 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/Noto
+    -- fouten in deze sessie (uniek) --
+         4�  LogSpawn: Warning: SpawnActor failed because no class was specified
+         1�  LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+    -- LogAMDaemon in deze sessie --
+       r416    [2026.10.11-06.53.25:294][134]LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+
+==============================================================================
+### sessie 4 (08:47:52)   [sessie4-08.52.40.log]
+    regels=670  niet-leeg=669  bytes=56577
+    open : ?Log file open, 10/11/26 08:47:52
+    eerste tijdstempel: 06.47.53   laatste: 06.51.56
+    laatste regel: [2026.10.11-06.51.56:116][779]LogAppData: UBookkeeping::AddFirstDeathLogCount
+    -- afsluitmarkeringen --
+       GEEN van de afsluitmarkeringen aanwezig
+    -- laatste 12 niet-lege regels --
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:00.000
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetCommonGameTimeCountEndMark
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(temp) +00:00:15.709
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(temp) +00:00:15.709
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(temp) +00:00:00.000
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(BK) +00:00:00.000
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:00.000
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+       [2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping:SetCommonGameTimeCountEndMark [2026.10.11-08.51.56]
+       [2026.10.11-06.51.56:116][779]LogAppData: UBookkeeping::AddDamageLogCount
+       [2026.10.11-06.51.56:116][779]LogAppData: UBookkeeping::AddFirstDeathLogCount
+    -- fouten in deze sessie (uniek) --
+         4�  LogSpawn: Warning: SpawnActor failed because no class was specified
+         1�  LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+    -- LogAMDaemon in deze sessie --
+       r416    [2026.10.11-06.48.40:844][389]LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+
+==============================================================================
+### sessie 6 = de zevenminutensessie   [zevenmin-Hodzero.log]
+    regels=1346  niet-leeg=1345  bytes=117045
+    open : ?Log file open, 10/11/26 08:55:41
+    eerste tijdstempel: 06.55.42   laatste: 07.02.44
+    laatste regel: [2026.10.11-07.02.44:206][652]LogAppData: UBookkeeping::AddSecondDeathLogCount
+    -- afsluitmarkeringen --
+       GEEN van de afsluitmarkeringen aanwezig
+    -- laatste 12 niet-lege regels --
+       [2026.10.11-07.02.44:204][652]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:26.759
+       [2026.10.11-07.02.44:205][652]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+       [2026.10.11-07.02.44:205][652]LogAppData: UBookkeeping::SetCommonGameTimeCountEndMark
+       [2026.10.11-07.02.44:205][652]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(temp) +00:00:11.180
+       [2026.10.11-07.02.44:205][652]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(temp) +00:00:11.179
+       [2026.10.11-07.02.44:205][652]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(temp) +00:00:00.000
+       [2026.10.11-07.02.44:205][652]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(BK) +00:00:26.760
+       [2026.10.11-07.02.44:205][652]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:26.759
+       [2026.10.11-07.02.44:205][652]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+       [2026.10.11-07.02.44:205][652]LogAppData: UBookkeeping:SetCommonGameTimeCountEndMark [2026.10.11-09.02.44]
+       [2026.10.11-07.02.44:206][652]LogAppData: UBookkeeping::AddDamageLogCount
+       [2026.10.11-07.02.44:206][652]LogAppData: UBookkeeping::AddSecondDeathLogCount
+    -- fouten in deze sessie (uniek) --
+         8�  LogSpawn: Warning: SpawnActor failed because no class was specified
+         2�  LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+         2�  LogScriptCore: Warning: Script Msg: Attempted to access index 0 from array 'CallFunc_GetStageSelectHistory_History
+         1�  LogScriptCore: Warning: Script Msg: Attempted to access index 1 from array 'History' of length 0 in '/Game/HodZero
+         1�  LogScriptCore: Warning: Script Msg: Attempted to access index 2 from array 'History' of length 0 in '/Game/HodZero
+         1�  LogScriptCore: Warning: Script Msg: Attempted to access index 3 from array 'History' of length 0 in '/Game/HodZero
+         1�  LogScriptCore: Warning: Script Msg: Attempted to access index 4 from array 'History' of length 0 in '/Game/HodZero
+    -- LogAMDaemon in deze sessie --
+       r416    [2026.10.11-06.56.27:872][288]LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+       r1042   [2026.10.11-07.00.38:143][344]LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+
+==============================================================================
+### DE aimeId-REGEL MET CONTEXT (zevenminutensessie)
+---- context rond regel 416 ----
+      r404    [2026.10.11-06.56.27:816][288]LogApp:  P1_RightX  : 891
+      r405    [2026.10.11-06.56.27:816][288]LogApp:  P1_BottomY : 979
+      r406    [2026.10.11-06.56.27:816][288]LogApp:  P2_TopY    : 235
+      r407    [2026.10.11-06.56.27:816][288]LogApp:  P2_LeftX   : 42
+      r408    [2026.10.11-06.56.27:816][288]LogApp:  P2_CenterX : 474
+      r409    [2026.10.11-06.56.27:816][288]LogApp:  P2_CenterY : 622
+      r410    [2026.10.11-06.56.27:816][288]LogApp:  P2_RightX  : 890
+      r411    [2026.10.11-06.56.27:816][288]LogApp:  P2_BottomY : 979
+      r412    [2026.10.11-06.56.27:823][288]LogAppSequence: Display: [Login] BeginPlay
+      r413    [2026.10.11-06.56.27:823][288]LogAppData: [Login] LockGamePlayMode
+      r414    [2026.10.11-06.56.27:823][288]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_EMoneyUI 1 1 0
+      r415    [2026.10.11-06.56.27:828][288]LogLoad: Took 0.749435 seconds to LoadMap(/Game/HodZero_v1/Maps/Entry/PL_Entry)
+   >> r416    [2026.10.11-06.56.27:872][288]LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+      r417    [2026.10.11-06.56.27:872][288]LogAppNet: UPlayLog::InitializePlayLog
+      r418    [2026.10.11-06.56.27:872][288]LogAppNet: UPlayLog::StartPlayLog PlayCount=1
+      r419    [2026.10.11-06.56.27:914][288]LogSlate: Took 0.020792 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/FOT-NewCinemaB
+      r420    [2026.10.11-06.56.27:986][289]LogSlate: Took 0.062410 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-
+      r421    [2026.10.11-06.56.33:472][630]LogNet: Browse: /Game/HodZero_v1/Maps/StageSelect/PL_StageSelect
+      r422    [2026.10.11-06.56.33:472][630]LogLoad: LoadMap: /Game/HodZero_v1/Maps/StageSelect/PL_StageSelect
+      r423    [2026.10.11-06.56.33:472][630]LogAppSequence: Display: [Login] EndPlay
+      r424    [2026.10.11-06.56.33:473][630]LogAppData: [Login] UnlockGamePlayMode
+      r425    [2026.10.11-06.56.33:473][630]LogAppData: UBookkeeping::SaveRecord
+      r426    [2026.10.11-06.56.33:473][630]LogAppData: FBookkeepingData::PrintLog
+      r427    [2026.10.11-06.56.33:473][630]LogAppData: FNetAppUploadCabinetExtensionData : ?????
+      r428    [2026.10.11-06.56.33:473][630]LogAppData:  FirstPlay:NORMAL        : 0
+---- context rond regel 1042 ----
+      r1030   [2026.10.11-07.00.38:130][344]LogApp:  P1_RightX  : 891
+      r1031   [2026.10.11-07.00.38:130][344]LogApp:  P1_BottomY : 979
+      r1032   [2026.10.11-07.00.38:130][344]LogApp:  P2_TopY    : 235
+      r1033   [2026.10.11-07.00.38:130][344]LogApp:  P2_LeftX   : 42
+      r1034   [2026.10.11-07.00.38:130][344]LogApp:  P2_CenterX : 474
+      r1035   [2026.10.11-07.00.38:130][344]LogApp:  P2_CenterY : 622
+      r1036   [2026.10.11-07.00.38:130][344]LogApp:  P2_RightX  : 890
+      r1037   [2026.10.11-07.00.38:130][344]LogApp:  P2_BottomY : 979
+      r1038   [2026.10.11-07.00.38:137][344]LogAppSequence: Display: [Login] BeginPlay
+      r1039   [2026.10.11-07.00.38:137][344]LogAppData: [Login] LockGamePlayMode
+      r1040   [2026.10.11-07.00.38:137][344]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_EMoneyUI 1 1 0
+      r1041   [2026.10.11-07.00.38:141][344]LogLoad: Took 0.649203 seconds to LoadMap(/Game/HodZero_v1/Maps/Entry/PL_Entry)
+   >> r1042   [2026.10.11-07.00.38:143][344]LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+      r1043   [2026.10.11-07.00.38:143][344]LogAppNet: UPlayLog::InitializePlayLog
+      r1044   [2026.10.11-07.00.38:143][344]LogAppNet: UPlayLog::StartPlayLog PlayCount=1
+      r1045   [2026.10.11-07.00.38:184][344]LogSlate: Took 0.020550 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/FOT-NewCinemaB
+      r1046   [2026.10.11-07.00.38:253][345]LogSlate: Took 0.059638 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-
+      r1047   [2026.10.11-07.00.40:240][469]LogNet: Browse: /Game/HodZero_v1/Maps/StageSelect/PL_StageSelect
+      r1048   [2026.10.11-07.00.40:240][469]LogLoad: LoadMap: /Game/HodZero_v1/Maps/StageSelect/PL_StageSelect
+      r1049   [2026.10.11-07.00.40:241][469]LogAppSequence: Display: [Login] EndPlay
+      r1050   [2026.10.11-07.00.40:241][469]LogAppData: [Login] UnlockGamePlayMode
+      r1051   [2026.10.11-07.00.40:241][469]LogAppData: UBookkeeping::SaveRecord
+      r1052   [2026.10.11-07.00.40:241][469]LogAppData: FBookkeepingData::PrintLog
+      r1053   [2026.10.11-07.00.40:241][469]LogAppData: FNetAppUploadCabinetExtensionData : ?????
+      r1054   [2026.10.11-07.00.40:241][469]LogAppData:  FirstPlay:NORMAL        : 1
+
+==============================================================================
+### DE PADEN DIE DE ENGINE VRAAGT (hoofdlettergebruik)
+      15�  ../../../Hodzero/Content/HodZero_v1/Fonts/FOT-NewCinemaBStd-D.ufont
+       9�  ../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Bold.ufont
+       7�  ../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Medium.ufont
+       6�  ../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Regular.ufont
+       3�  ../../../Engine/Content/EngineFonts/Faces/RobotoBold.ufont
+       2�  ../../../Hodzero/Content/Paks/Hodzero-WindowsNoEditor.pak
+       2�  ../../../Hodzero/Content/HodZero_v1/Fonts/SEGA_KakuGothicDB.ufont
+
+   -- .usm- en fontverwijzingen (unieke paden) --
+      ../../../Engine/Content/EngineFonts/Faces/RobotoBold.ufont
+      ../../../Hodzero/Content/HodZero_v1/Fonts/FOT-NewCinemaBStd-D.ufont
+      ../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Bold.ufont
+      ../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Medium.ufont
+      ../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Regular.ufont
+      ../../../Hodzero/Content/HodZero_v1/Fonts/SEGA_KakuGothicDB.ufont
+      ../../../Hodzero/Content/Paks/Hodzero-WindowsNoEditor.pak

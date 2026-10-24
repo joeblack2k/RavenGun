@@ -1,0 +1,61 @@
+# ingekort: 'ERROR: ld.so ... wrong ELF class' (8 regels), de 33 'eerste-PLT: slot'-regels en de JPS-geluidsregels (2) zijn weggelaten; hasp_decrypt-herhalingen samengevat
+== play-native JurassicPark 20261013-230250
+script: /home/deck/projects/ravengun/scripts/play-native.sh
+  de versie uit de REPO (commit 8286b6a; met wijzigingen in scripts/ die niet in die commit zitten); sha256 e834a0a59f8539f43f2f8324b0214cb80d8746d8a6d0f69c1edbbc0a571f1cc6
+  gegevens: /home/deck/projects/ravengun/packaging/native-games.json sha256 09bdded6cb9a1beea1882f3709801db0c87a9f4d5f147ad39be26e395563b263
+  hulp: /home/deck/projects/ravengun/scripts/rg-paths.sh sha256 8ca01e47a2465b82f150c2570ed5523ccffaef2b16c6e1cf81f00b26f63db25a
+  hulp: /home/deck/projects/ravengun/scripts/rg-identiteit.sh sha256 be4c411ffdd1d272d3088751c0d8d10c6f8efd7003a4caa5504492e05e5a6463
+  hulp: /home/deck/projects/ravengun/scripts/camera.py sha256 8064243e4fe2d99ac6e27ee7161f26d1677df48235ccb231090b06603c14b551
+  hulp: /home/deck/projects/ravengun/scripts/gamesettings.py sha256 3baf5234c6af9defdf96277b385211e41063ed3a339c99ffc2ff819dc84f98f5
+  lader: /home/deck/.local/share/ravengun/bin/rg-elfloader sha256 2792521b0174ab1a3abf359d51a2b1f0ffa9fcc98deb6bef05ff30b928b620e0
+  meegegeven: /tmp/claude-1000/-home-deck/6c50f9d7-7b90-4218-b922-50975534fcdb/scratchpad/jp-bench/jp-slots.tsv sha256 047d209f34bcf96bb92a9ea0be79b879b44f2e3ffd1d7ccd6a7850c27405c6e7
+  het geinstalleerde script (/home/deck/.local/opt/ravengun/share/ravengun/scripts/play-native.sh) is een ANDERE versie (sha256 c19370b6d9d2ef09e759ca1338ae071d302a474991c9b034cb488ae553f7ebf9): een run via de installatie gebruikt dus niet deze code
+camera: geen (rol none: dit spel vraagt geen camera)
+display=:1 res=1360x768 headless=0 preload=geen
+cmd: /rg/bin/rg-elfloader /pm/game -n -f1360x768
+rg-elfloader: beeld-bereik 0x8048000..0x9128000 (17280 KB)
+[ravengun-hasp] dongle 'JurassicPark' geladen uit ravengun-hasp/JurassicPark (1 geheugenbestand(en), haspid 0)
+rg-elfloader: 18811 gast-symbolen (bron: DT_HASH)
+rg-elfloader: lib-defs: 16622 gedefinieerde symbolen uit de NEEDED-libs gelezen
+rg-elfloader: shim bouwen (18693 gast-symbolen): gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-2/shim.so' '/run/user/1000/rg-elfloader-2/shim.c' 2>&1
+rg-elfloader: shim geladen: 18693 gast-symbolen in de globale scope
+rg-elfloader: geladen: libtheora.so.0
+rg-elfloader: geladen: libogg.so.0
+rg-elfloader: geladen: libPhysXLoader.so.1
+rg-elfloader: geladen: libstdc++.so.6
+rg-elfloader: geladen: libdl.so.2
+rg-elfloader: geladen: libSDL-1.2.so.0
+rg-elfloader: geladen: libGL.so.1
+rg-elfloader: geladen: libGLU.so.1
+rg-elfloader: geladen: libglut.so.3
+rg-elfloader: geladen: libpthread.so.0
+rg-elfloader: geladen: librt.so.1
+rg-elfloader: geladen: libm.so.6
+rg-elfloader: geladen: libudev.so.1
+rg-elfloader: geladen: libgcc_s.so.1
+rg-elfloader: geladen: libc.so.6
+rg-elfloader: geladen: libX11.so.6
+rg-elfloader: stale-map: 101 JMPREL-entries, 39 met stale 0xb7-adres + naam
+rg-elfloader: DT_REL: 0 toegepast, 9 COPY, 0 onopgelost
+rg-elfloader: DT_JMPREL: 101 toegepast, 0 COPY, 0 onopgelost
+rg-elfloader: slottabel /rg/jp-slots.tsv: 576 slots op naam gezet, 0 naam-niet-gevonden, 1 slot-had-andere-waarde, 1 zwak/0, 0 buiten beeld
+rg-elfloader: eerste-PLT: 0 op naam hersteld, 0 no-op-trampoline, 0 naam-niet-gevonden (van 39 stale-namen)
+rg-elfloader: geladen; spel /pm/game krijgt argv[0]=/pm/game
+rg-elfloader: spring naar e_entry 0x813befc (esp 0xf6458ea0, argc 3, envc 17, 17 auxv)
+      2 [ravengun-hasp] hasp_login (vendor_code=4294901760)
+[ravengun-hasp] hasp_read (fileid=65522 offset=30 lengte=1)
+[ravengun-hasp] hasp_read (fileid=65522 offset=28 lengte=1)
+[ravengun-hasp] hasp_decrypt (lengte=512)
+[ravengun-hasp] hasp_decrypt (lengte=256)
+[ravengun-hasp] hasp_get_sessioninfo
+[ravengun-hasp] hasp_free
+[ravengun-hasp] hasp_read (fileid=65522 offset=29 lengte=1)
+[ravengun-hasp] hasp_read (fileid=65522 offset=60 lengte=4)
+[ravengun-hasp] hasp_read (fileid=65522 offset=32 lengte=4)
+sh: line 1: ifconfig: command not found
+ATTENTION: default value of option force_glsl_version overridden by environment.
+JPS: jpsdrvr_init(): Could not open DEV_DSP
+JPS: jps_init(): ERROR! Could not init sound hardware!
+Assert file g5/sound_sdl.c, line 118:
+Failed to init JPS Sound System
+== exit 255

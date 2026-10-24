@@ -1,0 +1,10 @@
+now 23:08:40
+pid 1773663 comm rg-elfloader class ELF32 threads 17
+    maps: libravengun-hasphook -> 5 mappings
+    maps: ravengun-hasp.so -> 5 mappings
+    maps: librg-threadprio -> 5 mappings
+    maps: libSDL-1.2 -> 5 mappings
+    maps: libSDL2-2.0 -> 5 mappings
+    maps: libGL.so -> 5 mappings
+    maps: libgallium -> 5 mappings
+    env: RG_ELF_SLOT_TABLE=/rg/jp-slots.tsv LD_PRELOAD=/pm/libravengun-hasphook.so:/pm/librg-threadprio.so RAVENGUN_HASP_GAME=JurassicPark SDL12COMPAT_OPENGL_SCALING=0 

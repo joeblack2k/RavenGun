@@ -1,0 +1,38 @@
+Run r3 -- Terminator Salvation on our own loader, on the TV. 2026-10-13.
+
+start 21:29:47   START injected 21:30:25   attract from 21:30:38   end 21:41:47 (the run's own time limit, rc 124, 720.0 s)
+Attract held 11 min 8 s (first attract capture 21:30:38, last capture 21:41:46). 65 captures in that window, 65 distinct.
+Frames that were LOOKED at: shots/r3-contactvel.jpg (12 frames spread over the whole window) -- demo scenes, Play Mechanix
+logo animation, CoinUp logo, all with FREEPLAY.
+
+Recipe: harness/c-outer.sh r3 with GAME_ENV="force_glsl_version=120"; drop-in as in the working tree (memory files 48 B and
+64 B, sha256 b57b98654b18 / 6920e9b04e3b); the inner command is binnenr3.sh.
+
+WHAT LOADED AND WHAT DID NOT (measured at 21:38:49 on the live processes, /proc/<pid>/maps):
+  * In the game process (pid 1462986, ELF32, 27 threads) and in the loader process (pid 1462970, ELF32) ALL EIGHT preloads
+    are mapped: ptracer-permit, hasphook, libtrace2, libexit-log, libioctl-log, net-log, bestand-log, fork-log -- and the
+    dongle emulator ravengun-hasp.so.
+  * out.txt contained 200 lines at that moment (248 by the end of the run = 31 processes) "ERROR: ld.so: object ... cannot be preloaded (wrong ELF class: ELFCLASS32): ignored."
+    At 21:38:49 that was 25 processes x 8 libraries: the 64-bit helpers that inherit LD_PRELOAD (timeout, env, and the sh/find/ls/sed/rm
+    the game starts through system(), plus gcc for the loader shim).
+  * So: the five loggers DID record the game. They recorded NOTHING inside those 64-bit helpers. What a helper did (for
+    example why "find ... > /g3/irgun/cmgrNNN.txt" failed) is known only from its own stderr in out.txt, not from a logger.
+  * The game-side logs: exit.log 6,974,254 lines (almost all "CALL poll"; the essential lines are in exit.kern.log),
+    ioctl.log 34 MB, bestand.log 34 k lines, fork.log 30 MB, net.log 34 lines, trace.log 5 MB.
+  * No conclusion about r3 in ATTRACT-RUN.md rests on the exit/ioctl/net/file/fork logs, except the cmgr commands below.
+
+THE SERIAL LINK (measured):
+  * Nobody read the far end of the /dev/ttyS0 pty until 21:36:33. The game log shows "JAMMA: jamma_msg() -1":
+    11 lines in minute 21:34 (first 21:34:54), 2,103 in 21:35, 28 in 21:36 (last 21:36:30). Total 2,142.
+  * 21:36:33: both pty peers drained with cat. No jamma_msg line after 21:36:30, for the remaining 5 min 17 s.
+  * The attract loop kept running through the error flood.
+
+THE cmgr FILES (measured, exit.kern.log):
+  * "rm: cannot remove '/g3/irgun/cmgrNNN.txt'" is the game's own scratch file, not a file missing from the dump. The game
+    runs system("find /sys/devices/ -maxdepth 6 -name ttyUSB* > /g3/irgun/cmgrNNN.txt") and then system("rm ..."), twice
+    2 s apart, at +1/+3 s, +193/+195 s, +407/+409 s, +621/+623 s; and once at +1 s
+    system("ls -r /g3/irgun/firmware/ | grep .mcs | head -n 1 | sed ... > /g3/irgun/cmgrNNN.txt").
+    The redirect fails with "Read-only file system" because the harness mounts /g3 read-only.
+  * This is the gun connection manager looking for a USB serial port. Not needed for attract; it is where the gun route starts.
+
+NOT DONE in this run: no TEST press at the end (the run was left untouched once a second, independent capture was running).

@@ -1,0 +1,12 @@
+02:10:50 Oct 14 2026: Game booted up.
+02:10:50 Oct 14 2026: VO Volume set to 22 (6.67).
+02:16:04 Oct 14 2026: Player 1 joined game (level = Hangar).
+02:16:04 Oct 14 2026: Beginning load of level Lagoon (1 players active, 0 continuing).
+02:16:05 Oct 14 2026: Finishing level load (1 players active, 0 continuing).
+02:16:05 Oct 14 2026: Beginning level Lagoon (1 players active, 0 continuing).
+02:17:06 Oct 14 2026: Beginning load of level Base (1 players active, 0 continuing).
+02:17:06 Oct 14 2026: Finishing level load (1 players active, 0 continuing).
+02:17:06 Oct 14 2026: Beginning level Base (1 players active, 0 continuing).
+02:18:02 Oct 14 2026: Beginning load of level Graveyard (1 players active, 0 continuing).
+02:18:03 Oct 14 2026: Finishing level load (1 players active, 0 continuing).
+02:18:03 Oct 14 2026: Beginning level Graveyard (1 players active, 0 continuing).

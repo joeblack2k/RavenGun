@@ -1,0 +1,8 @@
+{
+ "kind": "hasp",
+ "game": "WalkingDead",
+ "haspid": 1,
+ "crypto_table": "hasp",
+ "memory": [],
+ "notes": "The Walking Dead (2026-10-15): voorlopig, om te meten wat de game vraagt. haspid 1 zoals bij Aliens Armageddon. De spelmap heeft geen hasp/-antwoordtafel en geen hhl_mem.dmp; crypto_table staat er om de opzoeksleutels te loggen."
+}

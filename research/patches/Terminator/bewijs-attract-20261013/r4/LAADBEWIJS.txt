@@ -1,0 +1,38 @@
+LAADBEWIJS run r4 -- which preload libraries recorded the GAME process (pid 1546207, ELF32), counted from the logs themselves
+(log: total lines / lines carrying the game pid / first line)
+  exit.log: 10831847 / 10719944 / [exitlog] + 0.000001 pid 1546198 CALL system("gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-1
+  ioctl.log: 596312 / 596312 / [ioctl] + 0.000003 pid 1546207 ioctl(fd 4 "/dev/js0", req 0x80016a11, arg 0xf6368bcc) -> -1 errno=Inappropriate ioctl fo
+  net.log: 36 / 36 / [ravengun-net-log] + 0.000000 pid 1546207: socket(domain=1 type=1 proto=0) -> fd 9
+  trace.log: 61360 / 61358 / [trace] + 0.000090 pid 1546198 ctor, tracepoints=37
+  bestand.log: 31741 / 31610 / + 0.040476 pid=1546207 ppid=1546198 open       "/dev/urandom" flags=0x900(O_RDONLY|O_NONBLOCK) -> ok (4)
+  fork.log: 559514 / 1 / + 0.035471 pid=1546207 ppid=1546198 kind-start   [+ 0 lines from children whose parent is the game]
+  permit.log: [ravengun-ptracer-permit] pid 1546198: PR_SET_PTRACER_ANY gezet: dit proces mag door een willekeurig proces worden aangehaakt (yama ptrace_s
+  hasphook (drop-in): 222 lines in hasphook.log; emulator calls in out.txt: 65
+
+ld.so refusals in out.txt: 344 lines = 43 processes x 8 libraries, per library:
+     43 wrong ELF class: ELFCLASS32  libexit-log.so
+     43 wrong ELF class: ELFCLASS32  libioctl-log.so
+     43 wrong ELF class: ELFCLASS32  libravengun-bestand-log.so
+     43 wrong ELF class: ELFCLASS32  libravengun-fork-log.so
+     43 wrong ELF class: ELFCLASS32  libravengun-hasphook.so
+     43 wrong ELF class: ELFCLASS32  libravengun-net-log.so
+     43 wrong ELF class: ELFCLASS32  libravengun-ptracer-permit.so
+     43 wrong ELF class: ELFCLASS32  libtrace2.so
+
+ELF class of the files involved:
+  ELF 32-bit LSB pie executable, Intel i386  rg-elfloader
+  ELF 32-bit LSB executable, Intel i386  game
+  ELF 32-bit LSB shared object, Intel i386  libexit-log.so
+  ELF 32-bit LSB shared object, Intel i386  libioctl-log.so
+  ELF 32-bit LSB shared object, Intel i386  libravengun-net-log.so
+  ELF 32-bit LSB shared object, Intel i386  libravengun-bestand-log.so
+  ELF 32-bit LSB shared object, Intel i386  libravengun-fork-log.so
+  ELF 32-bit LSB shared object, Intel i386  libtrace2.so
+  ELF 32-bit LSB shared object, Intel i386  libravengun-ptracer-permit.so
+  ELF 32-bit LSB shared object, Intel i386  libravengun-hasphook.so
+  ELF 32-bit LSB shared object, Intel i386  ravengun-hasp.so
+  ELF 64-bit LSB pie executable, x86-64  timeout
+  ELF 64-bit LSB pie executable, x86-64  env
+  ELF 64-bit LSB pie executable, x86-64  bash
+  ELF 64-bit LSB pie executable, x86-64  find
+  ELF 64-bit LSB pie executable, x86-64  sed

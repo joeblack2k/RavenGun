@@ -1,0 +1,11 @@
+Log Started : 14/10/2026 - 00:50:29:792
+[ 00:50:29:794 ] IOMkII: IOBOARD_INITIALISE
+[ 00:50:29:798 ] InitIOBoard : Couldn't find IOBoard device
+[ 00:50:30:797 ] IOMkII: IOBOARD_INITIALISE
+[ 00:50:30:800 ] InitIOBoard : Couldn't find IOBoard device
+[ 00:50:32:726 ] Sending output hid 0
+[ 00:50:32:726 ] Sending 0x00 to 0x00 0x00 0x00
+[ 00:50:32:726 ] WriteHID - Lost HiD Handle!
+[ 00:50:32:737 ] Sending output hid 16384
+[ 00:50:32:737 ] Sending 0x4000 to 0x00 0x00 0x40
+[ 00:50:32:737 ] WriteHID - Lost HiD Handle!

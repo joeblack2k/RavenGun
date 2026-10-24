@@ -1,0 +1,17 @@
+# sha256 of the pieces of the Men in Black runs, taken 2026-10-14
+# the dump, from the share (<share>/Men in Black/...):
+e6a7bae54391bb518a529a294462f364fd0abb8de954e9986a38eb5c692ef882  shell/Shell.exe
+afed0bdd31aca532e694bb7dc368df6d7fb17bbbd1c20a1c79f95e2783f40d5b  MIB/MIB.exe
+5abe8db44ecd9640acc28c99857a2671d3493da39dedfed0a2a0f95806a47749  MIB/UnityPlayer.dll
+ef0fd4afaa74d92c3fd92f7ef04100224c8cb4242be7ee1b610877c038876d9c  shell/Game.ini
+ff704c8816e83273888b6cf70a02f3021d4fb3e136208daf1bc3b336e8ac7587  Launcher/SystemLauncher.exe
+9fa3e02d0a8660a85ddf51a7e821753e714204012d66dff39831c60080adace3  shell/dk2win32.dll
+4410064a4fa4092a688616b29485b3ddc193c6b1cb54f1418fd2bc8d9c18fe83  shell/dk2win64.dll
+# the view's LOCAL copies (not on the share): the modified shell and the Game.ini with the two [Debug] switches
+1067a79a9ed18cfc09ffa5f3566678a71f035920573f3c722d3a8f9a152525c2  Shell.exe
+0824fb3b5cb3571be8df87cedaae680f87ad2ae22439bd1db3f7688ee987d82d  Game.ini
+# our loader and core (working tree, commit 8286b6a plus uncommitted changes)
+413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc  <ravengun-data>/openparrot/current/OpenParrotWin32/OpenParrot.dll
+e6aa9a73e852780e6af5d10cb4d3cc9da5c02f0d4250990c22e7799c66b96c10  <ravengun-data>/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe
+# the 64-bit core (would be used if MIB.exe were started directly, as in run m2)
+fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794  <ravengun-data>/openparrot/current/OpenParrotx64/OpenParrot64.dll

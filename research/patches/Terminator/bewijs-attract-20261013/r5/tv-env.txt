@@ -1,0 +1,2 @@
+tv-env: DISPLAY=:0 XAUTHORITY=/run/user/1000/xauth_CsRMXH WAYLAND_DISPLAY=wayland-0 start=22:06:41
+gamescope rc=0 end=22:09:33

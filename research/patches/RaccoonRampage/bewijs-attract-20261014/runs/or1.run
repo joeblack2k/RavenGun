@@ -1,0 +1,63 @@
+RUN or1 -- RaccoonRampage -- started 2026-10-14 02:18:34
+DECLARED: core=runtime  share=overlay-keep  shm-source=/dev/shm/ravengun_JvsState  limit=480s  captures every 10s
+user layer (/home/deck/.local/share/ravengun/patches/RaccoonRampage/game.ini) at start:
+    ; Kept after the 2026-10-14 runs: the view has the real Movies folder again, and its videos (MPEG-4 Part 2 + AAC)
+    ; play with these plug-ins on both cores (patches/RaccoonRampage/ATTRACT-RUN.md). The 2026-10-11 notes say that
+    ; with the movies present and without the plug-ins the game exits with code 1; that was not re-measured.
+    [Wine]
+    GStreamerPlugins = ~/.local/share/ravengun/tools/gst-extra/plugins
+launcher plan (scripts/launch-direct.py RaccoonRampage --plan):
+    game: /home/deck/.local/share/ravengun/runtime/views/RaccoonRampage/RSGame/Binaries/Win64/RSGame-Win64-Shipping.exe
+    wine: /home/deck/.local/share/ravengun/wrappers/wine-prefix
+    prefix: /home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk
+    core_dll: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll
+    core_sha256: f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28
+    core_source: runtime
+    profile_env: {'TP_REMOTETHREAD': 'off', 'RG_WINEPREFIX': '/home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk', 'WINEDLLOVERRIDES': 'd3d11,d3d10core,dxgi=n,b', 'GST_PLUGIN_PATH': '/home/deck/.local/share/ravengun/tools/gst-extra/plugins'}
+inside the sandbox, the share folder is mounted as: overlay rw,nosuid,nodev,relatime,lowerdir=/proc/self/fd/10,upperdir=/proc/self/fd/6,workdir=/proc/self/fd/9,redirect_dir=nofollow,index=off,uuid=on,xi
+game process first seen 02:18:36
+launcher says: [launch-direct 02:18:34] kern (runtime): /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll sha256 f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28
+02:18:46 alive: pid 1905483, 61 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:19:16 alive: pid 1905483, 145 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:19:46 alive: pid 1905483, 145 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:20:16 alive: pid 1905483, 146 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:20:46 alive: pid 1905483, 145 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:21:16 alive: pid 1905483, 145 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:21:47 alive: pid 1905483, 145 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:22:17 alive: pid 1905483, 145 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:22:47 alive: pid 1905483, 145 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:23:17 alive: pid 1905483, 145 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:23:47 alive: pid 1905483, 145 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:24:17 alive: pid 1905483, 124 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:24:47 alive: pid 1905483, 126 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:25:17 alive: pid 1905483, 121 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:25:47 alive: pid 1905483, 121 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:26:17 alive: pid 1905483, 121 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+ENDED 2026-10-14 02:26:38 -- launcher: 02:26:36 klaar (exitcode gestopt) -- rc=124 (124 = stopped by the run's own limit)
+left running afterwards:
+    now 02:26:38
+    1905316     484 bash            bash /tmp/claude-1000/-home-deck/6c50f9d7-7b90-4218-b922-50975534fcdb/scratchpad/win-bench/win-run.sh RaccoonRampage Raccoon Rampage RSGame-Win64-Sh or1 480
+    (end of list)
+files in the share's game folder newer than the start of this run: 0
+what the game wrote into the kept write layer (/home/deck/.local/state/ravengun/bench-upper/or1/upper):
+    02:18:52.8624246250        47 ./RSGame/Binaries/Win64/Setting_Water.ini
+    02:18:52.8684245710        44 ./RSGame/Binaries/Win64/Setting_Water_Backups.ini
+    02:18:53.7125637750      3656 ./RSGame/Binaries/Win64/Setting_Hardware.ini
+    02:18:53.7634166240      3656 ./RSGame/Binaries/Win64/Setting_Hardware_Backups.ini
+    02:24:02.7126519220       119 ./RSGame/Binaries/Win64/Setting_System.ini
+    02:24:02.7146519040       119 ./RSGame/Binaries/Win64/Setting_System_Backups.ini
+    02:24:42.3822944970      3156 ./RSGame/Binaries/Win64/RSGame-Win64-Shipping.dxvk-cache
+    02:26:36.5312637470      4819 ./RSGame/Binaries/Win64/Setting_DailyReport_Backups.ini
+    02:26:36.5312637470      4819 ./RSGame/Binaries/Win64/Setting_DailyReport.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_GameSetting_Backups.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_GameSetting.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_Language_Backups.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_Language.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_Pay_Backups.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_Pay.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_TicketCard_Backups.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_TicketCard.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_Webcam_Backups.ini
+    22:32:00.0000000000         0 ./RSGame/Binaries/Win64/Setting_Webcam.ini
+    22:32:00.0000000000     61440 ./RSGame/Binaries/Win64/Ranking.DB
+captures: 47, first shot-001-021834.png, last shot-047-022634.png

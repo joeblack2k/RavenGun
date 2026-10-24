@@ -1,0 +1,60 @@
+01:42:32 Oct 14 2026: Game booted up.
+01:42:33 Oct 14 2026: Unity.Exception: DllNotFoundException: UnityNatives
+AuditManager.LoadCoinAudFromFile () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+AuditManager.Initialize () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+Game.Awake () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:42:33 Oct 14 2026: Unity.Exception: DllNotFoundException: UnityNatives
+DongleControl.HaspLogin (System.Int32 feature_id, System.Int32& handle) (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.BuildDefaultPrefs () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences..ctor () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.get_Instance () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+AudioManager.Start () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:42:33 Oct 14 2026: Unity.Exception: DllNotFoundException: UnityNatives
+DongleControl.HaspLogin (System.Int32 feature_id, System.Int32& handle) (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.BuildDefaultPrefs () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences..ctor () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.get_Instance () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+IOManager.GrabCalibrationFromPreferences () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+IOManager.Start () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:42:33 Oct 14 2026: Unity.Exception: DllNotFoundException: UnityNatives
+DongleControl.HaspLogin (System.Int32 feature_id, System.Int32& handle) (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.BuildDefaultPrefs () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences..ctor () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.get_Instance () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+PayoutController.InitVars () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+PayoutController.Create () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+PayoutController.Start () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:42:33 Oct 14 2026: Unity.Exception: DllNotFoundException: UnityNatives
+DongleControl.HaspLogin (System.Int32 feature_id, System.Int32& handle) (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.BuildDefaultPrefs () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences..ctor () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.get_Instance () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+Level.Start () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:42:33 Oct 14 2026: Unity.Exception: DllNotFoundException: UnityNatives
+DongleControl.HaspLogin (System.Int32 feature_id, System.Int32& handle) (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.BuildDefaultPrefs () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences..ctor () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.get_Instance () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+IOManager.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:42:33 Oct 14 2026: Unity.Exception: DllNotFoundException: UnityNatives
+DongleControl.HaspLogin (System.Int32 feature_id, System.Int32& handle) (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.BuildDefaultPrefs () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences..ctor () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.get_Instance () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+Level.Update () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:42:33 Oct 14 2026: Unity.Exception: DllNotFoundException: UnityNatives
+DongleControl.HaspLogin (System.Int32 feature_id, System.Int32& handle) (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.BuildDefaultPrefs () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences..ctor () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+TestPreferences.get_Instance () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+Game.GetNumCredits (System.Int32 playerIndex) (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+UI_PlayerHud.LateUpdate () (at <ae0b50bf09524e7084c587f3a3e5a585>:0)
+
+01:42:33 Oct 14 2026: Unity.Exception: DllNotFoundException: rio

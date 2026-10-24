@@ -1,0 +1,72 @@
+{
+  "game": "House of the Dead: Scarlet Dawn",
+  "profile": "HOTDSD",
+  "type": "sega-keychip",
+  "device": "\\\\.\\FddDriver",
+  "notes": "DRAFT for review - values marked TODO are not yet measured. This descriptor is the per-game data half of the keychip design in REPORT.md section 10; the answering code is a CreateFileW + DeviceIoControl hook in the amdaemon.exe process. Belongs in patches/HOTDSD/dongle.json once adopted. The ioctls[] array is filled from measurement C2 (REPORT.md section 6). Nothing here is required to reach the game: HOTDSD is measured playable with no keychip at all under TeknoParrot with SEGA's unmodified daemon.",
+
+  "identity": {
+    "modeltype": 1,
+    "modeltype_note": "1 = Server, 2 = Satellite, 3 = Live; whole range is [1-98]. Source: hwvalue.exe's own usage text (REPORT.md 9.4). TODO: confirm which value an ALLS UX cabinet reports.",
+    "region": 4,
+    "region_note": "Bit flags, not an enum: 1 = JPN, 4 = EXP, 8 = CHN, AND-combined, with an optional mask. Source: hwvalue.exe usage text. TODO: 4 (EXP) is INFERRED from config.json language=english; confirm by running hwvalue.exe region after seeding the registry.",
+    "platformId": "ACA0",
+    "platformId_note": "ALLS UX, from pxGetHwInfo.ini. Read by amsSystemPropertyGetPlatformIdOnDongle.",
+    "formatType": 0,
+    "formatType_note": "TODO: read by amsSystemPropertyGetFormatTypeOnDongle; value not yet measured.",
+    "gameId": "SDET",
+    "gameId_note": "99_StartApp.bat: set GAME_ID=SDET.",
+    "systemFlag": 0,
+    "networkAddress": "10.0.0.2"
+  },
+
+  "dipsw": {
+    "value": 0,
+    "note": "hwvalue.exe also reports a dip-switch application value, and keeps a dip-switch backup record on the AMFS system file (sysfile.dat, 24576 bytes, present in AMDaemon/TeknoParrot/AMFS/). Known bit: 4 = Terminal."
+  },
+
+  "billing": {
+    "mode": 0,
+    "keychipId": "TODO-20-chars",
+    "keychipId_note": "amDongleBillingGetKeychipId / alpbGetKeychipSerialID. The daemon rejects a bad one with ERROR: invalid KeychipID(%s).",
+    "playlimit": 1024,
+    "nearfull": 66048,
+    "nearfull_note": "66048 = 0x00010200. Both values and the lockout rule come from the open implementation minime/src/billing.ts ('Keychip odometer limit. Game will lock out if the odometer reaches ...').",
+    "signaturePubKey": "pki/billing.pub",
+    "caCertification": "pki/ca.crt",
+    "signature_note": "amDongleBillingGetSignaturePubKey and amDongleBillingGetCaCertification. minime/initpki generates both, and writes the CA as DER with the stated budget 'DER must fit in 1024 bytes so it must be small' - reuse it. BillingUpdatePlaylimit takes (pPlaylimit or pSign), i.e. the limit is signed.",
+    "mode_note": "amDongleGetBillingMode. TODO: value not yet measured."
+  },
+
+  "nvram": {
+    "geometry": "TODO: from amyDongleGetGeometryNvram",
+    "files": {},
+    "note": "The daemon validates every request itself: 'Nvram(%hhu) is out of range. Valid range %hhu - %u', 'Adress(%u) is out of range. Valid range 0 - %u', 'BufferSize(%u) is out of range. Valid range 1 - %u'. So the geometry answer must be consistent with the files, or the daemon rejects the read before it reaches the device."
+  },
+
+  "crypto": {
+    "iv": "TODO",
+    "note": "amDongleSetIv / amDongleEncrypt / amDongleDecrypt - AES through the keychip."
+  },
+
+  "not_implemented_in_libam": [
+    "amDongleSetAuthConfig",
+    "amDongleGetAuthCondition",
+    "amDongleSetAuthCondition",
+    "amDongleGetSeed",
+    "amDongleGetVersion",
+    "amDongleGetDvdFlag",
+    "amDongleReadEeprom",
+    "amDongleWriteEeprom",
+    "amDongleRequestSsdHostProof",
+    "amDongleBillingGetMainId",
+    "amDongleBillingSetMainId",
+    "amDongleBillingTdReserveErasableSector"
+  ],
+  "not_implemented_note": "MEASURED: the daemon's own library answers 'Function \"...\" is not implemented.' for each of these, so a keychip implementation does not have to answer them. Do not emulate them.",
+
+  "ioctls": [],
+
+  "test_harness": "hwvalue.exe",
+  "test_harness_note": "hwvalue.exe (202240 bytes, in AMDaemon/) links the same amyDongle/amPlatform client as amdaemon.exe and reports modeltype, region and dipsw as plain text. It is the natural unit test for this descriptor: run it under the same Wine prefix, with the registry seeded or without, and compare its output before and after the shim is in place. It is also the cheapest way to learn the correct region/modeltype values."
+}

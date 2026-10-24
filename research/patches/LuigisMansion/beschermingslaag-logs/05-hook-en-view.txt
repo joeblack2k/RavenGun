@@ -1,0 +1,117 @@
+########## grep counts in /home/deck/.local/share/ravengun/runtime/views/LuigisMansion/exe/x64/rg-pe-hook.log ##########
+attach-summary lines (aangehaakt|afgekeurd|totaal): 0
+wachtroute lines                                  : 21
+total lines                                       : 49
+
+########## rg-pe-hook.log in full ##########
+[rg-pe-hook] wachtroute: op een eigen thread gezet; de hoofdthread gaat verder
+[rg-pe-hook] hoofdprogramma op 0000000140000000, ImageBase 0x140000000, SizeOfImage 0x125e000
+[rg-pe-hook] bewijsartefact: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook-bytes.txt   (beeldbestand: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe)
+[rg-pe-hook] PE: machine 0x8664, imagebase 0x140000000, SizeOfImage 0x125e000, entry 0xf23125, 8 secties
+[rg-pe-hook] adreslijst: 17 regel(s) uit Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini (beeld=pe, proloog=standaard, basis=beeld)
+[rg-pe-hook] wachtroute: 17 adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken (max 10 s, elke 50 ms)
+[rg-pe-hook] wachtroute: 1 adres(sen) is niet-nul maar OPVULLING of half geschreven (geen prologue) -- ook wachten, dit is NIET klaar
+[rg-pe-hook] wachtroute: op een eigen thread gezet; de hoofdthread gaat verder
+[rg-pe-hook] hoofdprogramma op 0000000140000000, ImageBase 0x140000000, SizeOfImage 0x125e000
+[rg-pe-hook] bewijsartefact: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook-bytes.txt   (beeldbestand: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe)
+[rg-pe-hook] PE: machine 0x8664, imagebase 0x140000000, SizeOfImage 0x125e000, entry 0xf23125, 8 secties
+[rg-pe-hook] adreslijst: 17 regel(s) uit Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini (beeld=pe, proloog=standaard, basis=beeld)
+[rg-pe-hook] wachtroute: 17 adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken (max 10 s, elke 50 ms)
+[rg-pe-hook] wachtroute: 1 adres(sen) is niet-nul maar OPVULLING of half geschreven (geen prologue) -- ook wachten, dit is NIET klaar
+[rg-pe-hook] wachtroute: op een eigen thread gezet; de hoofdthread gaat verder
+[rg-pe-hook] hoofdprogramma op 0000000140000000, ImageBase 0x140000000, SizeOfImage 0x125e000
+[rg-pe-hook] bewijsartefact: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook-bytes.txt   (beeldbestand: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe)
+[rg-pe-hook] PE: machine 0x8664, imagebase 0x140000000, SizeOfImage 0x125e000, entry 0xf23125, 8 secties
+[rg-pe-hook] adreslijst: 17 regel(s) uit Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini (beeld=pe, proloog=standaard, basis=beeld)
+[rg-pe-hook] wachtroute: 17 adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken (max 10 s, elke 50 ms)
+[rg-pe-hook] wachtroute: 1 adres(sen) is niet-nul maar OPVULLING of half geschreven (geen prologue) -- ook wachten, dit is NIET klaar
+[rg-pe-hook] wachtroute: op een eigen thread gezet; de hoofdthread gaat verder
+[rg-pe-hook] hoofdprogramma op 0000000140000000, ImageBase 0x140000000, SizeOfImage 0x125e000
+[rg-pe-hook] bewijsartefact: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook-bytes.txt   (beeldbestand: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe)
+[rg-pe-hook] PE: machine 0x8664, imagebase 0x140000000, SizeOfImage 0x125e000, entry 0xf23125, 8 secties
+[rg-pe-hook] adreslijst: 17 regel(s) uit Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini (beeld=pe, proloog=standaard, basis=beeld)
+[rg-pe-hook] wachtroute: 17 adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken (max 10 s, elke 50 ms)
+[rg-pe-hook] wachtroute: 1 adres(sen) is niet-nul maar OPVULLING of half geschreven (geen prologue) -- ook wachten, dit is NIET klaar
+[rg-pe-hook] wachtroute: op een eigen thread gezet; de hoofdthread gaat verder
+[rg-pe-hook] hoofdprogramma op 0000000140000000, ImageBase 0x140000000, SizeOfImage 0x125e000
+[rg-pe-hook] bewijsartefact: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook-bytes.txt   (beeldbestand: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe)
+[rg-pe-hook] PE: machine 0x8664, imagebase 0x140000000, SizeOfImage 0x125e000, entry 0xf23125, 8 secties
+[rg-pe-hook] adreslijst: 17 regel(s) uit Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini (beeld=pe, proloog=standaard, basis=beeld)
+[rg-pe-hook] wachtroute: 17 adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken (max 10 s, elke 50 ms)
+[rg-pe-hook] wachtroute: 1 adres(sen) is niet-nul maar OPVULLING of half geschreven (geen prologue) -- ook wachten, dit is NIET klaar
+[rg-pe-hook] wachtroute: op een eigen thread gezet; de hoofdthread gaat verder
+[rg-pe-hook] hoofdprogramma op 0000000140000000, ImageBase 0x140000000, SizeOfImage 0x125e000
+[rg-pe-hook] bewijsartefact: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook-bytes.txt   (beeldbestand: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe)
+[rg-pe-hook] PE: machine 0x8664, imagebase 0x140000000, SizeOfImage 0x125e000, entry 0xf23125, 8 secties
+[rg-pe-hook] adreslijst: 17 regel(s) uit Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini (beeld=pe, proloog=standaard, basis=beeld)
+[rg-pe-hook] wachtroute: 17 adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken (max 10 s, elke 50 ms)
+[rg-pe-hook] wachtroute: 1 adres(sen) is niet-nul maar OPVULLING of half geschreven (geen prologue) -- ook wachten, dit is NIET klaar
+[rg-pe-hook] wachtroute: op een eigen thread gezet; de hoofdthread gaat verder
+[rg-pe-hook] hoofdprogramma op 0000000140000000, ImageBase 0x140000000, SizeOfImage 0x125e000
+[rg-pe-hook] bewijsartefact: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\rg-pe-hook-bytes.txt   (beeldbestand: Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe)
+[rg-pe-hook] PE: machine 0x8664, imagebase 0x140000000, SizeOfImage 0x125e000, entry 0xf23125, 8 secties
+[rg-pe-hook] adreslijst: 17 regel(s) uit Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini (beeld=pe, proloog=standaard, basis=beeld)
+[rg-pe-hook] wachtroute: 17 adres(sen) nog NUL -- NOG NIET UITGEPAKT; ik blijf kijken (max 10 s, elke 50 ms)
+[rg-pe-hook] wachtroute: 1 adres(sen) is niet-nul maar OPVULLING of half geschreven (geen prologue) -- ook wachten, dit is NIET klaar
+
+########## header of rg-pe-hook-bytes.txt ##########
+
+# rg-pe-hook-bytes -- wat de KEURING las, op het moment van de keuring
+# tijd_ms        : 87807731 (monotoon, ms sinds de start van dit proces)
+# modulebasis    : 0x0000000140000000
+# ImageBase      : 0x0000000140000000
+# SizeOfImage    : 0x0125e000   entry 0x00f23125   secties 8
+# beeldbestand   : Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\VACUUM.exe
+# adreslijst     : Z:\home\deck\.local\share\ravengun\runtime\views\LuigisMansion\exe\x64\dongle-haken.ini
+# moduleaanwijzer: 0000000140000000  (hier wordt werkelijk gelezen: moduleaanwijzer + RVA)
+# ImageBase (kop): 0x0000000140000000
+# pid            : 0   thread: 0
+# proces loopt al: 0 ms   initialisatie nummer: 0
+
+########## the view listing ##########
+d	4096	2026-10-13 08:44	
+d	4096	2026-10-13 08:44	exe
+l	95	2026-10-13 08:44	exe/x64/VACUUM.dxvk-cache
+l	88	2026-10-13 08:44	exe/x64/VACUUM.exe
+l	99	2026-10-13 08:44	exe/x64/VACUUM.exe backup.zip
+l	96	2026-10-13 08:44	exe/x64/d3dcompiler_46.dll
+l	93	2026-10-13 08:44	exe/x64/teknoparrot.ini
+f	9755	2026-10-13 10:12	exe/x64/dongle-haken.ini
+f	134437	2026-10-13 10:12	exe/x64/rg-pe-hook.dll
+d	4096	2026-10-13 10:53	exe/x64
+d	4096	2026-10-13 10:53	exe/x64/TeknoParrot
+f	670383	2026-10-13 12:02	exe/x64/rg-pe-hook-bytes.txt
+f	6447	2026-10-13 12:02	exe/x64/rg-pe-hook.log
+l	83	2026-10-10 22:14	FFBPlugin.ini
+l	86	2026-10-10 22:14	FFBPluginGUI.exe
+l	89	2026-10-10 22:14	FFBPluginReadme.txt
+l	79	2026-10-10 22:14	LMAIO.bin
+l	73	2026-10-10 22:14	Log
+l	88	2026-10-10 22:14	MetroFramework.dll
+l	73	2026-10-10 22:14	Ram
+l	78	2026-10-10 22:14	SDL2.dll
+l	83	2026-10-10 22:14	SendFlash.exe
+l	75	2026-10-10 22:14	Tools
+l	78	2026-10-10 22:14	d3d9.dll
+l	78	2026-10-10 22:14	game.bat
+l	85	2026-10-10 22:14	oxGetHwInfo.exe
+l	85	2026-10-10 22:14	oxGetHwInfo.ini
+l	18	2026-10-10 22:17	Data
+d	4096	2026-10-10 22:17	DataGlobal
+d	4096	2026-10-10 22:17	DataGlobal/EN
+d	4096	2026-10-10 22:26	DataGlobal/EN/Data
+
+########## current runtime core ##########
+total 24
+drwxr-xr-x  6 deck deck 4096 Oct 13 07:25 .
+drwxr-xr-x 24 deck deck 4096 Oct 13 10:22 ..
+lrwxrwxrwx  1 deck deck   40 Oct 12 13:01 current -> fc8ba632e1f67c5c340ff88f30efca743e8d38f5
+drwxr-xr-x  4 deck deck 4096 Oct 11 16:28 fc8ba632e1f67c5c340ff88f30efca743e8d38f5
+drwxr-xr-x  4 deck deck 4096 Oct 12 22:34 fc8ba632e1f67c5c340ff88f30efca743e8d38f5-0005detect
+drwxr-xr-x  4 deck deck 4096 Oct 12 22:57 fc8ba632e1f67c5c340ff88f30efca743e8d38f5-0006trace
+drwxr-xr-x  4 deck deck 4096 Oct 13 07:25 fc8ba632e1f67c5c340ff88f30efca743e8d38f5-0007exit
+fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794  /home/deck/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll
+a9cd0e837f3e4a9934997d3ee6c3adf0f0376e754b0d890acba041907a203cfd  /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5-0005detect/OpenParrotx64/OpenParrot64.dll
+80fed36f45cf62138aec22c4b39e8168a014ed8f8b773994ae61fe2ebc4ac651  /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5-0006trace/OpenParrotx64/OpenParrot64.dll
+3d84057dfb2b73702d71c96a3678374f4ab3d8af6ed70a9f7dd52ba5ef05c140  /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5-0007exit/OpenParrotx64/OpenParrot64.dll
+fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794  /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll

@@ -1,0 +1,7 @@
+SANDBOX ns-mnt : mnt:[4026533738]
+SANDBOX /g3    : ja  (/g3/T4Data: ja)
+SANDBOX /T4User: ja
+SANDBOX knoop  : crw--w---- 1 deck nobody 136, 1 Oct 13 14:34 /dev/ttyS0
+SANDBOX sierra : crw--w---- 1 deck nobody 136, 5 Oct 13 14:34 /dev/sierra2
+knoop ttyS0 : OPEN
+knoop sierra: OPEN

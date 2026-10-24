@@ -1,0 +1,160 @@
+[  87944167 ms] tid   260  DllMain attach (kern geladen)
+[  87947769 ms] tid   260  Main_DoInit begin
+[  87947769 ms] tid   260  RunMain begin
+[  87947776 ms] tid   260  RunMain: teknoparrot.ini geladen=1
+[  87947776 ms] tid   260  RunMain: DetectCurrentGame klaar, game=143
+[  87947776 ms] tid   260   RunFunctions(game=0) begin
+[  87947776 ms] tid   260    init #0 game=0 functie=dll+0x7020 begin
+[  87947776 ms] tid   260    init #0 eind (0 ms)
+[  87947776 ms] tid   260    init #1 game=0 functie=dll+0x5d5b0 begin
+[  87947776 ms] tid   260    init #1 eind (0 ms)
+[  87947776 ms] tid   260    init #2 game=0 functie=dll+0x5d7f0 begin
+[  87947780 ms] tid   260    init #2 eind (4 ms)
+[  87947780 ms] tid   260    init #3 game=0 functie=dll+0x65980 begin
+[  87947787 ms] tid   260    init #3 eind (7 ms)
+[  87947788 ms] tid   260    init #4 game=0 functie=dll+0x6f680 begin
+[  87947792 ms] tid   260    init #4 eind (4 ms)
+[  87947792 ms] tid   260    init #5 game=0 functie=dll+0x72740 begin
+[  87947792 ms] tid   260    init #5 eind (0 ms)
+[  87947792 ms] tid   260    init #6 game=0 functie=dll+0x749b0 begin
+[  87947796 ms] tid   260    init #6 eind (4 ms)
+[  87947796 ms] tid   260    init #7 game=0 functie=dll+0x774b0 begin
+[  87947801 ms] tid   260    init #7 eind (5 ms)
+[  87947801 ms] tid   260    init #8 game=0 functie=dll+0x77790 begin
+[  87947801 ms] tid   260    init #8 eind (0 ms)
+[  87947801 ms] tid   260    init #9 game=0 functie=dll+0x7bc10 begin
+[  87947801 ms] tid   260  EXIT-HOOK installatie begin (MH_Initialize=MH_ERROR_ALREADY_INITIALIZED)
+[  87947805 ms] tid   260  EXIT-HOOK installatie kernel32.dll!ExitProcess: doel=00006FFFFFE9AE90 kernel32.dll+0x1ae90 sectie .text prot=0x20 create=MH_OK enable=MH_OK
+[  87947805 ms] tid   260  EXIT-HOOK  bytes voor de haak: 48 83 ec 28 ff 15 ce f9 03 00 90 90 90 90 90 90
+[  87947806 ms] tid   260  EXIT-HOOK  bytes na de haak:   e9 83 5c 9a fd 15 ce f9 03 00 90 90 90 90 90 90
+[  87947809 ms] tid   260  EXIT-HOOK installatie kernel32.dll!TerminateProcess: doel=00006FFFFFE90E54 kernel32.dll+0x10e54 sectie .text prot=0x20 create=MH_OK enable=MH_OK
+[  87947809 ms] tid   260  EXIT-HOOK  bytes voor de haak: 48 8d a4 24 00 00 00 00 ff 25 b6 95 04 00 66 90
+[  87947809 ms] tid   260  EXIT-HOOK  bytes na de haak:   e9 7d fc 9a fd 00 00 00 ff 25 b6 95 04 00 66 90
+[  87947812 ms] tid   260  EXIT-HOOK installatie ntdll.dll!RtlExitUserProcess: doel=00006FFFFFF39F50 ntdll.dll+0x29f50 sectie .text prot=0x20 create=MH_OK enable=MH_OK
+[  87947813 ms] tid   260  EXIT-HOOK  bytes voor de haak: 53 48 83 ec 20 89 cb 48 8d 0d e2 a4 06 00 e8 7d
+[  87947813 ms] tid   260  EXIT-HOOK  bytes na de haak:   e9 3e 6b 90 fd 89 cb 48 8d 0d e2 a4 06 00 e8 7d
+[  87947816 ms] tid   260  EXIT-HOOK installatie ntdll.dll!NtTerminateProcess: doel=00006FFFFFF1EF80 ntdll.dll+0xef80 sectie .text prot=0x20 create=MH_OK enable=MH_OK
+[  87947816 ms] tid   260  EXIT-HOOK  bytes voor de haak: 4c 8b d1 b8 2c 00 00 00 f6 04 25 08 03 fe 7f 01
+[  87947816 ms] tid   260  EXIT-HOOK  bytes na de haak:   e9 d1 1a 92 fd 00 00 00 f6 04 25 08 03 fe 7f 01
+[  87947820 ms] tid   260  EXIT-HOOK protect #1 adres=00006FFFFFF1F400 grootte=0x5 nieuw=0x20 -> status=0x00000000 oud=0x80 | doel: ntdll.dll+0xf400 sectie .text prot=0x20 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87947820 ms] tid   260  EXIT-HOOK installatie ntdll.dll!NtProtectVirtualMemory (alleen meekijken): doel=00006FFFFFF1F400 ntdll.dll+0xf400 sectie .text prot=0x20 create=MH_OK enable=MH_OK
+[  87947820 ms] tid   260  EXIT-HOOK  bytes voor de haak: 4c 8b d1 b8 50 00 00 00 f6 04 25 08 03 fe 7f 01
+[  87947820 ms] tid   260  EXIT-HOOK  bytes na de haak:   e9 11 16 92 fd 00 00 00 f6 04 25 08 03 fe 7f 01
+[  87947820 ms] tid   260  EXIT-HOOK zelftest begin: TerminateProcess(handle 0xdead0, code 0x5e1f7e57) -- verwacht: een regel van TerminateProcess en een geneste van NtTerminateProcess
+[  87947820 ms] tid   260  EXIT-HOOK TerminateProcess handle=00000000000DEAD0 code=0x5e1f7e57 (laag32=0x5e1f7e57 laag8=87) terugkeeradres=00006FFFFD36B941 OpenParrot64.dll+0x7b941 sectie .text prot=0x20
+[  87947820 ms] tid   260  EXIT-HOOK (genest) NtTerminateProcess handle=00000000000DEAD0 code=0x5e1f7e57 (laag32=0x5e1f7e57 laag8=87) terugkeeradres=00006FFFFFC14307 kernelbase.dll+0x84307 sectie .text prot=0x20
+[  87947820 ms] tid   260  EXIT-HOOK zelftest eind: TerminateProcess gaf 0, fout 6 (verwacht 0 en 6 = ERROR_INVALID_HANDLE)
+[  87947820 ms] tid   260  EXIT-HOOK installatie klaar
+[  87947820 ms] tid   260    init #9 eind (19 ms)
+[  87947820 ms] tid   260   RunFunctions(game=0) eind
+[  87947820 ms] tid   260   RunFunctions(game=143) begin
+[  87947820 ms] tid   260   RunFunctions(game=143) eind
+[  87947821 ms] tid   260  RunMain eind
+[  87947821 ms] tid   260  Main_DoInit: RunMain terug
+[  87947821 ms] tid   260  EXIT-HOOK momentopname na de init:
+[  87947821 ms] tid   260  EXIT-HOOK  haak ExitProcess: e9 83 5c 9a fd 15 ce f9 03 00 90 90 90 90 90 90 (ongewijzigd sinds het plaatsen)
+[  87947821 ms] tid   260  EXIT-HOOK  haak TerminateProcess: e9 7d fc 9a fd 00 00 00 ff 25 b6 95 04 00 66 90 (ongewijzigd sinds het plaatsen)
+[  87947821 ms] tid   260  EXIT-HOOK  haak RtlExitUserProcess: e9 3e 6b 90 fd 89 cb 48 8d 0d e2 a4 06 00 e8 7d (ongewijzigd sinds het plaatsen)
+[  87947821 ms] tid   260  EXIT-HOOK  haak NtTerminateProcess: e9 d1 1a 92 fd 00 00 00 f6 04 25 08 03 fe 7f 01 (ongewijzigd sinds het plaatsen)
+[  87947821 ms] tid   260  EXIT-HOOK  sectie .text    rva=0x1000 grootte=3496500 prot=0x20 niet-nul=0 van 3496500 gelezen (0.0%)
+[  87947822 ms] tid   260  EXIT-HOOK  sectie .rdata   rva=0x357000 grootte=1329995 prot=0x2 niet-nul=0 van 1329995 gelezen (0.0%)
+[  87947822 ms] tid   260  EXIT-HOOK  sectie .data    rva=0x49c000 grootte=9083712 prot=0x8 niet-nul=0 van 9083712 gelezen (0.0%)
+[  87947824 ms] tid   260  EXIT-HOOK  sectie .pdata   rva=0xd46000 grootte=172140 prot=0x2 niet-nul=0 van 172140 gelezen (0.0%)
+[  87947824 ms] tid   260  EXIT-HOOK  sectie .capcom0 rva=0xd71000 grootte=1719331 prot=0x20 niet-nul=0 van 1719331 gelezen (0.0%)
+[  87947824 ms] tid   260  EXIT-HOOK  sectie .capcom1 rva=0xf15000 grootte=3434464 prot=0x20 niet-nul=3346449 van 3434464 gelezen (97.4%)
+[  87947825 ms] tid   260  EXIT-HOOK  sectie .reloc   rva=0x125c000 grootte=24 prot=0x2 niet-nul=14 van 24 gelezen (58.3%)
+[  87947825 ms] tid   260  EXIT-HOOK  sectie .rsrc    rva=0x125d000 grootte=233 prot=0x2 niet-nul=162 van 233 gelezen (69.5%)
+[  87947825 ms] tid   260  EXIT-HOOK momentopname klaar
+[  87947873 ms] tid   260  EXIT-HOOK overzicht 1 (na de init): 51 modules, 1757885 bytes naar Z:\tmp\claude-1000\-home-deck-projects-ravengun\9f46723a-e1a6-4e94-90ce-9444f94b9176\scratchpad\runs\r7-ours\exit-trace.log.overzicht-1.txt
+[  87947873 ms] tid   260  EXIT-HOOK protect #2 adres=0000000140F23125 grootte=0x14 nieuw=0x40 -> status=0x00000000 oud=0x20 | doel: VACUUM.exe+0xf23125 sectie .capcom1 prot=0x80 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87947873 ms] tid   260  EXIT-HOOK protect #3 adres=0000000140F23125 grootte=0x14 nieuw=0x20 -> status=0x00000000 oud=0x80 | doel: VACUUM.exe+0xf23125 sectie .capcom1 prot=0x20 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87947873 ms] tid   260  Main_DoInit: originele entry-bytes teruggezet (eb 08 92 1b ...), nu de sprong naar het entry point van het spel
+[  87947874 ms] tid   260  EXIT-HOOK protect #4 adres=0000000140D71000 grootte=0x1a3c23 nieuw=0x40 -> status=0x00000000 oud=0x20 | doel: VACUUM.exe+0xd71000 sectie .capcom0 prot=0x80 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87947881 ms] tid   260  EXIT-HOOK protect #5 adres=0000000140357000 grootte=0x144b4b nieuw=0x4 -> status=0x00000000 oud=0x2 | doel: VACUUM.exe+0x357000 sectie .rdata prot=0x8 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87947881 ms] tid   260  EXIT-HOOK protect #6 adres=0000000140001000 grootte=0x355a34 nieuw=0x40 -> status=0x00000000 oud=0x20 | doel: VACUUM.exe+0x1000 sectie .text prot=0x80 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87947881 ms] tid   260  EXIT-HOOK protect #7 adres=0000000140D46000 grootte=0x2a06c nieuw=0x4 -> status=0x00000000 oud=0x2 | doel: VACUUM.exe+0xd46000 sectie .pdata prot=0x8 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87947881 ms] tid   260  EXIT-HOOK protect #8 adres=0000000140DA2000 grootte=0x5c58 nieuw=0x4 -> status=0x00000000 oud=0x80 | doel: VACUUM.exe+0xda2000 sectie .capcom0 prot=0x8 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87948115 ms] tid   260  EXIT-HOOK protect #9 adres=00006FFFFFF20000 grootte=0x1000 nieuw=0x60000080 -> status=0x00000000 oud=0x20 | doel: ntdll.dll+0x10000 sectie .text prot=0x80 | aanroeper: kernelbase.dll+0x94415 sectie .text prot=0x20
+[  87948115 ms] tid   260  EXIT-HOOK protect #10 adres=00006FFFFFF20000 grootte=0x1000 nieuw=0x60000020 -> status=0x00000000 oud=0x80 | doel: ntdll.dll+0x10000 sectie .text prot=0x20 | aanroeper: kernelbase.dll+0x9455d sectie .text prot=0x20
+[  87948115 ms] tid   260  EXIT-HOOK protect #11 adres=00006FFFFFFF0000 grootte=0x1000 nieuw=0x20 -> status=0x00000000 oud=0x40 | doel: anoniem@00006FFFFFFF0000+0x0 prot=0x20 type=0x20000 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87948116 ms] tid   260  EXIT-HOOK protect #12 adres=0000000140D71000 grootte=0x1a3c23 nieuw=0x20 -> status=0x00000000 oud=0x80 | doel: VACUUM.exe+0xd71000 sectie .capcom0 prot=0x20 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87948116 ms] tid   260  EXIT-HOOK protect #13 adres=0000000140357000 grootte=0x144b4b nieuw=0x2 -> status=0x00000000 oud=0x8 | doel: VACUUM.exe+0x357000 sectie .rdata prot=0x2 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87948116 ms] tid   260  EXIT-HOOK protect #14 adres=0000000140001000 grootte=0x355a34 nieuw=0x20 -> status=0x00000000 oud=0x80 | doel: VACUUM.exe+0x1000 sectie .text prot=0x20 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87948116 ms] tid   260  EXIT-HOOK protect #15 adres=0000000140D46000 grootte=0x2a06c nieuw=0x2 -> status=0x00000000 oud=0x8 | doel: VACUUM.exe+0xd46000 sectie .pdata prot=0x2 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87948116 ms] tid   260  EXIT-HOOK protect #16 adres=0000000140DA2000 grootte=0x5c58 nieuw=0x4 -> status=0x00000000 oud=0x20 | doel: VACUUM.exe+0xda2000 sectie .capcom0 prot=0x8 | aanroeper: kernelbase.dll+0x90caa sectie .text prot=0x20
+[  87948116 ms] tid   260  EXIT-HOOK ExitProcess code=0x140415820 (laag32=0x40415820 laag8=32) terugkeeradres=0000000140F1374D VACUUM.exe+0xf1374d sectie .capcom0 prot=0x20
+[  87948116 ms] tid   260  EXIT-HOOK  bytes voor terugkeeradres: f6 e8 48 0c f6 ff 68 fe 49 3f b6 e8 3e 0c f6 ff
+[  87948116 ms] tid   260  EXIT-HOOK  bytes op  terugkeeradres: 68 be 4a 9f 8c e8 34 0c f6 ff 1e 0e a7 d1 e4 ad
+[  87948116 ms] tid   260  EXIT-HOOK  argumentregisters bij binnenkomst:
+[  87948116 ms] tid   260  EXIT-HOOK   rcx = 0x140415820 VACUUM.exe+0x415820 sectie .rdata prot=0x2
+[  87948116 ms] tid   260  EXIT-HOOK    ervoor: 20 25 73 00 00 00 00 00 48 38 44 40 01 00 00 00
+[  87948116 ms] tid   260  EXIT-HOOK    erop:   40 33 17 40 01 00 00 00 80 f0 02 40 01 00 00 00 80 f0 02 40 01 00 00 00 d0 34 17 40 01 00 00 00  |@3.@.......@.......@.....4.@....|
+[  87948117 ms] tid   260  EXIT-HOOK   rdx = 0x0 (geen pointer naar leesbaar geheugen)
+[  87948117 ms] tid   260  EXIT-HOOK   r8  = 0x555564030250 (geen pointer naar leesbaar geheugen)
+[  87948117 ms] tid   260  EXIT-HOOK   r9  = 0x20 (geen pointer naar leesbaar geheugen)
+[  87948117 ms] tid   260  EXIT-HOOK  stapel: terugkeeradres staat op 000000000010DA38, stapelbasis 0000000000110000
+[  87948117 ms] tid   260  EXIT-HOOK  de eerste 8 stapelwoorden boven het terugkeeradres:
+[  87948117 ms] tid   260  EXIT-HOOK   [+0x08] = 0x0 (geen pointer naar leesbaar geheugen)
+[  87948117 ms] tid   260  EXIT-HOOK   [+0x10] = 0x10dc90 anoniem@0000000000010000+0xfdc90 prot=0x4 type=0x20000
+[  87948117 ms] tid   260  EXIT-HOOK    ervoor: 1d ea 22 41 01 00 00 00 c0 e4 10 00 00 00 00 00
+[  87948117 ms] tid   260  EXIT-HOOK    erop:   00 00 00 00 00 00 00 00 00 00 12 fd ff 6f 00 00 e0 e3 10 00 00 00 00 00 00 00 00 00 00 00 00 00  |.............o..................|
+[  87948117 ms] tid   260  EXIT-HOOK   [+0x18] = 0x6fff00000000 (geen pointer naar leesbaar geheugen)
+[  87948117 ms] tid   260  EXIT-HOOK   [+0x20] = 0x10e060 anoniem@0000000000010000+0xfe060 prot=0x4 type=0x20000
+[  87948117 ms] tid   260  EXIT-HOOK    ervoor: 00 00 00 00 00 00 00 00 dd 86 f3 ff ff 6f 00 00
+[  87948117 ms] tid   260  EXIT-HOOK    erop:   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 e0 bd 75 00 00 00 00 00 00 00 00 00 00 00 00 00  |..................u.............|
+[  87948117 ms] tid   260  EXIT-HOOK   [+0x28] = 0x70 (geen pointer naar leesbaar geheugen)
+[  87948117 ms] tid   260  EXIT-HOOK   [+0x30] = 0x6fffffed60e4 kernel32.dll+0x560e4 sectie .edata prot=0x2
+[  87948117 ms] tid   260  EXIT-HOOK    ervoor: 6c 6f 63 61 74 65 48 65 61 70 00 4e 54 44 4c 4c
+[  87948117 ms] tid   260  EXIT-HOOK    erop:   2e 52 74 6c 52 65 41 6c 6c 6f 63 61 74 65 48 65 61 70 00 4e 54 44 4c 4c 2e 52 74 6c 53 69 7a 65  |.RtlReAllocateHeap.NTDLL.RtlSize|
+[  87948117 ms] tid   260  EXIT-HOOK   [+0x38] = 0xc7714 anoniem@0000000000010000+0xb7714 prot=0x4 type=0x20000
+[  87948117 ms] tid   260  EXIT-HOOK    ervoor: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+[  87948118 ms] tid   260  EXIT-HOOK    erop:   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  |................................|
+[  87948118 ms] tid   260  EXIT-HOOK   [+0x40] = 0x762050 anoniem@0000000000700000+0x62050 prot=0x4 type=0x20000
+[  87948118 ms] tid   260  EXIT-HOOK    ervoor: 00 00 00 00 00 00 00 00 03 00 08 00 11 00 75 80
+[  87948118 ms] tid   260  EXIT-HOOK    erop:   20 58 41 40 01 00 00 00 68 58 41 40 01 00 00 00 c0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  | XA@....hXA@....................|
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x050] = 00006FFFFFF70441 ntdll.dll+0x60441 sectie .text prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x1a0] = 00006FFFFFF5659C ntdll.dll+0x4659c sectie .text prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x210] = 00006FFFFFF433AA ntdll.dll+0x333aa sectie .text prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x228] = 000000014122EA12 VACUUM.exe+0x122ea12 sectie .capcom1 prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x238] = 000000014125B7A4 VACUUM.exe+0x125b7a4 sectie .capcom1 prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x248] = 000000014122EA1D VACUUM.exe+0x122ea1d sectie .capcom1 prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x280] = 00006FFFFFF433AA ntdll.dll+0x333aa sectie .text prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x2b0] = 00006FFFFFF60FC0 ntdll.dll+0x50fc0 sectie .text prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x3a0] = 000000014122EA1D VACUUM.exe+0x122ea1d sectie .capcom1 prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x3a8] = 00006FFFFFE910DC kernel32.dll+0x110dc sectie .text prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x410] = 0000000141219D43 VACUUM.exe+0x1219d43 sectie .capcom1 prot=0x20
+[  87948118 ms] tid   260  EXIT-HOOK   stapel[+0x490] = 00006FFFFFF770AC ntdll.dll+0x670ac sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   stapel[+0x4d0] = 00006FFFFFF75834 ntdll.dll+0x65834 sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   stapel[+0x500] = 00006FFFFFF770AC ntdll.dll+0x670ac sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   stapel[+0x530] = 00006FFFFFF2F998 ntdll.dll+0x1f998 sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   stapel[+0x540] = 00006FFFFFF75834 ntdll.dll+0x65834 sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   stapel[+0x5a0] = 00006FFFFFF2F998 ntdll.dll+0x1f998 sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   stapel[+0x5f0] = 00006FFFFFF3F5A9 ntdll.dll+0x2f5a9 sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   stapel[+0x620] = 00006FFFFFF386DD ntdll.dll+0x286dd sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   stapel[+0x690] = 00006FFFFFF386DD ntdll.dll+0x286dd sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK  stapel-scan klaar (20 woorden in uitvoerbaar geheugen)
+[  87948119 ms] tid   260  EXIT-HOOK  stackwalk (RtlCaptureStackBackTrace) begin
+[  87948119 ms] tid   260  EXIT-HOOK   frame  0 = 00006FFFFD36D76C OpenParrot64.dll+0x7d76c sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   frame  1 = 00006FFFFD36DC0A OpenParrot64.dll+0x7dc0a sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   frame  2 = 0000000140F1374D VACUUM.exe+0xf1374d sectie .capcom0 prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   frame  3 = 000000014030FB00 VACUUM.exe+0x30fb00 sectie .text prot=0x20
+[  87948119 ms] tid   260  EXIT-HOOK   frame  4 = FFFFFFFFFFFFFFFF <geen geheugen>
+[  87948119 ms] tid   260  EXIT-HOOK  stackwalk klaar (5 frames)
+[  87948119 ms] tid   260  EXIT-HOOK momentopname bij de beëindiging:
+[  87948120 ms] tid   260  EXIT-HOOK  haak ExitProcess: e9 83 5c 9a fd 15 ce f9 03 00 90 90 90 90 90 90 (ongewijzigd sinds het plaatsen)
+[  87948120 ms] tid   260  EXIT-HOOK  haak TerminateProcess: e9 7d fc 9a fd 00 00 00 ff 25 b6 95 04 00 66 90 (ongewijzigd sinds het plaatsen)
+[  87948120 ms] tid   260  EXIT-HOOK  haak RtlExitUserProcess: e9 3e 6b 90 fd 89 cb 48 8d 0d e2 a4 06 00 e8 7d (ongewijzigd sinds het plaatsen)
+[  87948120 ms] tid   260  EXIT-HOOK  haak NtTerminateProcess: e9 d1 1a 92 fd 00 00 00 f6 04 25 08 03 fe 7f 01 (ongewijzigd sinds het plaatsen)
+[  87948120 ms] tid   260  EXIT-HOOK  sectie .text    rva=0x1000 grootte=3496500 prot=0x20 niet-nul=3104750 van 3496500 gelezen (88.8%)
+[  87948120 ms] tid   260  EXIT-HOOK  sectie .rdata   rva=0x357000 grootte=1329995 prot=0x2 niet-nul=862702 van 1329995 gelezen (64.9%)
+[  87948121 ms] tid   260  EXIT-HOOK  sectie .data    rva=0x49c000 grootte=9083712 prot=0x8 niet-nul=107341 van 9083712 gelezen (1.2%)
+[  87948122 ms] tid   260  EXIT-HOOK  sectie .pdata   rva=0xd46000 grootte=172140 prot=0x2 niet-nul=168026 van 172140 gelezen (97.6%)
+[  87948122 ms] tid   260  EXIT-HOOK  sectie .capcom0 rva=0xd71000 grootte=1719331 prot=0x20 niet-nul=1592168 van 1719331 gelezen (92.6%)
+[  87948122 ms] tid   260  EXIT-HOOK  sectie .capcom1 rva=0xf15000 grootte=3434464 prot=0x20 niet-nul=3346446 van 3434464 gelezen (97.4%)
+[  87948123 ms] tid   260  EXIT-HOOK  sectie .reloc   rva=0x125c000 grootte=24 prot=0x2 niet-nul=14 van 24 gelezen (58.3%)
+[  87948123 ms] tid   260  EXIT-HOOK  sectie .rsrc    rva=0x125d000 grootte=233 prot=0x2 niet-nul=162 van 233 gelezen (69.5%)
+[  87948123 ms] tid   260  EXIT-HOOK momentopname klaar
+[  87948162 ms] tid   260  EXIT-HOOK overzicht 2 (bij de beëindiging): 51 modules, 1757894 bytes naar Z:\tmp\claude-1000\-home-deck-projects-ravengun\9f46723a-e1a6-4e94-90ce-9444f94b9176\scratchpad\runs\r7-ours\exit-trace.log.overzicht-2.txt
+[  87948162 ms] tid   260  EXIT-HOOK (genest) RtlExitUserProcess code=0x140415820 (laag32=0x40415820 laag8=32) terugkeeradres=00006FFFFD840B0A anoniem@00006FFFFD840000+0xb0a prot=0x40 type=0x20000
+[  87948162 ms] tid   260  EXIT-HOOK (genest) NtTerminateProcess handle=0000000000000000 code=0x40415820 (laag32=0x40415820 laag8=32) terugkeeradres=00006FFFFFF39F71 ntdll.dll+0x29f71 sectie .text prot=0x20
+[  87948162 ms] tid   260  EXIT-HOOK (genest) NtTerminateProcess handle=FFFFFFFFFFFFFFFF code=0x40415820 (laag32=0x40415820 laag8=32) terugkeeradres=00006FFFFFF39F8E ntdll.dll+0x29f8e sectie .text prot=0x20

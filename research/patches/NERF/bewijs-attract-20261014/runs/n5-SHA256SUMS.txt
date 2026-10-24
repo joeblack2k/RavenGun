@@ -1,0 +1,25 @@
+# sha256 of the pieces of run n5 (2026-10-14 01:44:23 - 01:57:25), taken right after the run
+# the game, from the share (<share>/NERF Arcade/...):
+1466297fa6b1eaf54dc27311641b906b65539b9db8122f83a836ab6fdc5b5371  Nerf.x86_64
+0d874b7ea94323e0e971e897426d30320a818d8899c05f69451ae9a4585dede6  Nerf_Data/Managed/Assembly-CSharp.dll
+87f6dc620ef7e9b71feb1d6b6faa89891637841a7f9ac1f46a1161537cc1ae3c  Nerf_Data/Plugins/x86_64_ori/libUnityNatives.so
+a32fb2e61b0e2a6bf281b4e4f7426775b09c66c785a32cffe23eb4fa9fd0b605  Nerf_Data/Plugins/x86_64_ori/librio.so
+331510a4298815fef3e0ba1252649e61dfeb48226129b78873654a0ab9383685  Nerf_Data/Plugins/x86_64_ori/libRIO2.so
+0eed25a2d32c99edf2a3b17c1b3cd2ab3a57ae657b65b789c041f3df3b7cee7e  Nerf_Data/Plugins/x86_64_ori/libhasp_linux_23714.so
+aea588d26939537287125c59994b3f04b70d791343979a137ae7524a88d45b04  Nerf.exe
+7a7aa72d652704938ebde6187d89314757f5832c1dbcc28e86b8814f6d0411d8  BepInEx/plugins/NERFTPPlugin.dll
+# our launcher and its data (working tree of the loader repository: commit 8286b6a plus uncommitted changes)
+e834a0a59f8539f43f2f8324b0214cb80d8746d8a6d0f69c1edbbc0a571f1cc6  scripts/play-native.sh
+5546ea4539f4a61b9b36f66f28610ca4b1b6f2b1e939cb4b887b93bbeb1fac5d  packaging/native-games.json   (as run; its note text was edited afterwards: now e78a5797...)
+0401d5cf081c1d0700ce095f1756d4cd5a35134f3421640e3b41b349cc200a34  scripts/rg-tv-env.sh
+# the rules file bound at /etc/udev/rules.d
+797da63f32cbad13a4b9bafc45f5000bd119b4efef092fe932a2edcd58bba9bf  data/udev-rules.d/10-usb-automount.rules   (during the runs: dropin/udev-rules.d/, moved afterwards)
+# gamescope and the sandbox tool
+f6058f8c1e8baf7e4b31a45bd7612882e55200bfdc06c32b2af10b0369fcf190  /usr/bin/gamescope
+dc05726667acd8963107c867b76c2d88c1c18f14862ffe2d911ffced349ff4e4  /usr/bin/bwrap
+[gamescope] [Info]  console: gamescope version 3.16.30 (gcc 16.1.1)
+bubblewrap 0.12.0
+# the harness as run
+34e548d776bfea81c3ef17d6b511b32f157edeb828501c759a8cf446282266f9  n-run.sh
+f636512c909e2c53c41e5025b751627396b3e5d9e92226a3c86fdd364e5ccb42  n-inner.sh
+4ff8739e126b02995b29c6a16940480b57405564c31f8fc31469cc348d0d3dbd  n-watch.sh

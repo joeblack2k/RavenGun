@@ -1,0 +1,9 @@
+# errorlog.txt: the last shader failures (before the fix) and nothing after; file last written 2026-10-14 12:39:19
+Wed Oct 14 12:39:19 2026: Failed to load shader: shader108c_sk (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 12:39:19 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 12:39:19 2026: Failed to load shader: shader108d (ec=-9596, shdr=0, prgm=0)
+
+Wed Oct 14 12:39:19 2026: Assert File: g5/shader_gl.c line: 2180
+Wed Oct 14 12:39:19 2026: Failed to load shader: shader108d_sk (ec=-9596, shdr=0, prgm=0)
+

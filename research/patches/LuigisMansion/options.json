@@ -1,0 +1,426 @@
+{
+  "title": "Luigi's Mansion Arcade",
+  "nas_folder": "Luigi's Mansion Arcade",
+  "platform": "Sega Nu 1.1 (64-bit, Capcom-packed exe)",
+  "exe": "exe/x64/VACUUM.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LuigisMansion",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:LuigisMansion"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LuigisMansion",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:LuigisMansion"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LuigisMansion",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:LuigisMansion"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LuigisMansion",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:LuigisMansion"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "LuigisMansion",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:LuigisMansion"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "LuigisMansion",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/LuigisMansion.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "cfg.full_screen",
+      "name_en": "Fullscreen",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "DataGlobal/EN/Data/System/Config/DefaultConfig.csv",
+        "base": "game_dir",
+        "format": "csv",
+        "section": "Screen",
+        "key": "FULL_SCREEN"
+      },
+      "description_en": "Game fullscreen flag.",
+      "source": [
+        "findings/settings_per_game.md",
+        "findings/15_game_share.md (section 5)"
+      ]
+    },
+    {
+      "key": "cfg.video_xsize",
+      "name_en": "Video width",
+      "type": "int",
+      "default": 1920,
+      "min": 640,
+      "max": 3840,
+      "target": {
+        "kind": "game_config_file",
+        "path": "DataGlobal/EN/Data/System/Config/DefaultConfig.csv",
+        "base": "game_dir",
+        "format": "csv",
+        "section": "Screen",
+        "key": "VIDEO_XSIZE"
+      },
+      "description_en": "Video width (Nu requirement 1920x1080).",
+      "source": [
+        "findings/settings_per_game.md",
+        "findings/15_game_share.md"
+      ]
+    },
+    {
+      "key": "cfg.video_ysize",
+      "name_en": "Video height",
+      "type": "int",
+      "default": 1080,
+      "min": 480,
+      "max": 2160,
+      "target": {
+        "kind": "game_config_file",
+        "path": "DataGlobal/EN/Data/System/Config/DefaultConfig.csv",
+        "base": "game_dir",
+        "format": "csv",
+        "section": "Screen",
+        "key": "VIDEO_YSIZE"
+      },
+      "description_en": "Video height.",
+      "source": [
+        "findings/settings_per_game.md",
+        "findings/15_game_share.md"
+      ]
+    },
+    {
+      "key": "cfg.use_mouse",
+      "name_en": "Use mouse",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "DataGlobal/EN/Data/System/Config/DefaultConfig.csv",
+        "base": "game_dir",
+        "format": "csv",
+        "section": "System",
+        "key": "USE_MOUSE"
+      },
+      "description_en": "Accept mouse input.",
+      "source": [
+        "findings/settings_per_game.md",
+        "findings/15_game_share.md"
+      ]
+    },
+    {
+      "key": "cfg.use_jvs",
+      "name_en": "Use JVS gun controller",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "DataGlobal/EN/Data/System/Config/DefaultConfig.csv",
+        "base": "game_dir",
+        "format": "csv",
+        "section": "System",
+        "key": "USE_JVS"
+      },
+      "description_en": "Read the gun controller over JVS. TRUE in the dump.",
+      "source": [
+        "findings/settings_per_game.md",
+        "findings/15_game_share.md"
+      ]
+    },
+    {
+      "key": "cfg.use_japanese",
+      "name_en": "Use Japanese",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "DataGlobal/EN/Data/System/Config/DefaultConfig.csv",
+        "base": "game_dir",
+        "format": "csv",
+        "section": "System",
+        "key": "USE_JAPANESE"
+      },
+      "description_en": "Use Japanese texts (overrides LAGUAGE_ID).",
+      "source": [
+        "findings/settings_per_game.md",
+        "findings/15_game_share.md"
+      ]
+    },
+    {
+      "key": "dip.bit4",
+      "name_en": "Monitor orientation (DIP bit 4)",
+      "type": "enum",
+      "default": "horizontal",
+      "values": [
+        "horizontal",
+        "vertical"
+      ],
+      "target": {
+        "kind": "game_config_file",
+        "path": "DataGlobal/EN/Data/System/Config/DipSwitch.csv",
+        "base": "game_dir",
+        "format": "csv",
+        "key": "BIT4"
+      },
+      "description_en": "FALSE = horizontal monitor, TRUE = vertical.",
+      "source": [
+        "findings/settings_per_game.md",
+        "findings/15_game_share.md"
+      ]
+    },
+    {
+      "key": "ffb.enable_rumble",
+      "name_en": "Enable rumble",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "game_config_file",
+        "path": "FFBPlugin.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Settings",
+        "key": "EnableRumble"
+      },
+      "description_en": "FFB plugin rumble switch (the header says it was written for LGI3D, GameId=30).",
+      "source": [
+        "findings/15_game_share.md (section 7)"
+      ]
+    },
+    {
+      "key": "ffb.knock_1p",
+      "name_en": "Knock strength player 1",
+      "type": "int",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "FFBPlugin.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Settings",
+        "key": "Knock1pStrength"
+      },
+      "description_en": "Rumble strength for knock effects.",
+      "source": [
+        "findings/15_game_share.md"
+      ]
+    },
+    {
+      "key": "ffb.motor_1p",
+      "name_en": "Motor strength player 1",
+      "type": "int",
+      "default": 60,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "FFBPlugin.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Settings",
+        "key": "Motor1pStrength"
+      },
+      "description_en": "Rumble strength for motor effects.",
+      "source": [
+        "findings/15_game_share.md"
+      ]
+    },
+    {
+      "key": "ffb.health_1p",
+      "name_en": "Health strength player 1",
+      "type": "int",
+      "default": 100,
+      "min": 0,
+      "max": 100,
+      "target": {
+        "kind": "game_config_file",
+        "path": "FFBPlugin.ini",
+        "base": "game_dir",
+        "format": "ini",
+        "section": "Settings",
+        "key": "Health1pStrength"
+      },
+      "description_en": "Rumble strength for health effects.",
+      "source": [
+        "findings/15_game_share.md"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "ram_eeprom",
+        "path": "Ram/EEPROM_0x*.bin (7 files)",
+        "base": "game_dir",
+        "kind": "nvram",
+        "description_en": "I/O board EEPROM snapshot, address in the file name (0x1000..0x1200).",
+        "safe_to_erase": "no",
+        "erase_effect_en": "Do not erase singly. Back up first; the board snapshot carries a validation marker.",
+        "source": [
+          "findings/15_game_share.md (section 4)"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "ram_sram",
+        "path": "Ram/SRAM_0x*.bin (6 files)",
+        "base": "game_dir",
+        "kind": "nvram",
+        "description_en": "I/O board SRAM snapshot (0x4100..0x4D00), taken from a running board.",
+        "safe_to_erase": "no",
+        "erase_effect_en": "Do not erase singly. Back up first.",
+        "source": [
+          "findings/15_game_share.md"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "ram_book",
+        "path": "Ram/BookKeeping.bin, Ram/CreditConfig.bin",
+        "base": "game_dir",
+        "kind": "bookkeeping",
+        "description_en": "Bookkeeping and credit config (512 and 80 bytes), start with the validation marker aaaa5555.",
+        "safe_to_erase": "no",
+        "erase_effect_en": "Without the marker the state is treated as invalid; restore the shipped copy rather than deleting.",
+        "source": [
+          "findings/15_game_share.md",
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "appdata",
+        "path": "Y:\\SDCF",
+        "base": "wine_prefix",
+        "kind": "savegame",
+        "description_en": "Application data area on the emulated Y: drive; game.bat recreates it when missing.",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Resets application data; created again by game.bat.",
+        "source": [
+          "findings/15_game_share.md (section 2)"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "notes_en": ""
+  }
+}

@@ -1,0 +1,1956 @@
++ 0.000007 pid=1017608 ppid=1017607 start (kind-waarnemer actief, meet alleen)
++ 0.025861 pid=1017608 ppid=1017607 kind-gemaakt kind=1017615
++ 0.025898 pid=1017615 ppid=1017608 kind-start
++ 0.036069 pid=1017608 ppid=1017607 kind-gemaakt kind=1017616
++ 0.036087 pid=1017616 ppid=1017608 kind-start
++ 0.036127 pid=1017616 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.036135 pid=1017616 ppid=1017608 einde exit-code=0
++ 0.036468 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017616 status=0x0 geëindigd met code 0
++ 0.046687 pid=1017608 ppid=1017607 kind-gemaakt kind=1017617
++ 0.046712 pid=1017617 ppid=1017608 kind-start
++ 0.046760 pid=1017617 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.046771 pid=1017617 ppid=1017608 einde exit-code=0
++ 0.047138 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017617 status=0x0 geëindigd met code 0
++ 0.057312 pid=1017608 ppid=1017607 kind-gemaakt kind=1017618
++ 0.057328 pid=1017618 ppid=1017608 kind-start
++ 0.057360 pid=1017618 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.057367 pid=1017618 ppid=1017608 einde exit-code=0
++ 0.057739 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017618 status=0x0 geëindigd met code 0
++ 0.067959 pid=1017608 ppid=1017607 kind-gemaakt kind=1017619
++ 0.067980 pid=1017619 ppid=1017608 kind-start
++ 0.068024 pid=1017619 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.068034 pid=1017619 ppid=1017608 einde exit-code=0
++ 0.068357 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017619 status=0x0 geëindigd met code 0
++ 0.078577 pid=1017608 ppid=1017607 kind-gemaakt kind=1017620
++ 0.078595 pid=1017620 ppid=1017608 kind-start
++ 0.078626 pid=1017620 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.078633 pid=1017620 ppid=1017608 einde exit-code=0
++ 0.078877 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017620 status=0x0 geëindigd met code 0
++ 0.089095 pid=1017608 ppid=1017607 kind-gemaakt kind=1017621
++ 0.089137 pid=1017621 ppid=1017608 kind-start
++ 0.089193 pid=1017621 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.089205 pid=1017621 ppid=1017608 einde exit-code=0
++ 0.089538 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017621 status=0x0 geëindigd met code 0
++ 0.099751 pid=1017608 ppid=1017607 kind-gemaakt kind=1017622
++ 0.099766 pid=1017622 ppid=1017608 kind-start
++ 0.099800 pid=1017622 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.099807 pid=1017622 ppid=1017608 einde exit-code=0
++ 0.100064 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017622 status=0x0 geëindigd met code 0
++ 0.110274 pid=1017608 ppid=1017607 kind-gemaakt kind=1017623
++ 0.110295 pid=1017623 ppid=1017608 kind-start
++ 0.110330 pid=1017623 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.110338 pid=1017623 ppid=1017608 einde exit-code=0
++ 0.110624 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017623 status=0x0 geëindigd met code 0
++ 0.120846 pid=1017608 ppid=1017607 kind-gemaakt kind=1017624
++ 0.120889 pid=1017624 ppid=1017608 kind-start
++ 0.120945 pid=1017624 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.120957 pid=1017624 ppid=1017608 einde exit-code=0
++ 0.121331 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017624 status=0x0 geëindigd met code 0
++ 0.131550 pid=1017608 ppid=1017607 kind-gemaakt kind=1017625
++ 0.131579 pid=1017625 ppid=1017608 kind-start
++ 0.131618 pid=1017625 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.131626 pid=1017625 ppid=1017608 einde exit-code=0
++ 0.131890 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017625 status=0x0 geëindigd met code 0
++ 0.142052 pid=1017608 ppid=1017607 kind-gemaakt kind=1017626
++ 0.142093 pid=1017626 ppid=1017608 kind-start
++ 0.142150 pid=1017626 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.142166 pid=1017626 ppid=1017608 einde exit-code=0
++ 0.142492 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017626 status=0x0 geëindigd met code 0
++ 0.152694 pid=1017608 ppid=1017607 kind-gemaakt kind=1017627
++ 0.152708 pid=1017627 ppid=1017608 kind-start
++ 0.152742 pid=1017627 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.152750 pid=1017627 ppid=1017608 einde exit-code=0
++ 0.153022 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017627 status=0x0 geëindigd met code 0
++ 0.163208 pid=1017608 ppid=1017607 kind-gemaakt kind=1017628
++ 0.163234 pid=1017628 ppid=1017608 kind-start
++ 0.163286 pid=1017628 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.163297 pid=1017628 ppid=1017608 einde exit-code=0
++ 0.163681 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017628 status=0x0 geëindigd met code 0
++ 0.173905 pid=1017608 ppid=1017607 kind-gemaakt kind=1017629
++ 0.173944 pid=1017629 ppid=1017608 kind-start
++ 0.174000 pid=1017629 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.174012 pid=1017629 ppid=1017608 einde exit-code=0
++ 0.174369 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017629 status=0x0 geëindigd met code 0
++ 0.184570 pid=1017608 ppid=1017607 kind-gemaakt kind=1017630
++ 0.184608 pid=1017630 ppid=1017608 kind-start
++ 0.184665 pid=1017630 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.184677 pid=1017630 ppid=1017608 einde exit-code=0
++ 0.185056 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017630 status=0x0 geëindigd met code 0
++ 0.195274 pid=1017608 ppid=1017607 kind-gemaakt kind=1017631
++ 0.195312 pid=1017631 ppid=1017608 kind-start
++ 0.195369 pid=1017631 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.195381 pid=1017631 ppid=1017608 einde exit-code=0
++ 0.195816 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017631 status=0x0 geëindigd met code 0
++ 0.205987 pid=1017608 ppid=1017607 kind-gemaakt kind=1017632
++ 0.206028 pid=1017632 ppid=1017608 kind-start
++ 0.206085 pid=1017632 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.206097 pid=1017632 ppid=1017608 einde exit-code=0
++ 0.206427 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017632 status=0x0 geëindigd met code 0
++ 0.216560 pid=1017608 ppid=1017607 kind-gemaakt kind=1017633
++ 0.216605 pid=1017633 ppid=1017608 kind-start
++ 0.216661 pid=1017633 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.216673 pid=1017633 ppid=1017608 einde exit-code=0
++ 0.217057 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017633 status=0x0 geëindigd met code 0
++ 0.227221 pid=1017608 ppid=1017607 kind-gemaakt kind=1017634
++ 0.227249 pid=1017634 ppid=1017608 kind-start
++ 0.227293 pid=1017634 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.227306 pid=1017634 ppid=1017608 einde exit-code=0
++ 0.227740 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017634 status=0x0 geëindigd met code 0
++ 0.237954 pid=1017608 ppid=1017607 kind-gemaakt kind=1017635
++ 0.237982 pid=1017635 ppid=1017608 kind-start
++ 0.238021 pid=1017635 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.238029 pid=1017635 ppid=1017608 einde exit-code=0
++ 0.238297 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017635 status=0x0 geëindigd met code 0
++ 0.248477 pid=1017608 ppid=1017607 kind-gemaakt kind=1017636
++ 0.248508 pid=1017636 ppid=1017608 kind-start
++ 0.248548 pid=1017636 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.248558 pid=1017636 ppid=1017608 einde exit-code=0
++ 0.248832 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017636 status=0x0 geëindigd met code 0
++ 0.259053 pid=1017608 ppid=1017607 kind-gemaakt kind=1017637
++ 0.259082 pid=1017637 ppid=1017608 kind-start
++ 0.259123 pid=1017637 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.259131 pid=1017637 ppid=1017608 einde exit-code=0
++ 0.259406 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017637 status=0x0 geëindigd met code 0
++ 0.269551 pid=1017608 ppid=1017607 kind-gemaakt kind=1017638
++ 0.269587 pid=1017638 ppid=1017608 kind-start
++ 0.269640 pid=1017638 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.269651 pid=1017638 ppid=1017608 einde exit-code=0
++ 0.269999 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017638 status=0x0 geëindigd met code 0
++ 0.280204 pid=1017608 ppid=1017607 kind-gemaakt kind=1017639
++ 0.280235 pid=1017639 ppid=1017608 kind-start
++ 0.280277 pid=1017639 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.280286 pid=1017639 ppid=1017608 einde exit-code=0
++ 0.280656 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017639 status=0x0 geëindigd met code 0
++ 0.290838 pid=1017608 ppid=1017607 kind-gemaakt kind=1017640
++ 0.290870 pid=1017640 ppid=1017608 kind-start
++ 0.290912 pid=1017640 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.290921 pid=1017640 ppid=1017608 einde exit-code=0
++ 0.291211 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017640 status=0x0 geëindigd met code 0
++ 0.301426 pid=1017608 ppid=1017607 kind-gemaakt kind=1017641
++ 0.301448 pid=1017641 ppid=1017608 kind-start
++ 0.301524 pid=1017641 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.301536 pid=1017641 ppid=1017608 einde exit-code=0
++ 0.301896 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017641 status=0x0 geëindigd met code 0
++ 0.312096 pid=1017608 ppid=1017607 kind-gemaakt kind=1017642
++ 0.312133 pid=1017642 ppid=1017608 kind-start
++ 0.312186 pid=1017642 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.312196 pid=1017642 ppid=1017608 einde exit-code=0
++ 0.312596 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017642 status=0x0 geëindigd met code 0
++ 0.322798 pid=1017608 ppid=1017607 kind-gemaakt kind=1017643
++ 0.322838 pid=1017643 ppid=1017608 kind-start
++ 0.322890 pid=1017643 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.322901 pid=1017643 ppid=1017608 einde exit-code=0
++ 0.323256 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017643 status=0x0 geëindigd met code 0
++ 0.333471 pid=1017608 ppid=1017607 kind-gemaakt kind=1017644
++ 0.333521 pid=1017644 ppid=1017608 kind-start
++ 0.333576 pid=1017644 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.333588 pid=1017644 ppid=1017608 einde exit-code=0
++ 0.333951 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017644 status=0x0 geëindigd met code 0
++ 0.344157 pid=1017608 ppid=1017607 kind-gemaakt kind=1017645
++ 0.344192 pid=1017645 ppid=1017608 kind-start
++ 0.344245 pid=1017645 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.344255 pid=1017645 ppid=1017608 einde exit-code=0
++ 0.344614 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017645 status=0x0 geëindigd met code 0
++ 0.354788 pid=1017608 ppid=1017607 kind-gemaakt kind=1017646
++ 0.354822 pid=1017646 ppid=1017608 kind-start
++ 0.354865 pid=1017646 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.354873 pid=1017646 ppid=1017608 einde exit-code=0
++ 0.355157 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017646 status=0x0 geëindigd met code 0
++ 0.365347 pid=1017608 ppid=1017607 kind-gemaakt kind=1017647
++ 0.365381 pid=1017647 ppid=1017608 kind-start
++ 0.365424 pid=1017647 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.365432 pid=1017647 ppid=1017608 einde exit-code=0
++ 0.365764 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017647 status=0x0 geëindigd met code 0
++ 0.375967 pid=1017608 ppid=1017607 kind-gemaakt kind=1017648
++ 0.376006 pid=1017648 ppid=1017608 kind-start
++ 0.376058 pid=1017648 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.376069 pid=1017648 ppid=1017608 einde exit-code=0
++ 0.376404 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017648 status=0x0 geëindigd met code 0
++ 0.386563 pid=1017608 ppid=1017607 kind-gemaakt kind=1017649
++ 0.386596 pid=1017649 ppid=1017608 kind-start
++ 0.386639 pid=1017649 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.386647 pid=1017649 ppid=1017608 einde exit-code=0
++ 0.386930 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017649 status=0x0 geëindigd met code 0
++ 0.397103 pid=1017608 ppid=1017607 kind-gemaakt kind=1017650
++ 0.397147 pid=1017650 ppid=1017608 kind-start
++ 0.397199 pid=1017650 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.397210 pid=1017650 ppid=1017608 einde exit-code=0
++ 0.397567 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017650 status=0x0 geëindigd met code 0
++ 0.407772 pid=1017608 ppid=1017607 kind-gemaakt kind=1017651
++ 0.407804 pid=1017651 ppid=1017608 kind-start
++ 0.407846 pid=1017651 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.407855 pid=1017651 ppid=1017608 einde exit-code=0
++ 0.408147 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017651 status=0x0 geëindigd met code 0
++ 0.418371 pid=1017608 ppid=1017607 kind-gemaakt kind=1017652
++ 0.418408 pid=1017652 ppid=1017608 kind-start
++ 0.418484 pid=1017652 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.418493 pid=1017652 ppid=1017608 einde exit-code=0
++ 0.418793 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017652 status=0x0 geëindigd met code 0
++ 0.428992 pid=1017608 ppid=1017607 kind-gemaakt kind=1017653
++ 0.429029 pid=1017653 ppid=1017608 kind-start
++ 0.429082 pid=1017653 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.429092 pid=1017653 ppid=1017608 einde exit-code=0
++ 0.429415 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017653 status=0x0 geëindigd met code 0
++ 0.439583 pid=1017608 ppid=1017607 kind-gemaakt kind=1017654
++ 0.439623 pid=1017654 ppid=1017608 kind-start
++ 0.439675 pid=1017654 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.439686 pid=1017654 ppid=1017608 einde exit-code=0
++ 0.440040 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017654 status=0x0 geëindigd met code 0
++ 0.450219 pid=1017608 ppid=1017607 kind-gemaakt kind=1017655
++ 0.450260 pid=1017655 ppid=1017608 kind-start
++ 0.450312 pid=1017655 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.450323 pid=1017655 ppid=1017608 einde exit-code=0
++ 0.450678 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017655 status=0x0 geëindigd met code 0
++ 0.460853 pid=1017608 ppid=1017607 kind-gemaakt kind=1017656
++ 0.460894 pid=1017656 ppid=1017608 kind-start
++ 0.460946 pid=1017656 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.460957 pid=1017656 ppid=1017608 einde exit-code=0
++ 0.461312 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017656 status=0x0 geëindigd met code 0
++ 0.471521 pid=1017608 ppid=1017607 kind-gemaakt kind=1017657
++ 0.471551 pid=1017657 ppid=1017608 kind-start
++ 0.471594 pid=1017657 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.471603 pid=1017657 ppid=1017608 einde exit-code=0
++ 0.471887 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017657 status=0x0 geëindigd met code 0
++ 0.482062 pid=1017608 ppid=1017607 kind-gemaakt kind=1017658
++ 0.482094 pid=1017658 ppid=1017608 kind-start
++ 0.482138 pid=1017658 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.482147 pid=1017658 ppid=1017608 einde exit-code=0
++ 0.482435 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017658 status=0x0 geëindigd met code 0
++ 0.492636 pid=1017608 ppid=1017607 kind-gemaakt kind=1017659
++ 0.492677 pid=1017659 ppid=1017608 kind-start
++ 0.492729 pid=1017659 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.492740 pid=1017659 ppid=1017608 einde exit-code=0
++ 0.493089 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017659 status=0x0 geëindigd met code 0
++ 0.503267 pid=1017608 ppid=1017607 kind-gemaakt kind=1017660
++ 0.503300 pid=1017660 ppid=1017608 kind-start
++ 0.503343 pid=1017660 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.503351 pid=1017660 ppid=1017608 einde exit-code=0
++ 0.503645 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017660 status=0x0 geëindigd met code 0
++ 0.513822 pid=1017608 ppid=1017607 kind-gemaakt kind=1017661
++ 0.513849 pid=1017661 ppid=1017608 kind-start
++ 0.513901 pid=1017661 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.513911 pid=1017661 ppid=1017608 einde exit-code=0
++ 0.514257 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017661 status=0x0 geëindigd met code 0
++ 0.524469 pid=1017608 ppid=1017607 kind-gemaakt kind=1017662
++ 0.524486 pid=1017662 ppid=1017608 kind-start
++ 0.524524 pid=1017662 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.524531 pid=1017662 ppid=1017608 einde exit-code=0
++ 0.524810 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017662 status=0x0 geëindigd met code 0
++ 0.534987 pid=1017608 ppid=1017607 kind-gemaakt kind=1017663
++ 0.535006 pid=1017663 ppid=1017608 kind-start
++ 0.535042 pid=1017663 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.535049 pid=1017663 ppid=1017608 einde exit-code=0
++ 0.535318 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017663 status=0x0 geëindigd met code 0
++ 0.545527 pid=1017608 ppid=1017607 kind-gemaakt kind=1017664
++ 0.545552 pid=1017664 ppid=1017608 kind-start
++ 0.545594 pid=1017664 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.545603 pid=1017664 ppid=1017608 einde exit-code=0
++ 0.545925 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017664 status=0x0 geëindigd met code 0
++ 0.556105 pid=1017608 ppid=1017607 kind-gemaakt kind=1017665
++ 0.556147 pid=1017665 ppid=1017608 kind-start
++ 0.556199 pid=1017665 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.556210 pid=1017665 ppid=1017608 einde exit-code=0
++ 0.556569 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017665 status=0x0 geëindigd met code 0
++ 0.566771 pid=1017608 ppid=1017607 kind-gemaakt kind=1017666
++ 0.566802 pid=1017666 ppid=1017608 kind-start
++ 0.566844 pid=1017666 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.566853 pid=1017666 ppid=1017608 einde exit-code=0
++ 0.567145 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017666 status=0x0 geëindigd met code 0
++ 0.577348 pid=1017608 ppid=1017607 kind-gemaakt kind=1017667
++ 0.577385 pid=1017667 ppid=1017608 kind-start
++ 0.577443 pid=1017667 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.577454 pid=1017667 ppid=1017608 einde exit-code=0
++ 0.577814 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017667 status=0x0 geëindigd met code 0
++ 0.588016 pid=1017608 ppid=1017607 kind-gemaakt kind=1017668
++ 0.588056 pid=1017668 ppid=1017608 kind-start
++ 0.588108 pid=1017668 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.588119 pid=1017668 ppid=1017608 einde exit-code=0
++ 0.588438 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017668 status=0x0 geëindigd met code 0
++ 0.598642 pid=1017608 ppid=1017607 kind-gemaakt kind=1017669
++ 0.598670 pid=1017669 ppid=1017608 kind-start
++ 0.598713 pid=1017669 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.598721 pid=1017669 ppid=1017608 einde exit-code=0
++ 0.599012 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017669 status=0x0 geëindigd met code 0
++ 0.609210 pid=1017608 ppid=1017607 kind-gemaakt kind=1017670
++ 0.609242 pid=1017670 ppid=1017608 kind-start
++ 0.609285 pid=1017670 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.609293 pid=1017670 ppid=1017608 einde exit-code=0
++ 0.609643 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017670 status=0x0 geëindigd met code 0
++ 0.619825 pid=1017608 ppid=1017607 kind-gemaakt kind=1017671
++ 0.619866 pid=1017671 ppid=1017608 kind-start
++ 0.619918 pid=1017671 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.619929 pid=1017671 ppid=1017608 einde exit-code=0
++ 0.620283 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017671 status=0x0 geëindigd met code 0
++ 0.630494 pid=1017608 ppid=1017607 kind-gemaakt kind=1017672
++ 0.630519 pid=1017672 ppid=1017608 kind-start
++ 0.630562 pid=1017672 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.630571 pid=1017672 ppid=1017608 einde exit-code=0
++ 0.630856 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017672 status=0x0 geëindigd met code 0
++ 0.641056 pid=1017608 ppid=1017607 kind-gemaakt kind=1017673
++ 0.641079 pid=1017673 ppid=1017608 kind-start
++ 0.641121 pid=1017673 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.641130 pid=1017673 ppid=1017608 einde exit-code=0
++ 0.641450 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017673 status=0x0 geëindigd met code 0
++ 0.651672 pid=1017608 ppid=1017607 kind-gemaakt kind=1017674
++ 0.651693 pid=1017674 ppid=1017608 kind-start
++ 0.651742 pid=1017674 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.651752 pid=1017674 ppid=1017608 einde exit-code=0
++ 0.652085 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017674 status=0x0 geëindigd met code 0
++ 0.662290 pid=1017608 ppid=1017607 kind-gemaakt kind=1017675
++ 0.662306 pid=1017675 ppid=1017608 kind-start
++ 0.662344 pid=1017675 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.662351 pid=1017675 ppid=1017608 einde exit-code=0
++ 0.662708 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017675 status=0x0 geëindigd met code 0
++ 0.672882 pid=1017608 ppid=1017607 kind-gemaakt kind=1017676
++ 0.672920 pid=1017676 ppid=1017608 kind-start
++ 0.672972 pid=1017676 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.672983 pid=1017676 ppid=1017608 einde exit-code=0
++ 0.673332 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017676 status=0x0 geëindigd met code 0
++ 0.683540 pid=1017608 ppid=1017607 kind-gemaakt kind=1017677
++ 0.683568 pid=1017677 ppid=1017608 kind-start
++ 0.683621 pid=1017677 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.683633 pid=1017677 ppid=1017608 einde exit-code=0
++ 0.683982 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017677 status=0x0 geëindigd met code 0
++ 0.694158 pid=1017608 ppid=1017607 kind-gemaakt kind=1017678
++ 0.694191 pid=1017678 ppid=1017608 kind-start
++ 0.694233 pid=1017678 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.694242 pid=1017678 ppid=1017608 einde exit-code=0
++ 0.694539 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017678 status=0x0 geëindigd met code 0
++ 0.704739 pid=1017608 ppid=1017607 kind-gemaakt kind=1017679
++ 0.704771 pid=1017679 ppid=1017608 kind-start
++ 0.704815 pid=1017679 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.704824 pid=1017679 ppid=1017608 einde exit-code=0
++ 0.705110 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017679 status=0x0 geëindigd met code 0
++ 0.715289 pid=1017608 ppid=1017607 kind-gemaakt kind=1017680
++ 0.715324 pid=1017680 ppid=1017608 kind-start
++ 0.715367 pid=1017680 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.715375 pid=1017680 ppid=1017608 einde exit-code=0
++ 0.715776 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017680 status=0x0 geëindigd met code 0
++ 0.725953 pid=1017608 ppid=1017607 kind-gemaakt kind=1017681
++ 0.725990 pid=1017681 ppid=1017608 kind-start
++ 0.726042 pid=1017681 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.726053 pid=1017681 ppid=1017608 einde exit-code=0
++ 0.726391 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017681 status=0x0 geëindigd met code 0
++ 0.736584 pid=1017608 ppid=1017607 kind-gemaakt kind=1017682
++ 0.736615 pid=1017682 ppid=1017608 kind-start
++ 0.736658 pid=1017682 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.736666 pid=1017682 ppid=1017608 einde exit-code=0
++ 0.736959 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017682 status=0x0 geëindigd met code 0
++ 0.747161 pid=1017608 ppid=1017607 kind-gemaakt kind=1017683
++ 0.747201 pid=1017683 ppid=1017608 kind-start
++ 0.747254 pid=1017683 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.747265 pid=1017683 ppid=1017608 einde exit-code=0
++ 0.747622 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017683 status=0x0 geëindigd met code 0
++ 0.757824 pid=1017608 ppid=1017607 kind-gemaakt kind=1017684
++ 0.757852 pid=1017684 ppid=1017608 kind-start
++ 0.757894 pid=1017684 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.757903 pid=1017684 ppid=1017608 einde exit-code=0
++ 0.758194 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017684 status=0x0 geëindigd met code 0
++ 0.768421 pid=1017608 ppid=1017607 kind-gemaakt kind=1017699
++ 0.768457 pid=1017699 ppid=1017608 kind-start
++ 0.768516 pid=1017699 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.768525 pid=1017699 ppid=1017608 einde exit-code=0
++ 0.768819 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017699 status=0x0 geëindigd met code 0
++ 0.779025 pid=1017608 ppid=1017607 kind-gemaakt kind=1017700
++ 0.779061 pid=1017700 ppid=1017608 kind-start
++ 0.779114 pid=1017700 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.779124 pid=1017700 ppid=1017608 einde exit-code=0
++ 0.779450 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017700 status=0x0 geëindigd met code 0
++ 0.789627 pid=1017608 ppid=1017607 kind-gemaakt kind=1017701
++ 0.789665 pid=1017701 ppid=1017608 kind-start
++ 0.789718 pid=1017701 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.789728 pid=1017701 ppid=1017608 einde exit-code=0
++ 0.790089 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017701 status=0x0 geëindigd met code 0
++ 0.800260 pid=1017608 ppid=1017607 kind-gemaakt kind=1017702
++ 0.800302 pid=1017702 ppid=1017608 kind-start
++ 0.800358 pid=1017702 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.800369 pid=1017702 ppid=1017608 einde exit-code=0
++ 0.800777 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017702 status=0x0 geëindigd met code 0
++ 0.810981 pid=1017608 ppid=1017607 kind-gemaakt kind=1017703
++ 0.811021 pid=1017703 ppid=1017608 kind-start
++ 0.811073 pid=1017703 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.811083 pid=1017703 ppid=1017608 einde exit-code=0
++ 0.811417 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017703 status=0x0 geëindigd met code 0
++ 0.821559 pid=1017608 ppid=1017607 kind-gemaakt kind=1017704
++ 0.821600 pid=1017704 ppid=1017608 kind-start
++ 0.821652 pid=1017704 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.821663 pid=1017704 ppid=1017608 einde exit-code=0
++ 0.822018 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017704 status=0x0 geëindigd met code 0
++ 0.832198 pid=1017608 ppid=1017607 kind-gemaakt kind=1017705
++ 0.832235 pid=1017705 ppid=1017608 kind-start
++ 0.832287 pid=1017705 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.832298 pid=1017705 ppid=1017608 einde exit-code=0
++ 0.832704 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017705 status=0x0 geëindigd met code 0
++ 0.842911 pid=1017608 ppid=1017607 kind-gemaakt kind=1017706
++ 0.842947 pid=1017706 ppid=1017608 kind-start
++ 0.842999 pid=1017706 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.843010 pid=1017706 ppid=1017608 einde exit-code=0
++ 0.843367 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017706 status=0x0 geëindigd met code 0
++ 0.853550 pid=1017608 ppid=1017607 kind-gemaakt kind=1017707
++ 0.853588 pid=1017707 ppid=1017608 kind-start
++ 0.853640 pid=1017707 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.853651 pid=1017707 ppid=1017608 einde exit-code=0
++ 0.854005 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017707 status=0x0 geëindigd met code 0
++ 0.864200 pid=1017608 ppid=1017607 kind-gemaakt kind=1017708
++ 0.864232 pid=1017708 ppid=1017608 kind-start
++ 0.864274 pid=1017708 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.864283 pid=1017708 ppid=1017608 einde exit-code=0
++ 0.864630 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017708 status=0x0 geëindigd met code 0
++ 0.874813 pid=1017608 ppid=1017607 kind-gemaakt kind=1017709
++ 0.874844 pid=1017709 ppid=1017608 kind-start
++ 0.874887 pid=1017709 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.874896 pid=1017709 ppid=1017608 einde exit-code=0
++ 0.875180 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017709 status=0x0 geëindigd met code 0
++ 0.885380 pid=1017608 ppid=1017607 kind-gemaakt kind=1017710
++ 0.885415 pid=1017710 ppid=1017608 kind-start
++ 0.885461 pid=1017710 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.885470 pid=1017710 ppid=1017608 einde exit-code=0
++ 0.885760 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017710 status=0x0 geëindigd met code 0
++ 0.895960 pid=1017608 ppid=1017607 kind-gemaakt kind=1017711
++ 0.895997 pid=1017711 ppid=1017608 kind-start
++ 0.896049 pid=1017711 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.896060 pid=1017711 ppid=1017608 einde exit-code=0
++ 0.896396 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017711 status=0x0 geëindigd met code 0
++ 0.906588 pid=1017608 ppid=1017607 kind-gemaakt kind=1017712
++ 0.906627 pid=1017712 ppid=1017608 kind-start
++ 0.906679 pid=1017712 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.906689 pid=1017712 ppid=1017608 einde exit-code=0
++ 0.907046 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017712 status=0x0 geëindigd met code 0
++ 0.917222 pid=1017608 ppid=1017607 kind-gemaakt kind=1017713
++ 0.917263 pid=1017713 ppid=1017608 kind-start
++ 0.917315 pid=1017713 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.917326 pid=1017713 ppid=1017608 einde exit-code=0
++ 0.917682 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017713 status=0x0 geëindigd met code 0
++ 0.927879 pid=1017608 ppid=1017607 kind-gemaakt kind=1017714
++ 0.927917 pid=1017714 ppid=1017608 kind-start
++ 0.927969 pid=1017714 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.927986 pid=1017714 ppid=1017608 einde exit-code=0
++ 0.928335 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017714 status=0x0 geëindigd met code 0
++ 0.938548 pid=1017608 ppid=1017607 kind-gemaakt kind=1017715
++ 0.938568 pid=1017715 ppid=1017608 kind-start
++ 0.938611 pid=1017715 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.938619 pid=1017715 ppid=1017608 einde exit-code=0
++ 0.938905 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017715 status=0x0 geëindigd met code 0
++ 0.949080 pid=1017608 ppid=1017607 kind-gemaakt kind=1017716
++ 0.949118 pid=1017716 ppid=1017608 kind-start
++ 0.949170 pid=1017716 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.949181 pid=1017716 ppid=1017608 einde exit-code=0
++ 0.949539 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017716 status=0x0 geëindigd met code 0
++ 0.959736 pid=1017608 ppid=1017607 kind-gemaakt kind=1017717
++ 0.959769 pid=1017717 ppid=1017608 kind-start
++ 0.959812 pid=1017717 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.959820 pid=1017717 ppid=1017608 einde exit-code=0
++ 0.960114 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017717 status=0x0 geëindigd met code 0
++ 0.970288 pid=1017608 ppid=1017607 kind-gemaakt kind=1017718
++ 0.970321 pid=1017718 ppid=1017608 kind-start
++ 0.970364 pid=1017718 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.970373 pid=1017718 ppid=1017608 einde exit-code=0
++ 0.970774 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017718 status=0x0 geëindigd met code 0
++ 0.980950 pid=1017608 ppid=1017607 kind-gemaakt kind=1017719
++ 0.980987 pid=1017719 ppid=1017608 kind-start
++ 0.981040 pid=1017719 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.981051 pid=1017719 ppid=1017608 einde exit-code=0
++ 0.981388 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017719 status=0x0 geëindigd met code 0
++ 0.991556 pid=1017608 ppid=1017607 kind-gemaakt kind=1017720
++ 0.991588 pid=1017720 ppid=1017608 kind-start
++ 0.991631 pid=1017720 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.991639 pid=1017720 ppid=1017608 einde exit-code=0
++ 0.991928 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017720 status=0x0 geëindigd met code 0
++ 1.002108 pid=1017608 ppid=1017607 kind-gemaakt kind=1017721
++ 1.002150 pid=1017721 ppid=1017608 kind-start
++ 1.002202 pid=1017721 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.002212 pid=1017721 ppid=1017608 einde exit-code=0
++ 1.002545 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017721 status=0x0 geëindigd met code 0
++ 1.012720 pid=1017608 ppid=1017607 kind-gemaakt kind=1017722
++ 1.012750 pid=1017722 ppid=1017608 kind-start
++ 1.012793 pid=1017722 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.012802 pid=1017722 ppid=1017608 einde exit-code=0
++ 1.013091 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017722 status=0x0 geëindigd met code 0
++ 1.023263 pid=1017608 ppid=1017607 kind-gemaakt kind=1017723
++ 1.023295 pid=1017723 ppid=1017608 kind-start
++ 1.023337 pid=1017723 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.023346 pid=1017723 ppid=1017608 einde exit-code=0
++ 1.023670 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017723 status=0x0 geëindigd met code 0
++ 1.033850 pid=1017608 ppid=1017607 kind-gemaakt kind=1017724
++ 1.033887 pid=1017724 ppid=1017608 kind-start
++ 1.033939 pid=1017724 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.033950 pid=1017724 ppid=1017608 einde exit-code=0
++ 1.034303 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017724 status=0x0 geëindigd met code 0
++ 1.044483 pid=1017608 ppid=1017607 kind-gemaakt kind=1017725
++ 1.044509 pid=1017725 ppid=1017608 kind-start
++ 1.044552 pid=1017725 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.044560 pid=1017725 ppid=1017608 einde exit-code=0
++ 1.044843 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017725 status=0x0 geëindigd met code 0
++ 1.055012 pid=1017608 ppid=1017607 kind-gemaakt kind=1017726
++ 1.055034 pid=1017726 ppid=1017608 kind-start
++ 1.055077 pid=1017726 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.055085 pid=1017726 ppid=1017608 einde exit-code=0
++ 1.055375 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017726 status=0x0 geëindigd met code 0
++ 1.065583 pid=1017608 ppid=1017607 kind-gemaakt kind=1017727
++ 1.065602 pid=1017727 ppid=1017608 kind-start
++ 1.065640 pid=1017727 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.065648 pid=1017727 ppid=1017608 einde exit-code=0
++ 1.065929 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017727 status=0x0 geëindigd met code 0
++ 1.076104 pid=1017608 ppid=1017607 kind-gemaakt kind=1017728
++ 1.076140 pid=1017728 ppid=1017608 kind-start
++ 1.076192 pid=1017728 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.076203 pid=1017728 ppid=1017608 einde exit-code=0
++ 1.076523 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017728 status=0x0 geëindigd met code 0
++ 1.086731 pid=1017608 ppid=1017607 kind-gemaakt kind=1017729
++ 1.086774 pid=1017729 ppid=1017608 kind-start
++ 1.086826 pid=1017729 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.086837 pid=1017729 ppid=1017608 einde exit-code=0
++ 1.087188 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017729 status=0x0 geëindigd met code 0
++ 1.097391 pid=1017608 ppid=1017607 kind-gemaakt kind=1017730
++ 1.097430 pid=1017730 ppid=1017608 kind-start
++ 1.097520 pid=1017730 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.097533 pid=1017730 ppid=1017608 einde exit-code=0
++ 1.097894 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017730 status=0x0 geëindigd met code 0
++ 1.108077 pid=1017608 ppid=1017607 kind-gemaakt kind=1017731
++ 1.108117 pid=1017731 ppid=1017608 kind-start
++ 1.108169 pid=1017731 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.108180 pid=1017731 ppid=1017608 einde exit-code=0
++ 1.108541 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017731 status=0x0 geëindigd met code 0
++ 1.118737 pid=1017608 ppid=1017607 kind-gemaakt kind=1017732
++ 1.118770 pid=1017732 ppid=1017608 kind-start
++ 1.118813 pid=1017732 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.118821 pid=1017732 ppid=1017608 einde exit-code=0
++ 1.119107 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017732 status=0x0 geëindigd met code 0
++ 1.129282 pid=1017608 ppid=1017607 kind-gemaakt kind=1017733
++ 1.129313 pid=1017733 ppid=1017608 kind-start
++ 1.129355 pid=1017733 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.129364 pid=1017733 ppid=1017608 einde exit-code=0
++ 1.129735 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017733 status=0x0 geëindigd met code 0
++ 1.139929 pid=1017608 ppid=1017607 kind-gemaakt kind=1017734
++ 1.139969 pid=1017734 ppid=1017608 kind-start
++ 1.140021 pid=1017734 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.140032 pid=1017734 ppid=1017608 einde exit-code=0
++ 1.140377 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017734 status=0x0 geëindigd met code 0
++ 1.150560 pid=1017608 ppid=1017607 kind-gemaakt kind=1017735
++ 1.150601 pid=1017735 ppid=1017608 kind-start
++ 1.150652 pid=1017735 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.150663 pid=1017735 ppid=1017608 einde exit-code=0
++ 1.151016 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017735 status=0x0 geëindigd met code 0
++ 1.161216 pid=1017608 ppid=1017607 kind-gemaakt kind=1017736
++ 1.161244 pid=1017736 ppid=1017608 kind-start
++ 1.161289 pid=1017736 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.161297 pid=1017736 ppid=1017608 einde exit-code=0
++ 1.161676 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017736 status=0x0 geëindigd met code 0
++ 1.171848 pid=1017608 ppid=1017607 kind-gemaakt kind=1017737
++ 1.171875 pid=1017737 ppid=1017608 kind-start
++ 1.171917 pid=1017737 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.171926 pid=1017737 ppid=1017608 einde exit-code=0
++ 1.172215 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017737 status=0x0 geëindigd met code 0
++ 1.182415 pid=1017608 ppid=1017607 kind-gemaakt kind=1017738
++ 1.182434 pid=1017738 ppid=1017608 kind-start
++ 1.182517 pid=1017738 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.182528 pid=1017738 ppid=1017608 einde exit-code=0
++ 1.182883 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017738 status=0x0 geëindigd met code 0
++ 1.193058 pid=1017608 ppid=1017607 kind-gemaakt kind=1017739
++ 1.193080 pid=1017739 ppid=1017608 kind-start
++ 1.193126 pid=1017739 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.193136 pid=1017739 ppid=1017608 einde exit-code=0
++ 1.193459 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017739 status=0x0 geëindigd met code 0
++ 1.203672 pid=1017608 ppid=1017607 kind-gemaakt kind=1017740
++ 1.203696 pid=1017740 ppid=1017608 kind-start
++ 1.203742 pid=1017740 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.203752 pid=1017740 ppid=1017608 einde exit-code=0
++ 1.204080 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017740 status=0x0 geëindigd met code 0
++ 1.214259 pid=1017608 ppid=1017607 kind-gemaakt kind=1017741
++ 1.214285 pid=1017741 ppid=1017608 kind-start
++ 1.214327 pid=1017741 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.214336 pid=1017741 ppid=1017608 einde exit-code=0
++ 1.214723 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017741 status=0x0 geëindigd met code 0
++ 1.224898 pid=1017608 ppid=1017607 kind-gemaakt kind=1017742
++ 1.224930 pid=1017742 ppid=1017608 kind-start
++ 1.224972 pid=1017742 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.224981 pid=1017742 ppid=1017608 einde exit-code=0
++ 1.225267 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017742 status=0x0 geëindigd met code 0
++ 1.235468 pid=1017608 ppid=1017607 kind-gemaakt kind=1017743
++ 1.235493 pid=1017743 ppid=1017608 kind-start
++ 1.235537 pid=1017743 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.235545 pid=1017743 ppid=1017608 einde exit-code=0
++ 1.235834 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017743 status=0x0 geëindigd met code 0
++ 1.246009 pid=1017608 ppid=1017607 kind-gemaakt kind=1017744
++ 1.246034 pid=1017744 ppid=1017608 kind-start
++ 1.246076 pid=1017744 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.246085 pid=1017744 ppid=1017608 einde exit-code=0
++ 1.246368 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017744 status=0x0 geëindigd met code 0
++ 1.256583 pid=1017608 ppid=1017607 kind-gemaakt kind=1017745
++ 1.256608 pid=1017745 ppid=1017608 kind-start
++ 1.256654 pid=1017745 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.256664 pid=1017745 ppid=1017608 einde exit-code=0
++ 1.257018 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017745 status=0x0 geëindigd met code 0
++ 1.267189 pid=1017608 ppid=1017607 kind-gemaakt kind=1017746
++ 1.267207 pid=1017746 ppid=1017608 kind-start
++ 1.267243 pid=1017746 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.267250 pid=1017746 ppid=1017608 einde exit-code=0
++ 1.267636 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017746 status=0x0 geëindigd met code 0
++ 1.277852 pid=1017608 ppid=1017607 kind-gemaakt kind=1017747
++ 1.277883 pid=1017747 ppid=1017608 kind-start
++ 1.277926 pid=1017747 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.277934 pid=1017747 ppid=1017608 einde exit-code=0
++ 1.278224 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017747 status=0x0 geëindigd met code 0
++ 1.288426 pid=1017608 ppid=1017607 kind-gemaakt kind=1017748
++ 1.288470 pid=1017748 ppid=1017608 kind-start
++ 1.288512 pid=1017748 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.288521 pid=1017748 ppid=1017608 einde exit-code=0
++ 1.288814 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017748 status=0x0 geëindigd met code 0
++ 1.298985 pid=1017608 ppid=1017607 kind-gemaakt kind=1017749
++ 1.299018 pid=1017749 ppid=1017608 kind-start
++ 1.299061 pid=1017749 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.299069 pid=1017749 ppid=1017608 einde exit-code=0
++ 1.299355 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017749 status=0x0 geëindigd met code 0
++ 1.309555 pid=1017608 ppid=1017607 kind-gemaakt kind=1017750
++ 1.309586 pid=1017750 ppid=1017608 kind-start
++ 1.309629 pid=1017750 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.309638 pid=1017750 ppid=1017608 einde exit-code=0
++ 1.309936 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017750 status=0x0 geëindigd met code 0
++ 1.320132 pid=1017608 ppid=1017607 kind-gemaakt kind=1017751
++ 1.320164 pid=1017751 ppid=1017608 kind-start
++ 1.320209 pid=1017751 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.320218 pid=1017751 ppid=1017608 einde exit-code=0
++ 1.320520 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017751 status=0x0 geëindigd met code 0
++ 1.330716 pid=1017608 ppid=1017607 kind-gemaakt kind=1017752
++ 1.330738 pid=1017752 ppid=1017608 kind-start
++ 1.330784 pid=1017752 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.330793 pid=1017752 ppid=1017608 einde exit-code=0
++ 1.331135 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017752 status=0x0 geëindigd met code 0
++ 1.341331 pid=1017608 ppid=1017607 kind-gemaakt kind=1017753
++ 1.341353 pid=1017753 ppid=1017608 kind-start
++ 1.341397 pid=1017753 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.341407 pid=1017753 ppid=1017608 einde exit-code=0
++ 1.341788 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017753 status=0x0 geëindigd met code 0
++ 1.351981 pid=1017608 ppid=1017607 kind-gemaakt kind=1017754
++ 1.352004 pid=1017754 ppid=1017608 kind-start
++ 1.352044 pid=1017754 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.352053 pid=1017754 ppid=1017608 einde exit-code=0
++ 1.352374 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017754 status=0x0 geëindigd met code 0
++ 1.362618 pid=1017608 ppid=1017607 kind-gemaakt kind=1017755
++ 1.362631 pid=1017755 ppid=1017608 kind-start
++ 1.362675 pid=1017755 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.362685 pid=1017755 ppid=1017608 einde exit-code=0
++ 1.363049 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017755 status=0x0 geëindigd met code 0
++ 1.373276 pid=1017608 ppid=1017607 kind-gemaakt kind=1017756
++ 1.373291 pid=1017756 ppid=1017608 kind-start
++ 1.373329 pid=1017756 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.373338 pid=1017756 ppid=1017608 einde exit-code=0
++ 1.373718 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017756 status=0x0 geëindigd met code 0
++ 1.383899 pid=1017608 ppid=1017607 kind-gemaakt kind=1017757
++ 1.383919 pid=1017757 ppid=1017608 kind-start
++ 1.383961 pid=1017757 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.383971 pid=1017757 ppid=1017608 einde exit-code=0
++ 1.384327 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017757 status=0x0 geëindigd met code 0
++ 1.394543 pid=1017608 ppid=1017607 kind-gemaakt kind=1017758
++ 1.394581 pid=1017758 ppid=1017608 kind-start
++ 1.394645 pid=1017758 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.394656 pid=1017758 ppid=1017608 einde exit-code=0
++ 1.395010 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017758 status=0x0 geëindigd met code 0
++ 1.405229 pid=1017608 ppid=1017607 kind-gemaakt kind=1017759
++ 1.405259 pid=1017759 ppid=1017608 kind-start
++ 1.405302 pid=1017759 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.405310 pid=1017759 ppid=1017608 einde exit-code=0
++ 1.405670 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017759 status=0x0 geëindigd met code 0
++ 1.415878 pid=1017608 ppid=1017607 kind-gemaakt kind=1017760
++ 1.415918 pid=1017760 ppid=1017608 kind-start
++ 1.415970 pid=1017760 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.415980 pid=1017760 ppid=1017608 einde exit-code=0
++ 1.416333 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017760 status=0x0 geëindigd met code 0
++ 1.426508 pid=1017608 ppid=1017607 kind-gemaakt kind=1017761
++ 1.426543 pid=1017761 ppid=1017608 kind-start
++ 1.426585 pid=1017761 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.426594 pid=1017761 ppid=1017608 einde exit-code=0
++ 1.426886 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017761 status=0x0 geëindigd met code 0
++ 1.437081 pid=1017608 ppid=1017607 kind-gemaakt kind=1017762
++ 1.437112 pid=1017762 ppid=1017608 kind-start
++ 1.437154 pid=1017762 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.437165 pid=1017762 ppid=1017608 einde exit-code=0
++ 1.437462 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017762 status=0x0 geëindigd met code 0
++ 1.447664 pid=1017608 ppid=1017607 kind-gemaakt kind=1017763
++ 1.447695 pid=1017763 ppid=1017608 kind-start
++ 1.447737 pid=1017763 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.447746 pid=1017763 ppid=1017608 einde exit-code=0
++ 1.448037 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017763 status=0x0 geëindigd met code 0
++ 1.458260 pid=1017608 ppid=1017607 kind-gemaakt kind=1017764
++ 1.458277 pid=1017764 ppid=1017608 kind-start
++ 1.458314 pid=1017764 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.458323 pid=1017764 ppid=1017608 einde exit-code=0
++ 1.458674 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017764 status=0x0 geëindigd met code 0
++ 1.468870 pid=1017608 ppid=1017607 kind-gemaakt kind=1017765
++ 1.468887 pid=1017765 ppid=1017608 kind-start
++ 1.468923 pid=1017765 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.468931 pid=1017765 ppid=1017608 einde exit-code=0
++ 1.469204 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017765 status=0x0 geëindigd met code 0
++ 1.479399 pid=1017608 ppid=1017607 kind-gemaakt kind=1017766
++ 1.479418 pid=1017766 ppid=1017608 kind-start
++ 1.479469 pid=1017766 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.479501 pid=1017766 ppid=1017608 einde exit-code=0
++ 1.479866 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017766 status=0x0 geëindigd met code 0
++ 1.490033 pid=1017608 ppid=1017607 kind-gemaakt kind=1017767
++ 1.490053 pid=1017767 ppid=1017608 kind-start
++ 1.490085 pid=1017767 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.490093 pid=1017767 ppid=1017608 einde exit-code=0
++ 1.490364 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017767 status=0x0 geëindigd met code 0
++ 1.500573 pid=1017608 ppid=1017607 kind-gemaakt kind=1017768
++ 1.500594 pid=1017768 ppid=1017608 kind-start
++ 1.500637 pid=1017768 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.500646 pid=1017768 ppid=1017608 einde exit-code=0
++ 1.500984 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017768 status=0x0 geëindigd met code 0
++ 1.511161 pid=1017608 ppid=1017607 kind-gemaakt kind=1017769
++ 1.511184 pid=1017769 ppid=1017608 kind-start
++ 1.511227 pid=1017769 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.511236 pid=1017769 ppid=1017608 einde exit-code=0
++ 1.511571 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017769 status=0x0 geëindigd met code 0
++ 1.521766 pid=1017608 ppid=1017607 kind-gemaakt kind=1017770
++ 1.521807 pid=1017770 ppid=1017608 kind-start
++ 1.521859 pid=1017770 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.521870 pid=1017770 ppid=1017608 einde exit-code=0
++ 1.522227 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017770 status=0x0 geëindigd met code 0
++ 1.532402 pid=1017608 ppid=1017607 kind-gemaakt kind=1017771
++ 1.532423 pid=1017771 ppid=1017608 kind-start
++ 1.532477 pid=1017771 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.532486 pid=1017771 ppid=1017608 einde exit-code=0
++ 1.532781 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017771 status=0x0 geëindigd met code 0
++ 1.542948 pid=1017608 ppid=1017607 kind-gemaakt kind=1017772
++ 1.542991 pid=1017772 ppid=1017608 kind-start
++ 1.543043 pid=1017772 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.543054 pid=1017772 ppid=1017608 einde exit-code=0
++ 1.543389 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017772 status=0x0 geëindigd met code 0
++ 1.553588 pid=1017608 ppid=1017607 kind-gemaakt kind=1017773
++ 1.553620 pid=1017773 ppid=1017608 kind-start
++ 1.553662 pid=1017773 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.553673 pid=1017773 ppid=1017608 einde exit-code=0
++ 1.553964 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017773 status=0x0 geëindigd met code 0
++ 1.564140 pid=1017608 ppid=1017607 kind-gemaakt kind=1017774
++ 1.564162 pid=1017774 ppid=1017608 kind-start
++ 1.564204 pid=1017774 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.564213 pid=1017774 ppid=1017608 einde exit-code=0
++ 1.564538 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017774 status=0x0 geëindigd met code 0
++ 1.574738 pid=1017608 ppid=1017607 kind-gemaakt kind=1017775
++ 1.574760 pid=1017775 ppid=1017608 kind-start
++ 1.574797 pid=1017775 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.574804 pid=1017775 ppid=1017608 einde exit-code=0
++ 1.575083 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017775 status=0x0 geëindigd met code 0
++ 1.585272 pid=1017608 ppid=1017607 kind-gemaakt kind=1017776
++ 1.585309 pid=1017776 ppid=1017608 kind-start
++ 1.585361 pid=1017776 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.585372 pid=1017776 ppid=1017608 einde exit-code=0
++ 1.585734 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017776 status=0x0 geëindigd met code 0
++ 1.595915 pid=1017608 ppid=1017607 kind-gemaakt kind=1017777
++ 1.595948 pid=1017777 ppid=1017608 kind-start
++ 1.595990 pid=1017777 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.595999 pid=1017777 ppid=1017608 einde exit-code=0
++ 1.596284 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017777 status=0x0 geëindigd met code 0
++ 1.606478 pid=1017608 ppid=1017607 kind-gemaakt kind=1017778
++ 1.606503 pid=1017778 ppid=1017608 kind-start
++ 1.606545 pid=1017778 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.606556 pid=1017778 ppid=1017608 einde exit-code=0
++ 1.606847 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017778 status=0x0 geëindigd met code 0
++ 1.617042 pid=1017608 ppid=1017607 kind-gemaakt kind=1017779
++ 1.617073 pid=1017779 ppid=1017608 kind-start
++ 1.617118 pid=1017779 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.617126 pid=1017779 ppid=1017608 einde exit-code=0
++ 1.617422 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017779 status=0x0 geëindigd met code 0
++ 1.627580 pid=1017608 ppid=1017607 kind-gemaakt kind=1017780
++ 1.627600 pid=1017780 ppid=1017608 kind-start
++ 1.627642 pid=1017780 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.627651 pid=1017780 ppid=1017608 einde exit-code=0
++ 1.627939 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017780 status=0x0 geëindigd met code 0
++ 1.638137 pid=1017608 ppid=1017607 kind-gemaakt kind=1017781
++ 1.638175 pid=1017781 ppid=1017608 kind-start
++ 1.638228 pid=1017781 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.638238 pid=1017781 ppid=1017608 einde exit-code=0
++ 1.638613 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017781 status=0x0 geëindigd met code 0
++ 1.648816 pid=1017608 ppid=1017607 kind-gemaakt kind=1017782
++ 1.648847 pid=1017782 ppid=1017608 kind-start
++ 1.648890 pid=1017782 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.648898 pid=1017782 ppid=1017608 einde exit-code=0
++ 1.649188 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017782 status=0x0 geëindigd met code 0
++ 1.659374 pid=1017608 ppid=1017607 kind-gemaakt kind=1017783
++ 1.659403 pid=1017783 ppid=1017608 kind-start
++ 1.659451 pid=1017783 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.659483 pid=1017783 ppid=1017608 einde exit-code=0
++ 1.659853 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017783 status=0x0 geëindigd met code 0
++ 1.670033 pid=1017608 ppid=1017607 kind-gemaakt kind=1017784
++ 1.670067 pid=1017784 ppid=1017608 kind-start
++ 1.670109 pid=1017784 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.670120 pid=1017784 ppid=1017608 einde exit-code=0
++ 1.670412 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017784 status=0x0 geëindigd met code 0
++ 1.680576 pid=1017608 ppid=1017607 kind-gemaakt kind=1017785
++ 1.680608 pid=1017785 ppid=1017608 kind-start
++ 1.680651 pid=1017785 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.680660 pid=1017785 ppid=1017608 einde exit-code=0
++ 1.680948 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017785 status=0x0 geëindigd met code 0
++ 1.691141 pid=1017608 ppid=1017607 kind-gemaakt kind=1017786
++ 1.691174 pid=1017786 ppid=1017608 kind-start
++ 1.691217 pid=1017786 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.691225 pid=1017786 ppid=1017608 einde exit-code=0
++ 1.691530 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017786 status=0x0 geëindigd met code 0
++ 1.701732 pid=1017608 ppid=1017607 kind-gemaakt kind=1017787
++ 1.701764 pid=1017787 ppid=1017608 kind-start
++ 1.701806 pid=1017787 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.701815 pid=1017787 ppid=1017608 einde exit-code=0
++ 1.702102 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017787 status=0x0 geëindigd met code 0
++ 1.712278 pid=1017608 ppid=1017607 kind-gemaakt kind=1017788
++ 1.712309 pid=1017788 ppid=1017608 kind-start
++ 1.712358 pid=1017788 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.712367 pid=1017788 ppid=1017608 einde exit-code=0
++ 1.712756 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017788 status=0x0 geëindigd met code 0
++ 1.722925 pid=1017608 ppid=1017607 kind-gemaakt kind=1017789
++ 1.722963 pid=1017789 ppid=1017608 kind-start
++ 1.723016 pid=1017789 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.723027 pid=1017789 ppid=1017608 einde exit-code=0
++ 1.723376 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017789 status=0x0 geëindigd met code 0
++ 1.733577 pid=1017608 ppid=1017607 kind-gemaakt kind=1017790
++ 1.733610 pid=1017790 ppid=1017608 kind-start
++ 1.733653 pid=1017790 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.733662 pid=1017790 ppid=1017608 einde exit-code=0
++ 1.733954 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017790 status=0x0 geëindigd met code 0
++ 1.744123 pid=1017608 ppid=1017607 kind-gemaakt kind=1017791
++ 1.744157 pid=1017791 ppid=1017608 kind-start
++ 1.744200 pid=1017791 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.744208 pid=1017791 ppid=1017608 einde exit-code=0
++ 1.744545 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017791 status=0x0 geëindigd met code 0
++ 1.754727 pid=1017608 ppid=1017607 kind-gemaakt kind=1017792
++ 1.754752 pid=1017792 ppid=1017608 kind-start
++ 1.754795 pid=1017792 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.754804 pid=1017792 ppid=1017608 einde exit-code=0
++ 1.755093 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017792 status=0x0 geëindigd met code 0
++ 1.765289 pid=1017608 ppid=1017607 kind-gemaakt kind=1017793
++ 1.765313 pid=1017793 ppid=1017608 kind-start
++ 1.765358 pid=1017793 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.765368 pid=1017793 ppid=1017608 einde exit-code=0
++ 1.765698 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017793 status=0x0 geëindigd met code 0
++ 1.775868 pid=1017608 ppid=1017607 kind-gemaakt kind=1017794
++ 1.775890 pid=1017794 ppid=1017608 kind-start
++ 1.775931 pid=1017794 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.775940 pid=1017794 ppid=1017608 einde exit-code=0
++ 1.776273 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017794 status=0x0 geëindigd met code 0
++ 1.786494 pid=1017608 ppid=1017607 kind-gemaakt kind=1017795
++ 1.786513 pid=1017795 ppid=1017608 kind-start
++ 1.786548 pid=1017795 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.786558 pid=1017795 ppid=1017608 einde exit-code=0
++ 1.786833 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017795 status=0x0 geëindigd met code 0
++ 1.797013 pid=1017608 ppid=1017607 kind-gemaakt kind=1017796
++ 1.797031 pid=1017796 ppid=1017608 kind-start
++ 1.797066 pid=1017796 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.797074 pid=1017796 ppid=1017608 einde exit-code=0
++ 1.797339 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017796 status=0x0 geëindigd met code 0
++ 1.807552 pid=1017608 ppid=1017607 kind-gemaakt kind=1017797
++ 1.807576 pid=1017797 ppid=1017608 kind-start
++ 1.807619 pid=1017797 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.807628 pid=1017797 ppid=1017608 einde exit-code=0
++ 1.807951 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017797 status=0x0 geëindigd met code 0
++ 1.818125 pid=1017608 ppid=1017607 kind-gemaakt kind=1017798
++ 1.818144 pid=1017798 ppid=1017608 kind-start
++ 1.818178 pid=1017798 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.818185 pid=1017798 ppid=1017608 einde exit-code=0
++ 1.818500 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017798 status=0x0 geëindigd met code 0
++ 1.828698 pid=1017608 ppid=1017607 kind-gemaakt kind=1017799
++ 1.828735 pid=1017799 ppid=1017608 kind-start
++ 1.828788 pid=1017799 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.828798 pid=1017799 ppid=1017608 einde exit-code=0
++ 1.829155 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017799 status=0x0 geëindigd met code 0
++ 1.839339 pid=1017608 ppid=1017607 kind-gemaakt kind=1017801
++ 1.839359 pid=1017801 ppid=1017608 kind-start
++ 1.839404 pid=1017801 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.839413 pid=1017801 ppid=1017608 einde exit-code=0
++ 1.839710 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017801 status=0x0 geëindigd met code 0
++ 1.849901 pid=1017608 ppid=1017607 kind-gemaakt kind=1017802
++ 1.849938 pid=1017802 ppid=1017608 kind-start
++ 1.849991 pid=1017802 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.850002 pid=1017802 ppid=1017608 einde exit-code=0
++ 1.850368 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017802 status=0x0 geëindigd met code 0
++ 1.860594 pid=1017608 ppid=1017607 kind-gemaakt kind=1017803
++ 1.860623 pid=1017803 ppid=1017608 kind-start
++ 1.860666 pid=1017803 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.860675 pid=1017803 ppid=1017608 einde exit-code=0
++ 1.860965 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017803 status=0x0 geëindigd met code 0
++ 1.871151 pid=1017608 ppid=1017607 kind-gemaakt kind=1017804
++ 1.871172 pid=1017804 ppid=1017608 kind-start
++ 1.871216 pid=1017804 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.871224 pid=1017804 ppid=1017608 einde exit-code=0
++ 1.871575 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017804 status=0x0 geëindigd met code 0
++ 1.881755 pid=1017608 ppid=1017607 kind-gemaakt kind=1017805
++ 1.881796 pid=1017805 ppid=1017608 kind-start
++ 1.881849 pid=1017805 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.881860 pid=1017805 ppid=1017608 einde exit-code=0
++ 1.882218 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017805 status=0x0 geëindigd met code 0
++ 1.892422 pid=1017608 ppid=1017607 kind-gemaakt kind=1017806
++ 1.892477 pid=1017806 ppid=1017608 kind-start
++ 1.892528 pid=1017806 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.892539 pid=1017806 ppid=1017608 einde exit-code=0
++ 1.892885 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017806 status=0x0 geëindigd met code 0
++ 1.903075 pid=1017608 ppid=1017607 kind-gemaakt kind=1017807
++ 1.903105 pid=1017807 ppid=1017608 kind-start
++ 1.903148 pid=1017807 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.903157 pid=1017807 ppid=1017608 einde exit-code=0
++ 1.903487 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017807 status=0x0 geëindigd met code 0
++ 1.913663 pid=1017608 ppid=1017607 kind-gemaakt kind=1017808
++ 1.913689 pid=1017808 ppid=1017608 kind-start
++ 1.913740 pid=1017808 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.913750 pid=1017808 ppid=1017608 einde exit-code=0
++ 1.914099 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017808 status=0x0 geëindigd met code 0
++ 1.924302 pid=1017608 ppid=1017607 kind-gemaakt kind=1017809
++ 1.924327 pid=1017809 ppid=1017608 kind-start
++ 1.924370 pid=1017809 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.924378 pid=1017809 ppid=1017608 einde exit-code=0
++ 1.924742 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017809 status=0x0 geëindigd met code 0
++ 1.934919 pid=1017608 ppid=1017607 kind-gemaakt kind=1017810
++ 1.934943 pid=1017810 ppid=1017608 kind-start
++ 1.934985 pid=1017810 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.934994 pid=1017810 ppid=1017608 einde exit-code=0
++ 1.935336 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017810 status=0x0 geëindigd met code 0
++ 1.945519 pid=1017608 ppid=1017607 kind-gemaakt kind=1017811
++ 1.945538 pid=1017811 ppid=1017608 kind-start
++ 1.945573 pid=1017811 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.945581 pid=1017811 ppid=1017608 einde exit-code=0
++ 1.945850 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017811 status=0x0 geëindigd met code 0
++ 1.956027 pid=1017608 ppid=1017607 kind-gemaakt kind=1017812
++ 1.956045 pid=1017812 ppid=1017608 kind-start
++ 1.956079 pid=1017812 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.956087 pid=1017812 ppid=1017608 einde exit-code=0
++ 1.956350 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017812 status=0x0 geëindigd met code 0
++ 1.966563 pid=1017608 ppid=1017607 kind-gemaakt kind=1017813
++ 1.966587 pid=1017813 ppid=1017608 kind-start
++ 1.966629 pid=1017813 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.966638 pid=1017813 ppid=1017608 einde exit-code=0
++ 1.966960 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017813 status=0x0 geëindigd met code 0
++ 1.977166 pid=1017608 ppid=1017607 kind-gemaakt kind=1017814
++ 1.977183 pid=1017814 ppid=1017608 kind-start
++ 1.977220 pid=1017814 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.977227 pid=1017814 ppid=1017608 einde exit-code=0
++ 1.977535 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017814 status=0x0 geëindigd met code 0
++ 1.987712 pid=1017608 ppid=1017607 kind-gemaakt kind=1017815
++ 1.987735 pid=1017815 ppid=1017608 kind-start
++ 1.987768 pid=1017815 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.987776 pid=1017815 ppid=1017608 einde exit-code=0
++ 1.988035 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017815 status=0x0 geëindigd met code 0
++ 1.998212 pid=1017608 ppid=1017607 kind-gemaakt kind=1017816
++ 1.998232 pid=1017816 ppid=1017608 kind-start
++ 1.998267 pid=1017816 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.998275 pid=1017816 ppid=1017608 einde exit-code=0
++ 1.998614 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017816 status=0x0 geëindigd met code 0
++ 2.008823 pid=1017608 ppid=1017607 kind-gemaakt kind=1017817
++ 2.008863 pid=1017817 ppid=1017608 kind-start
++ 2.008915 pid=1017817 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.008926 pid=1017817 ppid=1017608 einde exit-code=0
++ 2.009284 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017817 status=0x0 geëindigd met code 0
++ 2.019499 pid=1017608 ppid=1017607 kind-gemaakt kind=1017818
++ 2.019518 pid=1017818 ppid=1017608 kind-start
++ 2.019556 pid=1017818 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.019564 pid=1017818 ppid=1017608 einde exit-code=0
++ 2.019848 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017818 status=0x0 geëindigd met code 0
++ 2.030027 pid=1017608 ppid=1017607 kind-gemaakt kind=1017819
++ 2.030046 pid=1017819 ppid=1017608 kind-start
++ 2.030081 pid=1017819 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.030089 pid=1017819 ppid=1017608 einde exit-code=0
++ 2.030361 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017819 status=0x0 geëindigd met code 0
++ 2.040579 pid=1017608 ppid=1017607 kind-gemaakt kind=1017820
++ 2.040597 pid=1017820 ppid=1017608 kind-start
++ 2.040632 pid=1017820 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.040639 pid=1017820 ppid=1017608 einde exit-code=0
++ 2.040905 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017820 status=0x0 geëindigd met code 0
++ 2.051142 pid=1017608 ppid=1017607 kind-gemaakt kind=1017821
++ 2.051180 pid=1017821 ppid=1017608 kind-start
++ 2.051237 pid=1017821 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.051247 pid=1017821 ppid=1017608 einde exit-code=0
++ 2.051600 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017821 status=0x0 geëindigd met code 0
++ 2.061790 pid=1017608 ppid=1017607 kind-gemaakt kind=1017822
++ 2.061834 pid=1017822 ppid=1017608 kind-start
++ 2.061889 pid=1017822 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.061900 pid=1017822 ppid=1017608 einde exit-code=0
++ 2.062249 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017822 status=0x0 geëindigd met code 0
++ 2.072447 pid=1017608 ppid=1017607 kind-gemaakt kind=1017823
++ 2.072501 pid=1017823 ppid=1017608 kind-start
++ 2.072556 pid=1017823 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.072567 pid=1017823 ppid=1017608 einde exit-code=0
++ 2.072928 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017823 status=0x0 geëindigd met code 0
++ 2.083130 pid=1017608 ppid=1017607 kind-gemaakt kind=1017824
++ 2.083158 pid=1017824 ppid=1017608 kind-start
++ 2.083201 pid=1017824 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.083210 pid=1017824 ppid=1017608 einde exit-code=0
++ 2.083548 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017824 status=0x0 geëindigd met code 0
++ 2.093752 pid=1017608 ppid=1017607 kind-gemaakt kind=1017825
++ 2.093773 pid=1017825 ppid=1017608 kind-start
++ 2.093818 pid=1017825 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.093828 pid=1017825 ppid=1017608 einde exit-code=0
++ 2.094169 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017825 status=0x0 geëindigd met code 0
++ 2.104372 pid=1017608 ppid=1017607 kind-gemaakt kind=1017826
++ 2.104395 pid=1017826 ppid=1017608 kind-start
++ 2.104445 pid=1017826 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.104455 pid=1017826 ppid=1017608 einde exit-code=0
++ 2.104827 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017826 status=0x0 geëindigd met code 0
++ 2.115001 pid=1017608 ppid=1017607 kind-gemaakt kind=1017827
++ 2.115025 pid=1017827 ppid=1017608 kind-start
++ 2.115066 pid=1017827 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.115075 pid=1017827 ppid=1017608 einde exit-code=0
++ 2.115408 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017827 status=0x0 geëindigd met code 0
++ 2.125590 pid=1017608 ppid=1017607 kind-gemaakt kind=1017828
++ 2.125610 pid=1017828 ppid=1017608 kind-start
++ 2.125654 pid=1017828 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.125663 pid=1017828 ppid=1017608 einde exit-code=0
++ 2.125992 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017828 status=0x0 geëindigd met code 0
++ 2.136168 pid=1017608 ppid=1017607 kind-gemaakt kind=1017829
++ 2.136186 pid=1017829 ppid=1017608 kind-start
++ 2.136220 pid=1017829 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.136228 pid=1017829 ppid=1017608 einde exit-code=0
++ 2.136543 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017829 status=0x0 geëindigd met code 0
++ 2.146721 pid=1017608 ppid=1017607 kind-gemaakt kind=1017830
++ 2.146759 pid=1017830 ppid=1017608 kind-start
++ 2.146811 pid=1017830 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.146822 pid=1017830 ppid=1017608 einde exit-code=0
++ 2.147172 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017830 status=0x0 geëindigd met code 0
++ 2.157375 pid=1017608 ppid=1017607 kind-gemaakt kind=1017835
++ 2.157406 pid=1017835 ppid=1017608 kind-start
++ 2.157454 pid=1017835 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.157463 pid=1017835 ppid=1017608 einde exit-code=0
++ 2.157759 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017835 status=0x0 geëindigd met code 0
++ 2.167944 pid=1017608 ppid=1017607 kind-gemaakt kind=1017836
++ 2.167976 pid=1017836 ppid=1017608 kind-start
++ 2.168018 pid=1017836 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.168027 pid=1017836 ppid=1017608 einde exit-code=0
++ 2.168314 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017836 status=0x0 geëindigd met code 0
++ 2.178525 pid=1017608 ppid=1017607 kind-gemaakt kind=1017837
++ 2.178553 pid=1017837 ppid=1017608 kind-start
++ 2.178602 pid=1017837 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.178613 pid=1017837 ppid=1017608 einde exit-code=0
++ 2.178966 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017837 status=0x0 geëindigd met code 0
++ 2.189150 pid=1017608 ppid=1017607 kind-gemaakt kind=1017838
++ 2.189169 pid=1017838 ppid=1017608 kind-start
++ 2.189205 pid=1017838 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.189213 pid=1017838 ppid=1017608 einde exit-code=0
++ 2.189497 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017838 status=0x0 geëindigd met code 0
++ 2.199697 pid=1017608 ppid=1017607 kind-gemaakt kind=1017839
++ 2.199720 pid=1017839 ppid=1017608 kind-start
++ 2.199764 pid=1017839 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.199774 pid=1017839 ppid=1017608 einde exit-code=0
++ 2.200103 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017839 status=0x0 geëindigd met code 0
++ 2.210316 pid=1017608 ppid=1017607 kind-gemaakt kind=1017844
++ 2.210338 pid=1017844 ppid=1017608 kind-start
++ 2.210387 pid=1017844 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.210398 pid=1017844 ppid=1017608 einde exit-code=0
++ 2.210771 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017844 status=0x0 geëindigd met code 0
++ 2.220954 pid=1017608 ppid=1017607 kind-gemaakt kind=1017845
++ 2.220977 pid=1017845 ppid=1017608 kind-start
++ 2.221019 pid=1017845 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.221028 pid=1017845 ppid=1017608 einde exit-code=0
++ 2.221366 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017845 status=0x0 geëindigd met code 0
++ 2.231569 pid=1017608 ppid=1017607 kind-gemaakt kind=1017846
++ 2.231589 pid=1017846 ppid=1017608 kind-start
++ 2.231625 pid=1017846 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.231632 pid=1017846 ppid=1017608 einde exit-code=0
++ 2.231902 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017846 status=0x0 geëindigd met code 0
++ 2.242082 pid=1017608 ppid=1017607 kind-gemaakt kind=1017847
++ 2.242105 pid=1017847 ppid=1017608 kind-start
++ 2.242147 pid=1017847 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.242156 pid=1017847 ppid=1017608 einde exit-code=0
++ 2.242488 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017847 status=0x0 geëindigd met code 0
++ 2.252698 pid=1017608 ppid=1017607 kind-gemaakt kind=1017848
++ 2.252714 pid=1017848 ppid=1017608 kind-start
++ 2.252748 pid=1017848 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.252755 pid=1017848 ppid=1017608 einde exit-code=0
++ 2.253019 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017848 status=0x0 geëindigd met code 0
++ 2.263197 pid=1017608 ppid=1017607 kind-gemaakt kind=1017849
++ 2.263214 pid=1017849 ppid=1017608 kind-start
++ 2.263248 pid=1017849 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.263256 pid=1017849 ppid=1017608 einde exit-code=0
++ 2.263598 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017849 status=0x0 geëindigd met code 0
++ 2.273804 pid=1017608 ppid=1017607 kind-gemaakt kind=1017850
++ 2.273841 pid=1017850 ppid=1017608 kind-start
++ 2.273893 pid=1017850 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.273904 pid=1017850 ppid=1017608 einde exit-code=0
++ 2.274253 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017850 status=0x0 geëindigd met code 0
++ 2.284494 pid=1017608 ppid=1017607 kind-gemaakt kind=1017851
++ 2.284535 pid=1017851 ppid=1017608 kind-start
++ 2.284594 pid=1017851 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.284607 pid=1017851 ppid=1017608 einde exit-code=0
++ 2.284973 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017851 status=0x0 geëindigd met code 0
++ 2.295167 pid=1017608 ppid=1017607 kind-gemaakt kind=1017852
++ 2.295199 pid=1017852 ppid=1017608 kind-start
++ 2.295241 pid=1017852 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.295250 pid=1017852 ppid=1017608 einde exit-code=0
++ 2.295637 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017852 status=0x0 geëindigd met code 0
++ 2.305840 pid=1017608 ppid=1017607 kind-gemaakt kind=1017853
++ 2.305881 pid=1017853 ppid=1017608 kind-start
++ 2.305932 pid=1017853 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.305943 pid=1017853 ppid=1017608 einde exit-code=0
++ 2.306302 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017853 status=0x0 geëindigd met code 0
++ 2.316505 pid=1017608 ppid=1017607 kind-gemaakt kind=1017854
++ 2.316546 pid=1017854 ppid=1017608 kind-start
++ 2.316599 pid=1017854 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.316610 pid=1017854 ppid=1017608 einde exit-code=0
++ 2.316965 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017854 status=0x0 geëindigd met code 0
++ 2.327160 pid=1017608 ppid=1017607 kind-gemaakt kind=1017855
++ 2.327193 pid=1017855 ppid=1017608 kind-start
++ 2.327236 pid=1017855 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.327245 pid=1017855 ppid=1017608 einde exit-code=0
++ 2.327620 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017855 status=0x0 geëindigd met code 0
++ 2.337813 pid=1017608 ppid=1017607 kind-gemaakt kind=1017856
++ 2.337851 pid=1017856 ppid=1017608 kind-start
++ 2.337903 pid=1017856 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.337914 pid=1017856 ppid=1017608 einde exit-code=0
++ 2.338266 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017856 status=0x0 geëindigd met code 0
++ 2.348541 pid=1017608 ppid=1017607 kind-gemaakt kind=1017857
++ 2.348577 pid=1017857 ppid=1017608 kind-start
++ 2.348635 pid=1017857 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.348646 pid=1017857 ppid=1017608 einde exit-code=0
++ 2.349012 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017857 status=0x0 geëindigd met code 0
++ 2.359221 pid=1017608 ppid=1017607 kind-gemaakt kind=1017858
++ 2.359249 pid=1017858 ppid=1017608 kind-start
++ 2.359291 pid=1017858 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.359300 pid=1017858 ppid=1017608 einde exit-code=0
++ 2.359623 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017858 status=0x0 geëindigd met code 0
++ 2.369806 pid=1017608 ppid=1017607 kind-gemaakt kind=1017859
++ 2.369839 pid=1017859 ppid=1017608 kind-start
++ 2.369881 pid=1017859 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.369890 pid=1017859 ppid=1017608 einde exit-code=0
++ 2.370180 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017859 status=0x0 geëindigd met code 0
++ 2.380364 pid=1017608 ppid=1017607 kind-gemaakt kind=1017860
++ 2.380395 pid=1017860 ppid=1017608 kind-start
++ 2.380439 pid=1017860 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.380454 pid=1017860 ppid=1017608 einde exit-code=0
++ 2.380841 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017860 status=0x0 geëindigd met code 0
++ 2.391018 pid=1017608 ppid=1017607 kind-gemaakt kind=1017861
++ 2.391055 pid=1017861 ppid=1017608 kind-start
++ 2.391107 pid=1017861 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.391118 pid=1017861 ppid=1017608 einde exit-code=0
++ 2.391463 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017861 status=0x0 geëindigd met code 0
++ 2.401642 pid=1017608 ppid=1017607 kind-gemaakt kind=1017862
++ 2.401675 pid=1017862 ppid=1017608 kind-start
++ 2.401717 pid=1017862 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.401726 pid=1017862 ppid=1017608 einde exit-code=0
++ 2.402014 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017862 status=0x0 geëindigd met code 0
++ 2.412188 pid=1017608 ppid=1017607 kind-gemaakt kind=1017863
++ 2.412218 pid=1017863 ppid=1017608 kind-start
++ 2.412261 pid=1017863 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.412269 pid=1017863 ppid=1017608 einde exit-code=0
++ 2.412617 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017863 status=0x0 geëindigd met code 0
++ 2.422822 pid=1017608 ppid=1017607 kind-gemaakt kind=1017864
++ 2.422861 pid=1017864 ppid=1017608 kind-start
++ 2.422913 pid=1017864 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.422924 pid=1017864 ppid=1017608 einde exit-code=0
++ 2.423278 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017864 status=0x0 geëindigd met code 0
++ 2.433486 pid=1017608 ppid=1017607 kind-gemaakt kind=1017865
++ 2.433511 pid=1017865 ppid=1017608 kind-start
++ 2.433553 pid=1017865 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.433562 pid=1017865 ppid=1017608 einde exit-code=0
++ 2.433874 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017865 status=0x0 geëindigd met code 0
++ 2.444079 pid=1017608 ppid=1017607 kind-gemaakt kind=1017866
++ 2.444122 pid=1017866 ppid=1017608 kind-start
++ 2.444185 pid=1017866 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.444196 pid=1017866 ppid=1017608 einde exit-code=0
++ 2.444562 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017866 status=0x0 geëindigd met code 0
++ 2.454781 pid=1017608 ppid=1017607 kind-gemaakt kind=1017867
++ 2.454820 pid=1017867 ppid=1017608 kind-start
++ 2.454872 pid=1017867 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.454882 pid=1017867 ppid=1017608 einde exit-code=0
++ 2.455240 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017867 status=0x0 geëindigd met code 0
++ 2.465450 pid=1017608 ppid=1017607 kind-gemaakt kind=1017868
++ 2.465476 pid=1017868 ppid=1017608 kind-start
++ 2.465520 pid=1017868 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.465528 pid=1017868 ppid=1017608 einde exit-code=0
++ 2.465814 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017868 status=0x0 geëindigd met code 0
++ 2.476012 pid=1017608 ppid=1017607 kind-gemaakt kind=1017869
++ 2.476045 pid=1017869 ppid=1017608 kind-start
++ 2.476087 pid=1017869 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.476096 pid=1017869 ppid=1017608 einde exit-code=0
++ 2.476390 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017869 status=0x0 geëindigd met code 0
++ 2.486581 pid=1017608 ppid=1017607 kind-gemaakt kind=1017870
++ 2.486621 pid=1017870 ppid=1017608 kind-start
++ 2.486673 pid=1017870 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.486684 pid=1017870 ppid=1017608 einde exit-code=0
++ 2.487034 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017870 status=0x0 geëindigd met code 0
++ 2.497216 pid=1017608 ppid=1017607 kind-gemaakt kind=1017871
++ 2.497257 pid=1017871 ppid=1017608 kind-start
++ 2.497309 pid=1017871 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.497320 pid=1017871 ppid=1017608 einde exit-code=0
++ 2.497746 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017871 status=0x0 geëindigd met code 0
++ 2.507944 pid=1017608 ppid=1017607 kind-gemaakt kind=1017874
++ 2.507978 pid=1017874 ppid=1017608 kind-start
++ 2.508020 pid=1017874 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.508029 pid=1017874 ppid=1017608 einde exit-code=0
++ 2.508317 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017874 status=0x0 geëindigd met code 0
++ 2.518517 pid=1017608 ppid=1017607 kind-gemaakt kind=1017875
++ 2.518555 pid=1017875 ppid=1017608 kind-start
++ 2.518610 pid=1017875 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.518621 pid=1017875 ppid=1017608 einde exit-code=0
++ 2.518970 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017875 status=0x0 geëindigd met code 0
++ 2.529139 pid=1017608 ppid=1017607 kind-gemaakt kind=1017876
++ 2.529181 pid=1017876 ppid=1017608 kind-start
++ 2.529233 pid=1017876 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.529244 pid=1017876 ppid=1017608 einde exit-code=0
++ 2.529648 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017876 status=0x0 geëindigd met code 0
++ 2.539842 pid=1017608 ppid=1017607 kind-gemaakt kind=1017877
++ 2.539883 pid=1017877 ppid=1017608 kind-start
++ 2.539935 pid=1017877 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.539945 pid=1017877 ppid=1017608 einde exit-code=0
++ 2.540304 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017877 status=0x0 geëindigd met code 0
++ 2.550523 pid=1017608 ppid=1017607 kind-gemaakt kind=1017878
++ 2.550554 pid=1017878 ppid=1017608 kind-start
++ 2.550597 pid=1017878 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.550606 pid=1017878 ppid=1017608 einde exit-code=0
++ 2.550891 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017878 status=0x0 geëindigd met code 0
++ 2.561063 pid=1017608 ppid=1017607 kind-gemaakt kind=1017879
++ 2.561105 pid=1017879 ppid=1017608 kind-start
++ 2.561156 pid=1017879 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.561167 pid=1017879 ppid=1017608 einde exit-code=0
++ 2.561533 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017879 status=0x0 geëindigd met code 0
++ 2.571728 pid=1017608 ppid=1017607 kind-gemaakt kind=1017880
++ 2.571769 pid=1017880 ppid=1017608 kind-start
++ 2.571826 pid=1017880 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.571838 pid=1017880 ppid=1017608 einde exit-code=0
++ 2.572188 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017880 status=0x0 geëindigd met code 0
++ 2.582381 pid=1017608 ppid=1017607 kind-gemaakt kind=1017881
++ 2.582414 pid=1017881 ppid=1017608 kind-start
++ 2.582484 pid=1017881 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.582503 pid=1017881 ppid=1017608 einde exit-code=0
++ 2.582871 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017881 status=0x0 geëindigd met code 0
++ 2.593047 pid=1017608 ppid=1017607 kind-gemaakt kind=1017882
++ 2.593088 pid=1017882 ppid=1017608 kind-start
++ 2.593139 pid=1017882 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.593150 pid=1017882 ppid=1017608 einde exit-code=0
++ 2.593486 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017882 status=0x0 geëindigd met code 0
++ 2.603654 pid=1017608 ppid=1017607 kind-gemaakt kind=1017883
++ 2.603687 pid=1017883 ppid=1017608 kind-start
++ 2.603730 pid=1017883 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.603738 pid=1017883 ppid=1017608 einde exit-code=0
++ 2.604034 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017883 status=0x0 geëindigd met code 0
++ 2.614228 pid=1017608 ppid=1017607 kind-gemaakt kind=1017884
++ 2.614260 pid=1017884 ppid=1017608 kind-start
++ 2.614303 pid=1017884 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.614312 pid=1017884 ppid=1017608 einde exit-code=0
++ 2.614700 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017884 status=0x0 geëindigd met code 0
++ 2.624874 pid=1017608 ppid=1017607 kind-gemaakt kind=1017885
++ 2.624912 pid=1017885 ppid=1017608 kind-start
++ 2.624965 pid=1017885 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.624975 pid=1017885 ppid=1017608 einde exit-code=0
++ 2.625323 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017885 status=0x0 geëindigd met code 0
++ 2.635528 pid=1017608 ppid=1017607 kind-gemaakt kind=1017886
++ 2.635557 pid=1017886 ppid=1017608 kind-start
++ 2.635600 pid=1017886 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.635608 pid=1017886 ppid=1017608 einde exit-code=0
++ 2.635897 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017886 status=0x0 geëindigd met code 0
++ 2.646076 pid=1017608 ppid=1017607 kind-gemaakt kind=1017887
++ 2.646109 pid=1017887 ppid=1017608 kind-start
++ 2.646151 pid=1017887 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.646160 pid=1017887 ppid=1017608 einde exit-code=0
++ 2.646446 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017887 status=0x0 geëindigd met code 0
++ 2.656659 pid=1017608 ppid=1017607 kind-gemaakt kind=1017888
++ 2.656697 pid=1017888 ppid=1017608 kind-start
++ 2.656749 pid=1017888 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.656759 pid=1017888 ppid=1017608 einde exit-code=0
++ 2.657113 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017888 status=0x0 geëindigd met code 0
++ 2.667316 pid=1017608 ppid=1017607 kind-gemaakt kind=1017889
++ 2.667353 pid=1017889 ppid=1017608 kind-start
++ 2.667406 pid=1017889 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.667417 pid=1017889 ppid=1017608 einde exit-code=0
++ 2.667787 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017889 status=0x0 geëindigd met code 0
++ 2.677985 pid=1017608 ppid=1017607 kind-gemaakt kind=1017890
++ 2.678017 pid=1017890 ppid=1017608 kind-start
++ 2.678060 pid=1017890 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.678068 pid=1017890 ppid=1017608 einde exit-code=0
++ 2.678354 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017890 status=0x0 geëindigd met code 0
++ 2.688539 pid=1017608 ppid=1017607 kind-gemaakt kind=1017891
++ 2.688572 pid=1017891 ppid=1017608 kind-start
++ 2.688614 pid=1017891 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.688623 pid=1017891 ppid=1017608 einde exit-code=0
++ 2.688911 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017891 status=0x0 geëindigd met code 0
++ 2.699107 pid=1017608 ppid=1017607 kind-gemaakt kind=1017892
++ 2.699140 pid=1017892 ppid=1017608 kind-start
++ 2.699182 pid=1017892 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.699191 pid=1017892 ppid=1017608 einde exit-code=0
++ 2.699479 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017892 status=0x0 geëindigd met code 0
++ 2.709658 pid=1017608 ppid=1017607 kind-gemaakt kind=1017893
++ 2.709700 pid=1017893 ppid=1017608 kind-start
++ 2.709752 pid=1017893 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.709763 pid=1017893 ppid=1017608 einde exit-code=0
++ 2.710109 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017893 status=0x0 geëindigd met code 0
++ 2.720306 pid=1017608 ppid=1017607 kind-gemaakt kind=1017894
++ 2.720346 pid=1017894 ppid=1017608 kind-start
++ 2.720398 pid=1017894 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.720409 pid=1017894 ppid=1017608 einde exit-code=0
++ 2.720820 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017894 status=0x0 geëindigd met code 0
++ 2.730990 pid=1017608 ppid=1017607 kind-gemaakt kind=1017895
++ 2.731028 pid=1017895 ppid=1017608 kind-start
++ 2.731080 pid=1017895 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.731091 pid=1017895 ppid=1017608 einde exit-code=0
++ 2.731434 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017895 status=0x0 geëindigd met code 0
++ 2.741641 pid=1017608 ppid=1017607 kind-gemaakt kind=1017896
++ 2.741672 pid=1017896 ppid=1017608 kind-start
++ 2.741717 pid=1017896 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.741726 pid=1017896 ppid=1017608 einde exit-code=0
++ 2.742011 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017896 status=0x0 geëindigd met code 0
++ 2.752206 pid=1017608 ppid=1017607 kind-gemaakt kind=1017897
++ 2.752239 pid=1017897 ppid=1017608 kind-start
++ 2.752282 pid=1017897 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.752290 pid=1017897 ppid=1017608 einde exit-code=0
++ 2.752635 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017897 status=0x0 geëindigd met code 0
++ 2.762806 pid=1017608 ppid=1017607 kind-gemaakt kind=1017898
++ 2.762848 pid=1017898 ppid=1017608 kind-start
++ 2.762900 pid=1017898 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.762911 pid=1017898 ppid=1017608 einde exit-code=0
++ 2.763267 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017898 status=0x0 geëindigd met code 0
++ 2.773468 pid=1017608 ppid=1017607 kind-gemaakt kind=1017899
++ 2.773493 pid=1017899 ppid=1017608 kind-start
++ 2.773536 pid=1017899 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.773545 pid=1017899 ppid=1017608 einde exit-code=0
++ 2.773830 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017899 status=0x0 geëindigd met code 0
++ 2.783998 pid=1017608 ppid=1017607 kind-gemaakt kind=1017900
++ 2.784041 pid=1017900 ppid=1017608 kind-start
++ 2.784092 pid=1017900 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.784103 pid=1017900 ppid=1017608 einde exit-code=0
++ 2.784454 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017900 status=0x0 geëindigd met code 0
++ 2.794655 pid=1017608 ppid=1017607 kind-gemaakt kind=1017901
++ 2.794686 pid=1017901 ppid=1017608 kind-start
++ 2.794729 pid=1017901 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.794738 pid=1017901 ppid=1017608 einde exit-code=0
++ 2.795028 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017901 status=0x0 geëindigd met code 0
++ 2.805223 pid=1017608 ppid=1017607 kind-gemaakt kind=1017902
++ 2.805263 pid=1017902 ppid=1017608 kind-start
++ 2.805315 pid=1017902 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.805325 pid=1017902 ppid=1017608 einde exit-code=0
++ 2.805685 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017902 status=0x0 geëindigd met code 0
++ 2.815854 pid=1017608 ppid=1017607 kind-gemaakt kind=1017905
++ 2.815887 pid=1017905 ppid=1017608 kind-start
++ 2.815930 pid=1017905 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.815938 pid=1017905 ppid=1017608 einde exit-code=0
++ 2.816227 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017905 status=0x0 geëindigd met code 0
++ 2.826443 pid=1017608 ppid=1017607 kind-gemaakt kind=1017906
++ 2.826482 pid=1017906 ppid=1017608 kind-start
++ 2.826529 pid=1017906 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.826537 pid=1017906 ppid=1017608 einde exit-code=0
++ 2.826840 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017906 status=0x0 geëindigd met code 0
++ 2.837017 pid=1017608 ppid=1017607 kind-gemaakt kind=1017907
++ 2.837054 pid=1017907 ppid=1017608 kind-start
++ 2.837106 pid=1017907 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.837117 pid=1017907 ppid=1017608 einde exit-code=0
++ 2.837449 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017907 status=0x0 geëindigd met code 0
++ 2.847644 pid=1017608 ppid=1017607 kind-gemaakt kind=1017908
++ 2.847676 pid=1017908 ppid=1017608 kind-start
++ 2.847720 pid=1017908 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.847729 pid=1017908 ppid=1017608 einde exit-code=0
++ 2.848020 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017908 status=0x0 geëindigd met code 0
++ 2.858214 pid=1017608 ppid=1017607 kind-gemaakt kind=1017909
++ 2.858252 pid=1017909 ppid=1017608 kind-start
++ 2.858304 pid=1017909 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.858315 pid=1017909 ppid=1017608 einde exit-code=0
++ 2.858711 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017909 status=0x0 geëindigd met code 0
++ 2.868880 pid=1017608 ppid=1017607 kind-gemaakt kind=1017910
++ 2.868922 pid=1017910 ppid=1017608 kind-start
++ 2.868974 pid=1017910 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.868985 pid=1017910 ppid=1017608 einde exit-code=0
++ 2.869339 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017910 status=0x0 geëindigd met code 0
++ 2.879541 pid=1017608 ppid=1017607 kind-gemaakt kind=1017911
++ 2.879571 pid=1017911 ppid=1017608 kind-start
++ 2.879613 pid=1017911 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.879622 pid=1017911 ppid=1017608 einde exit-code=0
++ 2.879917 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017911 status=0x0 geëindigd met code 0
++ 2.890120 pid=1017608 ppid=1017607 kind-gemaakt kind=1017912
++ 2.890152 pid=1017912 ppid=1017608 kind-start
++ 2.890194 pid=1017912 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.890203 pid=1017912 ppid=1017608 einde exit-code=0
++ 2.890501 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017912 status=0x0 geëindigd met code 0
++ 2.900668 pid=1017608 ppid=1017607 kind-gemaakt kind=1017913
++ 2.900695 pid=1017913 ppid=1017608 kind-start
++ 2.900737 pid=1017913 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.900746 pid=1017913 ppid=1017608 einde exit-code=0
++ 2.901040 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017913 status=0x0 geëindigd met code 0
++ 2.911209 pid=1017608 ppid=1017607 kind-gemaakt kind=1017914
++ 2.911229 pid=1017914 ppid=1017608 kind-start
++ 2.911265 pid=1017914 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.911273 pid=1017914 ppid=1017608 einde exit-code=0
++ 2.911599 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017914 status=0x0 geëindigd met code 0
++ 2.921779 pid=1017608 ppid=1017607 kind-gemaakt kind=1017915
++ 2.921819 pid=1017915 ppid=1017608 kind-start
++ 2.921874 pid=1017915 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.921885 pid=1017915 ppid=1017608 einde exit-code=0
++ 2.922233 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017915 status=0x0 geëindigd met code 0
++ 2.932416 pid=1017608 ppid=1017607 kind-gemaakt kind=1017916
++ 2.932472 pid=1017916 ppid=1017608 kind-start
++ 2.932512 pid=1017916 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.932521 pid=1017916 ppid=1017608 einde exit-code=0
++ 2.932813 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017916 status=0x0 geëindigd met code 0
++ 2.942995 pid=1017608 ppid=1017607 kind-gemaakt kind=1017917
++ 2.943032 pid=1017917 ppid=1017608 kind-start
++ 2.943084 pid=1017917 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.943095 pid=1017917 ppid=1017608 einde exit-code=0
++ 2.943431 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017917 status=0x0 geëindigd met code 0
++ 2.953636 pid=1017608 ppid=1017607 kind-gemaakt kind=1017918
++ 2.953667 pid=1017918 ppid=1017608 kind-start
++ 2.953710 pid=1017918 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.953718 pid=1017918 ppid=1017608 einde exit-code=0
++ 2.954007 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017918 status=0x0 geëindigd met code 0
++ 2.964178 pid=1017608 ppid=1017607 kind-gemaakt kind=1017919
++ 2.964219 pid=1017919 ppid=1017608 kind-start
++ 2.964273 pid=1017919 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.964286 pid=1017919 ppid=1017608 einde exit-code=0
++ 2.964654 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017919 status=0x0 geëindigd met code 0
++ 2.974849 pid=1017608 ppid=1017607 kind-gemaakt kind=1017920
++ 2.974878 pid=1017920 ppid=1017608 kind-start
++ 2.974921 pid=1017920 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.974930 pid=1017920 ppid=1017608 einde exit-code=0
++ 2.975217 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017920 status=0x0 geëindigd met code 0
++ 2.985422 pid=1017608 ppid=1017607 kind-gemaakt kind=1017921
++ 2.985459 pid=1017921 ppid=1017608 kind-start
++ 2.985501 pid=1017921 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.985510 pid=1017921 ppid=1017608 einde exit-code=0
++ 2.985804 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017921 status=0x0 geëindigd met code 0
++ 2.996001 pid=1017608 ppid=1017607 kind-gemaakt kind=1017922
++ 2.996033 pid=1017922 ppid=1017608 kind-start
++ 2.996075 pid=1017922 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.996084 pid=1017922 ppid=1017608 einde exit-code=0
++ 2.996368 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017922 status=0x0 geëindigd met code 0
++ 3.006541 pid=1017608 ppid=1017607 kind-gemaakt kind=1017923
++ 3.006574 pid=1017923 ppid=1017608 kind-start
++ 3.006617 pid=1017923 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.006626 pid=1017923 ppid=1017608 einde exit-code=0
++ 3.006918 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017923 status=0x0 geëindigd met code 0
++ 3.017119 pid=1017608 ppid=1017607 kind-gemaakt kind=1017924
++ 3.017155 pid=1017924 ppid=1017608 kind-start
++ 3.017207 pid=1017924 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.017218 pid=1017924 ppid=1017608 einde exit-code=0
++ 3.017610 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017924 status=0x0 geëindigd met code 0
++ 3.027810 pid=1017608 ppid=1017607 kind-gemaakt kind=1017925
++ 3.027857 pid=1017925 ppid=1017608 kind-start
++ 3.027909 pid=1017925 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.027920 pid=1017925 ppid=1017608 einde exit-code=0
++ 3.028271 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017925 status=0x0 geëindigd met code 0
++ 3.038451 pid=1017608 ppid=1017607 kind-gemaakt kind=1017926
++ 3.038512 pid=1017926 ppid=1017608 kind-start
++ 3.038571 pid=1017926 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.038582 pid=1017926 ppid=1017608 einde exit-code=0
++ 3.038939 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017926 status=0x0 geëindigd met code 0
++ 3.049135 pid=1017608 ppid=1017607 kind-gemaakt kind=1017927
++ 3.049173 pid=1017927 ppid=1017608 kind-start
++ 3.049216 pid=1017927 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.049225 pid=1017927 ppid=1017608 einde exit-code=0
++ 3.049553 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017927 status=0x0 geëindigd met code 0
++ 3.059752 pid=1017608 ppid=1017607 kind-gemaakt kind=1017928
++ 3.059785 pid=1017928 ppid=1017608 kind-start
++ 3.059827 pid=1017928 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.059836 pid=1017928 ppid=1017608 einde exit-code=0
++ 3.060125 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017928 status=0x0 geëindigd met code 0
++ 3.070320 pid=1017608 ppid=1017607 kind-gemaakt kind=1017929
++ 3.070351 pid=1017929 ppid=1017608 kind-start
++ 3.070394 pid=1017929 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.070402 pid=1017929 ppid=1017608 einde exit-code=0
++ 3.070792 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017929 status=0x0 geëindigd met code 0
++ 3.080995 pid=1017608 ppid=1017607 kind-gemaakt kind=1017930
++ 3.081017 pid=1017930 ppid=1017608 kind-start
++ 3.081060 pid=1017930 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.081072 pid=1017930 ppid=1017608 einde exit-code=0
++ 3.081411 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017930 status=0x0 geëindigd met code 0
++ 3.091554 pid=1017608 ppid=1017607 kind-gemaakt kind=1017931
++ 3.091595 pid=1017931 ppid=1017608 kind-start
++ 3.091647 pid=1017931 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.091658 pid=1017931 ppid=1017608 einde exit-code=0
++ 3.092013 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017931 status=0x0 geëindigd met code 0
++ 3.102207 pid=1017608 ppid=1017607 kind-gemaakt kind=1017932
++ 3.102239 pid=1017932 ppid=1017608 kind-start
++ 3.102281 pid=1017932 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.102290 pid=1017932 ppid=1017608 einde exit-code=0
++ 3.102627 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017932 status=0x0 geëindigd met code 0
++ 3.112822 pid=1017608 ppid=1017607 kind-gemaakt kind=1017933
++ 3.112846 pid=1017933 ppid=1017608 kind-start
++ 3.112889 pid=1017933 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.112899 pid=1017933 ppid=1017608 einde exit-code=0
++ 3.113241 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017933 status=0x0 geëindigd met code 0
++ 3.123421 pid=1017608 ppid=1017607 kind-gemaakt kind=1017934
++ 3.123448 pid=1017934 ppid=1017608 kind-start
++ 3.123520 pid=1017934 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.123531 pid=1017934 ppid=1017608 einde exit-code=0
++ 3.123884 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017934 status=0x0 geëindigd met code 0
++ 3.134092 pid=1017608 ppid=1017607 kind-gemaakt kind=1017935
++ 3.134128 pid=1017935 ppid=1017608 kind-start
++ 3.134180 pid=1017935 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.134191 pid=1017935 ppid=1017608 einde exit-code=0
++ 3.134517 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017935 status=0x0 geëindigd met code 0
++ 3.144712 pid=1017608 ppid=1017607 kind-gemaakt kind=1017936
++ 3.144745 pid=1017936 ppid=1017608 kind-start
++ 3.144790 pid=1017936 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.144799 pid=1017936 ppid=1017608 einde exit-code=0
++ 3.145086 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017936 status=0x0 geëindigd met code 0
++ 3.155253 pid=1017608 ppid=1017607 kind-gemaakt kind=1017937
++ 3.155286 pid=1017937 ppid=1017608 kind-start
++ 3.155328 pid=1017937 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.155336 pid=1017937 ppid=1017608 einde exit-code=0
++ 3.155680 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017937 status=0x0 geëindigd met code 0
++ 3.165880 pid=1017608 ppid=1017607 kind-gemaakt kind=1017938
++ 3.165923 pid=1017938 ppid=1017608 kind-start
++ 3.165975 pid=1017938 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.165985 pid=1017938 ppid=1017608 einde exit-code=0
++ 3.166336 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017938 status=0x0 geëindigd met code 0
++ 3.176542 pid=1017608 ppid=1017607 kind-gemaakt kind=1017939
++ 3.176582 pid=1017939 ppid=1017608 kind-start
++ 3.176634 pid=1017939 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.176645 pid=1017939 ppid=1017608 einde exit-code=0
++ 3.177002 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017939 status=0x0 geëindigd met code 0
++ 3.187187 pid=1017608 ppid=1017607 kind-gemaakt kind=1017940
++ 3.187227 pid=1017940 ppid=1017608 kind-start
++ 3.187279 pid=1017940 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.187290 pid=1017940 ppid=1017608 einde exit-code=0
++ 3.187681 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017940 status=0x0 geëindigd met code 0
++ 3.197855 pid=1017608 ppid=1017607 kind-gemaakt kind=1017941
++ 3.197896 pid=1017941 ppid=1017608 kind-start
++ 3.197952 pid=1017941 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.197964 pid=1017941 ppid=1017608 einde exit-code=0
++ 3.198321 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017941 status=0x0 geëindigd met code 0
++ 3.208523 pid=1017608 ppid=1017607 kind-gemaakt kind=1017942
++ 3.208554 pid=1017942 ppid=1017608 kind-start
++ 3.208597 pid=1017942 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.208605 pid=1017942 ppid=1017608 einde exit-code=0
++ 3.208890 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017942 status=0x0 geëindigd met code 0
++ 3.219060 pid=1017608 ppid=1017607 kind-gemaakt kind=1017943
++ 3.219099 pid=1017943 ppid=1017608 kind-start
++ 3.219151 pid=1017943 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.219162 pid=1017943 ppid=1017608 einde exit-code=0
++ 3.219548 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017943 status=0x0 geëindigd met code 0
++ 3.229755 pid=1017608 ppid=1017607 kind-gemaakt kind=1017944
++ 3.229783 pid=1017944 ppid=1017608 kind-start
++ 3.229825 pid=1017944 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.229834 pid=1017944 ppid=1017608 einde exit-code=0
++ 3.230126 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017944 status=0x0 geëindigd met code 0
++ 3.240328 pid=1017608 ppid=1017607 kind-gemaakt kind=1017945
++ 3.240365 pid=1017945 ppid=1017608 kind-start
++ 3.240417 pid=1017945 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.240428 pid=1017945 ppid=1017608 einde exit-code=0
++ 3.240827 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017945 status=0x0 geëindigd met code 0
++ 3.251002 pid=1017608 ppid=1017607 kind-gemaakt kind=1017946
++ 3.251035 pid=1017946 ppid=1017608 kind-start
++ 3.251078 pid=1017946 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.251087 pid=1017946 ppid=1017608 einde exit-code=0
++ 3.251375 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017946 status=0x0 geëindigd met code 0
++ 3.261582 pid=1017608 ppid=1017607 kind-gemaakt kind=1017947
++ 3.261605 pid=1017947 ppid=1017608 kind-start
++ 3.261648 pid=1017947 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.261657 pid=1017947 ppid=1017608 einde exit-code=0
++ 3.261946 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017947 status=0x0 geëindigd met code 0
++ 3.272149 pid=1017608 ppid=1017607 kind-gemaakt kind=1017948
++ 3.272166 pid=1017948 ppid=1017608 kind-start
++ 3.272202 pid=1017948 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.272210 pid=1017948 ppid=1017608 einde exit-code=0
++ 3.272552 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017948 status=0x0 geëindigd met code 0
++ 3.282729 pid=1017608 ppid=1017607 kind-gemaakt kind=1017949
++ 3.282770 pid=1017949 ppid=1017608 kind-start
++ 3.282822 pid=1017949 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.282833 pid=1017949 ppid=1017608 einde exit-code=0
++ 3.283186 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017949 status=0x0 geëindigd met code 0
++ 3.293384 pid=1017608 ppid=1017607 kind-gemaakt kind=1017950
++ 3.293413 pid=1017950 ppid=1017608 kind-start
++ 3.293500 pid=1017950 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.293518 pid=1017950 ppid=1017608 einde exit-code=0
++ 3.293884 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017950 status=0x0 geëindigd met code 0
++ 3.304060 pid=1017608 ppid=1017607 kind-gemaakt kind=1017951
++ 3.304098 pid=1017951 ppid=1017608 kind-start
++ 3.304150 pid=1017951 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.304161 pid=1017951 ppid=1017608 einde exit-code=0
++ 3.304549 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017951 status=0x0 geëindigd met code 0
++ 3.314719 pid=1017608 ppid=1017607 kind-gemaakt kind=1017952
++ 3.314757 pid=1017952 ppid=1017608 kind-start
++ 3.314809 pid=1017952 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.314823 pid=1017952 ppid=1017608 einde exit-code=0
++ 3.315178 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017952 status=0x0 geëindigd met code 0
++ 3.325377 pid=1017608 ppid=1017607 kind-gemaakt kind=1017953
++ 3.325408 pid=1017953 ppid=1017608 kind-start
++ 3.325456 pid=1017953 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.325490 pid=1017953 ppid=1017608 einde exit-code=0
++ 3.325863 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017953 status=0x0 geëindigd met code 0
++ 3.336040 pid=1017608 ppid=1017607 kind-gemaakt kind=1017954
++ 3.336066 pid=1017954 ppid=1017608 kind-start
++ 3.336118 pid=1017954 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.336129 pid=1017954 ppid=1017608 einde exit-code=0
++ 3.336488 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017954 status=0x0 geëindigd met code 0
++ 3.346664 pid=1017608 ppid=1017607 kind-gemaakt kind=1017955
++ 3.346688 pid=1017955 ppid=1017608 kind-start
++ 3.346734 pid=1017955 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.346744 pid=1017955 ppid=1017608 einde exit-code=0
++ 3.347083 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017955 status=0x0 geëindigd met code 0
++ 3.357258 pid=1017608 ppid=1017607 kind-gemaakt kind=1017956
++ 3.357281 pid=1017956 ppid=1017608 kind-start
++ 3.357325 pid=1017956 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.357334 pid=1017956 ppid=1017608 einde exit-code=0
++ 3.357676 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017956 status=0x0 geëindigd met code 0
++ 3.367851 pid=1017608 ppid=1017607 kind-gemaakt kind=1017957
++ 3.367881 pid=1017957 ppid=1017608 kind-start
++ 3.367924 pid=1017957 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.367933 pid=1017957 ppid=1017608 einde exit-code=0
++ 3.368223 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017957 status=0x0 geëindigd met code 0
++ 3.378415 pid=1017608 ppid=1017607 kind-gemaakt kind=1017958
++ 3.378452 pid=1017958 ppid=1017608 kind-start
++ 3.378495 pid=1017958 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.378503 pid=1017958 ppid=1017608 einde exit-code=0
++ 3.378787 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017958 status=0x0 geëindigd met code 0
++ 3.388990 pid=1017608 ppid=1017607 kind-gemaakt kind=1017959
++ 3.389019 pid=1017959 ppid=1017608 kind-start
++ 3.389062 pid=1017959 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.389070 pid=1017959 ppid=1017608 einde exit-code=0
++ 3.389360 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017959 status=0x0 geëindigd met code 0
++ 3.399566 pid=1017608 ppid=1017607 kind-gemaakt kind=1017960
++ 3.399606 pid=1017960 ppid=1017608 kind-start
++ 3.399658 pid=1017960 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.399669 pid=1017960 ppid=1017608 einde exit-code=0
++ 3.400018 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017960 status=0x0 geëindigd met code 0
++ 3.410187 pid=1017608 ppid=1017607 kind-gemaakt kind=1017961
++ 3.410220 pid=1017961 ppid=1017608 kind-start
++ 3.410263 pid=1017961 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.410271 pid=1017961 ppid=1017608 einde exit-code=0
++ 3.410600 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017961 status=0x0 geëindigd met code 0
++ 3.420800 pid=1017608 ppid=1017607 kind-gemaakt kind=1017962
++ 3.420841 pid=1017962 ppid=1017608 kind-start
++ 3.420895 pid=1017962 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.420906 pid=1017962 ppid=1017608 einde exit-code=0
++ 3.421263 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017962 status=0x0 geëindigd met code 0
++ 3.431475 pid=1017608 ppid=1017607 kind-gemaakt kind=1017963
++ 3.431511 pid=1017963 ppid=1017608 kind-start
++ 3.431565 pid=1017963 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.431578 pid=1017963 ppid=1017608 einde exit-code=0
++ 3.431928 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017963 status=0x0 geëindigd met code 0
++ 3.442125 pid=1017608 ppid=1017607 kind-gemaakt kind=1017964
++ 3.442157 pid=1017964 ppid=1017608 kind-start
++ 3.442199 pid=1017964 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.442208 pid=1017964 ppid=1017608 einde exit-code=0
++ 3.442561 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017964 status=0x0 geëindigd met code 0
++ 3.452743 pid=1017608 ppid=1017607 kind-gemaakt kind=1017965
++ 3.452780 pid=1017965 ppid=1017608 kind-start
++ 3.452832 pid=1017965 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.452843 pid=1017965 ppid=1017608 einde exit-code=0
++ 3.453196 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017965 status=0x0 geëindigd met code 0
++ 3.463392 pid=1017608 ppid=1017607 kind-gemaakt kind=1017966
++ 3.463422 pid=1017966 ppid=1017608 kind-start
++ 3.463499 pid=1017966 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.463511 pid=1017966 ppid=1017608 einde exit-code=0
++ 3.463877 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017966 status=0x0 geëindigd met code 0
++ 3.474081 pid=1017608 ppid=1017607 kind-gemaakt kind=1017967
++ 3.474117 pid=1017967 ppid=1017608 kind-start
++ 3.474169 pid=1017967 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.474180 pid=1017967 ppid=1017608 einde exit-code=0
++ 3.474515 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017967 status=0x0 geëindigd met code 0
++ 3.484686 pid=1017608 ppid=1017607 kind-gemaakt kind=1017968
++ 3.484720 pid=1017968 ppid=1017608 kind-start
++ 3.484762 pid=1017968 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.484771 pid=1017968 ppid=1017608 einde exit-code=0
++ 3.485054 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017968 status=0x0 geëindigd met code 0
++ 3.495247 pid=1017608 ppid=1017607 kind-gemaakt kind=1017969
++ 3.495278 pid=1017969 ppid=1017608 kind-start
++ 3.495321 pid=1017969 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.495330 pid=1017969 ppid=1017608 einde exit-code=0
++ 3.495684 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017969 status=0x0 geëindigd met code 0
++ 3.505879 pid=1017608 ppid=1017607 kind-gemaakt kind=1017970
++ 3.505920 pid=1017970 ppid=1017608 kind-start
++ 3.505972 pid=1017970 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.505983 pid=1017970 ppid=1017608 einde exit-code=0
++ 3.506341 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017970 status=0x0 geëindigd met code 0
++ 3.516541 pid=1017608 ppid=1017607 kind-gemaakt kind=1017971
++ 3.516571 pid=1017971 ppid=1017608 kind-start
++ 3.516614 pid=1017971 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.516623 pid=1017971 ppid=1017608 einde exit-code=0
++ 3.516913 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017971 status=0x0 geëindigd met code 0
++ 3.527113 pid=1017608 ppid=1017607 kind-gemaakt kind=1017972
++ 3.527151 pid=1017972 ppid=1017608 kind-start
++ 3.527218 pid=1017972 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.527229 pid=1017972 ppid=1017608 einde exit-code=0
++ 3.527594 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017972 status=0x0 geëindigd met code 0
++ 3.537786 pid=1017608 ppid=1017607 kind-gemaakt kind=1017973
++ 3.537816 pid=1017973 ppid=1017608 kind-start
++ 3.537858 pid=1017973 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.537867 pid=1017973 ppid=1017608 einde exit-code=0
++ 3.538156 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017973 status=0x0 geëindigd met code 0
++ 3.548331 pid=1017608 ppid=1017607 kind-gemaakt kind=1017974
++ 3.548363 pid=1017974 ppid=1017608 kind-start
++ 3.548405 pid=1017974 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.548414 pid=1017974 ppid=1017608 einde exit-code=0
++ 3.548709 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017974 status=0x0 geëindigd met code 0
++ 3.558914 pid=1017608 ppid=1017607 kind-gemaakt kind=1017975
++ 3.558942 pid=1017975 ppid=1017608 kind-start
++ 3.558993 pid=1017975 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.559004 pid=1017975 ppid=1017608 einde exit-code=0
++ 3.559356 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017975 status=0x0 geëindigd met code 0
++ 3.569570 pid=1017608 ppid=1017607 kind-gemaakt kind=1017976
++ 3.569591 pid=1017976 ppid=1017608 kind-start
++ 3.569634 pid=1017976 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.569644 pid=1017976 ppid=1017608 einde exit-code=0
++ 3.569974 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017976 status=0x0 geëindigd met code 0
++ 3.580148 pid=1017608 ppid=1017607 kind-gemaakt kind=1017977
++ 3.580165 pid=1017977 ppid=1017608 kind-start
++ 3.580199 pid=1017977 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.580207 pid=1017977 ppid=1017608 einde exit-code=0
++ 3.580481 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017977 status=0x0 geëindigd met code 0
++ 3.590685 pid=1017608 ppid=1017607 kind-gemaakt kind=1017978
++ 3.590722 pid=1017978 ppid=1017608 kind-start
++ 3.590775 pid=1017978 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.590786 pid=1017978 ppid=1017608 einde exit-code=0
++ 3.591142 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017978 status=0x0 geëindigd met code 0
++ 3.601315 pid=1017608 ppid=1017607 kind-gemaakt kind=1017979
++ 3.601353 pid=1017979 ppid=1017608 kind-start
++ 3.601406 pid=1017979 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.601417 pid=1017979 ppid=1017608 einde exit-code=0
++ 3.601773 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017979 status=0x0 geëindigd met code 0
++ 3.611947 pid=1017608 ppid=1017607 kind-gemaakt kind=1017980
++ 3.611980 pid=1017980 ppid=1017608 kind-start
++ 3.612022 pid=1017980 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.612031 pid=1017980 ppid=1017608 einde exit-code=0
++ 3.612327 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017980 status=0x0 geëindigd met code 0
++ 3.622515 pid=1017608 ppid=1017607 kind-gemaakt kind=1017981
++ 3.622534 pid=1017981 ppid=1017608 kind-start
++ 3.622577 pid=1017981 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.622585 pid=1017981 ppid=1017608 einde exit-code=0
++ 3.622869 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017981 status=0x0 geëindigd met code 0
++ 3.633043 pid=1017608 ppid=1017607 kind-gemaakt kind=1017982
++ 3.633081 pid=1017982 ppid=1017608 kind-start
++ 3.633134 pid=1017982 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.633145 pid=1017982 ppid=1017608 einde exit-code=0
++ 3.633530 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017982 status=0x0 geëindigd met code 0
++ 3.643786 pid=1017608 ppid=1017607 kind-gemaakt kind=1017983
++ 3.643820 pid=1017983 ppid=1017608 kind-start
++ 3.643867 pid=1017983 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.643877 pid=1017983 ppid=1017608 einde exit-code=0
++ 3.644174 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017983 status=0x0 geëindigd met code 0
++ 3.654379 pid=1017608 ppid=1017607 kind-gemaakt kind=1017984
++ 3.654414 pid=1017984 ppid=1017608 kind-start
++ 3.654528 pid=1017984 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.654542 pid=1017984 ppid=1017608 einde exit-code=0
++ 3.654911 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017984 status=0x0 geëindigd met code 0
++ 3.665087 pid=1017608 ppid=1017607 kind-gemaakt kind=1017985
++ 3.665118 pid=1017985 ppid=1017608 kind-start
++ 3.665160 pid=1017985 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.665169 pid=1017985 ppid=1017608 einde exit-code=0
++ 3.665462 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017985 status=0x0 geëindigd met code 0
++ 3.675674 pid=1017608 ppid=1017607 kind-gemaakt kind=1017986
++ 3.675704 pid=1017986 ppid=1017608 kind-start
++ 3.675746 pid=1017986 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.675755 pid=1017986 ppid=1017608 einde exit-code=0
++ 3.676049 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017986 status=0x0 geëindigd met code 0
++ 3.686221 pid=1017608 ppid=1017607 kind-gemaakt kind=1017987
++ 3.686254 pid=1017987 ppid=1017608 kind-start
++ 3.686296 pid=1017987 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.686305 pid=1017987 ppid=1017608 einde exit-code=0
++ 3.686611 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017987 status=0x0 geëindigd met code 0
++ 3.696810 pid=1017608 ppid=1017607 kind-gemaakt kind=1017988
++ 3.696851 pid=1017988 ppid=1017608 kind-start
++ 3.696907 pid=1017988 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.696918 pid=1017988 ppid=1017608 einde exit-code=0
++ 3.697269 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017988 status=0x0 geëindigd met code 0
++ 3.707461 pid=1017608 ppid=1017607 kind-gemaakt kind=1017989
++ 3.707507 pid=1017989 ppid=1017608 kind-start
++ 3.707559 pid=1017989 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.707570 pid=1017989 ppid=1017608 einde exit-code=0
++ 3.707924 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017989 status=0x0 geëindigd met code 0
++ 3.718108 pid=1017608 ppid=1017607 kind-gemaakt kind=1017990
++ 3.718137 pid=1017990 ppid=1017608 kind-start
++ 3.718179 pid=1017990 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.718188 pid=1017990 ppid=1017608 einde exit-code=0
++ 3.718481 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017990 status=0x0 geëindigd met code 0
++ 3.728689 pid=1017608 ppid=1017607 kind-gemaakt kind=1017991
++ 3.728733 pid=1017991 ppid=1017608 kind-start
++ 3.728785 pid=1017991 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.728795 pid=1017991 ppid=1017608 einde exit-code=0
++ 3.729147 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017991 status=0x0 geëindigd met code 0
++ 3.739319 pid=1017608 ppid=1017607 kind-gemaakt kind=1017992
++ 3.739352 pid=1017992 ppid=1017608 kind-start
++ 3.739394 pid=1017992 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.739403 pid=1017992 ppid=1017608 einde exit-code=0
++ 3.739733 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017992 status=0x0 geëindigd met code 0
++ 3.749903 pid=1017608 ppid=1017607 kind-gemaakt kind=1017993
++ 3.749934 pid=1017993 ppid=1017608 kind-start
++ 3.749978 pid=1017993 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.749987 pid=1017993 ppid=1017608 einde exit-code=0
++ 3.750275 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017993 status=0x0 geëindigd met code 0
++ 3.760468 pid=1017608 ppid=1017607 kind-gemaakt kind=1017994
++ 3.760505 pid=1017994 ppid=1017608 kind-start
++ 3.760558 pid=1017994 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.760569 pid=1017994 ppid=1017608 einde exit-code=0
++ 3.760917 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017994 status=0x0 geëindigd met code 0
++ 3.771092 pid=1017608 ppid=1017607 kind-gemaakt kind=1017995
++ 3.771133 pid=1017995 ppid=1017608 kind-start
++ 3.771185 pid=1017995 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.771196 pid=1017995 ppid=1017608 einde exit-code=0
++ 3.771569 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017995 status=0x0 geëindigd met code 0
++ 3.781739 pid=1017608 ppid=1017607 kind-gemaakt kind=1017996
++ 3.781781 pid=1017996 ppid=1017608 kind-start
++ 3.781833 pid=1017996 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.781844 pid=1017996 ppid=1017608 einde exit-code=0
++ 3.782196 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017996 status=0x0 geëindigd met code 0
++ 3.792394 pid=1017608 ppid=1017607 kind-gemaakt kind=1017997
++ 3.792425 pid=1017997 ppid=1017608 kind-start
++ 3.792496 pid=1017997 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.792507 pid=1017997 ppid=1017608 einde exit-code=0
++ 3.792884 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017997 status=0x0 geëindigd met code 0
++ 3.803109 pid=1017608 ppid=1017607 kind-gemaakt kind=1017998
++ 3.803144 pid=1017998 ppid=1017608 kind-start
++ 3.803197 pid=1017998 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.803208 pid=1017998 ppid=1017608 einde exit-code=0
++ 3.803542 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017998 status=0x0 geëindigd met code 0
++ 3.813752 pid=1017608 ppid=1017607 kind-gemaakt kind=1017999
++ 3.813782 pid=1017999 ppid=1017608 kind-start
++ 3.813824 pid=1017999 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.813833 pid=1017999 ppid=1017608 einde exit-code=0
++ 3.814121 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017999 status=0x0 geëindigd met code 0
++ 3.824298 pid=1017608 ppid=1017607 kind-gemaakt kind=1018000
++ 3.824329 pid=1018000 ppid=1017608 kind-start
++ 3.824372 pid=1018000 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.824380 pid=1018000 ppid=1017608 einde exit-code=0
++ 3.824692 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018000 status=0x0 geëindigd met code 0
++ 3.834907 pid=1017608 ppid=1017607 kind-gemaakt kind=1018001
++ 3.834947 pid=1018001 ppid=1017608 kind-start
++ 3.834999 pid=1018001 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.835010 pid=1018001 ppid=1017608 einde exit-code=0
++ 3.835361 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018001 status=0x0 geëindigd met code 0
++ 3.845561 pid=1017608 ppid=1017607 kind-gemaakt kind=1018002
++ 3.845591 pid=1018002 ppid=1017608 kind-start
++ 3.845634 pid=1018002 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.845643 pid=1018002 ppid=1017608 einde exit-code=0
++ 3.845930 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018002 status=0x0 geëindigd met code 0
++ 3.856102 pid=1017608 ppid=1017607 kind-gemaakt kind=1018003
++ 3.856139 pid=1018003 ppid=1017608 kind-start
++ 3.856182 pid=1018003 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.856190 pid=1018003 ppid=1017608 einde exit-code=0
++ 3.856486 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018003 status=0x0 geëindigd met code 0
++ 3.866685 pid=1017608 ppid=1017607 kind-gemaakt kind=1018004
++ 3.866720 pid=1018004 ppid=1017608 kind-start
++ 3.866763 pid=1018004 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.866771 pid=1018004 ppid=1017608 einde exit-code=0
++ 3.867062 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018004 status=0x0 geëindigd met code 0
++ 3.877257 pid=1017608 ppid=1017607 kind-gemaakt kind=1018005
++ 3.877282 pid=1018005 ppid=1017608 kind-start
++ 3.877331 pid=1018005 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.877340 pid=1018005 ppid=1017608 einde exit-code=0
++ 3.877645 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018005 status=0x0 geëindigd met code 0
++ 3.887820 pid=1017608 ppid=1017607 kind-gemaakt kind=1018006
++ 3.887839 pid=1018006 ppid=1017608 kind-start
++ 3.887874 pid=1018006 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.887882 pid=1018006 ppid=1017608 einde exit-code=0
++ 3.888161 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018006 status=0x0 geëindigd met code 0
++ 3.898331 pid=1017608 ppid=1017607 kind-gemaakt kind=1018007
++ 3.898350 pid=1018007 ppid=1017608 kind-start
++ 3.898386 pid=1018007 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.898394 pid=1018007 ppid=1017608 einde exit-code=0
++ 3.898675 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018007 status=0x0 geëindigd met code 0
++ 3.908876 pid=1017608 ppid=1017607 kind-gemaakt kind=1018008
++ 3.908899 pid=1018008 ppid=1017608 kind-start
++ 3.908942 pid=1018008 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.908951 pid=1018008 ppid=1017608 einde exit-code=0
++ 3.909288 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018008 status=0x0 geëindigd met code 0
++ 3.919482 pid=1017608 ppid=1017607 kind-gemaakt kind=1018009
++ 3.919500 pid=1018009 ppid=1017608 kind-start
++ 3.919536 pid=1018009 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.919543 pid=1018009 ppid=1017608 einde exit-code=0
++ 3.919810 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018009 status=0x0 geëindigd met code 0
++ 3.930005 pid=1017608 ppid=1017607 kind-gemaakt kind=1018010
++ 3.930028 pid=1018010 ppid=1017608 kind-start
++ 3.930070 pid=1018010 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.930079 pid=1018010 ppid=1017608 einde exit-code=0
++ 3.930403 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018010 status=0x0 geëindigd met code 0
++ 3.940578 pid=1017608 ppid=1017607 kind-gemaakt kind=1018011
++ 3.940601 pid=1018011 ppid=1017608 kind-start
++ 3.940643 pid=1018011 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.940652 pid=1018011 ppid=1017608 einde exit-code=0
++ 3.940973 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018011 status=0x0 geëindigd met code 0
++ 3.951168 pid=1017608 ppid=1017607 kind-gemaakt kind=1018012
++ 3.951191 pid=1018012 ppid=1017608 kind-start
++ 3.951233 pid=1018012 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.951242 pid=1018012 ppid=1017608 einde exit-code=0
++ 3.951572 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018012 status=0x0 geëindigd met code 0
++ 3.961766 pid=1017608 ppid=1017607 kind-gemaakt kind=1018013
++ 3.961789 pid=1018013 ppid=1017608 kind-start
++ 3.961830 pid=1018013 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.961839 pid=1018013 ppid=1017608 einde exit-code=0
++ 3.962157 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018013 status=0x0 geëindigd met code 0
++ 3.972326 pid=1017608 ppid=1017607 kind-gemaakt kind=1018014
++ 3.972348 pid=1018014 ppid=1017608 kind-start
++ 3.972389 pid=1018014 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.972396 pid=1018014 ppid=1017608 einde exit-code=0
++ 3.972659 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018014 status=0x0 geëindigd met code 0
++ 3.982854 pid=1017608 ppid=1017607 kind-gemaakt kind=1018015
++ 3.982876 pid=1018015 ppid=1017608 kind-start
++ 3.982918 pid=1018015 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.982927 pid=1018015 ppid=1017608 einde exit-code=0
++ 3.983245 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018015 status=0x0 geëindigd met code 0
++ 3.993420 pid=1017608 ppid=1017607 kind-gemaakt kind=1018016
++ 3.993451 pid=1018016 ppid=1017608 kind-start
++ 3.993492 pid=1018016 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.993501 pid=1018016 ppid=1017608 einde exit-code=0
++ 3.993816 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018016 status=0x0 geëindigd met code 0
++ 4.003987 pid=1017608 ppid=1017607 kind-gemaakt kind=1018017
++ 4.004011 pid=1018017 ppid=1017608 kind-start
++ 4.004052 pid=1018017 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.004061 pid=1018017 ppid=1017608 einde exit-code=0
++ 4.004381 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018017 status=0x0 geëindigd met code 0
++ 4.014579 pid=1017608 ppid=1017607 kind-gemaakt kind=1018018
++ 4.014616 pid=1018018 ppid=1017608 kind-start
++ 4.014668 pid=1018018 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.014679 pid=1018018 ppid=1017608 einde exit-code=0
++ 4.015025 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018018 status=0x0 geëindigd met code 0
++ 4.025196 pid=1017608 ppid=1017607 kind-gemaakt kind=1018019
++ 4.025230 pid=1018019 ppid=1017608 kind-start
++ 4.025272 pid=1018019 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.025281 pid=1018019 ppid=1017608 einde exit-code=0
++ 4.025574 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018019 status=0x0 geëindigd met code 0
++ 4.035765 pid=1017608 ppid=1017607 kind-gemaakt kind=1018020
++ 4.035795 pid=1018020 ppid=1017608 kind-start
++ 4.035838 pid=1018020 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.035846 pid=1018020 ppid=1017608 einde exit-code=0
++ 4.036133 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018020 status=0x0 geëindigd met code 0
++ 4.046330 pid=1017608 ppid=1017607 kind-gemaakt kind=1018021
++ 4.046362 pid=1018021 ppid=1017608 kind-start
++ 4.046405 pid=1018021 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.046413 pid=1018021 ppid=1017608 einde exit-code=0
++ 4.046713 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018021 status=0x0 geëindigd met code 0
++ 4.056881 pid=1017608 ppid=1017607 kind-gemaakt kind=1018022
++ 4.056915 pid=1018022 ppid=1017608 kind-start
++ 4.056958 pid=1018022 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.056966 pid=1018022 ppid=1017608 einde exit-code=0
++ 4.057253 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018022 status=0x0 geëindigd met code 0
++ 4.067451 pid=1017608 ppid=1017607 kind-gemaakt kind=1018023
++ 4.067475 pid=1018023 ppid=1017608 kind-start
++ 4.067519 pid=1018023 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.067528 pid=1018023 ppid=1017608 einde exit-code=0
++ 4.067816 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018023 status=0x0 geëindigd met code 0
++ 4.077984 pid=1017608 ppid=1017607 kind-gemaakt kind=1018024
++ 4.078018 pid=1018024 ppid=1017608 kind-start
++ 4.078060 pid=1018024 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.078069 pid=1018024 ppid=1017608 einde exit-code=0
++ 4.078370 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018024 status=0x0 geëindigd met code 0
++ 4.088570 pid=1017608 ppid=1017607 kind-gemaakt kind=1018025
++ 4.088594 pid=1018025 ppid=1017608 kind-start
++ 4.088637 pid=1018025 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.088645 pid=1018025 ppid=1017608 einde exit-code=0
++ 4.088936 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018025 status=0x0 geëindigd met code 0
++ 4.099107 pid=1017608 ppid=1017607 kind-gemaakt kind=1018026
++ 4.099126 pid=1018026 ppid=1017608 kind-start
++ 4.099166 pid=1018026 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.099174 pid=1018026 ppid=1017608 einde exit-code=0
++ 4.099463 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018026 status=0x0 geëindigd met code 0
++ 4.109658 pid=1017608 ppid=1017607 kind-gemaakt kind=1018029
++ 4.109683 pid=1018029 ppid=1017608 kind-start
++ 4.109733 pid=1018029 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.109743 pid=1018029 ppid=1017608 einde exit-code=0
++ 4.110094 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018029 status=0x0 geëindigd met code 0
++ 4.120290 pid=1017608 ppid=1017607 kind-gemaakt kind=1018030
++ 4.120327 pid=1018030 ppid=1017608 kind-start
++ 4.120379 pid=1018030 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.120390 pid=1018030 ppid=1017608 einde exit-code=0
++ 4.120748 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018030 status=0x0 geëindigd met code 0
++ 4.130929 pid=1017608 ppid=1017607 kind-gemaakt kind=1018037
++ 4.130948 pid=1018037 ppid=1017608 kind-start
++ 4.130989 pid=1018037 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.130997 pid=1018037 ppid=1017608 einde exit-code=0
++ 4.131278 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018037 status=0x0 geëindigd met code 0
++ 4.141477 pid=1017608 ppid=1017607 kind-gemaakt kind=1018049
++ 4.141495 pid=1018049 ppid=1017608 kind-start
++ 4.141544 pid=1018049 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.141553 pid=1018049 ppid=1017608 einde exit-code=0
++ 4.141841 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018049 status=0x0 geëindigd met code 0
++ 4.152013 pid=1017608 ppid=1017607 kind-gemaakt kind=1018050
++ 4.152036 pid=1018050 ppid=1017608 kind-start
++ 4.152086 pid=1018050 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.152096 pid=1018050 ppid=1017608 einde exit-code=0
++ 4.152428 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018050 status=0x0 geëindigd met code 0
++ 4.154743 pid=1017615 ppid=1017608 einde exit-code=0
++ 4.162554 pid=1017608 ppid=1017607 kind-gemaakt kind=1018051
++ 4.162579 pid=1018051 ppid=1017608 kind-start
++ 4.162624 pid=1018051 ppid=1017608 kind-opgeraapt kind=1017608 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.162633 pid=1018051 ppid=1017608 einde exit-code=0
++ 4.162964 pid=1017608 ppid=1017607 kind-opgeraapt kind=1018051 status=0x0 geëindigd met code 0
++ 4.162975 pid=1017608 ppid=1017607 kind-opgeraapt kind=1017615 status=0x0 geëindigd met code 0
++ 4.162978 pid=1017608 ppid=1017607 einde exit-code=0

@@ -1,0 +1,475 @@
+{
+  "title": "House of the Dead: Scarlet Dawn",
+  "nas_folder": "House of the Dead Scarlet Dawn",
+  "platform": "Sega ALLS (UE4, 64-bit, AM Daemon)",
+  "exe": "App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/Hodzero-Win64-Shipping.exe + App/Hodzero/WindowsNoEditor/AMDaemon/amdaemon.exe",
+  "options": [
+    {
+      "key": "general.input_api",
+      "name_en": "Input API",
+      "type": "enum",
+      "values": [
+        "DirectInput",
+        "XInput",
+        "RawInput"
+      ],
+      "default": "RawInput",
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "General",
+        "field": "Input API",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Input API"
+        }
+      },
+      "description_en": "TeknoParrot input backend. RawInput = evdev on Linux (needed for the RavenGun virtual gun); DirectInput/XInput read joysticks or pads.",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "general.freeplay",
+      "name_en": "Free Play",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "General",
+        "field": "FreePlay",
+        "also_in_ini": {
+          "section": "General",
+          "key": "FreePlay"
+        }
+      },
+      "description_en": "Free play: no coin needed to start.",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "general.windowed",
+      "name_en": "Windowed",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "General",
+        "field": "Windowed",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Windowed"
+        }
+      },
+      "description_en": "Run the game in a window instead of fullscreen.",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "general.hidecursor",
+      "name_en": "Hide Cursor",
+      "type": "bool",
+      "default": true,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "General",
+        "field": "HideCursor",
+        "also_in_ini": {
+          "section": "General",
+          "key": "HideCursor"
+        }
+      },
+      "description_en": "Hide the mouse cursor over the game window.",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "general.scale_menu_by_resolution",
+      "name_en": "Scale Menu By Resolution",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "General",
+        "field": "Scale Menu By Resolution",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Scale Menu By Resolution"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Scale Menu By Resolution' (the profile gives no description).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "crosshairs.enable_native",
+      "name_en": "Enable Native",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Crosshairs",
+        "field": "Enable Native",
+        "also_in_ini": {
+          "section": "Crosshairs",
+          "key": "Enable Native"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Enable Native' (the profile gives no description).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "crosshairs.enable_custom",
+      "name_en": "Enable Custom",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Crosshairs",
+        "field": "Enable Custom",
+        "also_in_ini": {
+          "section": "Crosshairs",
+          "key": "Enable Custom"
+        }
+      },
+      "description_en": "Place P1.png/P2.png into game folder",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "border.enable_custom",
+      "name_en": "Enable Custom",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Border",
+        "field": "Enable Custom",
+        "also_in_ini": {
+          "section": "Border",
+          "key": "Enable Custom"
+        }
+      },
+      "description_en": "Place Border.png into game folder",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "general.use_relative_input",
+      "name_en": "Use Relative Input",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "General",
+        "field": "Use Relative Input",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Use Relative Input"
+        }
+      },
+      "description_en": "Aim like a relative mouse (uses the per-player sensitivity sliders) instead of absolute gun aiming. RavenGun aims absolutely, so keep this off.",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "general.player_1_relative_sensitivity",
+      "name_en": "Player 1 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "General",
+        "field": "Player 1 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 1 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 1 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "general.player_2_relative_sensitivity",
+      "name_en": "Player 2 Relative Sensitivity",
+      "type": "int",
+      "min": 1,
+      "max": 50,
+      "default": 8,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "General",
+        "field": "Player 2 Relative Sensitivity",
+        "also_in_ini": {
+          "section": "General",
+          "key": "Player 2 Relative Sensitivity"
+        }
+      },
+      "description_en": "Aiming speed for player 2 when Use Relative Input is on (1-50).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "cheats.enable",
+      "name_en": "Enable",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Cheats",
+        "field": "Enable",
+        "also_in_ini": {
+          "section": "Cheats",
+          "key": "Enable"
+        }
+      },
+      "description_en": "Master switch for the cheat options below.",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "cheats.p1_unlimited_health",
+      "name_en": "P1 Unlimited Health",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Cheats",
+        "field": "P1 Unlimited Health",
+        "also_in_ini": {
+          "section": "Cheats",
+          "key": "P1 Unlimited Health"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'P1 Unlimited Health' (the profile gives no description).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "cheats.p1_unlimited_ammo",
+      "name_en": "P1 Unlimited Ammo",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Cheats",
+        "field": "P1 Unlimited Ammo",
+        "also_in_ini": {
+          "section": "Cheats",
+          "key": "P1 Unlimited Ammo"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'P1 Unlimited Ammo' (the profile gives no description).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "cheats.p2_unlimited_health",
+      "name_en": "P2 Unlimited Health",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Cheats",
+        "field": "P2 Unlimited Health",
+        "also_in_ini": {
+          "section": "Cheats",
+          "key": "P2 Unlimited Health"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'P2 Unlimited Health' (the profile gives no description).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "cheats.p2_unlimited_ammo",
+      "name_en": "P2 Unlimited Ammo",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Cheats",
+        "field": "P2 Unlimited Ammo",
+        "also_in_ini": {
+          "section": "Cheats",
+          "key": "P2 Unlimited Ammo"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'P2 Unlimited Ammo' (the profile gives no description).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "score.enable_submission",
+      "name_en": "Enable Submission",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Score",
+        "field": "Enable Submission",
+        "also_in_ini": {
+          "section": "Score",
+          "key": "Enable Submission"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Enable Submission' (the profile gives no description).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "score.enable_gui",
+      "name_en": "Enable GUI",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Score",
+        "field": "Enable GUI",
+        "also_in_ini": {
+          "section": "Score",
+          "key": "Enable GUI"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Enable GUI' (the profile gives no description).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "score.enable_capture",
+      "name_en": "Enable Capture",
+      "type": "bool",
+      "default": false,
+      "target": {
+        "kind": "tp_profile_field",
+        "profile": "HOTDSD",
+        "category": "Score",
+        "field": "Enable Capture",
+        "also_in_ini": {
+          "section": "Score",
+          "key": "Enable Capture"
+        }
+      },
+      "description_en": "TeknoParrot profile setting 'Enable Capture' (the profile gives no description).",
+      "source": [
+        "tp_profile:HOTDSD"
+      ]
+    },
+    {
+      "key": "launch.wine_runner",
+      "name_en": "Wine runner",
+      "type": "string",
+      "default": "",
+      "target": {
+        "kind": "tp_profile_attr",
+        "profile": "HOTDSD",
+        "element": "WineRunnerPath"
+      },
+      "description_en": "Path to the Wine binary TeknoParrotUi uses for this game. Empty = default Proton script. Games that need the JVS bridge or the eager pipe helper must use a plain Wine build (not Proton).",
+      "source": [
+        "findings/antwoorden.md",
+        "repo:packaging/games-status.md"
+      ]
+    },
+    {
+      "key": "launch.poststart_remotethread_ms",
+      "name_en": "Delayed loader injection (ms)",
+      "type": "int",
+      "min": 0,
+      "max": 30000,
+      "default": 3000,
+      "target": {
+        "kind": "launch_env",
+        "file": "UserProfiles/HOTDSD.env",
+        "name": "TP_POSTSTART_REMOTETHREAD_MS"
+      },
+      "description_en": "Start the game first and inject the TeknoParrot core after this many milliseconds. Needed under Wine because the default injection cannot read the module list of a paused process.",
+      "source": [
+        "repo:packaging/games-status.md"
+      ]
+    }
+  ],
+  "memory_card": {
+    "items": [
+      {
+        "id": "saved_config",
+        "path": "App/Hodzero/WindowsNoEditor/Hodzero/Saved/Config",
+        "base": "game_dir",
+        "kind": "operator_settings",
+        "description_en": "UE4 saved config (empty in the dump).",
+        "safe_to_erase": "yes",
+        "erase_effect_en": "Regenerated by the engine.",
+        "source": [
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "amdaemon_cfg",
+        "path": "App/Hodzero/WindowsNoEditor/AMDaemon/config.json",
+        "base": "game_dir",
+        "kind": "protected_data",
+        "description_en": "AM Daemon configuration (3 KB).",
+        "safe_to_erase": "no",
+        "erase_effect_en": "Needed by the daemon; edit only on purpose.",
+        "source": [
+          "findings/settings_per_game.md"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "appdata_y",
+        "path": "Y:\\ (appdata area, 17000 MB requested)",
+        "base": "wine_prefix",
+        "kind": "savegame",
+        "description_en": "Application data drive named in pxGetHwInfo.ini and used by game.bat.",
+        "safe_to_erase": "unknown",
+        "erase_effect_en": "Not verified.",
+        "source": [
+          "findings/scripts_dump.md (game.bat)",
+          "gamemap:pxGetHwInfo.ini"
+        ],
+        "confidence": "low"
+      }
+    ],
+    "notes_en": ""
+  }
+}

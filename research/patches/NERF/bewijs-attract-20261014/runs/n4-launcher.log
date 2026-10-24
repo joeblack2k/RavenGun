@@ -1,0 +1,26 @@
+== play-native NERF 20261014-014214
+script: /home/deck/projects/ravengun/scripts/play-native.sh
+  de versie uit de REPO (commit 8286b6a; met wijzigingen in scripts/ die niet in die commit zitten); sha256 e834a0a59f8539f43f2f8324b0214cb80d8746d8a6d0f69c1edbbc0a571f1cc6
+  gegevens: /home/deck/projects/ravengun/packaging/native-games.json sha256 8abd53966ce79de81a4a92d702f2d2fadb2947916f9432d9ae060a8ec55c6a4c
+  hulp: /home/deck/projects/ravengun/scripts/rg-paths.sh sha256 8ca01e47a2465b82f150c2570ed5523ccffaef2b16c6e1cf81f00b26f63db25a
+  hulp: /home/deck/projects/ravengun/scripts/rg-identiteit.sh sha256 be4c411ffdd1d272d3088751c0d8d10c6f8efd7003a4caa5504492e05e5a6463
+  hulp: /home/deck/projects/ravengun/scripts/camera.py sha256 8064243e4fe2d99ac6e27ee7161f26d1677df48235ccb231090b06603c14b551
+  hulp: /home/deck/projects/ravengun/scripts/gamesettings.py sha256 3baf5234c6af9defdf96277b385211e41063ed3a339c99ffc2ff819dc84f98f5
+  het geinstalleerde script (/home/deck/.local/opt/ravengun/share/ravengun/scripts/play-native.sh) is een ANDERE versie (sha256 c19370b6d9d2ef09e759ca1338ae071d302a474991c9b034cb488ae553f7ebf9): een run via de installatie gebruikt dus niet deze code
+camera: geen (rol none: dit spel vraagt geen camera)
+display=:1 res=1920x1080 headless=0 preload=geen
+cmd: /pm/Nerf.x86_64
+Found path: /pm/Nerf.x86_64
+Mono path[0] = '/pm/Nerf_Data/Managed'
+Mono config path = '/pm/Nerf_Data/MonoBleedingEdge/etc'
+Preloaded 'libRIO2.so'
+Preloaded 'libUnityNatives.so'
+Preloaded 'libhasp_linux_23714.so'
+Preloaded 'librio.so'
+Unable to preload the following plugins:
+	libPK-UnityPlugin.so
+	ScreenSelector.so
+Display 0 'gamescope': 1920x1080 (primary device).
+Logging to /pm/.config/unity3d/RawThrills/Nerf/Player.log
+mkdir: cannot create directory ‘/mnt/usbflash’: No such file or directory
+== exit 143

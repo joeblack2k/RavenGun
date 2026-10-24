@@ -1,0 +1,14 @@
+now 00:22:41
+pid 1819410 comm RSGame-Win64-Sh threads 148
+    maps: OpenParrotx64/OpenParrot64.dll -> 2 mappings
+    maps: TeknoParrot/TeknoParrot64.dll -> 0 mappings
+    maps: RSGame-Win64-Shipping.exe -> 1 mappings
+    maps: UsbPluginsDll.dll -> 2 mappings
+    maps: d3d11.dll -> 9 mappings
+    maps: dxgi.dll -> 9 mappings
+    maps: winegstreamer -> 11 mappings
+    maps: gst-extra/plugins/libgstlibav.so -> 5 mappings
+    maps: libgstreamer-1.0 -> 5 mappings
+    maps: mfplat.dll -> 7 mappings
+    maps: mf.dll -> 7 mappings
+    d3d11 from: .local/share/ravengun/prefixes/ravengun-test-dxvk/drive_c/windows/system32/d3d11.dll

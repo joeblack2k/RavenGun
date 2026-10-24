@@ -1,0 +1,14 @@
+[ravengun-net-log] + 0.000000 pid 1253920: socket(domain=1 type=1 proto=0) -> fd 4
+[ravengun-net-log] + 0.000029 pid 1253920: connect(fd 4 -> AF_UNIX /tmp/.aksusb) -> -1 errno=2 (No such file or directory)
+[ravengun-net-log] + 0.000042 pid 1253920: socket(domain=1 type=1 proto=0) -> fd 4
+[ravengun-net-log] + 0.000053 pid 1253920: connect(fd 4 -> AF_UNIX /tmp/.aksusb) -> -1 errno=2 (No such file or directory)
+[ravengun-net-log] + 0.000128 pid 1253920: socket(domain=2 type=2 proto=0) -> fd 4
+[ravengun-net-log] + 0.000140 pid 1253920: bind(fd 4 -> AF_INET 0.0.0.0:0) -> 0
+[ravengun-net-log] + 0.000191 pid 1253920: sendto(fd 4, 165 bytes -> AF_INET 127.0.0.1:475) -> 165
+[ravengun-net-log] + 0.001280 pid 1253920: sendto(fd 4, 165 bytes -> AF_INET 255.255.255.255:475) -> 165
+[ravengun-net-log] + 1.003366 pid 1253920: sendto(fd 4, 165 bytes -> AF_INET 127.0.0.1:475) -> 165
+[ravengun-net-log] + 1.004454 pid 1253920: sendto(fd 4, 165 bytes -> AF_INET 255.255.255.255:475) -> 165
+[ravengun-net-log] + 2.006540 pid 1253920: sendto(fd 4, 165 bytes -> AF_INET 127.0.0.1:475) -> 165
+[ravengun-net-log] + 2.007616 pid 1253920: sendto(fd 4, 165 bytes -> AF_INET 255.255.255.255:475) -> 165
+[ravengun-net-log] + 3.009414 pid 1253920: sendto(fd 4, 165 bytes -> AF_INET 127.0.0.1:475) -> 165
+[ravengun-net-log] + 3.010496 pid 1253920: sendto(fd 4, 165 bytes -> AF_INET 255.255.255.255:475) -> 165

@@ -1,0 +1,51 @@
+### SUCCES: C:\Users\Homelab\Documents\Default Project\TeknoParrotUi-2.0.0.131-win-x64\staging\ravengun-patches\patches\HOTDSD\measurements\loaderab-B-ue4.log  (341 regels)
+
+==========================================================================
+### VERGELIJK met C:\Users\Homelab\Documents\Default Project\TeknoParrotUi-2.0.0.131-win-x64\staging\ravengun-patches\patches\HOTDSD\measurements\localcontent-B-ue4.log  (187 regels)
+   eerste verschil op regel 171
+   -- laatste 4 GELIJKE regels (de laatste die beide deden):
+      | LogRenderer: Reallocating scene render targets to support 1920x1080 Format 10 NumSamples 1 (Frame:1).
+      | LogLoad: (Engine Initialization) Total time: 11.55 seconds
+      | LogExternalProfiler: No external profilers were discovered.  External profiling features will not be available.
+      | LogContentStreaming: Texture pool size now 4000 MB
+   -- de MISLUKTE run doet daarna nog 17 regels; de laatste 10:
+      | LogMemory: Process Virtual Memory: 656.70 MB used, 656.70 MB peak
+      | LogMemory: Physical Memory: 7577.66 MB used,  24127.47 MB free, 31705.13 MB total
+      | LogMemory: Virtual Memory: 758.56 MB used,  24127.47 MB free, 134217728.00 MB total
+      | LogWindows: Error: === Critical error: ===
+      | LogWindows: Error:
+      | LogWindows: Error: Fatal error: [File:C:\UE4_171113\UE4\Engine\Source\Runtime\RenderCore\Private\RenderingThread.cpp] [Line: 1015]
+      | LogWindows: Error: GameThread timed out waiting for RenderThread after 30.00 secs
+      | LogWindows: Error:
+      | LogWindows: Error:
+      | LogWindows: Error:
+   -- en de GESLAAGDE run op dat punt (de volgende 14 regels):
+      > LogAppSequence: [InitializeTest] SetupRecords (Valid?:1)
+      > LogAppStrong: [BPC_InitializeTestController] Record_Bookkeeping : Valid / Record_GameSetting : Valid
+      > HodzeroLog: UAppBackup::UAppBackup
+      > LogAppData: [AppBackup] ConvertBackupData
+      > LogAppData: FBookkeepingData::PrintLog
+      > LogAppData: FNetAppUploadCabinetExtensionData : ?????
+      > LogAppData:  FirstPlay:NORMAL        : 1
+      > LogAppData:  FirstPlay:MASTER        : 0
+      > LogAppData:  ContPlay:NORMAL         : 0
+      > LogAppData:  ContPlay:MASTER         : 0
+      > LogAppData:  SoloFirstPlay           : 10
+      > LogAppData:  PairFirstPlay           : 0
+      > LogAppData:  PairWithBonusFirstPlay  : 0
+      > LogAppData:  NormalModeSelect        : 0,0
+   -- 138 regels die de GESLAAGDE run wel heeft en de mislukte niet (eerste 14):
+      + LogAppSequence: [InitializeTest] SetupRecords (Valid?:1)
+      + LogAppStrong: [BPC_InitializeTestController] Record_Bookkeeping : Valid / Record_GameSetting : Valid
+      + LogAppData: [AppBackup] ConvertBackupData
+      + LogAppData: FBookkeepingData::PrintLog
+      + LogAppData: FNetAppUploadCabinetExtensionData : ?????
+      + LogAppData:  FirstPlay:NORMAL        : 1
+      + LogAppData:  FirstPlay:MASTER        : 0
+      + LogAppData:  ContPlay:NORMAL         : 0
+      + LogAppData:  ContPlay:MASTER         : 0
+      + LogAppData:  SoloFirstPlay           : 10
+      + LogAppData:  PairFirstPlay           : 0
+      + LogAppData:  PairWithBonusFirstPlay  : 0
+      + LogAppData:  NormalModeSelect        : 0,0
+      + LogAppData:  MasterModeSelect        : 0,0

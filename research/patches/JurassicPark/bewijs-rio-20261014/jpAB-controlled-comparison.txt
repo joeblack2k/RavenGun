@@ -1,0 +1,25 @@
+# JP RIO controlled comparison, 2026-10-14. Two arms, identical harness, both binding a local game over
+# /pm/game, differing in EXACTLY 3 bytes (RIO_Connected at 0x323320). Arm A unpatched (ran 04:23), arm B
+# patched (ran 04:26). 180 s each.
+#
+# RESULT 1 -- the board is SEEN, controlled: arm A (unpatched) logs 'RIO Disconnected'; arm B (patched) does
+#   not. One variable, opposite outcomes -> the 3-byte patch is what removes the RIO-disconnected state.
+# RESULT 2 -- the black screen is NOT the patch: both arms rendered pure black (game frames ~61), and both
+#   loaded fine (slot table applied, jumped to e_entry). So the no-render is independent of the patch;
+#   it is a separate render failure (both hit shader108 compile errors, ec=-9596, g5/shader_gl.c:2180).
+---
+RIO Disconnected lines (dates): arm A at 04:23:22 present; arm B (04:26) absent:
+21:Tue Oct 13 23:00:37 2026: RIO Disconnected
+754:Tue Oct 13 23:00:38 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+857:Tue Oct 13 23:03:18 2026: RIO Disconnected
+1590:Tue Oct 13 23:03:19 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+1611:Tue Oct 13 23:05:52 2026: RIO Disconnected
+1612:Tue Oct 13 23:05:53 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+1625:Tue Oct 13 23:08:14 2026: RIO Disconnected
+1626:Tue Oct 13 23:08:16 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+1663:Wed Oct 14 04:23:22 2026: RIO Disconnected
+1664:Wed Oct 14 04:23:28 2026: ErrorMessage shown: error=0x1 'STR_ERRORMSG_RIO_DISCONNECTED'
+
+both arms loaded (from the launcher logs): slot table 576 slots, jump to e_entry 0x813befc
+both arms: all game frames pure black (jpA-shots, jpB-shots); frame 1 only = desktop
+Oct-14 game-side lines, counts: 16 shader108 failures, 1 RIO Disconnected (arm A)

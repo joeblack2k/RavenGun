@@ -1,0 +1,39 @@
+{
+  "kind": "matrix",
+  "game": "TombRaider",
+  "title": "Tomb Raider: Arcade",
+  "platform": "Adrenaline Amusements, Unity (64-bits)",
+  "library": "matrix64.dll",
+  "port": 85,
+  "dongles": 2,
+  "sernr": 69420,
+  "api": [
+    "Init_MatrixAPI",
+    "Dongle_Count",
+    "Dongle_ReadSerNr"
+  ],
+  "enforced": false,
+  "answers": {
+    "Init_MatrixAPI()": 0,
+    "Dongle_Count(85)": 2,
+    "Dongle_ReadSerNr(Dongle, aantal, 85)": 69420
+  },
+  "evidence": {
+    "assembly": "Game_Data/Managed/Assembly-CSharp.dll",
+    "class": "SBK.Matrix.MatrixManager",
+    "wrapper": "MatrixDLLCSharp.MatrixWrapper",
+    "check_method": "SBK.Matrix.MatrixManager::ReadSerial, aangeroepen uit SBK.Matrix.MatrixManager::Awake",
+    "il": [
+      "IL_0022: ldc.i4.s 85                              ; de poort",
+      "IL_0024: call MatrixDLLCSharp.MatrixWrapper::Dongle_Count",
+      "IL_0035: bgt IL_003C                              ; aantal <= 0 -> return 2",
+      "IL_0049: ldc.i4.s 85",
+      "IL_004B: call MatrixDLLCSharp.MatrixWrapper::Dongle_ReadSerNr   ; (Dongle, DongleId, 85)",
+      "IL_006B: bgt IL_0076                              ; reeks <= 0 -> return 3"
+    ],
+    "why_not_enforced": "Awake kiest op grond van ReadSerial tussen de coroutines DongleFound en DongleNotFound. DongleNotFound (SBK.Matrix.MatrixManager+<DongleNotFound>c__Iterator1::MoveNext) wacht Random.Range(300.0, 600.0) seconden en eindigt daarna: geen Debug.Log, geen Application.Quit en geen Process.Kill. In deze assembly roept geen enkele MatrixManager-methode UnityEngine.Application::Quit.",
+    "strings": "MATRIX_NO_ERROR / MATRIX_NOT_INITIALIZED / MATRIX_NO_DONGLE_FOUND / MATRIX_DONGLE_READ_ERROR zijn leden van de MatrixError-enum, geen logregels.",
+    "measured": "de game is speelbaar zonder TeknoParrot en zonder dongle; wat hem blokkeerde was het eigen USB-I/O-bord ('IO BOARD ERROR', 'GetVersionDRV_USB', 'Base not found'), niet de dongle (findings/TombRaider.md)"
+  },
+  "notes": "De game VRAAGT de dongle (de aanroepen staan in de assembly en matrix64.dll staat in de spelmap en in Game_Data/Plugins), maar hij valt zonder dongle stil terug: de foutcoroutine wacht vijf tot tien minuten en doet verder niets. enforced = false. Er is geen dongle-geheugen nodig: Dongle_ReadData/Dongle_WriteData/Dongle_MemSize komen in de hele assembly niet voor. LET OP: SBK.Matrix.MatrixManager::EncryptWithDongle en DecryptWithDongle roepen Dongle_EncryptData/Dongle_DecryptData aan (aangeroepen uit SBK.Matrix.MatrixMessage::Decrypt), en die eisen eerst een reeks groter dan 0 -- met onze 69420 gebeuren ze dus echt. Onze laag laat de buffer ongemoeid en geeft 0 terug, en dat blijft alleen consistent zolang beide richtingen een no-op zijn. Het serienummer 69420 is geen serienummer van de eigenaar maar een vaste, zelfgekozen waarde (0x10F2C), dezelfde die TeknoParrot's emulator teruggeeft."
+}

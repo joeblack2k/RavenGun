@@ -1,0 +1,11 @@
+09:22:16 attract reached (log /home/deck/.local/state/ravengun/logs/native-NERF-20261014-092151.log)
+09:22:16 mouse-gun: speler 1: event258 NIET verbonden, 1920 counts per schermbreedte (geen toegang tot /dev/input/event258 (leesrechten nodig: de groep 'input' of een udev-regel met uaccess))
+09:22:19 START (key 1)
+09:22:25 mouse to top-left: kanalen 19=2056 20=1638 21=2056 22=2039 
+09:22:28 mouse at px (480,378) = (0.25 0.35): tellers 15=0 7=2 8=0 3=0 5=0 6=0  kanalen 19=2056 20=1638 21=2056 22=2039  
+09:22:36 mouse at px (960,378) = (0.5 0.35): tellers 15=0 7=2 8=0 3=0 5=0 6=0  kanalen 19=2056 20=1638 21=2056 22=2039  
+09:22:44 mouse at px (1440,378) = (0.75 0.35): tellers 15=0 7=2 8=0 3=0 5=0 6=0  kanalen 19=2056 20=1638 21=2056 22=2039  
+09:22:52 mouse at px (1440,594) = (0.75 0.55): tellers 15=0 7=2 8=0 3=0 5=0 6=0  kanalen 19=2056 20=1638 21=2056 22=2039  
+09:22:59 mouse at px (960,594) = (0.5 0.55): tellers 15=0 7=2 8=0 3=0 5=0 6=0  kanalen 19=2056 20=1638 21=2056 22=2039  
+09:23:07 mouse at px (480,594) = (0.25 0.55): tellers 15=0 7=2 8=0 3=0 5=0 6=0  kanalen 19=2056 20=1638 21=2056 22=2039  
+09:23:11 mouse driver done

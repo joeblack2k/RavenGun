@@ -1,0 +1,2 @@
+share mode: overlay-keep  shm source: launcher default
+devices hidden from the game: /dev/ttyACM0

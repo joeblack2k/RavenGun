@@ -1,0 +1,2 @@
+ACTION=="add", KERNEL=="sd?1", SUBSYSTEMS=="usb", RUN+="/bin/mount /dev/%k /mnt/usbflash"
+ACTION=="remove", KERNEL=="sd?1", SUBSYSTEMS=="usb", RUN+="/bin/umount /mnt/usbflash"

@@ -1,0 +1,43 @@
+== play-native Halo 20261013-133203
+script: /home/deck/projects/ravengun/scripts/play-native.sh
+  de versie uit de REPO (commit 5c3ba99; met wijzigingen in scripts/ die niet in die commit zitten); sha256 f34a2d9c913d606d7a5a5999cc18225c40ed4457cafe953416a8fc8c99a8a92a
+  gegevens: /home/deck/projects/ravengun/packaging/native-games.json sha256 06db1453b689aaa414de21750bded589cc767741c81f94e1e88e16d15f86d29f
+  hulp: /home/deck/projects/ravengun/scripts/rg-paths.sh sha256 8ca01e47a2465b82f150c2570ed5523ccffaef2b16c6e1cf81f00b26f63db25a
+  hulp: /home/deck/projects/ravengun/scripts/rg-identiteit.sh sha256 be4c411ffdd1d272d3088751c0d8d10c6f8efd7003a4caa5504492e05e5a6463
+  bibliotheek: /home/deck/projects/ravengun/build/librg_rt_input.so sha256 8199ef9b9aa9518f80047ffbc87afa26cf27970a275a76eea3fe727ac9bb04f3
+  meegegeven: /home/deck/projects/ravengun-patches/patches/Halo/probe/libusb-tap.so sha256 9b63cea4c56fe0d55f6f4cad9fbf4991abc3c465f02448e3aafe34521828d198
+  meegegeven: /home/deck/.local/share/ravengun/tap/start.jvs sha256 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b
+  invoertabel: /home/deck/projects/ravengun-patches/patches/Halo/rt-invoer.kandidaat.ini sha256 82ac96cd4436c5b41b088d406c5b89df8826327328b5a6fdfda527d6243d4bfb
+  het geinstalleerde script (/home/deck/.local/opt/ravengun/share/ravengun/scripts/play-native.sh) is een ANDERE versie (sha256 c19370b6d9d2ef09e759ca1338ae071d302a474991c9b034cb488ae553f7ebf9): een run via de installatie gebruikt dus niet deze code
+camera: geen (rol none: dit spel vraagt geen camera)
+display=:1 res=1920x1080 headless=0 preload=/rg/lib/librg_rt_input.so:/pm/g7/halo/halo.so
+cmd: /pm/g7/halo/game -f1920x1080 -n
+rg_rt_input: tabel /rg/tabel/rt-invoer.ini: 13 schakelaars, 0 bits, 2 assen, 3 tellers, 2 vaste waarden
+rg_rt_input: gedeeld geheugen gekoppeld (pread)
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=0 [3]=0 [4]=0 [5]=0 [6]=1
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=1
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=2
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=2
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=3
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=3
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=4
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=4
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=5
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=5
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=6
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=6
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=7
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=7
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=8
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=8
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=9
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=9
+ls: cannot access '/dev/video*': No such file or directory
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=10
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=10
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=11
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=11
+rg_rt_input: indruk bit 6 -> bord 0 schakelaar 0; tabel NA de indruk: [0]=1 [3]=0 [4]=0 [5]=0 [6]=12
+No USB AUdio device
+rg_rt_input: tabel bord 0 k 0 bij LOSLATEN: [0]=1 [3]=0 [4]=0 [5]=0 [7]=12
+== exit 143

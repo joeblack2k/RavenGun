@@ -1,0 +1,49 @@
+RUN m3 -- MenInBlack -- started 2026-10-14 02:44:14
+DECLARED: core=ravengun  share=overlay-keep  shm-source=launcher default  exe=from the profile  limit=100s  captures every 4s
+THIS RUN: against m1: the argument /k=0d051181 (the checksum of Shell.exe that the cabinet's SystemLauncher passes). Shell unmodified.
+user layer (/home/deck/.local/share/ravengun/patches/MenInBlack/game.ini) at start:
+    (none)
+launcher plan (scripts/launch-direct.py MenInBlack --plan):
+    game: /home/deck/.local/share/ravengun/runtime/views/MenInBlack/shell/Shell.exe
+    wine: /home/deck/.local/share/ravengun/wrappers/wine-prefix
+    prefix: /home/deck/.local/share/ravengun/prefixes/ravengun-test-mib
+    core_dll: /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll
+    core_sha256: 413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc
+    core_source: ravengun
+    profile_env: {'TP_REMOTETHREAD': 'off', 'RG_WINEPREFIX': '/home/deck/.local/share/ravengun/prefixes/ravengun-test-mib', 'WINEDLLOVERRIDES': 'd3d11,d3d10core,dxgi=n,b'}
+inside the sandbox, the share folder is mounted as: overlay rw,nosuid,nodev,relatime,lowerdir=/proc/self/fd/10,upperdir=/proc/self/fd/6,workdir=/proc/self/fd/9,redirect_dir=nofollow,index=off,uuid=on,xi
+game process first seen 02:44:16
+launcher says: [launch-direct 02:44:14] kern (ravengun): /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll sha256 413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc
+02:44:26 alive: pid 1925341, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:44:56 alive: pid 1925341, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:45:26 alive: pid 1925341, 21 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotWin32/OpenParrot.dll ; MIB.exe: NOT running
+02:45:56 NO game process
+ENDED 2026-10-14 02:45:57 -- launcher: 02:45:56 klaar (exitcode gestopt) -- rc=124 (124 = stopped by the run's own limit)
+left running afterwards:
+    now 02:45:57
+    (end of list)
+files in the share's game folder newer than the start of this run: 0
+what the game wrote into the kept write layer (/home/deck/.local/state/ravengun/bench-upper/m3/upper):
+    02:44:20.7916426740        76 ./shell/teknoparrot.ini
+    02:44:21.0789637060        78 ./shell/hwticketvend - 261014.log
+    02:44:22.0925594680       253 ./shell/ioboard - 261014.log
+    02:44:23.6035456580        88 ./shell/system - 261014.log
+    02:44:23.6236490720        41 ./shell/ErrorHandler - 261014.log
+    02:44:23.7134475170        41 ./shell/TestOutputs - 261014.log
+    02:44:23.9145428150        86 ./shell/Cabinet - 261014.log
+    02:44:23.9215427510       337 ./shell/Mainthread - 261014.log
+    02:44:23.9275058230        41 ./shell/Lighting - 261014.log
+    02:44:23.9430865940        80 ./shell/Security - 261014.log
+    02:44:23.9895421300       465 ./shell/RecoilPattern - 261014.log
+    02:44:24.3345389770       202 ./shell/Credit - 261014.log
+    02:44:24.3450554770        41 ./shell/SoftwareMeters - 261014.log
+    02:44:24.3498875720        41 ./shell/Networking - 261014.log
+    02:44:24.3608594250       129 ./shell/GameStateMachine - 261014.log
+    02:44:24.3675960240        89 ./shell/TicketVendManager - 261014.log
+    02:44:24.3725386290       119 ./shell/TicketVend1 - 261014.log
+    02:44:24.3789947810       119 ./shell/TicketVend2 - 261014.log
+    02:44:29.4235746340       204 ./shell/variables/erlg
+    02:44:29.4277168680       204 ./shell/variables/erlg.bak
+    02:45:24.0030050930         8 ./shell/variables/tton
+    02:45:24.0079538060         8 ./shell/variables/tton.bak
+captures: 24, first shot-001-024414.png, last shot-024-024554.png

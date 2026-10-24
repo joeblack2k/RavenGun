@@ -1,0 +1,14 @@
+run: vensterproef (opname-reeks, koppelingen, argumenten)
+datum: 2026-10-13T14:02:39+02:00
+exitcode: 0
+levensduur: 6 s
+FOUT: 21
+-- opnamen --
+shot-1.png 160785
+shot-2.png 160785
+shot-3.png 160785
+shot-4.png 160785
+shot-5.png 160785
+shot-6.png 160785
+shot-7.png 160785
+shot-8.png 160785

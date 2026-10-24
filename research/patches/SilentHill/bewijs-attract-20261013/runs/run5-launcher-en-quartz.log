@@ -1,0 +1,30 @@
+# ingekort uit 4494 regels (WINEDEBUG met quartz-spoor): alleen de launcher-regels, de RenderFile-, MediaControl-, autoplug-fout-, stream_thread- en send_buffer-regels
+[launch-direct 23:49:20] launcher: /home/deck/projects/ravengun/scripts/launch-direct.py
+[launch-direct 23:49:20]   de versie uit de REPO (commit 8286b6a; met wijzigingen in scripts/ die niet in die commit zitten); sha256 66b54659984e51ce9e33abcb57bb01d3c028b2e06c8fd6b2c437bcd97774f1c8; hulpmodules (5) sha256 90fb34bbbe65de4042b3e4130e3c1d7342b913
+[launch-direct 23:49:20]   de geinstalleerde launcher (/home/deck/.local/opt/ravengun/share/ravengun/scripts/launch-direct.py) is een ANDERE versie (sha256 327ca20f593e39af4c2c324db8232fe81b83734556d60382fffa379542421cc0): een run via de installatie gebruikt d
+[launch-direct 23:49:20] kern (ravengun): /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrot.dll sha256 413027dece3c32218e3c2a9b5965b5d79a4b8a36099df81745a473010c2faafc
+[launch-direct 23:49:20] bestand: /home/deck/.local/share/ravengun/runtime/views/SilentHill/teknoparrot.ini geschreven
+[launch-direct 23:49:20] pipehelper: /home/deck/.local/share/ravengun/jvsbridge/rg-jvsbridge.exe TeknoParrot_JVS 127.0.0.1 42269 TeknoParrot_JvsState 64 'Z:\dev\shm\TeknoParrot_JvsState'
+[launch-direct 23:49:21] helper: pipehelper: pipe TeknoParrot_JVS created, waiting for game...
+[launch-direct 23:49:21] start: cwd=/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64
+[launch-direct 23:49:21] start: /usr/bin/gamescope -W 1920 -H 1080 -S fit -f --backend wayland -- /home/deck/.local/share/ravengun/wine/proton-11.0-2/bin/wine /home/deck/.local/share/ravengun/openparrot/current/OpenParrotWin32/OpenParrotLoader.exe 'Z:\home\dec
+[launch-direct 23:49:21] omgeving: TP_LAUNCH_SESSION_ID=a9787106-8835-497a-83f5-7e9a2518e097 WINEPREFIX=/home/deck/.local/share/ravengun/prefixes/shared/wine
+[launch-direct 23:49:21] helper: pipehelper: shm mirror active (TeknoParrot_JvsState <-> Z:\dev\shm\TeknoParrot_JvsState, 64 bytes) [created fresh]
+00fc:err:ole:com_get_class_object class {c6606ca5-2108-4caf-8e52-1953f2dbf716} not registered
+00fc:err:ole:com_get_class_object no class object {c6606ca5-2108-4caf-8e52-1953f2dbf716} could be created for context 0x1
+0198:trace:quartz:FilterGraph2_RenderFile (00F321C8/00F321CC)->(L"../eng/Movie/sceneA_ENGLISH.vid", (null))
+0198:trace:quartz:FilterGraph2_RenderFile Returning 0.
+0198:trace:quartz:MediaControl_StopWhenReady graph 00F321C8.
+0198:trace:quartz:MediaControl_Pause graph 00F321C8.
+01b4:trace:quartz:stream_thread Starting streaming thread for pin 00F32D40.
+00fc:trace:quartz:MediaControl_Run graph 00F321C8.
+01b8:trace:quartz:MediaControl_GetState graph 00F321C8, timeout -1, state 1061FE5C.
+01b8:trace:quartz:MediaControl_Stop graph 00F321C8.
+01b4:warn:quartz:BaseMemAllocator_GetBuffer Not committed
+01b4:err:quartz:send_buffer Failed to get a sample, hr 0x80040211.
+01b4:trace:quartz:stream_thread Streaming stopped; exiting.
+01b8:trace:quartz:MediaControl_GetState graph 00F321C8, timeout -1, state 1061FE5C.
+[launch-direct 23:51:00] A11: overgeslagen 0, toegepast 0, koppeling 0, versie 4, fout 0
+[launch-direct 23:51:00] A11: samenvatting in /home/deck/.local/state/ravengun/a11/SilentHill-20261013-235100.txt
+[launch-direct 23:51:00] klaar (exitcode gestopt)
+rc=124

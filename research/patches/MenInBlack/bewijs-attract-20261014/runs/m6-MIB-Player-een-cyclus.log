@@ -1,0 +1,67 @@
+Mono path[0] = 'z:/home/deck/.local/share/ravengun/runtime/views/meninblack/MIB/MIB_Data/Managed'
+Mono config path = 'z:/home/deck/.local/share/ravengun/runtime/views/meninblack/MIB/MonoBleedingEdge/etc'
+Initialize engine version: 2020.3.14f1 (d0d1bb862f9d)
+[Subsystems] Discovering subsystems at path z:/home/deck/.local/share/ravengun/runtime/views/meninblack/MIB/MIB_Data/UnitySubsystems
+GfxDevice: creating device client; threaded=1
+Direct3D:
+    Version:  Direct3D 11.0 [level 11.1]
+    Renderer: AMD Radeon RX 6950 XT (RADV NAVI21) (ID=0x73a5)
+    Vendor:   
+    VRAM:     16368 MB
+    Driver:   35.0.99999.9999
+Begin MonoManager ReloadAssembly
+- Completed reload, in  0.553 seconds
+Shader 'Effects/Explosions/DistortionFresnel': fallback shader 'Effects/Distortion/Free/CullOff' not found
+Shader 'ASESampleShaders/Terrain/TerrainSnowCoverageFirstPass': dependency 'BaseMapShader' shader 'ASESampleShaders/TerrainBase' not found
+D3D11 device created for Microsoft Media Foundation video decoding.
+<RI> Initializing input.
+<RI> Input initialized.
+<RI> Initialized touch support.
+UnloadTime: 0.347200 ms
+Curl error 7: Failed to connect to config.uca.cloud.unity3d.com port 443: Connection refused
+
+Curl error 7: Failed to connect to cdp.cloud.unity3d.com port 443: Connection refused
+
+CONNECTING TO SERIAL
+
+Curl error 7: Failed to connect to cdp.cloud.unity3d.com port 443: Connection refused
+
+BOOOO! NOT Connected to serial
+
+CONNECTING TO SERIAL
+
+BOOOO! NOT Connected to serial
+
+Assigning top most flag to window of title: MIB
+
+Credit Init
+
+Credit Update
+
+[Physics.PhysX] ConvexHullLib::cleanupVertices: Less than four valid vertices were found. Provide at least four valid (e.g. each at a different position) vertices.
+
+Failed to create Convex Mesh from source mesh "shard33". An internal unspecified error has occured that could mean the Quickhull algorithm found the input mesh topologically challenging. 
+
+[Physics.PhysX] ConvexHullLib::cleanupVertices: Less than four valid vertices were found. Provide at least four valid (e.g. each at a different position) vertices.
+
+Failed to create Convex Mesh from source mesh "shard53". An internal unspecified error has occured that could mean the Quickhull algorithm found the input mesh topologically challenging. 
+
+[Physics.PhysX] ConvexHullLib::cleanupVertices: Less than four valid vertices were found. Provide at least four valid (e.g. each at a different position) vertices.
+
+Failed to create Convex Mesh from source mesh "shard54". An internal unspecified error has occured that could mean the Quickhull algorithm found the input mesh topologically challenging. 
+
+Curl error 7: Failed to connect to cdp.cloud.unity3d.com port 443: Connection refused
+
+The referenced script (UITarget) on this Behaviour is missing!
+
+The referenced script on this Behaviour (Game Object 'Target1') is missing!
+
+The referenced script on this Behaviour (Game Object 'Projectile 2') is missing!
+
+The referenced script on this Behaviour (Game Object 'Projectile 24') is missing!
+
+CONNECTING TO SERIAL
+
+BOOOO! NOT Connected to serial
+
+Unloading 19 Unused Serialized files (Serialized files now loaded: 0)

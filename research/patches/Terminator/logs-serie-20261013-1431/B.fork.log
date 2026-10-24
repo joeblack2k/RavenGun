@@ -1,0 +1,1941 @@
++ 0.000010 pid=1059274 ppid=1059241 start (kind-waarnemer actief, meet alleen)
++ 0.027705 pid=1059274 ppid=1059241 kind-gemaakt kind=1059281
++ 0.027736 pid=1059281 ppid=1059274 kind-start
++ 0.037968 pid=1059274 ppid=1059241 kind-gemaakt kind=1059282
++ 0.037986 pid=1059282 ppid=1059274 kind-start
++ 0.038027 pid=1059282 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.038092 pid=1059282 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.038391 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059282 status=0x0 geëindigd met code 0
++ 0.048598 pid=1059274 ppid=1059241 kind-gemaakt kind=1059283
++ 0.048623 pid=1059283 ppid=1059274 kind-start
++ 0.048661 pid=1059283 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.048716 pid=1059283 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.049021 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059283 status=0x0 geëindigd met code 0
++ 0.059214 pid=1059274 ppid=1059241 kind-gemaakt kind=1059284
++ 0.059242 pid=1059284 ppid=1059274 kind-start
++ 0.059288 pid=1059284 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.059642 pid=1059284 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.059990 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059284 status=0x0 geëindigd met code 0
++ 0.070203 pid=1059274 ppid=1059241 kind-gemaakt kind=1059285
++ 0.070230 pid=1059285 ppid=1059274 kind-start
++ 0.070277 pid=1059285 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.070347 pid=1059285 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.070698 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059285 status=0x0 geëindigd met code 0
++ 0.080891 pid=1059274 ppid=1059241 kind-gemaakt kind=1059286
++ 0.080913 pid=1059286 ppid=1059274 kind-start
++ 0.080965 pid=1059286 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.081051 pid=1059286 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.081413 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059286 status=0x0 geëindigd met code 0
++ 0.091622 pid=1059274 ppid=1059241 kind-gemaakt kind=1059287
++ 0.091643 pid=1059287 ppid=1059274 kind-start
++ 0.091680 pid=1059287 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.091738 pid=1059287 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.092121 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059287 status=0x0 geëindigd met code 0
++ 0.102311 pid=1059274 ppid=1059241 kind-gemaakt kind=1059288
++ 0.102354 pid=1059288 ppid=1059274 kind-start
++ 0.102403 pid=1059288 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.102475 pid=1059288 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.102804 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059288 status=0x0 geëindigd met code 0
++ 0.113033 pid=1059274 ppid=1059241 kind-gemaakt kind=1059289
++ 0.113061 pid=1059289 ppid=1059274 kind-start
++ 0.113107 pid=1059289 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.113174 pid=1059289 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.113559 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059289 status=0x0 geëindigd met code 0
++ 0.123763 pid=1059274 ppid=1059241 kind-gemaakt kind=1059290
++ 0.123782 pid=1059290 ppid=1059274 kind-start
++ 0.123820 pid=1059290 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.123875 pid=1059290 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.124204 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059290 status=0x0 geëindigd met code 0
++ 0.134387 pid=1059274 ppid=1059241 kind-gemaakt kind=1059291
++ 0.134415 pid=1059291 ppid=1059274 kind-start
++ 0.134461 pid=1059291 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.134530 pid=1059291 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.135094 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059291 status=0x0 geëindigd met code 0
++ 0.145287 pid=1059274 ppid=1059241 kind-gemaakt kind=1059292
++ 0.145315 pid=1059292 ppid=1059274 kind-start
++ 0.145361 pid=1059292 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.145430 pid=1059292 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.145769 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059292 status=0x0 geëindigd met code 0
++ 0.155993 pid=1059274 ppid=1059241 kind-gemaakt kind=1059293
++ 0.156012 pid=1059293 ppid=1059274 kind-start
++ 0.156049 pid=1059293 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.156104 pid=1059293 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.156411 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059293 status=0x0 geëindigd met code 0
++ 0.166591 pid=1059274 ppid=1059241 kind-gemaakt kind=1059294
++ 0.166613 pid=1059294 ppid=1059274 kind-start
++ 0.166650 pid=1059294 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.166706 pid=1059294 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.167027 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059294 status=0x0 geëindigd met code 0
++ 0.177208 pid=1059274 ppid=1059241 kind-gemaakt kind=1059295
++ 0.177234 pid=1059295 ppid=1059274 kind-start
++ 0.177278 pid=1059295 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.177347 pid=1059295 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.177687 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059295 status=0x0 geëindigd met code 0
++ 0.187872 pid=1059274 ppid=1059241 kind-gemaakt kind=1059296
++ 0.187890 pid=1059296 ppid=1059274 kind-start
++ 0.187923 pid=1059296 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.188031 pid=1059296 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.188399 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059296 status=0x0 geëindigd met code 0
++ 0.198603 pid=1059274 ppid=1059241 kind-gemaakt kind=1059297
++ 0.198619 pid=1059297 ppid=1059274 kind-start
++ 0.198650 pid=1059297 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.198702 pid=1059297 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.199056 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059297 status=0x0 geëindigd met code 0
++ 0.209268 pid=1059274 ppid=1059241 kind-gemaakt kind=1059298
++ 0.209294 pid=1059298 ppid=1059274 kind-start
++ 0.209334 pid=1059298 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.209399 pid=1059298 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.209728 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059298 status=0x0 geëindigd met code 0
++ 0.219911 pid=1059274 ppid=1059241 kind-gemaakt kind=1059299
++ 0.219934 pid=1059299 ppid=1059274 kind-start
++ 0.220018 pid=1059299 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.220097 pid=1059299 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.220445 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059299 status=0x0 geëindigd met code 0
++ 0.230617 pid=1059274 ppid=1059241 kind-gemaakt kind=1059300
++ 0.230656 pid=1059300 ppid=1059274 kind-start
++ 0.230705 pid=1059300 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.230778 pid=1059300 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.231178 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059300 status=0x0 geëindigd met code 0
++ 0.241363 pid=1059274 ppid=1059241 kind-gemaakt kind=1059301
++ 0.241402 pid=1059301 ppid=1059274 kind-start
++ 0.241452 pid=1059301 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.241524 pid=1059301 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.241853 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059301 status=0x0 geëindigd met code 0
++ 0.252054 pid=1059274 ppid=1059241 kind-gemaakt kind=1059302
++ 0.252096 pid=1059302 ppid=1059274 kind-start
++ 0.252146 pid=1059302 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.252221 pid=1059302 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.252589 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059302 status=0x0 geëindigd met code 0
++ 0.262796 pid=1059274 ppid=1059241 kind-gemaakt kind=1059303
++ 0.262830 pid=1059303 ppid=1059274 kind-start
++ 0.262873 pid=1059303 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.262930 pid=1059303 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.263236 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059303 status=0x0 geëindigd met code 0
++ 0.273432 pid=1059274 ppid=1059241 kind-gemaakt kind=1059304
++ 0.273465 pid=1059304 ppid=1059274 kind-start
++ 0.273505 pid=1059304 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.273561 pid=1059304 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.273850 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059304 status=0x0 geëindigd met code 0
++ 0.284061 pid=1059274 ppid=1059241 kind-gemaakt kind=1059305
++ 0.284094 pid=1059305 ppid=1059274 kind-start
++ 0.284134 pid=1059305 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.284191 pid=1059305 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.284475 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059305 status=0x0 geëindigd met code 0
++ 0.294674 pid=1059274 ppid=1059241 kind-gemaakt kind=1059306
++ 0.294713 pid=1059306 ppid=1059274 kind-start
++ 0.294764 pid=1059306 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.294822 pid=1059306 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.295204 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059306 status=0x0 geëindigd met code 0
++ 0.305405 pid=1059274 ppid=1059241 kind-gemaakt kind=1059307
++ 0.305444 pid=1059307 ppid=1059274 kind-start
++ 0.305494 pid=1059307 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.305563 pid=1059307 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.305895 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059307 status=0x0 geëindigd met code 0
++ 0.316089 pid=1059274 ppid=1059241 kind-gemaakt kind=1059308
++ 0.316120 pid=1059308 ppid=1059274 kind-start
++ 0.316160 pid=1059308 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.316217 pid=1059308 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.316509 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059308 status=0x0 geëindigd met code 0
++ 0.326715 pid=1059274 ppid=1059241 kind-gemaakt kind=1059309
++ 0.326753 pid=1059309 ppid=1059274 kind-start
++ 0.326803 pid=1059309 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.326873 pid=1059309 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.327241 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059309 status=0x0 geëindigd met code 0
++ 0.337413 pid=1059274 ppid=1059241 kind-gemaakt kind=1059310
++ 0.337448 pid=1059310 ppid=1059274 kind-start
++ 0.337489 pid=1059310 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.337545 pid=1059310 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.337832 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059310 status=0x0 geëindigd met code 0
++ 0.348017 pid=1059274 ppid=1059241 kind-gemaakt kind=1059323
++ 0.348059 pid=1059323 ppid=1059274 kind-start
++ 0.348111 pid=1059323 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.348181 pid=1059323 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.348530 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059323 status=0x0 geëindigd met code 0
++ 0.358704 pid=1059274 ppid=1059241 kind-gemaakt kind=1059324
++ 0.358739 pid=1059324 ppid=1059274 kind-start
++ 0.358779 pid=1059324 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.358836 pid=1059324 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.359210 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059324 status=0x0 geëindigd met code 0
++ 0.369409 pid=1059274 ppid=1059241 kind-gemaakt kind=1059325
++ 0.369451 pid=1059325 ppid=1059274 kind-start
++ 0.369500 pid=1059325 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.369572 pid=1059325 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.369893 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059325 status=0x0 geëindigd met code 0
++ 0.380089 pid=1059274 ppid=1059241 kind-gemaakt kind=1059326
++ 0.380128 pid=1059326 ppid=1059274 kind-start
++ 0.380178 pid=1059326 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.380251 pid=1059326 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.380601 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059326 status=0x0 geëindigd met code 0
++ 0.390782 pid=1059274 ppid=1059241 kind-gemaakt kind=1059327
++ 0.390816 pid=1059327 ppid=1059274 kind-start
++ 0.390857 pid=1059327 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.390914 pid=1059327 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.391250 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059327 status=0x0 geëindigd met code 0
++ 0.401447 pid=1059274 ppid=1059241 kind-gemaakt kind=1059328
++ 0.401487 pid=1059328 ppid=1059274 kind-start
++ 0.401537 pid=1059328 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.401607 pid=1059328 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.401923 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059328 status=0x0 geëindigd met code 0
++ 0.412072 pid=1059274 ppid=1059241 kind-gemaakt kind=1059346
++ 0.412101 pid=1059346 ppid=1059274 kind-start
++ 0.412150 pid=1059346 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.412220 pid=1059346 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.412571 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059346 status=0x0 geëindigd met code 0
++ 0.422750 pid=1059274 ppid=1059241 kind-gemaakt kind=1059347
++ 0.422772 pid=1059347 ppid=1059274 kind-start
++ 0.422807 pid=1059347 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.422862 pid=1059347 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.423226 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059347 status=0x0 geëindigd met code 0
++ 0.433427 pid=1059274 ppid=1059241 kind-gemaakt kind=1059348
++ 0.433466 pid=1059348 ppid=1059274 kind-start
++ 0.433516 pid=1059348 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.433586 pid=1059348 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.433906 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059348 status=0x0 geëindigd met code 0
++ 0.444089 pid=1059274 ppid=1059241 kind-gemaakt kind=1059349
++ 0.444128 pid=1059349 ppid=1059274 kind-start
++ 0.444177 pid=1059349 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.444251 pid=1059349 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.444601 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059349 status=0x0 geëindigd met code 0
++ 0.454778 pid=1059274 ppid=1059241 kind-gemaakt kind=1059350
++ 0.454812 pid=1059350 ppid=1059274 kind-start
++ 0.454855 pid=1059350 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.454912 pid=1059350 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.455253 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059350 status=0x0 geëindigd met code 0
++ 0.465450 pid=1059274 ppid=1059241 kind-gemaakt kind=1059351
++ 0.465489 pid=1059351 ppid=1059274 kind-start
++ 0.465539 pid=1059351 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.465608 pid=1059351 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.465934 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059351 status=0x0 geëindigd met code 0
++ 0.476073 pid=1059274 ppid=1059241 kind-gemaakt kind=1059364
++ 0.476104 pid=1059364 ppid=1059274 kind-start
++ 0.476145 pid=1059364 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.476203 pid=1059364 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.476495 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059364 status=0x0 geëindigd met code 0
++ 0.486669 pid=1059274 ppid=1059241 kind-gemaakt kind=1059365
++ 0.486714 pid=1059365 ppid=1059274 kind-start
++ 0.486765 pid=1059365 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.486837 pid=1059365 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.487194 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059365 status=0x0 geëindigd met code 0
++ 0.497378 pid=1059274 ppid=1059241 kind-gemaakt kind=1059366
++ 0.497421 pid=1059366 ppid=1059274 kind-start
++ 0.497473 pid=1059366 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.497549 pid=1059366 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.497878 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059366 status=0x0 geëindigd met code 0
++ 0.508116 pid=1059274 ppid=1059241 kind-gemaakt kind=1059367
++ 0.508150 pid=1059367 ppid=1059274 kind-start
++ 0.508200 pid=1059367 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.508274 pid=1059367 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.508638 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059367 status=0x0 geëindigd met code 0
++ 0.518864 pid=1059274 ppid=1059241 kind-gemaakt kind=1059368
++ 0.518903 pid=1059368 ppid=1059274 kind-start
++ 0.518958 pid=1059368 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.519102 pid=1059368 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.519574 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059368 status=0x0 geëindigd met code 0
++ 0.529777 pid=1059274 ppid=1059241 kind-gemaakt kind=1059369
++ 0.529815 pid=1059369 ppid=1059274 kind-start
++ 0.529865 pid=1059369 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.529935 pid=1059369 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.530295 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059369 status=0x0 geëindigd met code 0
++ 0.540472 pid=1059274 ppid=1059241 kind-gemaakt kind=1059370
++ 0.540510 pid=1059370 ppid=1059274 kind-start
++ 0.540559 pid=1059370 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.540633 pid=1059370 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.540953 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059370 status=0x0 geëindigd met code 0
++ 0.551125 pid=1059274 ppid=1059241 kind-gemaakt kind=1059371
++ 0.551160 pid=1059371 ppid=1059274 kind-start
++ 0.551201 pid=1059371 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.551257 pid=1059371 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.551549 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059371 status=0x0 geëindigd met code 0
++ 0.561719 pid=1059274 ppid=1059241 kind-gemaakt kind=1059372
++ 0.561763 pid=1059372 ppid=1059274 kind-start
++ 0.561812 pid=1059372 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.561882 pid=1059372 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.562286 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059372 status=0x0 geëindigd met code 0
++ 0.572482 pid=1059274 ppid=1059241 kind-gemaakt kind=1059373
++ 0.572513 pid=1059373 ppid=1059274 kind-start
++ 0.572554 pid=1059373 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.572613 pid=1059373 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.572898 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059373 status=0x0 geëindigd met code 0
++ 0.583057 pid=1059274 ppid=1059241 kind-gemaakt kind=1059374
++ 0.583100 pid=1059374 ppid=1059274 kind-start
++ 0.583149 pid=1059374 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.583220 pid=1059374 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.583571 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059374 status=0x0 geëindigd met code 0
++ 0.593742 pid=1059274 ppid=1059241 kind-gemaakt kind=1059376
++ 0.593785 pid=1059376 ppid=1059274 kind-start
++ 0.593834 pid=1059376 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.593904 pid=1059376 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.594279 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059376 status=0x0 geëindigd met code 0
++ 0.604475 pid=1059274 ppid=1059241 kind-gemaakt kind=1059381
++ 0.604509 pid=1059381 ppid=1059274 kind-start
++ 0.604549 pid=1059381 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.604606 pid=1059381 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.604891 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059381 status=0x0 geëindigd met code 0
++ 0.615060 pid=1059274 ppid=1059241 kind-gemaakt kind=1059386
++ 0.615083 pid=1059386 ppid=1059274 kind-start
++ 0.615122 pid=1059386 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.615180 pid=1059386 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.615468 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059386 status=0x0 geëindigd met code 0
++ 0.625644 pid=1059274 ppid=1059241 kind-gemaakt kind=1059387
++ 0.625668 pid=1059387 ppid=1059274 kind-start
++ 0.625710 pid=1059387 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.625774 pid=1059387 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.626056 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059387 status=0x0 geëindigd met code 0
++ 0.636240 pid=1059274 ppid=1059241 kind-gemaakt kind=1059404
++ 0.636268 pid=1059404 ppid=1059274 kind-start
++ 0.636315 pid=1059404 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.636386 pid=1059404 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.636733 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059404 status=0x0 geëindigd met code 0
++ 0.646918 pid=1059274 ppid=1059241 kind-gemaakt kind=1059409
++ 0.646947 pid=1059409 ppid=1059274 kind-start
++ 0.646992 pid=1059409 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.647058 pid=1059409 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.647392 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059409 status=0x0 geëindigd met code 0
++ 0.657585 pid=1059274 ppid=1059241 kind-gemaakt kind=1059410
++ 0.657604 pid=1059410 ppid=1059274 kind-start
++ 0.657637 pid=1059410 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.657688 pid=1059410 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.658017 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059410 status=0x0 geëindigd met code 0
++ 0.668205 pid=1059274 ppid=1059241 kind-gemaakt kind=1059411
++ 0.668231 pid=1059411 ppid=1059274 kind-start
++ 0.668271 pid=1059411 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.668334 pid=1059411 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.668657 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059411 status=0x0 geëindigd met code 0
++ 0.678860 pid=1059274 ppid=1059241 kind-gemaakt kind=1059412
++ 0.678880 pid=1059412 ppid=1059274 kind-start
++ 0.678912 pid=1059412 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.678967 pid=1059412 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.679230 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059412 status=0x0 geëindigd met code 0
++ 0.689414 pid=1059274 ppid=1059241 kind-gemaakt kind=1059413
++ 0.689434 pid=1059413 ppid=1059274 kind-start
++ 0.689466 pid=1059413 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.689516 pid=1059413 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.689783 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059413 status=0x0 geëindigd met code 0
++ 0.699992 pid=1059274 ppid=1059241 kind-gemaakt kind=1059414
++ 0.700010 pid=1059414 ppid=1059274 kind-start
++ 0.700045 pid=1059414 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.700099 pid=1059414 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.700398 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059414 status=0x0 geëindigd met code 0
++ 0.710572 pid=1059274 ppid=1059241 kind-gemaakt kind=1059415
++ 0.710606 pid=1059415 ppid=1059274 kind-start
++ 0.710650 pid=1059415 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.710707 pid=1059415 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.711052 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059415 status=0x0 geëindigd met code 0
++ 0.721264 pid=1059274 ppid=1059241 kind-gemaakt kind=1059416
++ 0.721299 pid=1059416 ppid=1059274 kind-start
++ 0.721339 pid=1059416 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.721396 pid=1059416 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.721683 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059416 status=0x0 geëindigd met code 0
++ 0.731894 pid=1059274 ppid=1059241 kind-gemaakt kind=1059417
++ 0.731916 pid=1059417 ppid=1059274 kind-start
++ 0.731964 pid=1059417 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.732030 pid=1059417 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.732373 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059417 status=0x0 geëindigd met code 0
++ 0.742570 pid=1059274 ppid=1059241 kind-gemaakt kind=1059423
++ 0.742590 pid=1059423 ppid=1059274 kind-start
++ 0.742630 pid=1059423 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.742686 pid=1059423 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.743024 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059423 status=0x0 geëindigd met code 0
++ 0.753230 pid=1059274 ppid=1059241 kind-gemaakt kind=1059424
++ 0.753253 pid=1059424 ppid=1059274 kind-start
++ 0.753288 pid=1059424 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.753342 pid=1059424 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.753618 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059424 status=0x0 geëindigd met code 0
++ 0.763798 pid=1059274 ppid=1059241 kind-gemaakt kind=1059425
++ 0.763819 pid=1059425 ppid=1059274 kind-start
++ 0.763852 pid=1059425 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.763904 pid=1059425 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.764181 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059425 status=0x0 geëindigd met code 0
++ 0.774367 pid=1059274 ppid=1059241 kind-gemaakt kind=1059426
++ 0.774387 pid=1059426 ppid=1059274 kind-start
++ 0.774419 pid=1059426 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.774470 pid=1059426 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.774735 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059426 status=0x0 geëindigd met code 0
++ 0.784934 pid=1059274 ppid=1059241 kind-gemaakt kind=1059427
++ 0.784956 pid=1059427 ppid=1059274 kind-start
++ 0.784990 pid=1059427 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.785042 pid=1059427 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.785307 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059427 status=0x0 geëindigd met code 0
++ 0.795481 pid=1059274 ppid=1059241 kind-gemaakt kind=1059428
++ 0.795511 pid=1059428 ppid=1059274 kind-start
++ 0.795559 pid=1059428 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.795657 pid=1059428 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.796027 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059428 status=0x0 geëindigd met code 0
++ 0.806241 pid=1059274 ppid=1059241 kind-gemaakt kind=1059429
++ 0.806260 pid=1059429 ppid=1059274 kind-start
++ 0.806303 pid=1059429 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.806366 pid=1059429 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.806700 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059429 status=0x0 geëindigd met code 0
++ 0.816901 pid=1059274 ppid=1059241 kind-gemaakt kind=1059430
++ 0.816926 pid=1059430 ppid=1059274 kind-start
++ 0.816970 pid=1059430 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.817033 pid=1059430 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.817359 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059430 status=0x0 geëindigd met code 0
++ 0.827534 pid=1059274 ppid=1059241 kind-gemaakt kind=1059431
++ 0.827553 pid=1059431 ppid=1059274 kind-start
++ 0.827588 pid=1059431 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.827640 pid=1059431 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.827946 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059431 status=0x0 geëindigd met code 0
++ 0.838150 pid=1059274 ppid=1059241 kind-gemaakt kind=1059432
++ 0.838174 pid=1059432 ppid=1059274 kind-start
++ 0.838214 pid=1059432 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.838276 pid=1059432 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.838601 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059432 status=0x0 geëindigd met code 0
++ 0.848776 pid=1059274 ppid=1059241 kind-gemaakt kind=1059433
++ 0.848802 pid=1059433 ppid=1059274 kind-start
++ 0.848841 pid=1059433 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.848903 pid=1059433 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.849227 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059433 status=0x0 geëindigd met code 0
++ 0.859412 pid=1059274 ppid=1059241 kind-gemaakt kind=1059434
++ 0.859438 pid=1059434 ppid=1059274 kind-start
++ 0.859477 pid=1059434 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.859540 pid=1059434 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.859844 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059434 status=0x0 geëindigd met code 0
++ 0.870030 pid=1059274 ppid=1059241 kind-gemaakt kind=1059435
++ 0.870069 pid=1059435 ppid=1059274 kind-start
++ 0.870119 pid=1059435 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.870190 pid=1059435 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.870550 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059435 status=0x0 geëindigd met code 0
++ 0.880742 pid=1059274 ppid=1059241 kind-gemaakt kind=1059436
++ 0.880765 pid=1059436 ppid=1059274 kind-start
++ 0.880805 pid=1059436 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.880862 pid=1059436 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.881155 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059436 status=0x0 geëindigd met code 0
++ 0.891368 pid=1059274 ppid=1059241 kind-gemaakt kind=1059439
++ 0.891389 pid=1059439 ppid=1059274 kind-start
++ 0.891427 pid=1059439 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.891488 pid=1059439 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.891774 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059439 status=0x0 geëindigd met code 0
++ 0.901987 pid=1059274 ppid=1059241 kind-gemaakt kind=1059440
++ 0.902010 pid=1059440 ppid=1059274 kind-start
++ 0.902053 pid=1059440 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.902121 pid=1059440 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.902459 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059440 status=0x0 geëindigd met code 0
++ 0.912644 pid=1059274 ppid=1059241 kind-gemaakt kind=1059441
++ 0.912683 pid=1059441 ppid=1059274 kind-start
++ 0.912732 pid=1059441 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.912806 pid=1059441 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.913161 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059441 status=0x0 geëindigd met code 0
++ 0.923345 pid=1059274 ppid=1059241 kind-gemaakt kind=1059442
++ 0.923377 pid=1059442 ppid=1059274 kind-start
++ 0.923419 pid=1059442 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.923485 pid=1059442 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.923778 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059442 status=0x0 geëindigd met code 0
++ 0.933986 pid=1059274 ppid=1059241 kind-gemaakt kind=1059443
++ 0.934021 pid=1059443 ppid=1059274 kind-start
++ 0.934061 pid=1059443 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.934121 pid=1059443 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.934412 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059443 status=0x0 geëindigd met code 0
++ 0.944585 pid=1059274 ppid=1059241 kind-gemaakt kind=1059444
++ 0.944615 pid=1059444 ppid=1059274 kind-start
++ 0.944665 pid=1059444 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.944736 pid=1059444 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.945131 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059444 status=0x0 geëindigd met code 0
++ 0.955325 pid=1059274 ppid=1059241 kind-gemaakt kind=1059445
++ 0.955343 pid=1059445 ppid=1059274 kind-start
++ 0.955377 pid=1059445 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.955431 pid=1059445 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.955714 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059445 status=0x0 geëindigd met code 0
++ 0.965886 pid=1059274 ppid=1059241 kind-gemaakt kind=1059446
++ 0.965921 pid=1059446 ppid=1059274 kind-start
++ 0.965966 pid=1059446 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.966027 pid=1059446 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.966313 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059446 status=0x0 geëindigd met code 0
++ 0.976506 pid=1059274 ppid=1059241 kind-gemaakt kind=1059447
++ 0.976526 pid=1059447 ppid=1059274 kind-start
++ 0.976561 pid=1059447 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.976615 pid=1059447 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.976900 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059447 status=0x0 geëindigd met code 0
++ 0.987062 pid=1059274 ppid=1059241 kind-gemaakt kind=1059448
++ 0.987103 pid=1059448 ppid=1059274 kind-start
++ 0.987154 pid=1059448 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.987225 pid=1059448 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.987585 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059448 status=0x0 geëindigd met code 0
++ 0.997776 pid=1059274 ppid=1059241 kind-gemaakt kind=1059449
++ 0.997810 pid=1059449 ppid=1059274 kind-start
++ 0.997851 pid=1059449 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 0.997910 pid=1059449 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 0.998202 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059449 status=0x0 geëindigd met code 0
++ 1.008401 pid=1059274 ppid=1059241 kind-gemaakt kind=1059450
++ 1.008435 pid=1059450 ppid=1059274 kind-start
++ 1.008474 pid=1059450 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.008534 pid=1059450 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.008819 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059450 status=0x0 geëindigd met code 0
++ 1.019020 pid=1059274 ppid=1059241 kind-gemaakt kind=1059451
++ 1.019053 pid=1059451 ppid=1059274 kind-start
++ 1.019092 pid=1059451 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.019149 pid=1059451 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.019442 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059451 status=0x0 geëindigd met code 0
++ 1.029626 pid=1059274 ppid=1059241 kind-gemaakt kind=1059452
++ 1.029661 pid=1059452 ppid=1059274 kind-start
++ 1.029701 pid=1059452 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.029758 pid=1059452 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.030046 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059452 status=0x0 geëindigd met code 0
++ 1.040245 pid=1059274 ppid=1059241 kind-gemaakt kind=1059453
++ 1.040272 pid=1059453 ppid=1059274 kind-start
++ 1.040317 pid=1059453 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.040386 pid=1059453 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.040769 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059453 status=0x0 geëindigd met code 0
++ 1.050989 pid=1059274 ppid=1059241 kind-gemaakt kind=1059455
++ 1.051011 pid=1059455 ppid=1059274 kind-start
++ 1.051050 pid=1059455 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.051111 pid=1059455 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.051401 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059455 status=0x0 geëindigd met code 0
++ 1.061581 pid=1059274 ppid=1059241 kind-gemaakt kind=1059456
++ 1.061609 pid=1059456 ppid=1059274 kind-start
++ 1.061649 pid=1059456 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.061714 pid=1059456 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.062061 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059456 status=0x0 geëindigd met code 0
++ 1.072236 pid=1059274 ppid=1059241 kind-gemaakt kind=1059457
++ 1.072264 pid=1059457 ppid=1059274 kind-start
++ 1.072311 pid=1059457 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.072381 pid=1059457 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.072734 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059457 status=0x0 geëindigd met code 0
++ 1.082936 pid=1059274 ppid=1059241 kind-gemaakt kind=1059458
++ 1.082981 pid=1059458 ppid=1059274 kind-start
++ 1.083030 pid=1059458 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.083101 pid=1059458 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.083453 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059458 status=0x0 geëindigd met code 0
++ 1.093651 pid=1059274 ppid=1059241 kind-gemaakt kind=1059459
++ 1.093694 pid=1059459 ppid=1059274 kind-start
++ 1.093742 pid=1059459 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.093812 pid=1059459 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.094180 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059459 status=0x0 geëindigd met code 0
++ 1.104353 pid=1059274 ppid=1059241 kind-gemaakt kind=1059460
++ 1.104393 pid=1059460 ppid=1059274 kind-start
++ 1.104442 pid=1059460 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.104513 pid=1059460 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.104854 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059460 status=0x0 geëindigd met code 0
++ 1.115095 pid=1059274 ppid=1059241 kind-gemaakt kind=1059461
++ 1.115105 pid=1059461 ppid=1059274 kind-start
++ 1.115139 pid=1059461 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.115195 pid=1059461 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.115502 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059461 status=0x0 geëindigd met code 0
++ 1.125736 pid=1059274 ppid=1059241 kind-gemaakt kind=1059462
++ 1.125772 pid=1059462 ppid=1059274 kind-start
++ 1.125821 pid=1059462 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.125891 pid=1059462 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.126250 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059462 status=0x0 geëindigd met code 0
++ 1.136431 pid=1059274 ppid=1059241 kind-gemaakt kind=1059463
++ 1.136466 pid=1059463 ppid=1059274 kind-start
++ 1.136507 pid=1059463 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.136564 pid=1059463 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.136849 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059463 status=0x0 geëindigd met code 0
++ 1.147054 pid=1059274 ppid=1059241 kind-gemaakt kind=1059464
++ 1.147097 pid=1059464 ppid=1059274 kind-start
++ 1.147145 pid=1059464 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.147214 pid=1059464 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.147564 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059464 status=0x0 geëindigd met code 0
++ 1.157739 pid=1059274 ppid=1059241 kind-gemaakt kind=1059465
++ 1.157779 pid=1059465 ppid=1059274 kind-start
++ 1.157820 pid=1059465 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.157877 pid=1059465 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.158170 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059465 status=0x0 geëindigd met code 0
++ 1.168345 pid=1059274 ppid=1059241 kind-gemaakt kind=1059466
++ 1.168383 pid=1059466 ppid=1059274 kind-start
++ 1.168425 pid=1059466 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.168482 pid=1059466 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.168770 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059466 status=0x0 geëindigd met code 0
++ 1.178978 pid=1059274 ppid=1059241 kind-gemaakt kind=1059467
++ 1.179001 pid=1059467 ppid=1059274 kind-start
++ 1.179041 pid=1059467 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.179098 pid=1059467 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.179388 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059467 status=0x0 geëindigd met code 0
++ 1.189560 pid=1059274 ppid=1059241 kind-gemaakt kind=1059468
++ 1.189594 pid=1059468 ppid=1059274 kind-start
++ 1.189633 pid=1059468 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.189690 pid=1059468 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.190004 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059468 status=0x0 geëindigd met code 0
++ 1.200176 pid=1059274 ppid=1059241 kind-gemaakt kind=1059469
++ 1.200217 pid=1059469 ppid=1059274 kind-start
++ 1.200267 pid=1059469 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.200340 pid=1059469 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.200694 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059469 status=0x0 geëindigd met code 0
++ 1.210870 pid=1059274 ppid=1059241 kind-gemaakt kind=1059470
++ 1.210904 pid=1059470 ppid=1059274 kind-start
++ 1.210949 pid=1059470 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.211055 pid=1059470 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.211419 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059470 status=0x0 geëindigd met code 0
++ 1.221626 pid=1059274 ppid=1059241 kind-gemaakt kind=1059471
++ 1.221656 pid=1059471 ppid=1059274 kind-start
++ 1.221695 pid=1059471 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.221752 pid=1059471 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.222046 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059471 status=0x0 geëindigd met code 0
++ 1.232246 pid=1059274 ppid=1059241 kind-gemaakt kind=1059472
++ 1.232278 pid=1059472 ppid=1059274 kind-start
++ 1.232326 pid=1059472 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.232397 pid=1059472 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.232746 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059472 status=0x0 geëindigd met code 0
++ 1.242924 pid=1059274 ppid=1059241 kind-gemaakt kind=1059473
++ 1.242949 pid=1059473 ppid=1059274 kind-start
++ 1.243049 pid=1059473 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.243124 pid=1059473 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.243487 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059473 status=0x0 geëindigd met code 0
++ 1.253660 pid=1059274 ppid=1059241 kind-gemaakt kind=1059474
++ 1.253691 pid=1059474 ppid=1059274 kind-start
++ 1.253740 pid=1059474 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.253809 pid=1059474 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.254167 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059474 status=0x0 geëindigd met code 0
++ 1.264365 pid=1059274 ppid=1059241 kind-gemaakt kind=1059475
++ 1.264390 pid=1059475 ppid=1059274 kind-start
++ 1.264429 pid=1059475 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.264486 pid=1059475 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.264781 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059475 status=0x0 geëindigd met code 0
++ 1.274992 pid=1059274 ppid=1059241 kind-gemaakt kind=1059476
++ 1.275017 pid=1059476 ppid=1059274 kind-start
++ 1.275058 pid=1059476 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.275124 pid=1059476 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.275458 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059476 status=0x0 geëindigd met code 0
++ 1.285710 pid=1059274 ppid=1059241 kind-gemaakt kind=1059477
++ 1.285741 pid=1059477 ppid=1059274 kind-start
++ 1.285781 pid=1059477 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.285844 pid=1059477 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.286178 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059477 status=0x0 geëindigd met code 0
++ 1.296351 pid=1059274 ppid=1059241 kind-gemaakt kind=1059478
++ 1.296391 pid=1059478 ppid=1059274 kind-start
++ 1.296439 pid=1059478 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.296509 pid=1059478 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.296851 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059478 status=0x0 geëindigd met code 0
++ 1.307056 pid=1059274 ppid=1059241 kind-gemaakt kind=1059479
++ 1.307094 pid=1059479 ppid=1059274 kind-start
++ 1.307144 pid=1059479 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.307213 pid=1059479 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.307568 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059479 status=0x0 geëindigd met code 0
++ 1.317773 pid=1059274 ppid=1059241 kind-gemaakt kind=1059480
++ 1.317814 pid=1059480 ppid=1059274 kind-start
++ 1.317862 pid=1059480 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.317934 pid=1059480 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.318290 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059480 status=0x0 geëindigd met code 0
++ 1.328494 pid=1059274 ppid=1059241 kind-gemaakt kind=1059481
++ 1.328529 pid=1059481 ppid=1059274 kind-start
++ 1.328569 pid=1059481 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.328625 pid=1059481 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.328909 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059481 status=0x0 geëindigd met code 0
++ 1.339086 pid=1059274 ppid=1059241 kind-gemaakt kind=1059482
++ 1.339120 pid=1059482 ppid=1059274 kind-start
++ 1.339160 pid=1059482 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.339216 pid=1059482 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.339506 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059482 status=0x0 geëindigd met code 0
++ 1.349709 pid=1059274 ppid=1059241 kind-gemaakt kind=1059483
++ 1.349752 pid=1059483 ppid=1059274 kind-start
++ 1.349799 pid=1059483 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.349855 pid=1059483 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.350146 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059483 status=0x0 geëindigd met code 0
++ 1.360346 pid=1059274 ppid=1059241 kind-gemaakt kind=1059484
++ 1.360379 pid=1059484 ppid=1059274 kind-start
++ 1.360421 pid=1059484 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.360478 pid=1059484 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.360763 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059484 status=0x0 geëindigd met code 0
++ 1.370974 pid=1059274 ppid=1059241 kind-gemaakt kind=1059485
++ 1.371013 pid=1059485 ppid=1059274 kind-start
++ 1.371061 pid=1059485 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.371131 pid=1059485 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.371487 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059485 status=0x0 geëindigd met code 0
++ 1.381660 pid=1059274 ppid=1059241 kind-gemaakt kind=1059486
++ 1.381692 pid=1059486 ppid=1059274 kind-start
++ 1.381731 pid=1059486 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.381788 pid=1059486 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.382132 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059486 status=0x0 geëindigd met code 0
++ 1.392333 pid=1059274 ppid=1059241 kind-gemaakt kind=1059487
++ 1.392375 pid=1059487 ppid=1059274 kind-start
++ 1.392428 pid=1059487 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.392499 pid=1059487 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.392834 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059487 status=0x0 geëindigd met code 0
++ 1.403012 pid=1059274 ppid=1059241 kind-gemaakt kind=1059488
++ 1.403051 pid=1059488 ppid=1059274 kind-start
++ 1.403100 pid=1059488 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.403173 pid=1059488 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.403524 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059488 status=0x0 geëindigd met code 0
++ 1.413708 pid=1059274 ppid=1059241 kind-gemaakt kind=1059489
++ 1.413742 pid=1059489 ppid=1059274 kind-start
++ 1.413781 pid=1059489 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.413838 pid=1059489 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.414216 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059489 status=0x0 geëindigd met code 0
++ 1.424415 pid=1059274 ppid=1059241 kind-gemaakt kind=1059490
++ 1.424446 pid=1059490 ppid=1059274 kind-start
++ 1.424485 pid=1059490 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.424542 pid=1059490 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.424830 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059490 status=0x0 geëindigd met code 0
++ 1.435039 pid=1059274 ppid=1059241 kind-gemaakt kind=1059491
++ 1.435067 pid=1059491 ppid=1059274 kind-start
++ 1.435107 pid=1059491 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.435167 pid=1059491 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.435457 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059491 status=0x0 geëindigd met code 0
++ 1.445661 pid=1059274 ppid=1059241 kind-gemaakt kind=1059492
++ 1.445687 pid=1059492 ppid=1059274 kind-start
++ 1.445728 pid=1059492 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.445793 pid=1059492 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.446175 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059492 status=0x0 geëindigd met code 0
++ 1.456377 pid=1059274 ppid=1059241 kind-gemaakt kind=1059493
++ 1.456413 pid=1059493 ppid=1059274 kind-start
++ 1.456453 pid=1059493 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.456510 pid=1059493 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.456797 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059493 status=0x0 geëindigd met code 0
++ 1.467009 pid=1059274 ppid=1059241 kind-gemaakt kind=1059494
++ 1.467053 pid=1059494 ppid=1059274 kind-start
++ 1.467101 pid=1059494 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.467171 pid=1059494 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.467528 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059494 status=0x0 geëindigd met code 0
++ 1.477728 pid=1059274 ppid=1059241 kind-gemaakt kind=1059495
++ 1.477759 pid=1059495 ppid=1059274 kind-start
++ 1.477803 pid=1059495 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.477873 pid=1059495 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.478229 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059495 status=0x0 geëindigd met code 0
++ 1.488433 pid=1059274 ppid=1059241 kind-gemaakt kind=1059496
++ 1.488471 pid=1059496 ppid=1059274 kind-start
++ 1.488520 pid=1059496 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.488590 pid=1059496 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.488913 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059496 status=0x0 geëindigd met code 0
++ 1.499082 pid=1059274 ppid=1059241 kind-gemaakt kind=1059497
++ 1.499113 pid=1059497 ppid=1059274 kind-start
++ 1.499155 pid=1059497 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.499212 pid=1059497 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.499498 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059497 status=0x0 geëindigd met code 0
++ 1.509671 pid=1059274 ppid=1059241 kind-gemaakt kind=1059498
++ 1.509705 pid=1059498 ppid=1059274 kind-start
++ 1.509745 pid=1059498 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.509801 pid=1059498 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.510189 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059498 status=0x0 geëindigd met code 0
++ 1.520392 pid=1059274 ppid=1059241 kind-gemaakt kind=1059499
++ 1.520416 pid=1059499 ppid=1059274 kind-start
++ 1.520465 pid=1059499 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.520534 pid=1059499 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.520867 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059499 status=0x0 geëindigd met code 0
++ 1.531068 pid=1059274 ppid=1059241 kind-gemaakt kind=1059500
++ 1.531110 pid=1059500 ppid=1059274 kind-start
++ 1.531159 pid=1059500 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.531228 pid=1059500 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.531578 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059500 status=0x0 geëindigd met code 0
++ 1.541764 pid=1059274 ppid=1059241 kind-gemaakt kind=1059501
++ 1.541799 pid=1059501 ppid=1059274 kind-start
++ 1.541847 pid=1059501 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.541917 pid=1059501 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.542282 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059501 status=0x0 geëindigd met code 0
++ 1.552492 pid=1059274 ppid=1059241 kind-gemaakt kind=1059502
++ 1.552530 pid=1059502 ppid=1059274 kind-start
++ 1.552578 pid=1059502 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.552648 pid=1059502 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.552960 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059502 status=0x0 geëindigd met code 0
++ 1.563168 pid=1059274 ppid=1059241 kind-gemaakt kind=1059503
++ 1.563200 pid=1059503 ppid=1059274 kind-start
++ 1.563240 pid=1059503 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.563299 pid=1059503 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.563585 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059503 status=0x0 geëindigd met code 0
++ 1.573763 pid=1059274 ppid=1059241 kind-gemaakt kind=1059504
++ 1.573805 pid=1059504 ppid=1059274 kind-start
++ 1.573853 pid=1059504 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.573923 pid=1059504 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.574295 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059504 status=0x0 geëindigd met code 0
++ 1.584495 pid=1059274 ppid=1059241 kind-gemaakt kind=1059505
++ 1.584528 pid=1059505 ppid=1059274 kind-start
++ 1.584567 pid=1059505 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.584624 pid=1059505 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.584908 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059505 status=0x0 geëindigd met code 0
++ 1.595087 pid=1059274 ppid=1059241 kind-gemaakt kind=1059506
++ 1.595121 pid=1059506 ppid=1059274 kind-start
++ 1.595160 pid=1059506 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.595220 pid=1059506 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.595507 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059506 status=0x0 geëindigd met code 0
++ 1.605686 pid=1059274 ppid=1059241 kind-gemaakt kind=1059507
++ 1.605720 pid=1059507 ppid=1059274 kind-start
++ 1.605760 pid=1059507 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.605824 pid=1059507 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.606189 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059507 status=0x0 geëindigd met code 0
++ 1.616399 pid=1059274 ppid=1059241 kind-gemaakt kind=1059508
++ 1.616436 pid=1059508 ppid=1059274 kind-start
++ 1.616484 pid=1059508 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.616556 pid=1059508 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.616886 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059508 status=0x0 geëindigd met code 0
++ 1.627093 pid=1059274 ppid=1059241 kind-gemaakt kind=1059509
++ 1.627131 pid=1059509 ppid=1059274 kind-start
++ 1.627180 pid=1059509 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.627250 pid=1059509 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.627601 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059509 status=0x0 geëindigd met code 0
++ 1.637777 pid=1059274 ppid=1059241 kind-gemaakt kind=1059510
++ 1.637810 pid=1059510 ppid=1059274 kind-start
++ 1.637849 pid=1059510 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.637906 pid=1059510 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.638270 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059510 status=0x0 geëindigd met code 0
++ 1.648468 pid=1059274 ppid=1059241 kind-gemaakt kind=1059511
++ 1.648507 pid=1059511 ppid=1059274 kind-start
++ 1.648555 pid=1059511 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.648628 pid=1059511 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.648949 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059511 status=0x0 geëindigd met code 0
++ 1.659128 pid=1059274 ppid=1059241 kind-gemaakt kind=1059512
++ 1.659161 pid=1059512 ppid=1059274 kind-start
++ 1.659202 pid=1059512 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.659258 pid=1059512 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.659551 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059512 status=0x0 geëindigd met code 0
++ 1.669725 pid=1059274 ppid=1059241 kind-gemaakt kind=1059513
++ 1.669759 pid=1059513 ppid=1059274 kind-start
++ 1.669798 pid=1059513 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.669854 pid=1059513 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.670145 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059513 status=0x0 geëindigd met code 0
++ 1.680340 pid=1059274 ppid=1059241 kind-gemaakt kind=1059514
++ 1.680373 pid=1059514 ppid=1059274 kind-start
++ 1.680413 pid=1059514 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.680470 pid=1059514 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.680760 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059514 status=0x0 geëindigd met code 0
++ 1.690965 pid=1059274 ppid=1059241 kind-gemaakt kind=1059515
++ 1.690999 pid=1059515 ppid=1059274 kind-start
++ 1.691039 pid=1059515 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.691096 pid=1059515 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.691383 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059515 status=0x0 geëindigd met code 0
++ 1.701574 pid=1059274 ppid=1059241 kind-gemaakt kind=1059516
++ 1.701611 pid=1059516 ppid=1059274 kind-start
++ 1.701650 pid=1059516 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.701707 pid=1059516 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.702084 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059516 status=0x0 geëindigd met code 0
++ 1.712277 pid=1059274 ppid=1059241 kind-gemaakt kind=1059517
++ 1.712319 pid=1059517 ppid=1059274 kind-start
++ 1.712367 pid=1059517 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.712436 pid=1059517 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.712789 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059517 status=0x0 geëindigd met code 0
++ 1.723027 pid=1059274 ppid=1059241 kind-gemaakt kind=1059518
++ 1.723059 pid=1059518 ppid=1059274 kind-start
++ 1.723107 pid=1059518 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.723177 pid=1059518 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.723528 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059518 status=0x0 geëindigd met code 0
++ 1.733738 pid=1059274 ppid=1059241 kind-gemaakt kind=1059519
++ 1.733771 pid=1059519 ppid=1059274 kind-start
++ 1.733810 pid=1059519 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.733867 pid=1059519 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.734257 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059519 status=0x0 geëindigd met code 0
++ 1.744430 pid=1059274 ppid=1059241 kind-gemaakt kind=1059520
++ 1.744474 pid=1059520 ppid=1059274 kind-start
++ 1.744522 pid=1059520 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.744592 pid=1059520 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.744917 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059520 status=0x0 geëindigd met code 0
++ 1.755066 pid=1059274 ppid=1059241 kind-gemaakt kind=1059526
++ 1.755101 pid=1059526 ppid=1059274 kind-start
++ 1.755140 pid=1059526 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.755196 pid=1059526 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.755483 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059526 status=0x0 geëindigd met code 0
++ 1.765652 pid=1059274 ppid=1059241 kind-gemaakt kind=1059527
++ 1.765687 pid=1059527 ppid=1059274 kind-start
++ 1.765726 pid=1059527 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.765784 pid=1059527 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.766131 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059527 status=0x0 geëindigd met code 0
++ 1.776335 pid=1059274 ppid=1059241 kind-gemaakt kind=1059532
++ 1.776366 pid=1059532 ppid=1059274 kind-start
++ 1.776407 pid=1059532 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.776465 pid=1059532 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.776758 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059532 status=0x0 geëindigd met code 0
++ 1.786941 pid=1059274 ppid=1059241 kind-gemaakt kind=1059544
++ 1.786979 pid=1059544 ppid=1059274 kind-start
++ 1.787016 pid=1059544 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.787074 pid=1059544 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.787356 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059544 status=0x0 geëindigd met code 0
++ 1.797569 pid=1059274 ppid=1059241 kind-gemaakt kind=1059554
++ 1.797596 pid=1059554 ppid=1059274 kind-start
++ 1.797642 pid=1059554 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.797711 pid=1059554 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.798026 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059554 status=0x0 geëindigd met code 0
++ 1.808242 pid=1059274 ppid=1059241 kind-gemaakt kind=1059555
++ 1.808265 pid=1059555 ppid=1059274 kind-start
++ 1.808306 pid=1059555 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.808372 pid=1059555 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.808709 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059555 status=0x0 geëindigd met code 0
++ 1.818909 pid=1059274 ppid=1059241 kind-gemaakt kind=1059556
++ 1.818932 pid=1059556 ppid=1059274 kind-start
++ 1.818979 pid=1059556 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.819036 pid=1059556 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.819320 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059556 status=0x0 geëindigd met code 0
++ 1.829528 pid=1059274 ppid=1059241 kind-gemaakt kind=1059557
++ 1.829555 pid=1059557 ppid=1059274 kind-start
++ 1.829600 pid=1059557 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.829670 pid=1059557 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.829979 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059557 status=0x0 geëindigd met code 0
++ 1.840183 pid=1059274 ppid=1059241 kind-gemaakt kind=1059558
++ 1.840208 pid=1059558 ppid=1059274 kind-start
++ 1.840253 pid=1059558 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.840323 pid=1059558 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.840686 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059558 status=0x0 geëindigd met code 0
++ 1.850885 pid=1059274 ppid=1059241 kind-gemaakt kind=1059559
++ 1.850906 pid=1059559 ppid=1059274 kind-start
++ 1.850952 pid=1059559 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.851043 pid=1059559 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.851406 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059559 status=0x0 geëindigd met code 0
++ 1.861584 pid=1059274 ppid=1059241 kind-gemaakt kind=1059560
++ 1.861610 pid=1059560 ppid=1059274 kind-start
++ 1.861646 pid=1059560 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.861714 pid=1059560 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.862020 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059560 status=0x0 geëindigd met code 0
++ 1.872223 pid=1059274 ppid=1059241 kind-gemaakt kind=1059561
++ 1.872244 pid=1059561 ppid=1059274 kind-start
++ 1.872279 pid=1059561 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.872333 pid=1059561 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.872611 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059561 status=0x0 geëindigd met code 0
++ 1.882807 pid=1059274 ppid=1059241 kind-gemaakt kind=1059562
++ 1.882839 pid=1059562 ppid=1059274 kind-start
++ 1.882879 pid=1059562 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.882935 pid=1059562 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.883234 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059562 status=0x0 geëindigd met code 0
++ 1.893460 pid=1059274 ppid=1059241 kind-gemaakt kind=1059566
++ 1.893484 pid=1059566 ppid=1059274 kind-start
++ 1.893529 pid=1059566 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.893596 pid=1059566 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.893909 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059566 status=0x0 geëindigd met code 0
++ 1.904110 pid=1059274 ppid=1059241 kind-gemaakt kind=1059569
++ 1.904131 pid=1059569 ppid=1059274 kind-start
++ 1.904170 pid=1059569 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.904227 pid=1059569 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.904525 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059569 status=0x0 geëindigd met code 0
++ 1.914739 pid=1059274 ppid=1059241 kind-gemaakt kind=1059570
++ 1.914757 pid=1059570 ppid=1059274 kind-start
++ 1.914792 pid=1059570 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.914857 pid=1059570 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.915132 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059570 status=0x0 geëindigd met code 0
++ 1.925305 pid=1059274 ppid=1059241 kind-gemaakt kind=1059571
++ 1.925327 pid=1059571 ppid=1059274 kind-start
++ 1.925360 pid=1059571 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.925412 pid=1059571 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.925690 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059571 status=0x0 geëindigd met code 0
++ 1.935885 pid=1059274 ppid=1059241 kind-gemaakt kind=1059572
++ 1.935905 pid=1059572 ppid=1059274 kind-start
++ 1.935939 pid=1059572 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.935997 pid=1059572 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.936264 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059572 status=0x0 geëindigd met code 0
++ 1.946469 pid=1059274 ppid=1059241 kind-gemaakt kind=1059573
++ 1.946499 pid=1059573 ppid=1059274 kind-start
++ 1.946533 pid=1059573 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.946585 pid=1059573 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.946851 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059573 status=0x0 geëindigd met code 0
++ 1.957059 pid=1059274 ppid=1059241 kind-gemaakt kind=1059574
++ 1.957078 pid=1059574 ppid=1059274 kind-start
++ 1.957111 pid=1059574 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.957166 pid=1059574 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.957446 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059574 status=0x0 geëindigd met code 0
++ 1.967621 pid=1059274 ppid=1059241 kind-gemaakt kind=1059575
++ 1.967643 pid=1059575 ppid=1059274 kind-start
++ 1.967678 pid=1059575 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.967733 pid=1059575 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.968062 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059575 status=0x0 geëindigd met code 0
++ 1.978257 pid=1059274 ppid=1059241 kind-gemaakt kind=1059576
++ 1.978278 pid=1059576 ppid=1059274 kind-start
++ 1.978315 pid=1059576 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.978368 pid=1059576 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.978655 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059576 status=0x0 geëindigd met code 0
++ 1.988850 pid=1059274 ppid=1059241 kind-gemaakt kind=1059577
++ 1.988869 pid=1059577 ppid=1059274 kind-start
++ 1.988901 pid=1059577 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.988966 pid=1059577 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.989229 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059577 status=0x0 geëindigd met code 0
++ 1.999426 pid=1059274 ppid=1059241 kind-gemaakt kind=1059578
++ 1.999445 pid=1059578 ppid=1059274 kind-start
++ 1.999482 pid=1059578 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 1.999533 pid=1059578 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 1.999809 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059578 status=0x0 geëindigd met code 0
++ 2.010007 pid=1059274 ppid=1059241 kind-gemaakt kind=1059579
++ 2.010033 pid=1059579 ppid=1059274 kind-start
++ 2.010070 pid=1059579 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.010125 pid=1059579 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.010406 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059579 status=0x0 geëindigd met code 0
++ 2.020579 pid=1059274 ppid=1059241 kind-gemaakt kind=1059580
++ 2.020608 pid=1059580 ppid=1059274 kind-start
++ 2.020660 pid=1059580 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.020726 pid=1059580 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.021017 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059580 status=0x0 geëindigd met code 0
++ 2.031223 pid=1059274 ppid=1059241 kind-gemaakt kind=1059581
++ 2.031243 pid=1059581 ppid=1059274 kind-start
++ 2.031278 pid=1059581 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.031331 pid=1059581 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.031607 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059581 status=0x0 geëindigd met code 0
++ 2.041804 pid=1059274 ppid=1059241 kind-gemaakt kind=1059583
++ 2.041833 pid=1059583 ppid=1059274 kind-start
++ 2.041880 pid=1059583 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.041973 pid=1059583 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.042345 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059583 status=0x0 geëindigd met code 0
++ 2.052544 pid=1059274 ppid=1059241 kind-gemaakt kind=1059584
++ 2.052563 pid=1059584 ppid=1059274 kind-start
++ 2.052597 pid=1059584 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.052651 pid=1059584 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.052924 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059584 status=0x0 geëindigd met code 0
++ 2.063112 pid=1059274 ppid=1059241 kind-gemaakt kind=1059585
++ 2.063135 pid=1059585 ppid=1059274 kind-start
++ 2.063175 pid=1059585 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.063242 pid=1059585 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.063574 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059585 status=0x0 geëindigd met code 0
++ 2.073757 pid=1059274 ppid=1059241 kind-gemaakt kind=1059586
++ 2.073791 pid=1059586 ppid=1059274 kind-start
++ 2.073838 pid=1059586 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.073896 pid=1059586 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.074218 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059586 status=0x0 geëindigd met code 0
++ 2.084442 pid=1059274 ppid=1059241 kind-gemaakt kind=1059587
++ 2.084463 pid=1059587 ppid=1059274 kind-start
++ 2.084504 pid=1059587 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.084567 pid=1059587 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.084897 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059587 status=0x0 geëindigd met code 0
++ 2.095116 pid=1059274 ppid=1059241 kind-gemaakt kind=1059588
++ 2.095138 pid=1059588 ppid=1059274 kind-start
++ 2.095176 pid=1059588 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.095239 pid=1059588 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.095556 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059588 status=0x0 geëindigd met code 0
++ 2.105768 pid=1059274 ppid=1059241 kind-gemaakt kind=1059589
++ 2.105790 pid=1059589 ppid=1059274 kind-start
++ 2.105823 pid=1059589 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.105875 pid=1059589 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.106139 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059589 status=0x0 geëindigd met code 0
++ 2.116343 pid=1059274 ppid=1059241 kind-gemaakt kind=1059590
++ 2.116367 pid=1059590 ppid=1059274 kind-start
++ 2.116405 pid=1059590 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.116467 pid=1059590 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.116793 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059590 status=0x0 geëindigd met code 0
++ 2.127001 pid=1059274 ppid=1059241 kind-gemaakt kind=1059591
++ 2.127024 pid=1059591 ppid=1059274 kind-start
++ 2.127064 pid=1059591 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.127128 pid=1059591 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.127458 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059591 status=0x0 geëindigd met code 0
++ 2.137663 pid=1059274 ppid=1059241 kind-gemaakt kind=1059592
++ 2.137686 pid=1059592 ppid=1059274 kind-start
++ 2.137726 pid=1059592 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.137788 pid=1059592 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.138123 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059592 status=0x0 geëindigd met code 0
++ 2.148327 pid=1059274 ppid=1059241 kind-gemaakt kind=1059593
++ 2.148347 pid=1059593 ppid=1059274 kind-start
++ 2.148378 pid=1059593 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.148428 pid=1059593 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.148687 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059593 status=0x0 geëindigd met code 0
++ 2.158893 pid=1059274 ppid=1059241 kind-gemaakt kind=1059594
++ 2.158918 pid=1059594 ppid=1059274 kind-start
++ 2.158956 pid=1059594 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.159016 pid=1059594 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.159289 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059594 status=0x0 geëindigd met code 0
++ 2.169471 pid=1059274 ppid=1059241 kind-gemaakt kind=1059595
++ 2.169490 pid=1059595 ppid=1059274 kind-start
++ 2.169524 pid=1059595 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.169577 pid=1059595 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.169857 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059595 status=0x0 geëindigd met code 0
++ 2.180058 pid=1059274 ppid=1059241 kind-gemaakt kind=1059596
++ 2.180103 pid=1059596 ppid=1059274 kind-start
++ 2.180152 pid=1059596 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.180221 pid=1059596 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.180565 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059596 status=0x0 geëindigd met code 0
++ 2.190771 pid=1059274 ppid=1059241 kind-gemaakt kind=1059597
++ 2.190801 pid=1059597 ppid=1059274 kind-start
++ 2.190841 pid=1059597 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.190898 pid=1059597 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.191191 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059597 status=0x0 geëindigd met code 0
++ 2.201381 pid=1059274 ppid=1059241 kind-gemaakt kind=1059599
++ 2.201403 pid=1059599 ppid=1059274 kind-start
++ 2.201442 pid=1059599 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.201499 pid=1059599 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.201796 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059599 status=0x0 geëindigd met code 0
++ 2.212009 pid=1059274 ppid=1059241 kind-gemaakt kind=1059600
++ 2.212036 pid=1059600 ppid=1059274 kind-start
++ 2.212077 pid=1059600 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.212143 pid=1059600 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.212479 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059600 status=0x0 geëindigd met code 0
++ 2.222658 pid=1059274 ppid=1059241 kind-gemaakt kind=1059601
++ 2.222684 pid=1059601 ppid=1059274 kind-start
++ 2.222725 pid=1059601 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.222787 pid=1059601 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.223153 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059601 status=0x0 geëindigd met code 0
++ 2.233370 pid=1059274 ppid=1059241 kind-gemaakt kind=1059602
++ 2.233399 pid=1059602 ppid=1059274 kind-start
++ 2.233443 pid=1059602 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.233515 pid=1059602 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.233875 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059602 status=0x0 geëindigd met code 0
++ 2.244138 pid=1059274 ppid=1059241 kind-gemaakt kind=1059603
++ 2.244161 pid=1059603 ppid=1059274 kind-start
++ 2.244208 pid=1059603 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.244289 pid=1059603 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.244685 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059603 status=0x0 geëindigd met code 0
++ 2.254879 pid=1059274 ppid=1059241 kind-gemaakt kind=1059604
++ 2.254897 pid=1059604 ppid=1059274 kind-start
++ 2.254926 pid=1059604 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.254980 pid=1059604 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.255235 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059604 status=0x0 geëindigd met code 0
++ 2.265409 pid=1059274 ppid=1059241 kind-gemaakt kind=1059605
++ 2.265427 pid=1059605 ppid=1059274 kind-start
++ 2.265456 pid=1059605 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.265502 pid=1059605 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.265747 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059605 status=0x0 geëindigd met code 0
++ 2.275974 pid=1059274 ppid=1059241 kind-gemaakt kind=1059606
++ 2.275991 pid=1059606 ppid=1059274 kind-start
++ 2.276021 pid=1059606 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.276068 pid=1059606 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.276314 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059606 status=0x0 geëindigd met code 0
++ 2.286487 pid=1059274 ppid=1059241 kind-gemaakt kind=1059607
++ 2.286506 pid=1059607 ppid=1059274 kind-start
++ 2.286540 pid=1059607 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.286591 pid=1059607 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.286856 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059607 status=0x0 geëindigd met code 0
++ 2.297038 pid=1059274 ppid=1059241 kind-gemaakt kind=1059616
++ 2.297069 pid=1059616 ppid=1059274 kind-start
++ 2.297106 pid=1059616 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.297160 pid=1059616 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.297423 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059616 status=0x0 geëindigd met code 0
++ 2.307605 pid=1059274 ppid=1059241 kind-gemaakt kind=1059624
++ 2.307632 pid=1059624 ppid=1059274 kind-start
++ 2.307668 pid=1059624 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.307720 pid=1059624 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.307985 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059624 status=0x0 geëindigd met code 0
++ 2.318151 pid=1059274 ppid=1059241 kind-gemaakt kind=1059627
++ 2.318171 pid=1059627 ppid=1059274 kind-start
++ 2.318203 pid=1059627 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.318254 pid=1059627 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.318522 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059627 status=0x0 geëindigd met code 0
++ 2.328686 pid=1059274 ppid=1059241 kind-gemaakt kind=1059628
++ 2.328715 pid=1059628 ppid=1059274 kind-start
++ 2.328760 pid=1059628 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.328824 pid=1059628 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.329086 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059628 status=0x0 geëindigd met code 0
++ 2.339253 pid=1059274 ppid=1059241 kind-gemaakt kind=1059629
++ 2.339274 pid=1059629 ppid=1059274 kind-start
++ 2.339319 pid=1059629 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.339389 pid=1059629 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.339747 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059629 status=0x0 geëindigd met code 0
++ 2.349921 pid=1059274 ppid=1059241 kind-gemaakt kind=1059630
++ 2.349956 pid=1059630 ppid=1059274 kind-start
++ 2.350021 pid=1059630 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.350100 pid=1059630 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.350482 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059630 status=0x0 geëindigd met code 0
++ 2.360655 pid=1059274 ppid=1059241 kind-gemaakt kind=1059631
++ 2.360700 pid=1059631 ppid=1059274 kind-start
++ 2.360754 pid=1059631 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.360832 pid=1059631 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.361309 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059631 status=0x0 geëindigd met code 0
++ 2.371476 pid=1059274 ppid=1059241 kind-gemaakt kind=1059632
++ 2.371521 pid=1059632 ppid=1059274 kind-start
++ 2.371575 pid=1059632 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.371653 pid=1059632 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.371979 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059632 status=0x0 geëindigd met code 0
++ 2.382156 pid=1059274 ppid=1059241 kind-gemaakt kind=1059633
++ 2.382176 pid=1059633 ppid=1059274 kind-start
++ 2.382210 pid=1059633 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.382263 pid=1059633 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.382527 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059633 status=0x0 geëindigd met code 0
++ 2.392698 pid=1059274 ppid=1059241 kind-gemaakt kind=1059634
++ 2.392716 pid=1059634 ppid=1059274 kind-start
++ 2.392748 pid=1059634 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.392802 pid=1059634 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.393241 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059634 status=0x0 geëindigd met code 0
++ 2.403427 pid=1059274 ppid=1059241 kind-gemaakt kind=1059635
++ 2.403450 pid=1059635 ppid=1059274 kind-start
++ 2.403487 pid=1059635 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.403550 pid=1059635 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.403875 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059635 status=0x0 geëindigd met code 0
++ 2.414109 pid=1059274 ppid=1059241 kind-gemaakt kind=1059636
++ 2.414124 pid=1059636 ppid=1059274 kind-start
++ 2.414156 pid=1059636 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.414208 pid=1059636 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.414499 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059636 status=0x0 geëindigd met code 0
++ 2.424697 pid=1059274 ppid=1059241 kind-gemaakt kind=1059637
++ 2.424727 pid=1059637 ppid=1059274 kind-start
++ 2.424767 pid=1059637 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.424824 pid=1059637 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.425145 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059637 status=0x0 geëindigd met code 0
++ 2.435347 pid=1059274 ppid=1059241 kind-gemaakt kind=1059638
++ 2.435386 pid=1059638 ppid=1059274 kind-start
++ 2.435435 pid=1059638 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.435506 pid=1059638 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.435864 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059638 status=0x0 geëindigd met code 0
++ 2.446040 pid=1059274 ppid=1059241 kind-gemaakt kind=1059639
++ 2.446080 pid=1059639 ppid=1059274 kind-start
++ 2.446128 pid=1059639 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.446197 pid=1059639 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.446549 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059639 status=0x0 geëindigd met code 0
++ 2.456720 pid=1059274 ppid=1059241 kind-gemaakt kind=1059640
++ 2.456757 pid=1059640 ppid=1059274 kind-start
++ 2.456796 pid=1059640 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.456853 pid=1059640 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.457145 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059640 status=0x0 geëindigd met code 0
++ 2.467342 pid=1059274 ppid=1059241 kind-gemaakt kind=1059641
++ 2.467381 pid=1059641 ppid=1059274 kind-start
++ 2.467430 pid=1059641 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.467499 pid=1059641 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.467849 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059641 status=0x0 geëindigd met code 0
++ 2.478050 pid=1059274 ppid=1059241 kind-gemaakt kind=1059642
++ 2.478089 pid=1059642 ppid=1059274 kind-start
++ 2.478138 pid=1059642 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.478208 pid=1059642 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.478563 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059642 status=0x0 geëindigd met code 0
++ 2.488768 pid=1059274 ppid=1059241 kind-gemaakt kind=1059643
++ 2.488803 pid=1059643 ppid=1059274 kind-start
++ 2.488842 pid=1059643 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.488899 pid=1059643 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.489192 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059643 status=0x0 geëindigd met code 0
++ 2.499362 pid=1059274 ppid=1059241 kind-gemaakt kind=1059644
++ 2.499399 pid=1059644 ppid=1059274 kind-start
++ 2.499440 pid=1059644 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.499496 pid=1059644 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.499781 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059644 status=0x0 geëindigd met code 0
++ 2.510000 pid=1059274 ppid=1059241 kind-gemaakt kind=1059645
++ 2.510031 pid=1059645 ppid=1059274 kind-start
++ 2.510080 pid=1059645 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.510154 pid=1059645 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.510512 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059645 status=0x0 geëindigd met code 0
++ 2.520694 pid=1059274 ppid=1059241 kind-gemaakt kind=1059646
++ 2.520728 pid=1059646 ppid=1059274 kind-start
++ 2.520768 pid=1059646 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.520824 pid=1059646 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.521198 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059646 status=0x0 geëindigd met code 0
++ 2.531403 pid=1059274 ppid=1059241 kind-gemaakt kind=1059647
++ 2.531446 pid=1059647 ppid=1059274 kind-start
++ 2.531497 pid=1059647 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.531568 pid=1059647 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.531906 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059647 status=0x0 geëindigd met code 0
++ 2.542105 pid=1059274 ppid=1059241 kind-gemaakt kind=1059648
++ 2.542138 pid=1059648 ppid=1059274 kind-start
++ 2.542178 pid=1059648 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.542238 pid=1059648 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.542530 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059648 status=0x0 geëindigd met code 0
++ 2.552702 pid=1059274 ppid=1059241 kind-gemaakt kind=1059649
++ 2.552737 pid=1059649 ppid=1059274 kind-start
++ 2.552776 pid=1059649 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.552833 pid=1059649 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.553156 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059649 status=0x0 geëindigd met code 0
++ 2.563354 pid=1059274 ppid=1059241 kind-gemaakt kind=1059650
++ 2.563397 pid=1059650 ppid=1059274 kind-start
++ 2.563445 pid=1059650 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.563516 pid=1059650 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.563861 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059650 status=0x0 geëindigd met code 0
++ 2.574061 pid=1059274 ppid=1059241 kind-gemaakt kind=1059651
++ 2.574103 pid=1059651 ppid=1059274 kind-start
++ 2.574151 pid=1059651 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.574225 pid=1059651 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.574577 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059651 status=0x0 geëindigd met code 0
++ 2.584749 pid=1059274 ppid=1059241 kind-gemaakt kind=1059652
++ 2.584793 pid=1059652 ppid=1059274 kind-start
++ 2.584841 pid=1059652 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.584911 pid=1059652 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.585322 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059652 status=0x0 geëindigd met code 0
++ 2.595524 pid=1059274 ppid=1059241 kind-gemaakt kind=1059653
++ 2.595555 pid=1059653 ppid=1059274 kind-start
++ 2.595594 pid=1059653 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.595652 pid=1059653 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.595949 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059653 status=0x0 geëindigd met code 0
++ 2.606151 pid=1059274 ppid=1059241 kind-gemaakt kind=1059654
++ 2.606194 pid=1059654 ppid=1059274 kind-start
++ 2.606242 pid=1059654 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.606313 pid=1059654 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.606662 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059654 status=0x0 geëindigd met code 0
++ 2.616863 pid=1059274 ppid=1059241 kind-gemaakt kind=1059655
++ 2.616899 pid=1059655 ppid=1059274 kind-start
++ 2.616938 pid=1059655 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.617029 pid=1059655 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.617396 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059655 status=0x0 geëindigd met code 0
++ 2.627592 pid=1059274 ppid=1059241 kind-gemaakt kind=1059656
++ 2.627631 pid=1059656 ppid=1059274 kind-start
++ 2.627679 pid=1059656 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.627749 pid=1059656 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.628110 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059656 status=0x0 geëindigd met code 0
++ 2.638281 pid=1059274 ppid=1059241 kind-gemaakt kind=1059657
++ 2.638317 pid=1059657 ppid=1059274 kind-start
++ 2.638356 pid=1059657 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.638416 pid=1059657 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.638701 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059657 status=0x0 geëindigd met code 0
++ 2.648913 pid=1059274 ppid=1059241 kind-gemaakt kind=1059658
++ 2.648946 pid=1059658 ppid=1059274 kind-start
++ 2.649025 pid=1059658 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.649103 pid=1059658 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.649458 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059658 status=0x0 geëindigd met code 0
++ 2.659675 pid=1059274 ppid=1059241 kind-gemaakt kind=1059659
++ 2.659714 pid=1059659 ppid=1059274 kind-start
++ 2.659762 pid=1059659 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.659831 pid=1059659 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.660130 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059659 status=0x0 geëindigd met code 0
++ 2.670304 pid=1059274 ppid=1059241 kind-gemaakt kind=1059660
++ 2.670344 pid=1059660 ppid=1059274 kind-start
++ 2.670392 pid=1059660 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.670462 pid=1059660 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.670809 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059660 status=0x0 geëindigd met code 0
++ 2.681011 pid=1059274 ppid=1059241 kind-gemaakt kind=1059661
++ 2.681038 pid=1059661 ppid=1059274 kind-start
++ 2.681078 pid=1059661 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.681137 pid=1059661 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.681423 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059661 status=0x0 geëindigd met code 0
++ 2.691619 pid=1059274 ppid=1059241 kind-gemaakt kind=1059662
++ 2.691653 pid=1059662 ppid=1059274 kind-start
++ 2.691694 pid=1059662 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.691751 pid=1059662 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.692048 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059662 status=0x0 geëindigd met code 0
++ 2.702262 pid=1059274 ppid=1059241 kind-gemaakt kind=1059663
++ 2.702289 pid=1059663 ppid=1059274 kind-start
++ 2.702328 pid=1059663 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.702385 pid=1059663 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.702673 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059663 status=0x0 geëindigd met code 0
++ 2.712869 pid=1059274 ppid=1059241 kind-gemaakt kind=1059664
++ 2.712889 pid=1059664 ppid=1059274 kind-start
++ 2.712923 pid=1059664 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.712983 pid=1059664 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.713260 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059664 status=0x0 geëindigd met code 0
++ 2.723463 pid=1059274 ppid=1059241 kind-gemaakt kind=1059665
++ 2.723489 pid=1059665 ppid=1059274 kind-start
++ 2.723528 pid=1059665 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.723591 pid=1059665 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.723909 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059665 status=0x0 geëindigd met code 0
++ 2.734083 pid=1059274 ppid=1059241 kind-gemaakt kind=1059666
++ 2.734108 pid=1059666 ppid=1059274 kind-start
++ 2.734146 pid=1059666 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.734209 pid=1059666 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.734533 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059666 status=0x0 geëindigd met code 0
++ 2.744708 pid=1059274 ppid=1059241 kind-gemaakt kind=1059667
++ 2.744734 pid=1059667 ppid=1059274 kind-start
++ 2.744771 pid=1059667 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.744834 pid=1059667 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.745211 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059667 status=0x0 geëindigd met code 0
++ 2.755404 pid=1059274 ppid=1059241 kind-gemaakt kind=1059668
++ 2.755426 pid=1059668 ppid=1059274 kind-start
++ 2.755467 pid=1059668 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.755529 pid=1059668 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.755853 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059668 status=0x0 geëindigd met code 0
++ 2.766053 pid=1059274 ppid=1059241 kind-gemaakt kind=1059669
++ 2.766089 pid=1059669 ppid=1059274 kind-start
++ 2.766128 pid=1059669 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.766185 pid=1059669 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.766471 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059669 status=0x0 geëindigd met code 0
++ 2.776681 pid=1059274 ppid=1059241 kind-gemaakt kind=1059670
++ 2.776713 pid=1059670 ppid=1059274 kind-start
++ 2.776752 pid=1059670 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.776809 pid=1059670 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.777167 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059670 status=0x0 geëindigd met code 0
++ 2.787367 pid=1059274 ppid=1059241 kind-gemaakt kind=1059671
++ 2.787409 pid=1059671 ppid=1059274 kind-start
++ 2.787457 pid=1059671 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.787527 pid=1059671 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.787872 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059671 status=0x0 geëindigd met code 0
++ 2.798049 pid=1059274 ppid=1059241 kind-gemaakt kind=1059672
++ 2.798096 pid=1059672 ppid=1059274 kind-start
++ 2.798144 pid=1059672 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.798214 pid=1059672 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.798563 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059672 status=0x0 geëindigd met code 0
++ 2.808734 pid=1059274 ppid=1059241 kind-gemaakt kind=1059673
++ 2.808768 pid=1059673 ppid=1059274 kind-start
++ 2.808807 pid=1059673 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.808864 pid=1059673 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.809162 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059673 status=0x0 geëindigd met code 0
++ 2.819359 pid=1059274 ppid=1059241 kind-gemaakt kind=1059674
++ 2.819392 pid=1059674 ppid=1059274 kind-start
++ 2.819432 pid=1059674 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.819489 pid=1059674 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.819774 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059674 status=0x0 geëindigd met code 0
++ 2.829972 pid=1059274 ppid=1059241 kind-gemaakt kind=1059675
++ 2.830000 pid=1059675 ppid=1059274 kind-start
++ 2.830041 pid=1059675 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.830100 pid=1059675 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.830386 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059675 status=0x0 geëindigd met code 0
++ 2.840587 pid=1059274 ppid=1059241 kind-gemaakt kind=1059676
++ 2.840619 pid=1059676 ppid=1059274 kind-start
++ 2.840659 pid=1059676 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.840716 pid=1059676 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.841047 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059676 status=0x0 geëindigd met code 0
++ 2.851240 pid=1059274 ppid=1059241 kind-gemaakt kind=1059677
++ 2.851268 pid=1059677 ppid=1059274 kind-start
++ 2.851316 pid=1059677 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.851385 pid=1059677 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.851744 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059677 status=0x0 geëindigd met code 0
++ 2.861947 pid=1059274 ppid=1059241 kind-gemaakt kind=1059678
++ 2.861993 pid=1059678 ppid=1059274 kind-start
++ 2.862050 pid=1059678 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.862121 pid=1059678 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.862486 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059678 status=0x0 geëindigd met code 0
++ 2.872685 pid=1059274 ppid=1059241 kind-gemaakt kind=1059679
++ 2.872716 pid=1059679 ppid=1059274 kind-start
++ 2.872756 pid=1059679 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.872814 pid=1059679 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.873182 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059679 status=0x0 geëindigd met code 0
++ 2.883383 pid=1059274 ppid=1059241 kind-gemaakt kind=1059680
++ 2.883403 pid=1059680 ppid=1059274 kind-start
++ 2.883442 pid=1059680 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.883499 pid=1059680 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.883784 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059680 status=0x0 geëindigd met code 0
++ 2.893977 pid=1059274 ppid=1059241 kind-gemaakt kind=1059681
++ 2.894003 pid=1059681 ppid=1059274 kind-start
++ 2.894043 pid=1059681 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.894111 pid=1059681 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.894447 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059681 status=0x0 geëindigd met code 0
++ 2.904622 pid=1059274 ppid=1059241 kind-gemaakt kind=1059687
++ 2.904661 pid=1059687 ppid=1059274 kind-start
++ 2.904710 pid=1059687 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.904780 pid=1059687 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.905160 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059687 status=0x0 geëindigd met code 0
++ 2.915375 pid=1059274 ppid=1059241 kind-gemaakt kind=1059688
++ 2.915396 pid=1059688 ppid=1059274 kind-start
++ 2.915433 pid=1059688 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.915490 pid=1059688 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.915776 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059688 status=0x0 geëindigd met code 0
++ 2.925960 pid=1059274 ppid=1059241 kind-gemaakt kind=1059693
++ 2.925991 pid=1059693 ppid=1059274 kind-start
++ 2.926031 pid=1059693 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.926088 pid=1059693 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.926383 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059693 status=0x0 geëindigd met code 0
++ 2.936572 pid=1059274 ppid=1059241 kind-gemaakt kind=1059699
++ 2.936603 pid=1059699 ppid=1059274 kind-start
++ 2.936643 pid=1059699 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.936703 pid=1059699 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.937001 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059699 status=0x0 geëindigd met code 0
++ 2.947196 pid=1059274 ppid=1059241 kind-gemaakt kind=1059715
++ 2.947214 pid=1059715 ppid=1059274 kind-start
++ 2.947252 pid=1059715 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.947309 pid=1059715 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.947594 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059715 status=0x0 geëindigd met code 0
++ 2.957775 pid=1059274 ppid=1059241 kind-gemaakt kind=1059716
++ 2.957799 pid=1059716 ppid=1059274 kind-start
++ 2.957836 pid=1059716 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.957893 pid=1059716 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.958225 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059716 status=0x0 geëindigd met code 0
++ 2.968499 pid=1059274 ppid=1059241 kind-gemaakt kind=1059717
++ 2.968523 pid=1059717 ppid=1059274 kind-start
++ 2.968563 pid=1059717 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.968628 pid=1059717 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.968946 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059717 status=0x0 geëindigd met code 0
++ 2.979150 pid=1059274 ppid=1059241 kind-gemaakt kind=1059718
++ 2.979178 pid=1059718 ppid=1059274 kind-start
++ 2.979224 pid=1059718 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.979298 pid=1059718 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.979642 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059718 status=0x0 geëindigd met code 0
++ 2.989856 pid=1059274 ppid=1059241 kind-gemaakt kind=1059719
++ 2.989882 pid=1059719 ppid=1059274 kind-start
++ 2.989928 pid=1059719 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 2.990006 pid=1059719 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 2.990309 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059719 status=0x0 geëindigd met code 0
++ 3.000523 pid=1059274 ppid=1059241 kind-gemaakt kind=1059720
++ 3.000545 pid=1059720 ppid=1059274 kind-start
++ 3.000583 pid=1059720 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.000650 pid=1059720 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.000969 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059720 status=0x0 geëindigd met code 0
++ 3.011152 pid=1059274 ppid=1059241 kind-gemaakt kind=1059721
++ 3.011194 pid=1059721 ppid=1059274 kind-start
++ 3.011242 pid=1059721 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.011312 pid=1059721 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.011662 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059721 status=0x0 geëindigd met code 0
++ 3.021868 pid=1059274 ppid=1059241 kind-gemaakt kind=1059722
++ 3.021900 pid=1059722 ppid=1059274 kind-start
++ 3.021940 pid=1059722 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.022004 pid=1059722 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.022290 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059722 status=0x0 geëindigd met code 0
++ 3.032501 pid=1059274 ppid=1059241 kind-gemaakt kind=1059723
++ 3.032543 pid=1059723 ppid=1059274 kind-start
++ 3.032595 pid=1059723 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.032665 pid=1059723 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.032984 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059723 status=0x0 geëindigd met code 0
++ 3.043202 pid=1059274 ppid=1059241 kind-gemaakt kind=1059724
++ 3.043235 pid=1059724 ppid=1059274 kind-start
++ 3.043274 pid=1059724 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.043331 pid=1059724 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.043633 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059724 status=0x0 geëindigd met code 0
++ 3.053836 pid=1059274 ppid=1059241 kind-gemaakt kind=1059730
++ 3.053856 pid=1059730 ppid=1059274 kind-start
++ 3.053899 pid=1059730 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.053964 pid=1059730 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.054257 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059730 status=0x0 geëindigd met code 0
++ 3.064446 pid=1059274 ppid=1059241 kind-gemaakt kind=1059731
++ 3.064467 pid=1059731 ppid=1059274 kind-start
++ 3.064500 pid=1059731 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.064553 pid=1059731 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.064830 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059731 status=0x0 geëindigd met code 0
++ 3.075051 pid=1059274 ppid=1059241 kind-gemaakt kind=1059732
++ 3.075075 pid=1059732 ppid=1059274 kind-start
++ 3.075115 pid=1059732 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.075179 pid=1059732 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.075507 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059732 status=0x0 geëindigd met code 0
++ 3.085686 pid=1059274 ppid=1059241 kind-gemaakt kind=1059733
++ 3.085712 pid=1059733 ppid=1059274 kind-start
++ 3.085750 pid=1059733 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.085815 pid=1059733 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.086091 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059733 status=0x0 geëindigd met code 0
++ 3.096297 pid=1059274 ppid=1059241 kind-gemaakt kind=1059734
++ 3.096315 pid=1059734 ppid=1059274 kind-start
++ 3.096346 pid=1059734 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.096396 pid=1059734 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.096666 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059734 status=0x0 geëindigd met code 0
++ 3.106856 pid=1059274 ppid=1059241 kind-gemaakt kind=1059735
++ 3.106882 pid=1059735 ppid=1059274 kind-start
++ 3.106922 pid=1059735 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.106987 pid=1059735 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.107276 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059735 status=0x0 geëindigd met code 0
++ 3.117455 pid=1059274 ppid=1059241 kind-gemaakt kind=1059736
++ 3.117476 pid=1059736 ppid=1059274 kind-start
++ 3.117509 pid=1059736 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.117563 pid=1059736 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.117839 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059736 status=0x0 geëindigd met code 0
++ 3.128062 pid=1059274 ppid=1059241 kind-gemaakt kind=1059737
++ 3.128082 pid=1059737 ppid=1059274 kind-start
++ 3.128117 pid=1059737 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.128170 pid=1059737 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.128437 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059737 status=0x0 geëindigd met code 0
++ 3.138618 pid=1059274 ppid=1059241 kind-gemaakt kind=1059738
++ 3.138637 pid=1059738 ppid=1059274 kind-start
++ 3.138671 pid=1059738 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.138723 pid=1059738 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.138995 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059738 status=0x0 geëindigd met code 0
++ 3.149192 pid=1059274 ppid=1059241 kind-gemaakt kind=1059739
++ 3.149211 pid=1059739 ppid=1059274 kind-start
++ 3.149243 pid=1059739 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.149294 pid=1059739 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.149561 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059739 status=0x0 geëindigd met code 0
++ 3.159770 pid=1059274 ppid=1059241 kind-gemaakt kind=1059740
++ 3.159788 pid=1059740 ppid=1059274 kind-start
++ 3.159820 pid=1059740 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.159872 pid=1059740 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.160144 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059740 status=0x0 geëindigd met code 0
++ 3.170322 pid=1059274 ppid=1059241 kind-gemaakt kind=1059741
++ 3.170342 pid=1059741 ppid=1059274 kind-start
++ 3.170373 pid=1059741 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.170426 pid=1059741 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.170687 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059741 status=0x0 geëindigd met code 0
++ 3.180893 pid=1059274 ppid=1059241 kind-gemaakt kind=1059742
++ 3.180913 pid=1059742 ppid=1059274 kind-start
++ 3.180955 pid=1059742 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.181022 pid=1059742 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.181322 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059742 status=0x0 geëindigd met code 0
++ 3.191536 pid=1059274 ppid=1059241 kind-gemaakt kind=1059744
++ 3.191555 pid=1059744 ppid=1059274 kind-start
++ 3.191593 pid=1059744 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.191653 pid=1059744 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.191937 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059744 status=0x0 geëindigd met code 0
++ 3.202125 pid=1059274 ppid=1059241 kind-gemaakt kind=1059745
++ 3.202147 pid=1059745 ppid=1059274 kind-start
++ 3.202180 pid=1059745 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.202234 pid=1059745 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.202511 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059745 status=0x0 geëindigd met code 0
++ 3.212715 pid=1059274 ppid=1059241 kind-gemaakt kind=1059746
++ 3.212740 pid=1059746 ppid=1059274 kind-start
++ 3.212781 pid=1059746 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.212845 pid=1059746 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.213177 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059746 status=0x0 geëindigd met code 0
++ 3.223359 pid=1059274 ppid=1059241 kind-gemaakt kind=1059747
++ 3.223383 pid=1059747 ppid=1059274 kind-start
++ 3.223423 pid=1059747 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.223491 pid=1059747 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.223822 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059747 status=0x0 geëindigd met code 0
++ 3.234035 pid=1059274 ppid=1059241 kind-gemaakt kind=1059748
++ 3.234060 pid=1059748 ppid=1059274 kind-start
++ 3.234099 pid=1059748 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.234161 pid=1059748 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.234492 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059748 status=0x0 geëindigd met code 0
++ 3.244690 pid=1059274 ppid=1059241 kind-gemaakt kind=1059749
++ 3.244714 pid=1059749 ppid=1059274 kind-start
++ 3.244752 pid=1059749 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.244813 pid=1059749 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.245136 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059749 status=0x0 geëindigd met code 0
++ 3.255333 pid=1059274 ppid=1059241 kind-gemaakt kind=1059750
++ 3.255357 pid=1059750 ppid=1059274 kind-start
++ 3.255395 pid=1059750 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.255456 pid=1059750 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.255777 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059750 status=0x0 geëindigd met code 0
++ 3.265975 pid=1059274 ppid=1059241 kind-gemaakt kind=1059751
++ 3.265999 pid=1059751 ppid=1059274 kind-start
++ 3.266042 pid=1059751 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.266106 pid=1059751 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.266428 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059751 status=0x0 geëindigd met code 0
++ 3.276624 pid=1059274 ppid=1059241 kind-gemaakt kind=1059752
++ 3.276651 pid=1059752 ppid=1059274 kind-start
++ 3.276689 pid=1059752 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.276751 pid=1059752 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.277074 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059752 status=0x0 geëindigd met code 0
++ 3.287269 pid=1059274 ppid=1059241 kind-gemaakt kind=1059753
++ 3.287294 pid=1059753 ppid=1059274 kind-start
++ 3.287333 pid=1059753 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.287395 pid=1059753 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.287719 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059753 status=0x0 geëindigd met code 0
++ 3.297911 pid=1059274 ppid=1059241 kind-gemaakt kind=1059754
++ 3.297935 pid=1059754 ppid=1059274 kind-start
++ 3.297999 pid=1059754 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.298073 pid=1059754 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.298447 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059754 status=0x0 geëindigd met code 0
++ 3.308674 pid=1059274 ppid=1059241 kind-gemaakt kind=1059755
++ 3.308695 pid=1059755 ppid=1059274 kind-start
++ 3.308731 pid=1059755 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.308793 pid=1059755 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.309123 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059755 status=0x0 geëindigd met code 0
++ 3.319308 pid=1059274 ppid=1059241 kind-gemaakt kind=1059756
++ 3.319330 pid=1059756 ppid=1059274 kind-start
++ 3.319368 pid=1059756 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.319431 pid=1059756 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.319746 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059756 status=0x0 geëindigd met code 0
++ 3.329932 pid=1059274 ppid=1059241 kind-gemaakt kind=1059757
++ 3.329974 pid=1059757 ppid=1059274 kind-start
++ 3.330017 pid=1059757 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.330085 pid=1059757 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.330422 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059757 status=0x0 geëindigd met code 0
++ 3.340601 pid=1059274 ppid=1059241 kind-gemaakt kind=1059758
++ 3.340631 pid=1059758 ppid=1059274 kind-start
++ 3.340669 pid=1059758 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.340724 pid=1059758 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.341011 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059758 status=0x0 geëindigd met code 0
++ 3.351243 pid=1059274 ppid=1059241 kind-gemaakt kind=1059760
++ 3.351271 pid=1059760 ppid=1059274 kind-start
++ 3.351322 pid=1059760 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.351401 pid=1059760 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.351789 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059760 status=0x0 geëindigd met code 0
++ 3.362015 pid=1059274 ppid=1059241 kind-gemaakt kind=1059761
++ 3.362042 pid=1059761 ppid=1059274 kind-start
++ 3.362085 pid=1059761 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.362153 pid=1059761 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.362514 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059761 status=0x0 geëindigd met code 0
++ 3.372679 pid=1059274 ppid=1059241 kind-gemaakt kind=1059762
++ 3.372708 pid=1059762 ppid=1059274 kind-start
++ 3.372750 pid=1059762 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.372817 pid=1059762 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.373155 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059762 status=0x0 geëindigd met code 0
++ 3.383367 pid=1059274 ppid=1059241 kind-gemaakt kind=1059763
++ 3.383395 pid=1059763 ppid=1059274 kind-start
++ 3.383439 pid=1059763 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.383506 pid=1059763 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.383857 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059763 status=0x0 geëindigd met code 0
++ 3.394071 pid=1059274 ppid=1059241 kind-gemaakt kind=1059764
++ 3.394114 pid=1059764 ppid=1059274 kind-start
++ 3.394168 pid=1059764 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.394244 pid=1059764 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.394629 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059764 status=0x0 geëindigd met code 0
++ 3.404837 pid=1059274 ppid=1059241 kind-gemaakt kind=1059765
++ 3.404869 pid=1059765 ppid=1059274 kind-start
++ 3.404906 pid=1059765 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.404963 pid=1059765 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.405229 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059765 status=0x0 geëindigd met code 0
++ 3.415436 pid=1059274 ppid=1059241 kind-gemaakt kind=1059766
++ 3.415481 pid=1059766 ppid=1059274 kind-start
++ 3.415534 pid=1059766 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.415612 pid=1059766 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.415956 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059766 status=0x0 geëindigd met code 0
++ 3.426116 pid=1059274 ppid=1059241 kind-gemaakt kind=1059767
++ 3.426148 pid=1059767 ppid=1059274 kind-start
++ 3.426183 pid=1059767 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.426235 pid=1059767 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.426496 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059767 status=0x0 geëindigd met code 0
++ 3.436674 pid=1059274 ppid=1059241 kind-gemaakt kind=1059768
++ 3.436709 pid=1059768 ppid=1059274 kind-start
++ 3.436754 pid=1059768 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.436817 pid=1059768 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.437205 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059768 status=0x0 geëindigd met code 0
++ 3.447411 pid=1059274 ppid=1059241 kind-gemaakt kind=1059769
++ 3.447443 pid=1059769 ppid=1059274 kind-start
++ 3.447479 pid=1059769 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.447530 pid=1059769 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.447793 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059769 status=0x0 geëindigd met code 0
++ 3.457958 pid=1059274 ppid=1059241 kind-gemaakt kind=1059770
++ 3.457982 pid=1059770 ppid=1059274 kind-start
++ 3.458020 pid=1059770 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.458072 pid=1059770 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.458337 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059770 status=0x0 geëindigd met code 0
++ 3.468498 pid=1059274 ppid=1059241 kind-gemaakt kind=1059771
++ 3.468530 pid=1059771 ppid=1059274 kind-start
++ 3.468566 pid=1059771 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.468626 pid=1059771 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.468898 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059771 status=0x0 geëindigd met code 0
++ 3.479092 pid=1059274 ppid=1059241 kind-gemaakt kind=1059772
++ 3.479138 pid=1059772 ppid=1059274 kind-start
++ 3.479190 pid=1059772 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.479266 pid=1059772 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.479651 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059772 status=0x0 geëindigd met code 0
++ 3.489858 pid=1059274 ppid=1059241 kind-gemaakt kind=1059774
++ 3.489889 pid=1059774 ppid=1059274 kind-start
++ 3.489924 pid=1059774 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.490018 pid=1059774 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.490424 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059774 status=0x0 geëindigd met code 0
++ 3.500639 pid=1059274 ppid=1059241 kind-gemaakt kind=1059775
++ 3.500681 pid=1059775 ppid=1059274 kind-start
++ 3.500733 pid=1059775 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.500810 pid=1059775 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.501247 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059775 status=0x0 geëindigd met code 0
++ 3.511455 pid=1059274 ppid=1059241 kind-gemaakt kind=1059776
++ 3.511488 pid=1059776 ppid=1059274 kind-start
++ 3.511524 pid=1059776 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.511576 pid=1059776 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.511837 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059776 status=0x0 geëindigd met code 0
++ 3.522054 pid=1059274 ppid=1059241 kind-gemaakt kind=1059777
++ 3.522084 pid=1059777 ppid=1059274 kind-start
++ 3.522120 pid=1059777 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.522172 pid=1059777 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.522438 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059777 status=0x0 geëindigd met code 0
++ 3.532647 pid=1059274 ppid=1059241 kind-gemaakt kind=1059778
++ 3.532676 pid=1059778 ppid=1059274 kind-start
++ 3.532712 pid=1059778 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.532763 pid=1059778 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.533031 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059778 status=0x0 geëindigd met code 0
++ 3.543261 pid=1059274 ppid=1059241 kind-gemaakt kind=1059779
++ 3.543292 pid=1059779 ppid=1059274 kind-start
++ 3.543328 pid=1059779 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.543380 pid=1059779 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.543642 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059779 status=0x0 geëindigd met code 0
++ 3.553807 pid=1059274 ppid=1059241 kind-gemaakt kind=1059780
++ 3.553833 pid=1059780 ppid=1059274 kind-start
++ 3.553869 pid=1059780 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.553920 pid=1059780 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.554197 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059780 status=0x0 geëindigd met code 0
++ 3.564411 pid=1059274 ppid=1059241 kind-gemaakt kind=1059781
++ 3.564458 pid=1059781 ppid=1059274 kind-start
++ 3.564510 pid=1059781 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.564586 pid=1059781 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.564933 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059781 status=0x0 geëindigd met code 0
++ 3.575104 pid=1059274 ppid=1059241 kind-gemaakt kind=1059782
++ 3.575149 pid=1059782 ppid=1059274 kind-start
++ 3.575202 pid=1059782 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.575278 pid=1059782 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.575657 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059782 status=0x0 geëindigd met code 0
++ 3.585899 pid=1059274 ppid=1059241 kind-gemaakt kind=1059783
++ 3.585929 pid=1059783 ppid=1059274 kind-start
++ 3.585985 pid=1059783 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.586044 pid=1059783 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.586301 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059783 status=0x0 geëindigd met code 0
++ 3.596522 pid=1059274 ppid=1059241 kind-gemaakt kind=1059784
++ 3.596564 pid=1059784 ppid=1059274 kind-start
++ 3.596617 pid=1059784 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.596693 pid=1059784 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.597011 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059784 status=0x0 geëindigd met code 0
++ 3.607221 pid=1059274 ppid=1059241 kind-gemaakt kind=1059785
++ 3.607265 pid=1059785 ppid=1059274 kind-start
++ 3.607318 pid=1059785 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.607397 pid=1059785 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.607783 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059785 status=0x0 geëindigd met code 0
++ 3.618057 pid=1059274 ppid=1059241 kind-gemaakt kind=1059786
++ 3.618094 pid=1059786 ppid=1059274 kind-start
++ 3.618151 pid=1059786 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.618231 pid=1059786 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.618633 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059786 status=0x0 geëindigd met code 0
++ 3.628839 pid=1059274 ppid=1059241 kind-gemaakt kind=1059787
++ 3.628879 pid=1059787 ppid=1059274 kind-start
++ 3.628933 pid=1059787 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.629018 pid=1059787 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.629418 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059787 status=0x0 geëindigd met code 0
++ 3.639642 pid=1059274 ppid=1059241 kind-gemaakt kind=1059788
++ 3.639685 pid=1059788 ppid=1059274 kind-start
++ 3.639740 pid=1059788 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.639825 pid=1059788 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.640234 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059788 status=0x0 geëindigd met code 0
++ 3.650408 pid=1059274 ppid=1059241 kind-gemaakt kind=1059789
++ 3.650447 pid=1059789 ppid=1059274 kind-start
++ 3.650495 pid=1059789 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.650563 pid=1059789 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.650904 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059789 status=0x0 geëindigd met code 0
++ 3.661093 pid=1059274 ppid=1059241 kind-gemaakt kind=1059790
++ 3.661141 pid=1059790 ppid=1059274 kind-start
++ 3.661200 pid=1059790 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.661274 pid=1059790 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.661645 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059790 status=0x0 geëindigd met code 0
++ 3.671850 pid=1059274 ppid=1059241 kind-gemaakt kind=1059791
++ 3.671890 pid=1059791 ppid=1059274 kind-start
++ 3.671955 pid=1059791 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.672028 pid=1059791 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.672378 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059791 status=0x0 geëindigd met code 0
++ 3.682570 pid=1059274 ppid=1059241 kind-gemaakt kind=1059792
++ 3.682607 pid=1059792 ppid=1059274 kind-start
++ 3.682656 pid=1059792 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.682725 pid=1059792 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.683092 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059792 status=0x0 geëindigd met code 0
++ 3.693295 pid=1059274 ppid=1059241 kind-gemaakt kind=1059793
++ 3.693337 pid=1059793 ppid=1059274 kind-start
++ 3.693385 pid=1059793 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.693459 pid=1059793 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.693811 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059793 status=0x0 geëindigd met code 0
++ 3.703992 pid=1059274 ppid=1059241 kind-gemaakt kind=1059794
++ 3.704018 pid=1059794 ppid=1059274 kind-start
++ 3.704059 pid=1059794 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.704115 pid=1059794 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.704410 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059794 status=0x0 geëindigd met code 0
++ 3.714581 pid=1059274 ppid=1059241 kind-gemaakt kind=1059795
++ 3.714617 pid=1059795 ppid=1059274 kind-start
++ 3.714656 pid=1059795 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.714713 pid=1059795 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.715053 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059795 status=0x0 geëindigd met code 0
++ 3.725253 pid=1059274 ppid=1059241 kind-gemaakt kind=1059796
++ 3.725298 pid=1059796 ppid=1059274 kind-start
++ 3.725346 pid=1059796 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.725415 pid=1059796 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.725764 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059796 status=0x0 geëindigd met code 0
++ 3.735959 pid=1059274 ppid=1059241 kind-gemaakt kind=1059797
++ 3.735988 pid=1059797 ppid=1059274 kind-start
++ 3.736027 pid=1059797 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.736083 pid=1059797 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.736375 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059797 status=0x0 geëindigd met code 0
++ 3.746548 pid=1059274 ppid=1059241 kind-gemaakt kind=1059798
++ 3.746583 pid=1059798 ppid=1059274 kind-start
++ 3.746622 pid=1059798 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.746678 pid=1059798 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.746966 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059798 status=0x0 geëindigd met code 0
++ 3.757162 pid=1059274 ppid=1059241 kind-gemaakt kind=1059799
++ 3.757213 pid=1059799 ppid=1059274 kind-start
++ 3.757261 pid=1059799 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.757330 pid=1059799 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.757678 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059799 status=0x0 geëindigd met code 0
++ 3.767851 pid=1059274 ppid=1059241 kind-gemaakt kind=1059800
++ 3.767884 pid=1059800 ppid=1059274 kind-start
++ 3.767923 pid=1059800 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.767999 pid=1059800 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.768302 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059800 status=0x0 geëindigd met code 0
++ 3.778499 pid=1059274 ppid=1059241 kind-gemaakt kind=1059801
++ 3.778541 pid=1059801 ppid=1059274 kind-start
++ 3.778589 pid=1059801 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.778662 pid=1059801 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.779026 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059801 status=0x0 geëindigd met code 0
++ 3.789199 pid=1059274 ppid=1059241 kind-gemaakt kind=1059802
++ 3.789242 pid=1059802 ppid=1059274 kind-start
++ 3.789290 pid=1059802 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.789360 pid=1059802 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.789714 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059802 status=0x0 geëindigd met code 0
++ 3.799892 pid=1059274 ppid=1059241 kind-gemaakt kind=1059803
++ 3.799925 pid=1059803 ppid=1059274 kind-start
++ 3.800003 pid=1059803 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.800083 pid=1059803 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.800445 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059803 status=0x0 geëindigd met code 0
++ 3.810641 pid=1059274 ppid=1059241 kind-gemaakt kind=1059804
++ 3.810664 pid=1059804 ppid=1059274 kind-start
++ 3.810702 pid=1059804 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.810758 pid=1059804 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.811105 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059804 status=0x0 geëindigd met code 0
++ 3.821301 pid=1059274 ppid=1059241 kind-gemaakt kind=1059805
++ 3.821328 pid=1059805 ppid=1059274 kind-start
++ 3.821369 pid=1059805 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.821437 pid=1059805 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.821770 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059805 status=0x0 geëindigd met code 0
++ 3.831961 pid=1059274 ppid=1059241 kind-gemaakt kind=1059806
++ 3.832009 pid=1059806 ppid=1059274 kind-start
++ 3.832075 pid=1059806 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.832148 pid=1059806 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.832519 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059806 status=0x0 geëindigd met code 0
++ 3.842711 pid=1059274 ppid=1059241 kind-gemaakt kind=1059807
++ 3.842752 pid=1059807 ppid=1059274 kind-start
++ 3.842801 pid=1059807 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.842871 pid=1059807 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.843241 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059807 status=0x0 geëindigd met code 0
++ 3.853446 pid=1059274 ppid=1059241 kind-gemaakt kind=1059808
++ 3.853469 pid=1059808 ppid=1059274 kind-start
++ 3.853510 pid=1059808 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.853569 pid=1059808 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.853864 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059808 status=0x0 geëindigd met code 0
++ 3.864046 pid=1059274 ppid=1059241 kind-gemaakt kind=1059809
++ 3.864075 pid=1059809 ppid=1059274 kind-start
++ 3.864117 pid=1059809 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.864184 pid=1059809 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.864522 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059809 status=0x0 geëindigd met code 0
++ 3.874702 pid=1059274 ppid=1059241 kind-gemaakt kind=1059810
++ 3.874727 pid=1059810 ppid=1059274 kind-start
++ 3.874768 pid=1059810 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.874837 pid=1059810 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.875190 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059810 status=0x0 geëindigd met code 0
++ 3.885392 pid=1059274 ppid=1059241 kind-gemaakt kind=1059811
++ 3.885431 pid=1059811 ppid=1059274 kind-start
++ 3.885480 pid=1059811 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.885550 pid=1059811 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.885892 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059811 status=0x0 geëindigd met code 0
++ 3.896081 pid=1059274 ppid=1059241 kind-gemaakt kind=1059812
++ 3.896105 pid=1059812 ppid=1059274 kind-start
++ 3.896148 pid=1059812 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.896212 pid=1059812 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.896546 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059812 status=0x0 geëindigd met code 0
++ 3.906721 pid=1059274 ppid=1059241 kind-gemaakt kind=1059813
++ 3.906745 pid=1059813 ppid=1059274 kind-start
++ 3.906785 pid=1059813 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.906848 pid=1059813 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.907232 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059813 status=0x0 geëindigd met code 0
++ 3.917428 pid=1059274 ppid=1059241 kind-gemaakt kind=1059814
++ 3.917467 pid=1059814 ppid=1059274 kind-start
++ 3.917516 pid=1059814 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.917585 pid=1059814 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.917923 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059814 status=0x0 geëindigd met code 0
++ 3.928091 pid=1059274 ppid=1059241 kind-gemaakt kind=1059815
++ 3.928121 pid=1059815 ppid=1059274 kind-start
++ 3.928161 pid=1059815 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.928217 pid=1059815 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.928503 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059815 status=0x0 geëindigd met code 0
++ 3.938675 pid=1059274 ppid=1059241 kind-gemaakt kind=1059816
++ 3.938707 pid=1059816 ppid=1059274 kind-start
++ 3.938746 pid=1059816 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.938805 pid=1059816 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.939157 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059816 status=0x0 geëindigd met code 0
++ 3.949353 pid=1059274 ppid=1059241 kind-gemaakt kind=1059817
++ 3.949396 pid=1059817 ppid=1059274 kind-start
++ 3.949444 pid=1059817 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.949514 pid=1059817 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.949871 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059817 status=0x0 geëindigd met code 0
++ 3.960120 pid=1059274 ppid=1059241 kind-gemaakt kind=1059818
++ 3.960153 pid=1059818 ppid=1059274 kind-start
++ 3.960201 pid=1059818 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.960274 pid=1059818 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.960643 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059818 status=0x0 geëindigd met code 0
++ 3.970842 pid=1059274 ppid=1059241 kind-gemaakt kind=1059819
++ 3.970861 pid=1059819 ppid=1059274 kind-start
++ 3.970897 pid=1059819 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.970956 pid=1059819 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.971334 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059819 status=0x0 geëindigd met code 0
++ 3.981506 pid=1059274 ppid=1059241 kind-gemaakt kind=1059820
++ 3.981530 pid=1059820 ppid=1059274 kind-start
++ 3.981567 pid=1059820 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.981631 pid=1059820 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.981955 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059820 status=0x0 geëindigd met code 0
++ 3.992160 pid=1059274 ppid=1059241 kind-gemaakt kind=1059821
++ 3.992203 pid=1059821 ppid=1059274 kind-start
++ 3.992252 pid=1059821 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 3.992323 pid=1059821 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 3.992684 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059821 status=0x0 geëindigd met code 0
++ 4.002865 pid=1059274 ppid=1059241 kind-gemaakt kind=1059822
++ 4.002907 pid=1059822 ppid=1059274 kind-start
++ 4.002990 pid=1059822 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.003080 pid=1059822 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.003446 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059822 status=0x0 geëindigd met code 0
++ 4.013619 pid=1059274 ppid=1059241 kind-gemaakt kind=1059823
++ 4.013660 pid=1059823 ppid=1059274 kind-start
++ 4.013708 pid=1059823 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.013777 pid=1059823 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.014179 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059823 status=0x0 geëindigd met code 0
++ 4.024351 pid=1059274 ppid=1059241 kind-gemaakt kind=1059824
++ 4.024391 pid=1059824 ppid=1059274 kind-start
++ 4.024439 pid=1059824 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.024509 pid=1059824 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.024857 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059824 status=0x0 geëindigd met code 0
++ 4.035035 pid=1059274 ppid=1059241 kind-gemaakt kind=1059825
++ 4.035070 pid=1059825 ppid=1059274 kind-start
++ 4.035109 pid=1059825 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.035166 pid=1059825 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.035454 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059825 status=0x0 geëindigd met code 0
++ 4.045620 pid=1059274 ppid=1059241 kind-gemaakt kind=1059826
++ 4.045655 pid=1059826 ppid=1059274 kind-start
++ 4.045694 pid=1059826 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.045751 pid=1059826 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.046089 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059826 status=0x0 geëindigd met code 0
++ 4.056262 pid=1059274 ppid=1059241 kind-gemaakt kind=1059832
++ 4.056296 pid=1059832 ppid=1059274 kind-start
++ 4.056335 pid=1059832 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.056392 pid=1059832 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.056674 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059832 status=0x0 geëindigd met code 0
++ 4.066873 pid=1059274 ppid=1059241 kind-gemaakt kind=1059833
++ 4.066903 pid=1059833 ppid=1059274 kind-start
++ 4.066948 pid=1059833 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.067025 pid=1059833 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.067386 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059833 status=0x0 geëindigd met code 0
++ 4.077591 pid=1059274 ppid=1059241 kind-gemaakt kind=1059838
++ 4.077621 pid=1059838 ppid=1059274 kind-start
++ 4.077666 pid=1059838 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.077741 pid=1059838 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.078109 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059838 status=0x0 geëindigd met code 0
++ 4.088304 pid=1059274 ppid=1059241 kind-gemaakt kind=1059850
++ 4.088322 pid=1059850 ppid=1059274 kind-start
++ 4.088359 pid=1059850 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.088415 pid=1059850 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.088700 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059850 status=0x0 geëindigd met code 0
++ 4.098886 pid=1059274 ppid=1059241 kind-gemaakt kind=1059860
++ 4.098914 pid=1059860 ppid=1059274 kind-start
++ 4.098969 pid=1059860 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.099027 pid=1059860 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.099317 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059860 status=0x0 geëindigd met code 0
++ 4.109504 pid=1059274 ppid=1059241 kind-gemaakt kind=1059861
++ 4.109525 pid=1059861 ppid=1059274 kind-start
++ 4.109565 pid=1059861 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.109634 pid=1059861 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.109957 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059861 status=0x0 geëindigd met code 0
++ 4.120155 pid=1059274 ppid=1059241 kind-gemaakt kind=1059862
++ 4.120184 pid=1059862 ppid=1059274 kind-start
++ 4.120227 pid=1059862 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.120294 pid=1059862 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.120628 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059862 status=0x0 geëindigd met code 0
++ 4.130832 pid=1059274 ppid=1059241 kind-gemaakt kind=1059863
++ 4.130848 pid=1059863 ppid=1059274 kind-start
++ 4.130880 pid=1059863 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.130932 pid=1059863 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.131207 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059863 status=0x0 geëindigd met code 0
++ 4.141422 pid=1059274 ppid=1059241 kind-gemaakt kind=1059864
++ 4.141446 pid=1059864 ppid=1059274 kind-start
++ 4.141485 pid=1059864 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.141547 pid=1059864 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.141869 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059864 status=0x0 geëindigd met code 0
++ 4.150252 pid=1059281 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x80abf4a 0x80a75c0 0x80c241b 0xf7d56640 0xf7fe45b5
++ 4.152056 pid=1059274 ppid=1059241 kind-gemaakt kind=1059865
++ 4.152078 pid=1059865 ppid=1059274 kind-start
++ 4.152112 pid=1059865 ppid=1059274 kind-opgeraapt kind=1059274 status=0x137f (niet geeindigd, bv. WUNTRACED)
++ 4.152169 pid=1059865 ppid=1059274 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f2e59 0x82f2f93 0x80c22f1 0xf7d56640 0xf7fe45b5
++ 4.152440 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059865 status=0x0 geëindigd met code 0
++ 4.152452 pid=1059274 ppid=1059241 kind-opgeraapt kind=1059281 status=0x0 geëindigd met code 0
++ 4.152472 pid=1059274 ppid=1059241 einde exit-code=0 aanroeper- keten: 0xf7f9d630 0x82f302e 0x80c22f1 0xf7d56640 0xf7fe45b5

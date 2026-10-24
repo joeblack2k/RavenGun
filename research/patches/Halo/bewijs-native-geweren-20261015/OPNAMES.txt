@@ -1,0 +1,4 @@
+Volledige opnames (buiten git): ~/.local/share/ravengun/bench-captures/Halo/2026-10-15-native-geweren/
+  play-HaloNative/   ronde 1 (Story Mode, 11 beelden + contact.png)
+  play-HaloNative2/  ronde 2 (eindopzet: game_original op het pad van de bestandstest)
+  ir*/ja*/jb*/jc*/jd*/je*/jf*.png  kalibratie, wizard, attract, bestandstest

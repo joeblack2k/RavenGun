@@ -1,0 +1,3 @@
++ 0.000001 pid=1061024 WIKKEL GELADEN (libravengun-serie-log actief in pid 1061024)
++ 4.102612 pid=1061031 SERIE open "/dev/ttyS0" flags=0x902 -> fd=5
++ 4.102639 pid=1061031 SERIE open "/dev/sierra2" flags=0x902 -> fd=6

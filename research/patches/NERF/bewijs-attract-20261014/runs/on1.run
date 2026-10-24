@@ -1,0 +1,57 @@
+RUN on1 -- NERF -- started 2026-10-14 02:10:12
+DECLARED: core=runtime  share=overlay-keep  shm-source=/dev/shm/ravengun_JvsState  limit=480s  captures every 10s
+user layer (/home/deck/.local/share/ravengun/patches/NERF/game.ini) at start:
+    (none)
+launcher plan (scripts/launch-direct.py NERF --plan):
+    game: /home/deck/mnt/spidernas_emulation/Teknoparrot/NERF Arcade/Nerf.exe
+    wine: /home/deck/.local/share/ravengun/wrappers/wine-prefix
+    prefix: /home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk
+    core_dll: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll
+    core_sha256: f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28
+    core_source: runtime
+    profile_env: {'TP_REMOTETHREAD': 'off', 'RG_WINEPREFIX': '/home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk', 'WINEDLLOVERRIDES': 'winhttp=n,b;d3d11,d3d10core,dxgi=n,b'}
+inside the sandbox, the share folder is mounted as: overlay rw,nosuid,nodev,relatime,lowerdir=/proc/self/fd/10,upperdir=/proc/self/fd/6,workdir=/proc/self/fd/9,redirect_dir=nofollow,index=off,uuid=on,xi
+game process first seen 02:10:14
+launcher says: [launch-direct 02:10:12] kern (runtime): /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll sha256 f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28
+02:10:24 alive: pid 1899417, 2 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:10:54 alive: pid 1899417, 63 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:11:24 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:11:54 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:12:24 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:12:54 alive: pid 1899417, 61 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:13:24 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:13:54 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:14:25 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:14:55 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:15:25 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:15:55 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:16:25 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:16:55 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:17:25 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+02:17:55 alive: pid 1899417, 62 threads; core DLL mapped: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll 
+ENDED 2026-10-14 02:18:16 -- launcher: 02:18:14 klaar (exitcode gestopt) -- rc=124 (124 = stopped by the run's own limit)
+left running afterwards:
+    now 02:18:16
+    (end of list)
+files in the share's game folder newer than the start of this run: 0
+what the game wrote into the kept write layer (/home/deck/.local/state/ravengun/bench-upper/on1/upper):
+    02:10:29.4954854570       102 ./BepInEx/cache/harmony_interop_cache.dat
+    02:10:49.4365816600      5564 ./BepInEx/config/BepInEx.cfg
+    02:10:49.4607319610       175 ./BepInEx/cache/chainloader_typeloader.dat
+    02:10:50.0535019830       153 ./LocalData/highscores/HST.txt
+    02:10:50.0598883770       153 ./LocalData/highscores/HST2.txt
+    02:10:50.0663759490       153 ./LocalData/highscores/HST3.txt
+    02:10:50.0947261210       555 ./LocalData/logs/errorlog.txt
+    02:10:50.2448374300       657 ./LocalData/testmenu/prefs/preferences.txt
+    02:10:50.2597246010       651 ./LocalData/testmenu/audits/CoinAudits.txt
+    02:10:50.2677245270       325 ./LocalData/testmenu/audits/SystemAudits.txt
+    02:10:50.2897243240      2288 ./LocalData/testmenu/audits/GameplayAudits.txt
+    02:10:51.4367137580       791 ./BepInEx/LogOutput.log
+    02:18:02.6181570320       324 ./LocalData/testmenu/audits/Sys.Aud
+    02:18:02.6188958430       324 ./LocalData/testmenu/audits/Sys2.Aud
+    02:18:02.6195797240      9734 ./LocalData/testmenu/audits/Game.Aud
+    02:18:02.6198700900      9734 ./LocalData/testmenu/audits/Game2.Aud
+    02:18:03.5638617340      2132 ./LocalData/logs/gamelog.txt
+    16:43:20.7176088000      5053 ./LocalData/testmenu/prefs/prefs
+    16:43:20.7191679000      5051 ./LocalData/testmenu/prefs/default_prefs
+captures: 46, first shot-001-021012.png, last shot-046-021804.png

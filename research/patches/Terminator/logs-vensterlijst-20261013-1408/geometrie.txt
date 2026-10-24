@@ -1,0 +1,180 @@
+Window 4194309
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 8388613
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 12582917
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 10485765
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 14680065
+  Position: -1,-1 (screen: 0)
+  Geometry: 1x1
+Window 25165825
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 29360129
+  Position: -100,-100 (screen: 0)
+  Geometry: 10x10
+Window 31457281
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 31457283
+  Position: 0,0 (screen: 0)
+  Geometry: 200x200
+Window 23068684
+  Position: 0,0 (screen: 0)
+  Geometry: 64x24
+Window 4194309
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 8388613
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 12582917
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 10485765
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 14680065
+  Position: -1,-1 (screen: 0)
+  Geometry: 1x1
+Window 25165825
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 29360129
+  Position: -100,-100 (screen: 0)
+  Geometry: 10x10
+Window 31457281
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 31457283
+  Position: 0,0 (screen: 0)
+  Geometry: 200x200
+Window 23068684
+  Position: 0,0 (screen: 0)
+  Geometry: 64x24
+Window 4194309
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 8388613
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 12582917
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 10485765
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 14680065
+  Position: -1,-1 (screen: 0)
+  Geometry: 1x1
+Window 25165825
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 29360129
+  Position: -100,-100 (screen: 0)
+  Geometry: 10x10
+Window 31457281
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 31457283
+  Position: 0,0 (screen: 0)
+  Geometry: 200x200
+Window 23068684
+  Position: 0,0 (screen: 0)
+  Geometry: 64x24
+Window 4194309
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 8388613
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 12582917
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 10485765
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 14680065
+  Position: -1,-1 (screen: 0)
+  Geometry: 1x1
+Window 25165825
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 29360129
+  Position: -100,-100 (screen: 0)
+  Geometry: 10x10
+Window 31457281
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 31457283
+  Position: 0,0 (screen: 0)
+  Geometry: 200x200
+Window 23068684
+  Position: 0,0 (screen: 0)
+  Geometry: 64x24
+Window 4194309
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 8388613
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 12582917
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 10485765
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 14680065
+  Position: -1,-1 (screen: 0)
+  Geometry: 1x1
+Window 25165825
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 29360129
+  Position: -100,-100 (screen: 0)
+  Geometry: 10x10
+Window 31457281
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 31457283
+  Position: 0,0 (screen: 0)
+  Geometry: 200x200
+Window 23068684
+  Position: 0,0 (screen: 0)
+  Geometry: 64x24
+Window 4194309
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 8388613
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 12582917
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 10485765
+  Position: 0,0 (screen: 0)
+  Geometry: 3x3
+Window 14680065
+  Position: -1,-1 (screen: 0)
+  Geometry: 1x1
+Window 25165825
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 29360129
+  Position: -100,-100 (screen: 0)
+  Geometry: 10x10
+Window 31457281
+  Position: 10,10 (screen: 0)
+  Geometry: 10x10
+Window 31457283
+  Position: 0,0 (screen: 0)
+  Geometry: 200x200
+Window 23068684
+  Position: 0,0 (screen: 0)
+  Geometry: 64x24

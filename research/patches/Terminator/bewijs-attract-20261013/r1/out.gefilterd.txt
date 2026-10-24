@@ -1,0 +1,354 @@
+# gefilterd: 20024 regels 'ERROR: ld.so: object ... cannot be preloaded (wrong ELF class: ELFCLASS32): ignored.' weggelaten (64-bits hulpprocessen die de 32-bits preloads overslaan)
+rg-elfloader: beeld-bereik 0x8048000..0x8cee000 (12952 KB)
+[ravengun-hasp] dongle 'Terminator' geladen uit ravengun-hasp/Terminator (2 geheugenbestand(en), haspid 0)
+rg-elfloader: 1020 gast-symbolen (bron: (DT_STRTAB-DT_SYMTAB)/16, geen DT_HASH)
+rg-elfloader: lib-defs: 16440 gedefinieerde symbolen uit de NEEDED-libs gelezen
+rg-elfloader: shim bouwen (515 gast-symbolen): gcc -m32 -shared -fPIC -Wl,-z,execstack  -o '/run/user/1000/rg-elfloader-1392995/shim.so' '/run/user/1000/rg-elfloader-1392995/shim.c' 2>&1
+rg-elfloader: shim geladen: 515 gast-symbolen in de globale scope
+rg-elfloader: geladen: libGL.so.1
+rg-elfloader: nog niet geladen (volgende ronde): libGLU.so.1: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor
+rg-elfloader: geladen: libglut.so.3
+rg-elfloader: geladen: libpthread.so.0
+rg-elfloader: geladen: librt.so.1
+rg-elfloader: nog niet geladen (volgende ronde): libtheora.so.0: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0: undefined symbol: oggpackB_readinit
+rg-elfloader: geladen: libogg.so.0
+rg-elfloader: geladen: libPhysXLoader.so.1
+rg-elfloader: geladen: libm.so.6
+rg-elfloader: geladen: libgcc_s.so.1
+rg-elfloader: geladen: libc.so.6
+rg-elfloader: geladen: libdl.so.2
+rg-elfloader: geladen: libstdc++.so.6
+rg-elfloader: geladen in een latere ronde: libGLU.so.1 (eerste poging: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libGLU.so.1: undefined symbol: floor)
+rg-elfloader: geladen in een latere ronde: libtheora.so.0 (eerste poging: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs/libtheora.so.0: undefined symbol: oggpackB_readinit)
+rg-elfloader: stale-map: 496 JMPREL-entries, 0 met stale 0xb7-adres + naam
+rg-elfloader:   onopgelost DT_REL: __gmon_start__ (zwak)
+rg-elfloader: DT_REL: 510 toegepast, 6 COPY, 1 onopgelost
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_REL
+rg-elfloader:   onopgelost DT_JMPREL: __gmon_start__ (zwak)
+rg-elfloader: DT_JMPREL: 495 toegepast, 0 COPY, 1 onopgelost
+rg-elfloader: LET OP: 1 onopgeloste symbolen in DT_JMPREL
+rg-elfloader: geladen; spel /tmp/ts-c/viewr1/game krijgt argv[0]=/tmp/ts-c/viewr1/game
+rg-elfloader: spring naar e_entry 0x8057240 (esp 0xf6367dc0, argc 1, envc 76, 17 auxv)
+[ravengun-hasp] hasp_login (vendor_code=4294901760)
+[ravengun-hasp] hasp_login (vendor_code=4294901760)
+[ravengun-hasp] hasp_decrypt (lengte=512 tafel=treffer sleutel=d43663f21b77e5b8108c942773a0d787)
+[ravengun-hasp] hasp_decrypt (lengte=256 tafel=treffer sleutel=f95bc779ab3b4e692720f1de5424a271)
+[ravengun-hasp] hasp_get_sessioninfo
+[ravengun-hasp] hasp_read (fileid=65522 offset=28 lengte=1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=ac8599ca568455aacbc88e9f8ec14b03)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=3d1fa18a79271d5e661577f0f19c5b8d)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=424f47185bd3a97972caa138f74f5d89)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=3d1fb990cceacb920425ff2bb919aecb)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=4cf7b09e5860b97d6772ce5a3c1c6ce6)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=4e0a7cc8597911c5f63415c217645a4f)
+[ravengun-hasp] hasp_read (fileid=65522 offset=12 lengte=4)
+[ravengun-hasp] hasp_read (fileid=65522 offset=12 lengte=4)
+[ravengun-hasp] hasp_read (fileid=65520 offset=0 lengte=36)
+[ravengun-hasp] hasp_read (fileid=65520 offset=36 lengte=4)
+[ravengun-hasp] hasp_read (fileid=65520 offset=0 lengte=36)
+[ravengun-hasp] hasp_read (fileid=65520 offset=36 lengte=4)
+[ravengun-hasp] hasp_read (fileid=65522 offset=0 lengte=4)
+sh: line 1: /g3/irgun/cmgr885386.txt: Read-only file system
+sed: couldn't flush stdout: Broken pipe
+rm: cannot remove '/g3/irgun/cmgr885386.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr760492.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr760492.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr516649.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr516649.txt': No such file or directory
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7b6e7a86eae14618093f18f80cc8b57f)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=2041a0e020538620fbd3356b0649fe6b)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a30225ec4cb9faed0cd011005)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=29c432814d54303a2e0a18ad6121b385)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df60d51e2fe4a94380ef60eac8b208)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=56e8727c695f3c9445011894c1096f39)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=20518c29cf9cf994ff4fa82e1f910353)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=ca191e567233fd54d34c604dc9caa4ac)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a239c041f64037828e524467c)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df7016241ab4fcb4ea55cc369c964b)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=2f24c12b9f709f0ed8966ef23c2ccccd)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=56e8727c695f3c9445011894c1096f39)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=2022a22b6f70da4c627965af535ccc2b)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=517e2c0f7bfb2ae26ab205ce5671a4bd)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=da24df2793b46a785cc381d8a121a653)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df03cd7000b2a5abcb68c755d70907)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f43064683786dde73cb0bb1311ae334d)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=56e8727c695f3c9445011894c1096f39)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=202322ba74813a1cca6142311eb710b4)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a6bd571d0227bfd864ee36265f057c0e)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a30225ec4cb89022f782b053a)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=8ffe1816321366f07f0aa4fef0981ac9)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a2399b25952fb15af96cdb724)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=da24df2793b46a785cc38cffcc19d4e1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df025750f53f8676321b0d22e210bd)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=89fe181051cbdd21f98cb0149d5d281e)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=56e8727c695f3c9445011894c1096f39)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=202064f6df7160e297f063a7807f7e82)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=8190d596259240ec7722fb6ab3c6a40b)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=fb13cbc892496ac0987fd872a5481a32)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df01dc8cfdbd5bda51bb6b1268a0f9)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=202190a3d6b732cd0bf72eee46b610cd)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=29d5a6a3c7e870690c61ebd453fd4e49)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=b0838e1dbe9712fe5b3ef82462b6ec7c)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=29cce60fcbb298782d441c064da44d08)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=f0df0033dad58605c3efdae711c8fc25)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=56e8727c695f3c9445011894c1096f39)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=20266c10d2a27233eab569500b533886)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=a0326209731536cee1055c40ef2501a1)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=b0838e1dbe9712fe5b3ef82462b6ec7c)
+[ravengun-hasp] hasp_encrypt (lengte=32 tafel=treffer sleutel=7e46205a238f642858fca35d46f2058c)
+[ravengun-hasp] hasp_encrypt: verdere aanroepen worden niet meer gemeld
+sh: line 1: /g3/irgun/cmgr755599.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr755599.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr005475.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr005475.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr070961.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr070961.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr279392.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr279392.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr739443.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr739443.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr297308.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr297308.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr264849.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr264849.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr586699.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr586699.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr966971.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr966971.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr741582.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr741582.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr315950.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr315950.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr265843.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr265843.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr377071.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr377071.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr781000.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr781000.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr377335.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr377335.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr933179.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr933179.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr693997.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr693997.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr558724.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr558724.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr495219.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr495219.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr691446.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr691446.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr154254.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr154254.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr625772.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr625772.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr723339.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr723339.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr736564.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr736564.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr416362.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr416362.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr726427.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr726427.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr419818.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr419818.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr292449.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr292449.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr101274.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr101274.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr315878.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr315878.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr165945.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr165945.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr587375.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr587375.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr258117.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr258117.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr911666.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr911666.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr560773.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr560773.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr682122.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr682122.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr804246.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr804246.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr900364.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr900364.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr228992.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr228992.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr519922.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr519922.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr991165.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr991165.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr249530.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr249530.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr111951.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr111951.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr552539.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr552539.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr896704.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr896704.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr472375.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr472375.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr100110.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr100110.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr669118.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr669118.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr021488.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr021488.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr524163.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr524163.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr633261.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr633261.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr893695.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr893695.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr190490.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr190490.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr909113.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr909113.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr048592.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr048592.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr120976.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr120976.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr134774.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr134774.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr212132.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr212132.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr769085.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr769085.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr535561.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr535561.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr483968.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr483968.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr834778.txt: Read-only file system
+PhysX ready & running in SOFTWARE mode.
+cmgr_init
+cmgr_thread_main: thread begun
+cmgr_locate_cabinet_firmware error: could not open file /g3/irgun/cmgr885386.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr760492.txt
+mo_mode_loop_thread: begun
+cmgr_devicelist_read: could not open /g3/irgun/cmgr516649.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr755599.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr005475.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr070961.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr279392.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr739443.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr297308.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr264849.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr586699.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr966971.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr741582.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr315950.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr265843.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr377071.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr781000.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr377335.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr933179.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr693997.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr558724.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr495219.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr691446.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr154254.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr625772.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr723339.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr736564.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr416362.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr726427.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr419818.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr292449.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr101274.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr315878.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr165945.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr587375.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr258117.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr911666.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr560773.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr682122.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr804246.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr900364.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr228992.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr519922.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr991165.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr249530.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr111951.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr552539.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr896704.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr472375.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr100110.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr669118.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr021488.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr524163.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr633261.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr893695.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr190490.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr909113.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr048592.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr120976.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr134774.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr212132.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr769085.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr535561.txt
+cmgr_devicelist_read: could not open /g3/irgun/cmgr483968.txt
+rm: cannot remove '/g3/irgun/cmgr834778.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr830318.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr830318.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr195677.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr195677.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr843749.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr843749.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr207526.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr207526.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr875794.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr875794.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr767822.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr767822.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr007261.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr007261.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr439730.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr439730.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr532756.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr532756.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr624835.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr624835.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr393652.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr393652.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr175601.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr175601.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr461357.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr461357.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr603036.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr603036.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr341262.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr341262.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr382525.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr382525.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr096067.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr096067.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr462587.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr462587.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr854413.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr854413.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr408247.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr408247.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr789551.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr789551.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr594966.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr594966.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr034554.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr034554.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr601656.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr601656.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr986349.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr986349.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr918403.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr918403.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr246028.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr246028.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr414043.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr414043.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr151853.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr151853.txt': No such file or directory
+sh: line 1: /g3/irgun/cmgr092603.txt: Read-only file system
+rm: cannot remove '/g3/irgun/cmgr092603.txt': No such file or directory

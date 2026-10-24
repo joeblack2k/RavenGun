@@ -1,0 +1,7 @@
+Xshooter.ini -- welke invoerapparaten libXshooter.so (uit de spelmap, geladen door tt_emu.so) als geweer van speler 1 en 2 neemt.
+libXshooter leest het bestand uit de werkmap van de game (get_current_dir_name() + "/Xshooter.ini"; sleutels P1/P2_DEVICE_NAME,
+_VID, _PID: gelezen uit de .rodata van libXshooter.so, 2026-10-14) en zoekt in /dev/input naar een event-apparaat met ABS_X/ABS_Y
+en knoppen. Hier: de virtuele lightguns van ravengund (src/ravengun/output/uinput_gun.*: 1209:7202 "RavenGun Virtual Lightgun",
+1209:7203 "... P2"). De native route toont dit bestand als /pm/Xshooter.ini (packaging/native-games.json, "files").
+NIET GEMETEN: of libXshooter de naam exact of als voorvoegsel vergelijkt en of VID/PID als kleine hex gelezen worden; met
+XSHOOTER_DBG=1 schrijft de bibliotheek wat ze vindt ("Device %d : %s, VID=0x%s, PID=0x%s").

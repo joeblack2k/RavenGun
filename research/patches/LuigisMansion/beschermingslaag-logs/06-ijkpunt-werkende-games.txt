@@ -1,0 +1,167 @@
+########## RabbidsHollywood (Matrix dongle, plays) ##########
+d	4096	
+f	34760	DONGLE-ONDERZOEK.md
+f	28894	LOADER-AND-PATCHES-REPORT.md
+f	11869	README.md
+d	4096	dropin
+f	2946	dropin/dropin.ini
+d	4096	dropin/matrix
+f	1347	dropin/matrix/matrix.ini
+f	25614	dropin/matrix64.dll
+d	4096	dropin/ravengun-hasp
+d	4096	dropin/ravengun-hasp/RabbidsHollywood
+f	3625	dropin/ravengun-hasp/RabbidsHollywood/dongle.json
+f	3555	game.ini
+
+--- its dongle.json (first 40 lines) ---
+{
+  "kind": "matrix",
+  "game": "RabbidsHollywood",
+  "title": "Rabbids Hollywood Arcade",
+  "platform": "Adrenaline Amusements, Unity 2017.2 (Mono, 64-bits)",
+  "library": "matrix64.dll",
+  "port": 85,
+  "dongles": 2,
+  "sernr": 69420,
+  "api": [
+    "Init_MatrixAPI",
+    "Dongle_Count",
+    "Dongle_ReadSerNr"
+  ],
+  "enforced": true,
+  "answers": {
+    "Init_MatrixAPI()": 0,
+    "Dongle_Count(85)": 2,
+    "Dongle_ReadSerNr(Dongle, aantal, 85)": 69420
+  },
+  "evidence": {
+    "assembly": "Game_Data/Managed/Assembly-CSharp.dll",
+    "class": "SBK.Matrix.MatrixManager",
+    "wrapper": "MatrixDLLCSharp.MatrixWrapper",
+    "check_method": "SBK.Matrix.MatrixManager::KDLGNPHHMKI (aangeroepen uit Awake)",
+    "il": [
+      "IL_0022: ldc.i4.s 85                              ; de poort",
+      "IL_0024: call MatrixDLLCSharp.MatrixWrapper::Dongle_Count",
+      "IL_0035: bgt IL_003C                              ; aantal <= 0 -> code 2",
+      "IL_0049: ldc.i4.s 85",
+      "IL_004b: call MatrixDLLCSharp.MatrixWrapper::Dongle_ReadSerNr",
+      "IL_006b: bgt IL_0076                              ; reeks <= 0 -> code 3"
+    ],
+    "quit_path": "SBK.Matrix.MatrixManager+FKNNJPMOCDC::MoveNext: \"**** DONGLE NOT FOUND\", WaitForSeconds(30.0), UnityEngine.Application::Quit",
+    "unused_variant": "SBK.Matrix.MatrixManager::EGIEJAEHODM eist Dongle_Count(40) > 1; die variant wordt door niets aangeroepen. Wie alleen die leest, concludeert ten onrechte poort 40 en aantal >= 2.",
+    "measured": "zonder dongle stopt de game na ~57 s; met Dongle_Count = 2 en Dongle_ReadSerNr = 69420 liep hij > 200 s door (docs/matrix-layer.md, \"Metingen\")",
+    "teknoParrot": "TeknoParrot's eigen matrix32.dll (Infinity Blade FX/Binaries/Win32, 109056 bytes) geeft Init_MatrixAPI 0, Dongle_Count 2 en Dongle_ReadSerNr 69420 en laat de rest aan het origineel over"
+  },
+  "notes": "De game leest GEEN dongle-geheugen: Dongle_ReadData/Dongle_WriteData/Dongle_MemSize komen in de hele assembly niet voor (dnlib grep-il), dus er is geen memory-lijst en matrix.ini heeft geen memory-regel. GECORRIGEERD 2026-10-12: hier stond dat acht methoden van SBK.Matrix.MatrixManager Dongle_EncryptData/Dongle_DecryptData aanroepen voor de savegame-versleuteling. Dat is gemeten en onjuist. Van de zes Encrypt-wrappers (KPHIPOINDLP, BMNNMICCONF, EDNBLKCLMOI, NDIBJIHIEGD, NKLMBDBGNGM, MIBFIOJCFDO) heeft geen enkele een verwijzing in de hele IL -- dode code in deze build. Het savegame-pad loopt via SBK.SaveGameManager -> IJGPGJJKJAG (de IO-providerlaag) en schrijft ServerRequestManager::GetDeviceID in de stream; die methode geeft MatrixManager.GetDongleSerialNumber().ToString() terug als die > 0, anders \"0\". De versleuteling zelf zit niet in managed code (geen Rijndael/Aes/CreateDecryptor in de assembly) en komt dus uit een native module; de kandidaat die de game meelevert is Game_Data/Plugins/sxCore.dll met sxCoreSettings.txt. Onze laag laat de buffer ongemoeid en geeft 0 terug, net als bij de HASP; dat is onschadelijk maar lost de savegame-fout niet op (twee-startproef 2026-10-12: run 2 zette het bestand van run 1 alsnog terug). Zie patches/RabbidsHollywood/DONGLE-ONDERZOEK.md paragraaf 10 en 11. Het serienummer 69420 is geen serienummer van de eigenaar maar een vaste, zelfgekozen waarde (0x10F2C), dezelfde die TeknoParrot's emulator teruggeeft; de laag leest of logt nooit een echt serienummer (matrix/src/matrix.h). De gegevens die de bibliotheek zelf leest staan in matrix/matrix.ini (poort 85, aantal 2) -- dat bestand is de bron voor de DLL, dit bestand is de machineleesbare beschrijving van welke dongle de game vraagt."
+}
+
+--- matrix.ini ---
+; SPDX-License-Identifier: GPL-3.0-or-later
+;
+; matrix.ini - de gegevens van de Matrix/SBK-donglelaag van deze game.
+;
+; De bibliotheek (matrix64.dll, naast dit bestand in de drop-in-map) leest dit bestand zelf; de
+; launcher weet er niets van (docs/geen-dongle-in-de-loader.md). De drop-in geeft de weg mee met
+; RAVENGUN_MATRIX_DIR=matrix in dropin.ini.
+;
+; Deze game leest GEEN dongle-geheugen: SBK.Matrix.MatrixManager vraagt alleen het aantal dongles en
+; een serienummer. Daarom staat er geen memory-regel. Zou een game wel geheugen lezen, dan zet je hier
+; memory = matrix.bin en leg je dat bestand naast dit bestand.
+;
+; poort   de poort waarop de game controleert. Rabbids Hollywood gebruikt 85 (niet 40: dat is de
+;         ongebruikte tweede controlevariant in de assembly, zie docs/matrix-layer.md).
+; aantal  het aantal dongles dat wij opgeven. De controle eist > 0; er staat nog een ongebruikte
+;         variant in de assembly die > 1 eist. 2 voldoet aan allebei, net als TeknoParrot's eigen
+;         matrix32.dll (bewezen met objdump: `mov eax,2; ret`).
+;
+; Het serienummer staat hier bewust NIET in: dat is een vaste, zelfgekozen waarde in de bibliotheek
+; (0x10F2C, dezelfde als TeknoParrot's emulator). Er hoort geen echt serienummer in een bestand te
+; staan, en er wordt er ook geen gelezen of gelogd.
+
+poort = 85
+aantal = 2
+
+########## LGI (region dongle, plays) ##########
+d	4096	
+f	3118	README.md
+d	4096	dropin
+f	343	dropin/dropin.ini
+d	4096	dropin/ravengun-hasp
+d	4096	dropin/ravengun-hasp/LGI
+f	1590	dropin/ravengun-hasp/LGI/dongle.json
+f	2794	game.ini
+
+########## Halo (plays) ##########
+d	12288	
+f	4420	AIM-GELEZEN.md
+f	5301	CAMERA-IN-DE-SANDBOX.md
+f	4719	CORRECTIE-RIP-SCANNER.md
+f	17870	DROPIN-GELIJKSTELLING.md
+f	4372	FABRIEKSINSTELLING.md
+f	5600	GEWEER-CLASSIFICATIE.md
+f	4914	HALO-GEHAALD.md
+f	31183	HALO-NATIVE-ROUTE.md
+f	17401	HASP-INJECTIE.md
+f	5420	HULP-TREKKER-EN-ASSEN.md
+f	27101	IO-BRUG-ROUTE.md
+f	8562	KALIBRATIE-EN-AIM.md
+f	13074	LEZING-GEWEERLAAG.md
+f	22340	NATIVE-RECIPE-PATCH.md
+f	6758	NIET-VASTGESTELD-GEWEERLAAG.md
+f	3570	POORT-FUNCTIE.md
+f	3970	POORT-SCHRIJVER.md
+f	6794	PROEF-GEWEERLAAG.md
+f	10967	README.md
+f	8755	RUN-1-DRAAIBOEK.md
+f	7681	RUN-1-UITKOMST.md
+f	4291	RUN-10-UITKOMST.md
+f	5392	RUN-11-UITKOMST.md
+f	5162	RUN-13-UITKOMST.md
+f	4251	RUN-14-UITKOMST.md
+f	3741	RUN-15-UITKOMST.md
+f	4953	RUN-16-UITKOMST.md
+f	6000	RUN-17-UITKOMST.md
+f	5290	RUN-18-UITKOMST.md
+
+########## HOTDSD (plays; also Sega) -- game.ini [Game] section ##########
+[Game]
+Name = House of the Dead: Scarlet Dawn
+Profile = HOTDSD
+Type = TeknoParrot
+EmulationProfile = ALLSHOTDSD
+Executable = Hodzero-Win64-Shipping.exe
+Executable2 = amdaemon.exe
+Is64Bit = true
+ProfileRevision = 21
+HasTwoExecutables = true
+LaunchSecondExecutableFirst = true
+
+[Launch]
+
+########## HOTDSD -- the amDongle family it names ##########
+31:    "keychipId_note": "amDongleBillingGetKeychipId / alpbGetKeychipSerialID. The daemon rejects a bad one with ERROR: invalid KeychipID(%s).",
+37:    "signature_note": "amDongleBillingGetSignaturePubKey and amDongleBillingGetCaCertification. minime/initpki generates both, and writes the CA as DER with the stated budget 'DER must fit in 1024 bytes so it must be small' - reuse it. BillingUpdatePlaylimit takes (pPlaylimit or pSign), i.e. the limit is signed.",
+38:    "mode_note": "amDongleGetBillingMode. TODO: value not yet measured."
+49:    "note": "amDongleSetIv / amDongleEncrypt / amDongleDecrypt - AES through the keychip."
+53:    "amDongleSetAuthConfig",
+54:    "amDongleGetAuthCondition",
+55:    "amDongleSetAuthCondition",
+56:    "amDongleGetSeed",
+57:    "amDongleGetVersion",
+58:    "amDongleGetDvdFlag",
+59:    "amDongleReadEeprom",
+60:    "amDongleWriteEeprom",
+61:    "amDongleRequestSsdHostProof",
+62:    "amDongleBillingGetMainId",
+63:    "amDongleBillingSetMainId",
+64:    "amDongleBillingTdReserveErasableSector"
+
+########## dongle.json presence per game ##########
+  PRESENT  RabbidsHollywood  -> /home/deck/projects/ravengun-patches/patches/RabbidsHollywood/dropin/ravengun-hasp/RabbidsHollywood/dongle.json  (3625 B)
+  PRESENT  LGI  -> /home/deck/projects/ravengun-patches/patches/LGI/dropin/ravengun-hasp/LGI/dongle.json  (1590 B)
+  PRESENT  LGI3D  -> /home/deck/projects/ravengun-patches/patches/LGI3D/dropin/ravengun-hasp/LGI3D/dongle.json  (1446 B)
+  PRESENT  LGS  -> /home/deck/projects/ravengun-patches/patches/LGS/dropin/ravengun-hasp/LGS/dongle.json  (1574 B)
+  PRESENT  OG  -> /home/deck/projects/ravengun-patches/patches/OG/dropin/ravengun-hasp/OG/dongle.json  (2926 B)
+  PRESENT  Terminator  -> /home/deck/projects/ravengun-patches/patches/Terminator/dropin/ravengun-hasp/Terminator/dongle.json  (2108 B)
+  absent   HOTDSD
+  absent   LuigisMansion

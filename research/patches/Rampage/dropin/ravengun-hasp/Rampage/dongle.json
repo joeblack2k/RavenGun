@@ -1,0 +1,38 @@
+{
+  "kind": "matrix",
+  "game": "Rampage",
+  "title": "Rampage",
+  "platform": "Adrenaline Amusements / Sarbakan, Unity 2017.2 (Mono, 64-bits)",
+  "library": "matrix64.dll",
+  "port": 85,
+  "dongles": 2,
+  "sernr": 69420,
+  "api": [
+    "Init_MatrixAPI",
+    "Dongle_Count",
+    "Dongle_ReadSerNr"
+  ],
+  "enforced": false,
+  "answers": {
+    "Init_MatrixAPI()": 0,
+    "Dongle_Count(85)": 2,
+    "Dongle_ReadSerNr(Dongle, aantal, 85)": 69420
+  },
+  "evidence": {
+    "assembly": "Game_Data/Managed/Assembly-CSharp.dll",
+    "class": "MatrixManager (naamruimteloos; de wrapper is MatrixDLLCSharp.MatrixWrapper)",
+    "check_method": "MatrixManager::GetSerial, aangeroepen uit MatrixManager::Start",
+    "il": [
+      "IL_001D: ldc.i4.s 85                              ; de poort",
+      "IL_0021: call MatrixDLLCSharp.MatrixWrapper::Dongle_Count",
+      "IL_0029: bgt IL_0030                              ; aantal <= 0 -> return 2",
+      "IL_0039: call MatrixDLLCSharp.MatrixWrapper::Dongle_ReadSerNr   ; (Dongle, aantal, 85)",
+      "IL_0042: bge IL_0049                              ; reeks < 0 -> return 3"
+    ],
+    "why_not_enforced": "MatrixManager::Start doet `Process::GetCurrentProcess(); Process::Kill()` als GetSerial iets anders dan 0 teruggeeft, maar GetSerial keert meteen met 0 terug als het veld `Dongle` leeg is (IL_0004: ldfld Dongle; IL_0009: brtrue; IL_000E: ldc.i4.0; ret). Niets in de assembly zet dat veld (geen enkele stfld op Dongle); het is een publiek veld dat de scène zou moeten vullen. Gemeten: de game start en speelt zonder dongle (findings/Rampage.md).",
+    "no_quit_path": "In deze assembly roept geen enkele MatrixManager-methode UnityEngine.Application::Quit (de Quit-plaatsen zijn KaboomManager::Update, GameSettings::Update en IntegrationTestQuitGame).",
+    "strings": "MATRIX_NO_ERROR / MATRIX_NOT_INITIALIZED / MATRIX_NO_DONGLE_FOUND / MATRIX_DONGLE_READ_ERROR zijn leden van de MatrixError-enum, geen logregels; de game logt op dit pad niets.",
+    "teknoParrot": "TeknoParrot's eigen matrix32.dll geeft Dongle_Count 2 en Dongle_ReadSerNr 69420; het originele matrix32.dll/matrix64.dll staat in de spelmap en in Game_Data/Plugins"
+  },
+  "notes": "De game VRAAGT de dongle (de aanroepen staan in de assembly en het bestand matrix64.dll staat in de spelmap), maar hij valt zonder dongle terug en blijft spelen. Daarom enforced = false: de drop-in is een aanvulling, geen voorwaarde. Onze laag geeft dezelfde drie antwoorden als bij Rabbids Hollywood. Er is geen dongle-geheugen nodig, en Dongle_ReadData, Dongle_WriteData, Dongle_MemSize, Dongle_EncryptData en Dongle_DecryptData komen in de hele assembly niet voor (dnlib grep-il): deze game gebruikt de dongle dus ook niet voor zijn versleuteling. Het serienummer 69420 is geen serienummer van de eigenaar maar een vaste, zelfgekozen waarde (0x10F2C), dezelfde die TeknoParrot's emulator teruggeeft."
+}

@@ -1,0 +1,24 @@
+run: vensterlijst-proef (bestaat het spelvenster?)
+datum: 2026-10-13T14:08:48+02:00
+exitcode: 0
+levensduur: 7 s
+FOUT: 21
+spelvensters gevonden: 0
+-- opnamen --
+shot-1.png 1562069 2e5c3ba1f2e6
+shot-2.png 1562069 2e5c3ba1f2e6
+shot-3.png 1562069 2e5c3ba1f2e6
+shot-4.png 1562069 2e5c3ba1f2e6
+shot-5.png 1562069 2e5c3ba1f2e6
+shot-6.png 1562069 2e5c3ba1f2e6
+-- vensters --
+Chromium clipboard
+Qt Selection Owner for gmenudbusmenuproxy
+Qt Selection Owner for kaccess
+Qt Selection Owner for ksmserver
+Qt Selection Owner for xembedsniproxy
+Untitled
+actief: 
+steam
+steamwebhelper
+xsettingsd

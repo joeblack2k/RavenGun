@@ -1,0 +1,5 @@
+# RavenGun: schrijfrecht op /dev/uhid voor de gebruiker die achter het scherm zit (uaccess), alleen nodig voor borden met
+# transport "uhid" in packaging/hid-boards.json (een echt HID-apparaat dat een game via hidraw/SetupDi zoekt). De standaardroute van
+# Transformers (transport "uinput") heeft dit niet nodig. /dev/uhid is anders alleen voor root (crw------- root root).
+# Installeren: sudo scripts/udev-ravengun.sh --apply (installeert ook deze regel); terugdraaien met --rollback.
+KERNEL=="uhid", SUBSYSTEM=="misc", TAG+="uaccess"

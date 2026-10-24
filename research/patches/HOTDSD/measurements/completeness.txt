@@ -1,0 +1,132 @@
+==============================================================================
+HOTD Scarlet Dawn -- structural completeness check
+oracle: re\volledigheidscontrole.md (four checks, structural, NOT hash-by-hash)
+==============================================================================
+
+### 0. Inventory
+  files            : 2081
+  total bytes      : 13095511155  (12.20 GB)
+  empty files      : 0 []
+
+### 1. Directory structure (check 4: logical for the kind of game)
+  App\Hodzero\WindowsNoEditor\Hodzero\Content\Paks                             1 files     7.31 GB
+  App\Hodzero\WindowsNoEditor\Hodzero\Content\Hodzero_V1\ADX                2014 files     4.68 GB
+  App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64                           5 files   100.72 MB
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015    20 files    89.69 MB
+  App\Hodzero\WindowsNoEditor\AMDaemon                                         5 files    12.44 MB
+  App\Hodzero\WindowsNoEditor\AMDaemon\TeknoParrot\D\SDET                      1 files     8.00 MB
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\Vorbis\Win64\VS2015     2 files     1.67 MB
+  .                                                                            4 files   686.59 KB
+  App\Hodzero\WindowsNoEditor\AMDaemon\aime_firm                               6 files    58.68 KB
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\Ogg\Win64\VS2015      1 files    48.00 KB
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\Windows\DirectX\x64     1 files    43.70 KB
+  App\Tools                                                                    3 files    42.00 KB
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources                            9 files    40.00 KB
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\NVIDIA\NVaftermath\Win64     1 files    31.00 KB
+  App\Hodzero\WindowsNoEditor\AMDaemon\TeknoParrot\AMFS                        1 files    24.00 KB
+  App\Hodzero                                                                  1 files     7.96 KB
+  App\Startup                                                                  5 files     3.28 KB
+  App\Hodzero\WindowsNoEditor\Hodzero\Saved\Config\WindowsNoEditor             1 files       274 B
+
+### 2. Check 1: the executables the profile names exist
+  profile ExecutableName/2 : ['Hodzero-Win64-Shipping.exe', 'amdaemon.exe']
+  setup   Locations        : ['App\\Hodzero\\WindowsNoEditor\\Hodzero\\Binaries\\Win64\\Hodzero-Win64-Shipping.exe', 'App\\Hodzero\\WindowsNoEditor\\AMDaemon\\amdaemon.exe']
+  game.ini Identify sizes  : [('Path', 'App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/Hodzero-Win64-Shipping.exe'), ('Size', '54128128'), ('Path2', 'App/Hodzero/WindowsNoEditor/AMDaemon/amdaemon.exe')]
+  App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero-Win64-Shipping.exe PRESENT 51.62 MB
+  App\Hodzero\WindowsNoEditor\AMDaemon\amdaemon.exe                      PRESENT 7.89 MB
+  App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero.exe         absent (fallback only)
+  App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero-Win64-Test.exe absent (fallback only)
+  App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero-Win64-Debug.exe absent (fallback only)
+
+### 3. Check 3a: PE structural soundness (not truncated)
+  32 PE files
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources\error.chinese.dll sec= 1 end=     5632 size=     5632  OK
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources\error.common.chinese.dll sec= 1 end=     1536 size=     2048  OK(+512 overlay)
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources\error.common.english.dll sec= 1 end=     1536 size=     2048  OK(+512 overlay)
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources\error.common.japanese.dll sec= 1 end=     1536 size=     1536  OK
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources\error.english.dll sec= 1 end=     6656 size=     6656  OK
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources\error.japanese.dll sec= 1 end=     6144 size=     6144  OK
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources\warning.chinese.dll sec= 1 end=     5120 size=     5120  OK
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources\warning.english.dll sec= 1 end=     6144 size=     6144  OK
+  App\Hodzero\WindowsNoEditor\AMDaemon\am_resources\warning.japanese.dll sec= 1 end=     5632 size=     5632  OK
+  App\Hodzero\WindowsNoEditor\AMDaemon\amdaemon.exe          sec= 6 end=  8272384 size=  8272384  OK
+  App\Hodzero\WindowsNoEditor\AMDaemon\hwvalue.exe           sec= 6 end=   202240 size=   202240  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\NVIDIA\NVaftermath\Win64\GFSDK_Aftermath_Lib.dll sec= 7 end=    31744 size=    31744  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\Ogg\Win64\VS2015\libogg_64.dll sec= 8 end=    49152 size=    49152  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\APEX_Clothing_x64.dll sec= 8 end=  1220096 size=  1220096  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\APEX_Destructible_x64.dll sec= 8 end=  2010624 size=  2010624  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\APEX_Legacy_x64.dll sec= 8 end=  3329536 size=  3329536  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\ApexFramework_x64.dll sec= 8 end=  1044480 size=  1044480  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\NvCloth_x64.dll sec= 7 end=   266240 size=   266240  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\PhysX3Common_x64.dll sec= 7 end=  1596416 size=  1596416  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\PhysX3Cooking_x64.dll sec= 7 end=   245760 size=   245760  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\PhysX3_x64.dll sec= 7 end=  2069504 size=  2069504  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\PxFoundation_x64.dll sec= 7 end=    54784 size=    54784  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\PhysX\Win64\VS2015\PxPvdSDK_x64.dll sec= 7 end=   189440 size=   189440  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\Vorbis\Win64\VS2015\libvorbis_64.dll sec= 7 end=  1714176 size=  1714176  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\Vorbis\Win64\VS2015\libvorbisfile_64.dll sec= 6 end=    37888 size=    37888  OK
+  App\Hodzero\WindowsNoEditor\Engine\Binaries\ThirdParty\Windows\DirectX\x64\WinPixEventRuntime.dll sec= 7 end=    28672 size=    44752  OK(+16080 overlay)
+  App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero-Win64-Shipping.exe sec= 9 end= 54128128 size= 54128128  OK
+  App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero-Win64-Shipping_org.exe sec= 9 end= 51470336 size= 51470336  OK
+  truncated PE files: 0 []
+
+### 4. Check 3b: imported DLLs are resolvable (the DT_NEEDED analogue)
+  Hodzero-Win64-Shipping.exe
+     imports=50  system=50  shipped-locally=0  UNRESOLVED=0
+  amdaemon.exe
+     imports=23  system=23  shipped-locally=0  UNRESOLVED=0
+  hwvalue.exe
+     imports=7  system=7  shipped-locally=0  UNRESOLVED=0
+  pxGetHwinfo.exe
+     imports=5  system=5  shipped-locally=0  UNRESOLVED=0
+
+### 5. Check 4: content packaging (UE4 pak) and the expected asset dirs
+  App\Hodzero\WindowsNoEditor\Hodzero\Content\Paks\Hodzero-WindowsNoEditor.pak  7.31 GB
+     first 64 bytes : 00 00 00 00 00 00 00 00 e6 01 00 00 00 00 00 00 e3 03 00 00 00 00 00 00 01 00 00 00 7a 31 b5 18 44 cc a4 1d 53 cb 90 36 02 d2 bc d4 60 3e 40 d3 01 00 00 00 49 00 00 00 00 00 00 00 2f 02 00 00
+     last  64 bytes : 3f d3 01 00 00 00 e3 14 3f d3 01 00 00 00 00 cb 01 00 00 00 e1 12 6f 5a 04 00 00 00 e3 14 3f d3 01 00 00 00 ac b1 81 00 00 00 00 00 8c 72 0e f3 87 69 d2 c5 e9 27 f1 3b 41 5d 1b 66 64 2a 4c 4b
+     magic @7847593616   (tail)  version=4   index_offset=7839093987     index_size=8499628      enc=65 guid=5d1b66642a4c4b
+        magic is last 4 bytes of file : False
+        index ends inside the file     : True
+        parse is sane (version/offsets) : True
+  .sig files present: 0 []
+  App\Hodzero\WindowsNoEditor\Hodzero\Content\Hodzero_V1\ADX\NewProject.acf  (32576 bytes) ->
+     @UTF   X  w  ?     @   T   T   T   P   #P   ([   /[   7[   L[   `[   p[   y[   ?[   ?[   ?[   ?[   ?[   ?[   ?[   ?[  [  Z  $[  2R  DR  Y[  nZ  y[  ~[  ?[  ?[  ?P  ?P  ?P  ?[  [  &[  7T  K[  W[  d[  v[  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?P  ?                             `   ?  @   ?  @  L  ?  K@  S   ?  X?  ?                                  Z`   ?  [`   ?  \@   D  \?  ?  ?  _@   X              _?   P  `    T  ``  <  r?   ?                    s?  ?????  u   ?  v?   
+     ...head bytes: 40 55 54 46 00 00 7f 18 00 01 01 58 00 00 02 77 00 00 05 b8 00 00 00 00 00 40 01 1f 00 00 00 01 54 00 00 00 07 54 00 00 00 16 54 00 00 00 1b 50
+  App/Hodzero/WindowsNoEditor/Hodzero/Content/Paks               present
+  App/Hodzero/WindowsNoEditor/Hodzero/Content                    present
+  App/Hodzero/WindowsNoEditor/Hodzero/Saved                      present
+  App/Hodzero/WindowsNoEditor/Hodzero/Saved/Config/WindowsNoEditor present
+  App/Hodzero/WindowsNoEditor/Hodzero/Saved/Logs                 ABSENT
+  App/Hodzero/WindowsNoEditor/Hodzero/Config                     ABSENT
+  App/Hodzero/WindowsNoEditor/Engine                             present
+  App/Hodzero/WindowsNoEditor/Engine/Content                     ABSENT
+  App/Hodzero/WindowsNoEditor/Engine/Binaries/ThirdParty         present
+  App/Hodzero/WindowsNoEditor/Engine/Plugins                     ABSENT
+  App/Hodzero/WindowsNoEditor/Hodzero/Plugins                    ABSENT
+
+### 6. Paths the game's own scripts/config name, checked for existence
+  ..\..\Dev\Tools\CheckUseAMDaemon.bat absent 
+  ..\Hodzero\WindowsNoEditor\Hodzero\Saved\Config\WindowsNoEditor\Game.ini PRESENT <- App\Hodzero\WindowsNoEditor\Hodzero\Saved\Config\WindowsNoEditor\Game.ini
+  ..\Tools\CleanupLogDir.exe         PRESENT <- App\Tools\CleanupLogDir.exe
+  ..\Tools\SetAudioVolume.exe        PRESENT <- App\Tools\SetAudioVolume.exe
+  ..\Tools\SetResolution.exe         PRESENT <- App\Tools\SetResolution.exe
+  05_SetVideoPort.bat                PRESENT <- App\Startup\05_SetVideoPort.bat
+  10_SetResolution.bat               PRESENT <- App\Startup\10_SetResolution.bat
+  20_SetAudioVolume.bat              PRESENT <- App\Startup\20_SetAudioVolume.bat
+  99_StartApp.bat                    PRESENT <- App\Startup\99_StartApp.bat
+  AppStartup.bat                     PRESENT <- App\Startup\AppStartup.bat
+  Game.ini                           PRESENT <- App\Hodzero\WindowsNoEditor\Hodzero\Saved\Config\WindowsNoEditor\Game.ini
+  StartApp.bat                       PRESENT <- App\Hodzero\StartApp.bat
+  \App\Hodzero\WindowsNoEditor\AMDaemon\amdaemon.exe PRESENT <- App\Hodzero\WindowsNoEditor\AMDaemon\amdaemon.exe
+  \App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero.exe absent 
+  \Hodzero-Win64-Debug.exe           absent 
+  \Hodzero-Win64-Shipping.exe        PRESENT <- App\Hodzero\WindowsNoEditor\Hodzero\Binaries\Win64\Hodzero-Win64-Shipping.exe
+  \Hodzero-Win64-Test.exe            absent 
+  \Hodzero.exe                       absent 
+  \appfile.dat                       PRESENT <- App\Hodzero\WindowsNoEditor\AMDaemon\TeknoParrot\D\SDET\appfile.dat
+  \config.json                       PRESENT <- App\Hodzero\WindowsNoEditor\AMDaemon\config.json
+  \config_cabinetMini.json           absent 
+  \config_target.json                absent 
+  amdaemon.exe                       PRESENT <- App\Hodzero\WindowsNoEditor\AMDaemon\amdaemon.exe
+  app.exe                            absent 
+  game.bat                           PRESENT <- game.bat

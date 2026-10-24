@@ -1,0 +1,305 @@
+hwvalue.exe wide strings: 304
+  0x01ef68      Exclude the error value (
+  0x01efb0   returns the result of the AND operation.
+  0x01f008      
+  0x01f020      If the integer value is set,
+  0x01f068    <mask> (optional)
+  0x01f098      "
+  0x01f0b0        Return the dip-switch application value. [0-
+  0x01f118        8 : CHN
+  0x01f138        4 : EXP
+  0x01f158        1 : JPN
+  0x01f178        4 : Terminal
+  0x01f1a0        Return the region code. [1,4,8]
+  0x01f1f0      "
+  0x01f200        3 : Live
+  0x01f220        2 : Satellite
+  0x01f250        1 : Server
+  0x01f280        Return the keychip model type. [1-98]
+  0x01f2e0      "
+  0x01f2f0    <target>
+  0x01f308   <target> [<mask>]
+  0x01f330  Usage: 
+  0x01f340  Cannot initialize the keychip module.
+  0x01f390  Cannot setup the keychip module.
+  0x01f3d8  Invalid <mask> parameter.
+  0x01f410  Cannot read the keychip model type.
+  0x01f458  Invalid <target> parameter.
+  0x01f490  Cannot read the keychip region.
+  0x01f4d0  Cannot initialize the system file module.
+  0x01f530  Cannot initialize the backup module.
+  0x01f580  Cannot get the dip-switch backup record.
+  0x01f5d8  Invalid parameter count.
+  0x01f610  Cannot get the default dip-switch backup data.
+  0x01f670  Cannot read the dip-switch backup data.
+  0x01f6f8  modeltype
+  0x01f718  region
+  0x01f730  dipsw
+  0x01f740  ERROR: 
+  0x01f750  ERROR 
+  0x0201d0  s:\sgsegaboot.exe
+  0x0201f8  @game
+  0x020208  s:\sgsegaboot.exe -s test
+  0x020240  x:\gametest
+  0x022b80  SYSTEM\SEGA\SYSTEMPROPERTY
+  0x022e80  Center
+  0x022e90  Front
+  0x022ea0  Rear
+  0x022eb0  Subwoofer
+  0x0230c8  sysfile.dat
+  0x0232d0  Error : CreateEvent() failed: %d.
+  0x023318  amyLogInit
+  0x023330  Error : _beginthreadex() failed: %d.
+  0x023380  Error : Invalid Parameter bActive
+  0x0233c8  amyLogGetBackupEventLogParam
+  0x023408  Error : not Initialize
+  0x023440  amyLogSetBackupEventLogParamImpl
+  0x0234a8  Error OpenEventLog()
+  0x0234d8  amyLogSaveEventLogImpl
+  0x023508  amyLogBackupEventlog
+  0x023540  Error GetNumberOf-EventLogRecords()
+  0x023590  Error DeleteFileA() : %d
+  0x0235c8  Error ClearEventLog() : %d
+  0x0236e0  AMY_ASYNC : Break Object Error
+  0x023720  amyAsyncDeleteObject
+  0x023750  amyAsyncWaitForObject
+  0x023780  amyAsyncGetResult
+  0x0237a8  Error: Invalid Type
+  0x0237d8  amyAsyncCreateThread
+  0x023808  Error: Invalid Priority
+  0x023840  amyAsyncDeleteThread
+  0x023870  amyAsyncSetCallbackFunc
+  0x0238a0  amyAsyncSetAsyncFunc
+  0x0238d0  amyAsyncCallbackFunc
+  0x023900  sgmanageio
+  0x023958  Error: Invalid param
+  0x023988  amyUsbOpen
+  0x0239a0  Error: already opened.
+  0x0239d0  Error: create thread. ErrCode %d.
+  0x023a18  amyUsbClose
+  0x023a30  Error: Uninitialized.
+  0x023a60  Error: delete thread. ErrCode %d.
+  0x023ab8  PID
+  0x023ac0  VID
+  0x023ac8  IDENTIFY_NAME
+  0x023af0  Error: set value. ErrCode %08X.
+  0x023b40  amySystemPropertySetUsbProperty
+  0x023b80  amySystemPropertySetIdentifyName
+  0x023bd0  Error: get value. ErrCode %08X.
+  0x023c20  amySystemPropertyGetUsbProperty
+  0x023c60  System\Sega\SystemProperty\sgworker
+  0x023cb0  Error: open registry. ErrCode %08X.
+  0x023d00  openUsbSystemProperty
+  0x023d30  STATE
+  0x023d40  LAST_RESULT_CODE
+  0x023d70  Error: close service. ErrCode %08X.
+  0x023dc0  amyUsbControlWorkerService
+  0x023df8  \\.\%s
+  0x023e90  amsMasterSetNextProcess
+  0x023ec0  amsMasterGetNextProcess
+  0x023ef0  amsMasterGetAppLoaderCount
+  0x023f28  amsMasterSetSystemMessage
+  0x023f60  amsMasterGetSystemMessage
+  0x023fa8  disable
+  0x023fb8  system_error
+  0x023fd8  error
+  0x023fe8  caution
+  0x023ff8  info
+  0x024010  enable
+  0x024020  error_number
+  0x024040  message
+  0x024050  category
+  0x024080  System\SEGA\SystemProperty\mount
+  0x0240c8  AMFS
+  0x0240d8  APPDATA
+  0x024140  Error: invalid arg (null pointer).
+  0x024188  amsSystemPropertySetMountAmfs
+  0x0241c8  Error: set. ErrCode %08x.
+  0x024200  amsSystemPropertyGetMountAmfs
+  0x024240  Error: get. ErrCode %08x.
+  0x024280  amsSystemPropertySetMountAppdata
+  0x0242d0  amsSystemPropertyGetMountAppdata
+  0x024320  Error: system property open. ErrCode %08x.
+  0x024378  amsSystemPropertyMountInit
+  0x024408  systemFlag
+  0x024420  Error: get system flag. ErrCode %08X.
+  0x024470  amsSystemPropertyIsDevelop
+  0x0244a8  gameId
+  0x0244c0  Error: get game id. ErrCode %08X.
+  0x024508  amsSystemPropertyGetGameId
+  0x024540  Error: invalid data size(%u).
+  0x024580  Error: convert string type. ErrCode %08X.
+  0x0245d8  amsSystemPropertyGetSystemFlag
+  0x024618  modelType
+  0x024630  Error: get model type. ErrCode %08X.
+  0x024680  amsSystemPropertyGetModelType
+  0x0246c0  region
+  0x0246d0  Error: get region. ErrCode %08X.
+  0x024718  amsSystemPropertyGetRegion
+  0x024750  serverIpIpv4
+  0x024770  Error: get network address(IPv4). ErrCode %08X.
+  0x0247e0  amsSystemPropertyGetNetworkAddressIpv4
+  0x024830  serverIpIpv6
+  0x024850  Error: get network address(IPv6). ErrCode %08X.
+  0x0248c0  amsSystemPropertyGetNetworkAddressIpv6
+  0x024910  keychipId
+  0x024930  Error: get keychip id. ErrCode %08X.
+  0x024980  amsSystemPropertyGetKeychipId
+  0x0249c0  platformId
+  0x0249e0  Error: get platform id. ErrCode %08X.
+  0x024a30  amsSystemPropertyGetPlatformIdOnDongle
+  0x024a80  formatType
+  0x024aa0  Error: get format type. ErrCode %08X.
+  0x024af0  amsSystemPropertyGetFormatTypeOnDongle
+  0x024b40  System\Sega\SystemProperty\keychip
+  0x024b88  openDongleSystemProperty
+  0x024cf8  \??\FddDriver
+  0x024d18  Error: Maybe library bug.
+  0x024d50  amyDongleDriverStart
+  0x024d80  Error: DeviceIoControl failed. %08x
+  0x024dd0  amyDongleDriverEnd
+  0x024e00  Error: DeviceControl failed. %08x
+  0x024e48  amyDongleDriverStartNvram
+  0x024e80  amyDongleDriverEndNvram
+  0x024eb0  amyDongleDriverStartGetLog
+  0x024ee8  amyDongleDriverEndGetLog
+  0x024f90  am_misc Cannot get QueryPerformanceFrequency !! 
+  0x024ff8  amyTimerGet
+  0x025020  appfile.dat
+  0x025130  Error: Invalid arg (null pointer).
+  0x025178  amyVideoSetResolution_
+  0x0251b0  Error: dll amyVideoSetResolution. ErrCode %08x.
+  0x025218  amyVideoGetVBiosVersion_
+  0x025250  Error: dll get bios version. ErrCode %08x.
+  0x0252a8  amyVideoEnum
+  0x0252d0  System\Sega\SystemProperty\amVideo
+  0x025318  Error: open. ErrCode %08x.
+  0x025350  name
+  0x025360  amyVideoOpen
+  0x025380  Error: already initialized.
+  0x0253c0  Error: load library. ErrCode %08x.
+  0x025410  Error: load function. ErrCode %08x.
+  0x025460  Error: dll amyVideoOpen. ErrCode %08x.
+  0x0254b0  amyVideoClose
+  0x0254d0  Error: uninitialized.
+  0x025500  amyVideoValidateSetting
+  0x025530  amyVideoConvertSetting
+  0x025560  Error: Invalid arg (unexpected setting).
+  0x0255c0  Error: Get Unknown VBIOS Version format.
+  0x025618  convertVBiosVersion
+  0x025660  System\Sega\SystemProperty\sgsetdisplaysetting\CurrentSetting
+  0x0256e0  saveVideoSetting
+  0x025708  use_segatiming
+  0x025730  Error: set segatiming. ErrCode %08x.
+  0x025780  monitor_setting_1
+  0x0257a8  monitor_setting_2
+  0x0257d8  180
+  0x0257e0  270
+  0x0257e8  %hux%hu_%s
+  0x025800  Error: set resolution. ErrCode %08x.
+  0x025850  saveMonitorSetting
+  0x025878  port_1
+  0x025888  port_2
+  0x025898  port_3
+  0x0258a8  port_4
+  0x0258b8  port_5
+  0x0258c8  port_6
+  0x0258d8  port_7
+  0x0258e8  port_8
+  0x0258f8  Error: unsupport mode.
+  0x025928  savePortSetting
+  0x025950  Error: set port. ErrCode %08x.
+  0x025998  PlatformId
+  0x0259b0  System\SEGA\SystemProperty\Static
+  0x0259f8  CpuTempWarning
+  0x025a18  CpuTempError
+  0x025a38  CpuTempDegenerate
+  0x025a60  MasterVolume1Vrms
+  0x025a88  SetupVersion
+  0x025aa8  StorageVersion
+  0x025b18  amsSystemPropertyGetPlatformId
+  0x025b60  amsSystemPropertyGetCpuTempError
+  0x025bb0  amsSystemPropertyCpuTempDegenerate
+  0x025c00  amsSystemPropertyGetSoundMasterVolume
+  0x025c50  amsSystemPropertyGetSetupVersion
+  0x025ca0  amsSystemPropertyGetStorageVersion
+  0x025ce8  amsSystemPropertyStaticInit
+  0x026120  %s: Line%d  
+  0x026148  %s %08X 
+  0x026160  %02X 
+  0x026170  amyAsyncThreadInit
+  0x026198  Error CreateMutex error=%d
+  0x0261d0  Error CreateEvent error=%d
+  0x026208  amyAsyncThreadStart
+  0x026230  Error: Invalid struct param
+  0x026270  Error: Already start
+  0x0262a0  CreateThread Error
+  0x0262d0  AsyncThread Thread Stop Error 
+  0x026310  amyAsyncThreadStop
+  0x026338  WaitForSingleObject Error %d
+  0x026378  amyAsyncThreadFunc
+  0x0263e0  amyServiceOpen
+  0x026400  Error: OpenSCManager %08x
+  0x026438  Error: OpenServiceW %08x
+  0x026470  Error: argument(s) are NULL.
+  0x0264b0  amyServiceClose
+  0x0264d0  Error: not opened.
+  0x026500  amyServiceSendUserDefinedControlCode
+  0x026550  Error: ControlService %08x
+  0x0265c8  amyRegistryOpen
+  0x0265f0  Error: open key. ErrCode %08x.
+  0x026630  amyRegistryClose
+  0x026658  amyRegistrySetRetryOption
+  0x026690  amyRegistrySetEntryDataString
+  0x0266d0  amyRegistrySetEntryDataMultiString
+  0x026718  amyRegistryGetEntryDataBinary
+  0x026758  amyRegistryDeleteEntry
+  0x026790  Error: delete entry. ErrCode %08x.
+  0x0267d8  amyRegistryEnumSubkey
+  0x026808  amyRegistryFindEntry
+  0x026840  Error: buffer size not enough.
+  0x026880  getEntryDataString
+  0x0268a8  setEntryData
+  0x0268d0  Error: set entry data. ErrCode %08x.
+  0x026920  getEntryData
+  0x026940  Error: get entry data. ErrCode %08x.
+  0x026990  Error: unmatch type.
+  0x0269c0  Error: entry data size is too small.
+  0x026a10  Error: create mutex.
+  0x026a40  setEntryDataWithMutex
+  0x026a70  Error: set value. ErrCode %d.
+  0x026ab0  getEntryDataWithMutex
+  0x026ae0  Error: get value. ErrCode %d.
+  0x026b20  deleteEntryWithMutex
+  0x026b50  Error: deletes entry. ErrCode %d.
+  0x026be0  &=?
+  0x026be8  ._-@
+  0x026c30  Error: invalid pointer.
+  0x026c68  amyItemListSetupContext
+  0x026c98  amyItemListAddItem
+  0x026cc0  Error: too many items.
+  0x026cf0  Error: "%S" is already added.
+  0x026d58  Error: %s.
+  0x026d70  amyItemListEncode
+  0x026d98  Info: there are no items.
+  0x026dd0  amyItemListDecode
+  0x026e00  Error: not found terminator.
+  0x026e40  Error: no value.
+  0x026e70  Error: parse error. ErrCode %d.
+  0x026eb8  amyItemListGetItemTotal
+  0x026ee8  amyItemListChangeConfig
+  0x026f18  getKeyName
+  0x026f30  Error: too large item No.
+  0x026f68  getValue
+  0x026f80  Error: item not found.
+  0x026fb8  NextProcess
+  0x026fd0  System\SEGA\SystemProperty\Master
+  0x027018  SystemError
+  0x027030  AppLoaderCount
+  0x0270b0  amsSystemPropertySetNextProcess
+  0x0270f0  amsSystemPropertyGetNextProcess
+  0x027130  amsSystemPropertySetSystemError
+  0x027170  amsSystemPropertyGetSystemError
+  0x0271b0  amsSystemPropertySetAppLoaderCount
+  0x027200  amsSystemPropertyGetAppLoaderCount
+  0x027248  amsSystemPropertyMasterInit

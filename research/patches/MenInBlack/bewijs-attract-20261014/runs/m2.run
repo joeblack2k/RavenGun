@@ -1,0 +1,32 @@
+RUN m2 -- MenInBlack -- started 2026-10-14 02:36:57
+DECLARED: core=ravengun  share=overlay-keep  shm-source=launcher default  exe=from the profile  limit=180s  captures every 6s
+THIS RUN: against m1: the Unity game MIB.exe started directly on our 64-bit core, WITHOUT its shell (user-layer override for this run)
+user layer (/home/deck/.local/share/ravengun/patches/MenInBlack/game.ini) at start:
+    ; FOR RUN m2 ONLY (2026-10-14): the game without its shell, on our 64-bit core. Removed again after the run.
+    [Game]
+    Executable = MIB.exe
+    Is64Bit = true
+    
+    [Identify]
+    Path = MIB/MIB.exe
+    Size = 653824
+launcher plan (scripts/launch-direct.py MenInBlack --plan):
+    game: /home/deck/.local/share/ravengun/runtime/views/MenInBlack/MIB/MIB.exe
+    wine: /home/deck/.local/share/ravengun/wrappers/wine-prefix
+    prefix: /home/deck/.local/share/ravengun/prefixes/ravengun-test-mib
+    core_dll: /home/deck/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll
+    core_sha256: fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794
+    core_source: ravengun
+    profile_env: {'TP_REMOTETHREAD': 'off', 'RG_WINEPREFIX': '/home/deck/.local/share/ravengun/prefixes/ravengun-test-mib', 'WINEDLLOVERRIDES': 'd3d11,d3d10core,dxgi=n,b'}
+inside the sandbox, the share folder is mounted as: overlay rw,nosuid,nodev,relatime,lowerdir=/proc/self/fd/10,upperdir=/proc/self/fd/6,workdir=/proc/self/fd/9,redirect_dir=nofollow,index=off,uuid=on,xi
+game process first seen 02:36:59
+launcher says: [launch-direct 02:36:57] kern (ravengun): /home/deck/.local/share/ravengun/openparrot/current/OpenParrotx64/OpenParrot64.dll sha256 fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794
+02:37:09 alive: pid 1920607, 77 threads; core DLL mapped: /home/deck/.local/share/ravengun/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5/OpenParrotx64/OpenParrot64.dll 
+ENDED 2026-10-14 02:37:22 -- launcher: 02:37:20 klaar (exitcode 0) -- rc=0 (124 = stopped by the run's own limit)
+left running afterwards:
+    now 02:37:22
+    (end of list)
+files in the share's game folder newer than the start of this run: 0
+what the game wrote into the kept write layer (/home/deck/.local/state/ravengun/bench-upper/m2/upper):
+    02:37:03.7733536030        76 ./MIB/teknoparrot.ini
+captures: 4, first shot-001-023657.png, last shot-004-023716.png

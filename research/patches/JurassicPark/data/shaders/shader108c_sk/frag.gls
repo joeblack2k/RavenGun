@@ -1,0 +1,36 @@
+// naming conventions
+// a = input vert attribute
+// ex_ =  output vert attribute (input to frag shader)
+// out_ = output frag data
+
+uniform float uGlowThreshold;
+uniform float uGlowRamp;
+uniform float uGlowIntensity;
+
+in vec4 ex_Color;
+
+out vec4 out_Color;
+#if (USE_BLOOM==1)
+#define RG_GLOW_OUT out_Bloom
+#else
+out vec4 out_Glow;
+#define RG_GLOW_OUT out_Glow
+#endif
+// RavenGun (patches/JurassicPark/data/shaders/maak-shaders.py): gl_FragData[0/1] -> out_Color / RG_GLOW_OUT
+
+void ScaleOnIntensity( inout vec3 color, in float start_threshold, in float threshold_ramp );
+
+void main (void)
+{
+   vec4 tcolor;
+
+   tcolor = ex_Color;
+  
+  out_Color = tcolor;
+  
+  ScaleOnIntensity( tcolor.rgb, uGlowThreshold, uGlowRamp );  
+  RG_GLOW_OUT = tcolor * uGlowIntensity;
+}
+
+
+

@@ -1,0 +1,18 @@
+# sha256 of the pieces of run rr10 (2026-10-14 01:13:25 - 01:26:27), taken right after the run
+118b8335977ba3706e7d7745eade8e65e0a2b35adf852217c6be8cf4e7a9153a  <share>/Raccoon Rampage/RSGame/Binaries/Win64/RSGame-Win64-Shipping.exe
+b130f882493fcef53371d216ad4aa4dc8b83edcf9c6aece6f0714098b63f65c1  <share>/Raccoon Rampage/RSGame/Plugins/UsbPluginsDll.dll
+fe2ecf8c2c8844bd7abb3af616271a36364028453c2885fc92d61c9ffd155794  <ravengun-data>/openparrot/current/OpenParrotx64/OpenParrot64.dll
+1953d91ac9db844d3602d2da8f5de700bbebdd8be79697b3ad287a55d1c6c017  <ravengun-data>/openparrot/current/OpenParrotx64/OpenParrotLoader64.exe
+5183c74813129a165dd499c6b4ad02c3fc7fc1c1b183d8bef71266e8a4a7ea0a  <ravengun-data>/jvsbridge/rg-jvsbridge.exe
+3731a5030f97fcbe0c8322a95bc7339fce4129032150e80b416fbbe368fe74f9  <ravengun-data>/wine/proton-11.0-2/bin/wine
+0d0c42008a0e9b1ad6911a7ba60e9584c0bdfdc2a28f0e16741a55801509a364  <ravengun-data>/tools/gst-extra/plugins/libgstlibav.so
+3a7e3e6cadab84b992aded22f96f83e4b7a3e59fd5acafbd245a2cd4c1416d3b  <ravengun-data>/prefixes/ravengun-test-dxvk/drive_c/windows/system32/d3d11.dll
+137d303c6a58f12f1f9efd5bb017f1f0791953fa39c1ca3617ae7324e7161c9f  <ravengun-data>/prefixes/ravengun-test-dxvk/drive_c/windows/system32/dxgi.dll
+# <ravengun-data>/openparrot/current -> <ravengun-data>/openparrot/fc8ba632e1f67c5c340ff88f30efca743e8d38f5
+# launcher (working tree of the loader repository: commit 8286b6a plus uncommitted changes)
+66b54659984e51ce9e33abcb57bb01d3c028b2e06c8fd6b2c437bcd97774f1c8  scripts/launch-direct.py
+0401d5cf081c1d0700ce095f1756d4cd5a35134f3421640e3b41b349cc200a34  scripts/rg-tv-env.sh
+# the harness as run
+8399a71ba430c950f25ace5fd75802d685106251b49b97eb987e681d299126d4  win-run.sh
+ac3cd340d0645c8c2bcdcae0ee55db9069f71546194d4594bf83438acfb476d8  win-inner.sh
+7f02d410bed5c183e503e4c2d48ca58bc4e508f2ea39d43964befe027d8615ca  win-watch.sh

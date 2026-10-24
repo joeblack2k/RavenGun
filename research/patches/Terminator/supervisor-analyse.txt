@@ -1,0 +1,451 @@
+############ 1. de VOLLEDIGE functie 0x082f2d99 - 0x082f30c0
+ 82f2d99:	55                   	push   %ebp
+ 82f2d9a:	89 e5                	mov    %esp,%ebp
+ 82f2d9c:	83 ec 38             	sub    $0x38,%esp
+ 82f2d9f:	e8 44 2b d6 ff       	call   80558e8 <getpid@plt>
+ 82f2da4:	89 45 fc             	mov    %eax,-0x4(%ebp)
+ 82f2da7:	c7 45 f8 00 00 00 00 	movl   $0x0,-0x8(%ebp)
+ 82f2dae:	e8 15 27 d6 ff       	call   80554c8 <fork@plt>
+ 82f2db3:	89 45 f8             	mov    %eax,-0x8(%ebp)
+ 82f2db6:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+ 82f2dba:	0f 85 99 00 00 00    	jne    82f2e59 <asctime_r@plt+0x29bc31>
+ 82f2dc0:	c7 44 24 0c 00 00 00 	movl   $0x0,0xc(%esp)
+ 82f2dc7:	00 
+ 82f2dc8:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+ 82f2dcf:	00 
+ 82f2dd0:	8b 45 fc             	mov    -0x4(%ebp),%eax
+ 82f2dd3:	89 44 24 04          	mov    %eax,0x4(%esp)
+ 82f2dd7:	c7 04 24 10 00 00 00 	movl   $0x10,(%esp)
+ 82f2dde:	e8 25 3b d6 ff       	call   8056908 <ptrace@plt>
+ 82f2de3:	89 45 f4             	mov    %eax,-0xc(%ebp)
+ 82f2de6:	83 7d f4 00          	cmpl   $0x0,-0xc(%ebp)
+ 82f2dea:	74 0c                	je     82f2df8 <asctime_r@plt+0x29bbd0>
+ 82f2dec:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+ 82f2df3:	e8 80 3a d6 ff       	call   8056878 <exit@plt>
+ 82f2df8:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+ 82f2dff:	00 
+ 82f2e00:	8d 45 ec             	lea    -0x14(%ebp),%eax
+ 82f2e03:	89 44 24 04          	mov    %eax,0x4(%esp)
+ 82f2e07:	8b 45 fc             	mov    -0x4(%ebp),%eax
+ 82f2e0a:	89 04 24             	mov    %eax,(%esp)
+ 82f2e0d:	e8 36 25 d6 ff       	call   8055348 <waitpid@plt>
+ 82f2e12:	89 45 f4             	mov    %eax,-0xc(%ebp)
+ 82f2e15:	83 7d f4 ff          	cmpl   $0xffffffff,-0xc(%ebp)
+ 82f2e19:	75 0c                	jne    82f2e27 <asctime_r@plt+0x29bbff>
+ 82f2e1b:	e8 38 30 d6 ff       	call   8055e58 <__errno_location@plt>
+ 82f2e20:	8b 00                	mov    (%eax),%eax
+ 82f2e22:	83 f8 04             	cmp    $0x4,%eax
+ 82f2e25:	74 d1                	je     82f2df8 <asctime_r@plt+0x29bbd0>
+ 82f2e27:	c7 44 24 0c 12 00 00 	movl   $0x12,0xc(%esp)
+ 82f2e2e:	00 
+ 82f2e2f:	c7 44 24 08 01 00 00 	movl   $0x1,0x8(%esp)
+ 82f2e36:	00 
+ 82f2e37:	8b 45 fc             	mov    -0x4(%ebp),%eax
+ 82f2e3a:	89 44 24 04          	mov    %eax,0x4(%esp)
+ 82f2e3e:	c7 04 24 11 00 00 00 	movl   $0x11,(%esp)
+ 82f2e45:	e8 be 3a d6 ff       	call   8056908 <ptrace@plt>
+ 82f2e4a:	89 45 f4             	mov    %eax,-0xc(%ebp)
+ 82f2e4d:	c7 04 24 00 00 00 00 	movl   $0x0,(%esp)
+ 82f2e54:	e8 1f 3a d6 ff       	call   8056878 <exit@plt>
+ 82f2e59:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+ 82f2e5d:	79 09                	jns    82f2e68 <asctime_r@plt+0x29bc40>
+ 82f2e5f:	c7 45 dc ff ff ff ff 	movl   $0xffffffff,-0x24(%ebp)
+ 82f2e66:	eb 5b                	jmp    82f2ec3 <asctime_r@plt+0x29bc9b>
+ 82f2e68:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+ 82f2e6f:	00 
+ 82f2e70:	8d 45 ec             	lea    -0x14(%ebp),%eax
+ 82f2e73:	89 44 24 04          	mov    %eax,0x4(%esp)
+ 82f2e77:	8b 45 f8             	mov    -0x8(%ebp),%eax
+ 82f2e7a:	89 04 24             	mov    %eax,(%esp)
+ 82f2e7d:	e8 c6 24 d6 ff       	call   8055348 <waitpid@plt>
+ 82f2e82:	89 45 f4             	mov    %eax,-0xc(%ebp)
+ 82f2e85:	83 7d f4 ff          	cmpl   $0xffffffff,-0xc(%ebp)
+ 82f2e89:	75 0c                	jne    82f2e97 <asctime_r@plt+0x29bc6f>
+ 82f2e8b:	e8 c8 2f d6 ff       	call   8055e58 <__errno_location@plt>
+ 82f2e90:	8b 00                	mov    (%eax),%eax
+ 82f2e92:	83 f8 04             	cmp    $0x4,%eax
+ 82f2e95:	74 d1                	je     82f2e68 <asctime_r@plt+0x29bc40>
+ 82f2e97:	8b 45 ec             	mov    -0x14(%ebp),%eax
+ 82f2e9a:	89 45 f0             	mov    %eax,-0x10(%ebp)
+ 82f2e9d:	8b 45 f0             	mov    -0x10(%ebp),%eax
+ 82f2ea0:	25 00 ff 00 00       	and    $0xff00,%eax
+ 82f2ea5:	c1 f8 08             	sar    $0x8,%eax
+ 82f2ea8:	89 45 ec             	mov    %eax,-0x14(%ebp)
+ 82f2eab:	8b 45 ec             	mov    -0x14(%ebp),%eax
+ 82f2eae:	83 f8 01             	cmp    $0x1,%eax
+ 82f2eb1:	75 09                	jne    82f2ebc <asctime_r@plt+0x29bc94>
+ 82f2eb3:	c7 45 dc 01 00 00 00 	movl   $0x1,-0x24(%ebp)
+ 82f2eba:	eb 07                	jmp    82f2ec3 <asctime_r@plt+0x29bc9b>
+ 82f2ebc:	c7 45 dc 00 00 00 00 	movl   $0x0,-0x24(%ebp)
+ 82f2ec3:	8b 45 dc             	mov    -0x24(%ebp),%eax
+ 82f2ec6:	c9                   	leave
+ 82f2ec7:	c3                   	ret
+ 82f2ec8:	55                   	push   %ebp
+ 82f2ec9:	89 e5                	mov    %esp,%ebp
+ 82f2ecb:	83 ec 08             	sub    $0x8,%esp
+ 82f2ece:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+ 82f2ed5:	e8 9e 39 d6 ff       	call   8056878 <exit@plt>
+ 82f2eda:	55                   	push   %ebp
+ 82f2edb:	89 e5                	mov    %esp,%ebp
+ 82f2edd:	83 ec 38             	sub    $0x38,%esp
+ 82f2ee0:	e8 03 2a d6 ff       	call   80558e8 <getpid@plt>
+ 82f2ee5:	a3 f4 af af 08       	mov    %eax,0x8afaff4
+ 82f2eea:	c7 05 f8 af af 08 00 	movl   $0x0,0x8afaff8
+ 82f2ef1:	00 00 00 
+ 82f2ef4:	e8 cf 25 d6 ff       	call   80554c8 <fork@plt>
+ 82f2ef9:	a3 f8 af af 08       	mov    %eax,0x8afaff8
+ 82f2efe:	a1 f8 af af 08       	mov    0x8afaff8,%eax
+ 82f2f03:	85 c0                	test   %eax,%eax
+ 82f2f05:	75 5a                	jne    82f2f61 <asctime_r@plt+0x29bd39>
+ 82f2f07:	c7 44 24 04 c8 2e 2f 	movl   $0x82f2ec8,0x4(%esp)
+ 82f2f0e:	08 
+ 82f2f0f:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+ 82f2f16:	e8 7d 33 d6 ff       	call   8056298 <signal@plt>
+ 82f2f1b:	a1 f4 af af 08       	mov    0x8afaff4,%eax
+ 82f2f20:	c7 44 24 0c 00 00 00 	movl   $0x0,0xc(%esp)
+ 82f2f27:	00 
+ 82f2f28:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+ 82f2f2f:	00 
+ 82f2f30:	89 44 24 04          	mov    %eax,0x4(%esp)
+ 82f2f34:	c7 04 24 00 00 00 00 	movl   $0x0,(%esp)
+ 82f2f3b:	e8 c8 39 d6 ff       	call   8056908 <ptrace@plt>
+ 82f2f40:	89 45 f8             	mov    %eax,-0x8(%ebp)
+ 82f2f43:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+ 82f2f47:	74 0c                	je     82f2f55 <asctime_r@plt+0x29bd2d>
+ 82f2f49:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+ 82f2f50:	e8 23 39 d6 ff       	call   8056878 <exit@plt>
+ 82f2f55:	c7 45 dc 01 00 00 00 	movl   $0x1,-0x24(%ebp)
+ 82f2f5c:	e9 5c 01 00 00       	jmp    82f30bd <asctime_r@plt+0x29be95>
+ 82f2f61:	a1 f8 af af 08       	mov    0x8afaff8,%eax
+ 82f2f66:	85 c0                	test   %eax,%eax
+ 82f2f68:	79 0c                	jns    82f2f76 <asctime_r@plt+0x29bd4e>
+ 82f2f6a:	c7 45 dc ff ff ff ff 	movl   $0xffffffff,-0x24(%ebp)
+ 82f2f71:	e9 47 01 00 00       	jmp    82f30bd <asctime_r@plt+0x29be95>
+ 82f2f76:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+ 82f2f7d:	e9 2a 01 00 00       	jmp    82f30ac <asctime_r@plt+0x29be84>
+ 82f2f82:	c7 04 24 0a 00 00 00 	movl   $0xa,(%esp)
+ 82f2f89:	e8 cb f8 ff ff       	call   82f2859 <asctime_r@plt+0x29b631>
+ 82f2f8e:	e8 06 fe ff ff       	call   82f2d99 <asctime_r@plt+0x29bb71>
+ 82f2f93:	85 c0                	test   %eax,%eax
+ 82f2f95:	74 21                	je     82f2fb8 <asctime_r@plt+0x29bd90>
+ 82f2f97:	a1 f8 af af 08       	mov    0x8afaff8,%eax
+ 82f2f9c:	c7 44 24 04 09 00 00 	movl   $0x9,0x4(%esp)
+ 82f2fa3:	00 
+ 82f2fa4:	89 04 24             	mov    %eax,(%esp)
+ 82f2fa7:	e8 fc 3f d6 ff       	call   8056fa8 <kill@plt>
+ 82f2fac:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+ 82f2fb3:	e8 c0 38 d6 ff       	call   8056878 <exit@plt>
+ 82f2fb8:	a1 f8 af af 08       	mov    0x8afaff8,%eax
+ 82f2fbd:	c7 44 24 08 01 00 00 	movl   $0x1,0x8(%esp)
+ 82f2fc4:	00 
+ 82f2fc5:	8d 55 e0             	lea    -0x20(%ebp),%edx
+ 82f2fc8:	89 54 24 04          	mov    %edx,0x4(%esp)
+ 82f2fcc:	89 04 24             	mov    %eax,(%esp)
+ 82f2fcf:	e8 74 23 d6 ff       	call   8055348 <waitpid@plt>
+ 82f2fd4:	89 45 f8             	mov    %eax,-0x8(%ebp)
+ 82f2fd7:	83 7d f8 ff          	cmpl   $0xffffffff,-0x8(%ebp)
+ 82f2fdb:	75 18                	jne    82f2ff5 <asctime_r@plt+0x29bdcd>
+ 82f2fdd:	e8 76 2e d6 ff       	call   8055e58 <__errno_location@plt>
+ 82f2fe2:	8b 00                	mov    (%eax),%eax
+ 82f2fe4:	83 f8 0a             	cmp    $0xa,%eax
+ 82f2fe7:	75 0c                	jne    82f2ff5 <asctime_r@plt+0x29bdcd>
+ 82f2fe9:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+ 82f2ff0:	e8 83 38 d6 ff       	call   8056878 <exit@plt>
+ 82f2ff5:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+ 82f2ff9:	0f 8e ad 00 00 00    	jle    82f30ac <asctime_r@plt+0x29be84>
+ 82f2fff:	8b 45 e0             	mov    -0x20(%ebp),%eax
+ 82f3002:	89 45 e4             	mov    %eax,-0x1c(%ebp)
+ 82f3005:	8b 45 e4             	mov    -0x1c(%ebp),%eax
+ 82f3008:	83 e0 7f             	and    $0x7f,%eax
+ 82f300b:	85 c0                	test   %eax,%eax
+ 82f300d:	75 1f                	jne    82f302e <asctime_r@plt+0x29be06>
+ 82f300f:	8b 45 e0             	mov    -0x20(%ebp),%eax
+ 82f3012:	89 45 e8             	mov    %eax,-0x18(%ebp)
+ 82f3015:	8b 45 e8             	mov    -0x18(%ebp),%eax
+ 82f3018:	25 00 ff 00 00       	and    $0xff00,%eax
+ 82f301d:	c1 f8 08             	sar    $0x8,%eax
+ 82f3020:	89 45 e0             	mov    %eax,-0x20(%ebp)
+ 82f3023:	8b 45 e0             	mov    -0x20(%ebp),%eax
+ 82f3026:	89 04 24             	mov    %eax,(%esp)
+ 82f3029:	e8 4a 38 d6 ff       	call   8056878 <exit@plt>
+ 82f302e:	8b 45 e0             	mov    -0x20(%ebp),%eax
+ 82f3031:	89 45 ec             	mov    %eax,-0x14(%ebp)
+ 82f3034:	8b 45 ec             	mov    -0x14(%ebp),%eax
+ 82f3037:	83 e0 7f             	and    $0x7f,%eax
+ 82f303a:	83 c0 01             	add    $0x1,%eax
+ 82f303d:	d0 f8                	sar    $1,%al
+ 82f303f:	84 c0                	test   %al,%al
+ 82f3041:	7e 0c                	jle    82f304f <asctime_r@plt+0x29be27>
+ 82f3043:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+ 82f304a:	e8 29 38 d6 ff       	call   8056878 <exit@plt>
+ 82f304f:	8b 45 e0             	mov    -0x20(%ebp),%eax
+ 82f3052:	89 45 f0             	mov    %eax,-0x10(%ebp)
+ 82f3055:	8b 45 f0             	mov    -0x10(%ebp),%eax
+ 82f3058:	25 ff 00 00 00       	and    $0xff,%eax
+ 82f305d:	83 f8 7f             	cmp    $0x7f,%eax
+ 82f3060:	75 3e                	jne    82f30a0 <asctime_r@plt+0x29be78>
+ 82f3062:	8b 45 e0             	mov    -0x20(%ebp),%eax
+ 82f3065:	89 45 f4             	mov    %eax,-0xc(%ebp)
+ 82f3068:	8b 45 f4             	mov    -0xc(%ebp),%eax
+ 82f306b:	25 00 ff 00 00       	and    $0xff00,%eax
+ 82f3070:	c1 f8 08             	sar    $0x8,%eax
+ 82f3073:	89 45 f8             	mov    %eax,-0x8(%ebp)
+ 82f3076:	8b 15 f8 af af 08    	mov    0x8afaff8,%edx
+ 82f307c:	8b 45 f8             	mov    -0x8(%ebp),%eax
+ 82f307f:	89 44 24 0c          	mov    %eax,0xc(%esp)
+ 82f3083:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+ 82f308a:	00 
+ 82f308b:	89 54 24 04          	mov    %edx,0x4(%esp)
+ 82f308f:	c7 04 24 07 00 00 00 	movl   $0x7,(%esp)
+ 82f3096:	e8 6d 38 d6 ff       	call   8056908 <ptrace@plt>
+ 82f309b:	89 45 f8             	mov    %eax,-0x8(%ebp)
+ 82f309e:	eb 0c                	jmp    82f30ac <asctime_r@plt+0x29be84>
+ 82f30a0:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+ 82f30a7:	e8 cc 37 d6 ff       	call   8056878 <exit@plt>
+ 82f30ac:	83 7d fc 00          	cmpl   $0x0,-0x4(%ebp)
+ 82f30b0:	0f 84 cc fe ff ff    	je     82f2f82 <asctime_r@plt+0x29bd5a>
+ 82f30b6:	c7 45 dc 00 00 00 00 	movl   $0x0,-0x24(%ebp)
+ 82f30bd:	8b 45 dc             	mov    -0x24(%ebp),%eax
+
+############ 2. alle aanroepen in die functie
+   82f2d9f:	e8 44 2b d6 ff       	call   80558e8 <getpid@plt>
+   82f2dae:	e8 15 27 d6 ff       	call   80554c8 <fork@plt>
+   82f2dde:	e8 25 3b d6 ff       	call   8056908 <ptrace@plt>
+   82f2df3:	e8 80 3a d6 ff       	call   8056878 <exit@plt>
+   82f2e0d:	e8 36 25 d6 ff       	call   8055348 <waitpid@plt>
+   82f2e1b:	e8 38 30 d6 ff       	call   8055e58 <__errno_location@plt>
+   82f2e45:	e8 be 3a d6 ff       	call   8056908 <ptrace@plt>
+   82f2e54:	e8 1f 3a d6 ff       	call   8056878 <exit@plt>
+   82f2e7d:	e8 c6 24 d6 ff       	call   8055348 <waitpid@plt>
+   82f2e8b:	e8 c8 2f d6 ff       	call   8055e58 <__errno_location@plt>
+   82f2ed5:	e8 9e 39 d6 ff       	call   8056878 <exit@plt>
+   82f2ee0:	e8 03 2a d6 ff       	call   80558e8 <getpid@plt>
+   82f2ef4:	e8 cf 25 d6 ff       	call   80554c8 <fork@plt>
+   82f2f16:	e8 7d 33 d6 ff       	call   8056298 <signal@plt>
+   82f2f3b:	e8 c8 39 d6 ff       	call   8056908 <ptrace@plt>
+   82f2f50:	e8 23 39 d6 ff       	call   8056878 <exit@plt>
+   82f2f89:	e8 cb f8 ff ff       	call   82f2859 <asctime_r@plt+0x29b631>
+   82f2f8e:	e8 06 fe ff ff       	call   82f2d99 <asctime_r@plt+0x29bb71>
+   82f2fa7:	e8 fc 3f d6 ff       	call   8056fa8 <kill@plt>
+   82f2fb3:	e8 c0 38 d6 ff       	call   8056878 <exit@plt>
+   82f2fcf:	e8 74 23 d6 ff       	call   8055348 <waitpid@plt>
+   82f2fdd:	e8 76 2e d6 ff       	call   8055e58 <__errno_location@plt>
+   82f2ff0:	e8 83 38 d6 ff       	call   8056878 <exit@plt>
+   82f3029:	e8 4a 38 d6 ff       	call   8056878 <exit@plt>
+   82f304a:	e8 29 38 d6 ff       	call   8056878 <exit@plt>
+   82f3096:	e8 6d 38 d6 ff       	call   8056908 <ptrace@plt>
+   82f30a7:	e8 cc 37 d6 ff       	call   8056878 <exit@plt>
+
+############ 3. (c) DE EXIT-PLEKKEN met hun status-argument
+  call exit@plt op 0x82f2df3
+      ervoor: 82f2de3:	89 45 f4             	mov    %eax,-0xc(%ebp)
+      ervoor: 82f2de6:	83 7d f4 00          	cmpl   $0x0,-0xc(%ebp)
+      ervoor: 82f2dea:	74 0c                	je     82f2df8 <asctime_r@plt+0x29bbd0>
+      ervoor: 82f2dec:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+  call exit@plt op 0x82f2e54
+      ervoor: 82f2e3e:	c7 04 24 11 00 00 00 	movl   $0x11,(%esp)
+      ervoor: 82f2e45:	e8 be 3a d6 ff       	call   8056908 <ptrace@plt>
+      ervoor: 82f2e4a:	89 45 f4             	mov    %eax,-0xc(%ebp)
+      ervoor: 82f2e4d:	c7 04 24 00 00 00 00 	movl   $0x0,(%esp)
+  call exit@plt op 0x82f2ed5
+      ervoor: 82f2ec8:	55                   	push   %ebp
+      ervoor: 82f2ec9:	89 e5                	mov    %esp,%ebp
+      ervoor: 82f2ecb:	83 ec 08             	sub    $0x8,%esp
+      ervoor: 82f2ece:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+  call exit@plt op 0x82f2f50
+      ervoor: 82f2f40:	89 45 f8             	mov    %eax,-0x8(%ebp)
+      ervoor: 82f2f43:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+      ervoor: 82f2f47:	74 0c                	je     82f2f55 <asctime_r@plt+0x29bd2d>
+      ervoor: 82f2f49:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+  call exit@plt op 0x82f2fb3
+      ervoor: 82f2fa3:	00
+      ervoor: 82f2fa4:	89 04 24             	mov    %eax,(%esp)
+      ervoor: 82f2fa7:	e8 fc 3f d6 ff       	call   8056fa8 <kill@plt>
+      ervoor: 82f2fac:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+  call exit@plt op 0x82f2ff0
+      ervoor: 82f2fe2:	8b 00                	mov    (%eax),%eax
+      ervoor: 82f2fe4:	83 f8 0a             	cmp    $0xa,%eax
+      ervoor: 82f2fe7:	75 0c                	jne    82f2ff5 <asctime_r@plt+0x29bdcd>
+      ervoor: 82f2fe9:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+  call exit@plt op 0x82f3029
+      ervoor: 82f301d:	c1 f8 08             	sar    $0x8,%eax
+      ervoor: 82f3020:	89 45 e0             	mov    %eax,-0x20(%ebp)
+      ervoor: 82f3023:	8b 45 e0             	mov    -0x20(%ebp),%eax
+      ervoor: 82f3026:	89 04 24             	mov    %eax,(%esp)
+  call exit@plt op 0x82f304a
+      ervoor: 82f303d:	d0 f8                	sar    $1,%al
+      ervoor: 82f303f:	84 c0                	test   %al,%al
+      ervoor: 82f3041:	7e 0c                	jle    82f304f <asctime_r@plt+0x29be27>
+      ervoor: 82f3043:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+  call exit@plt op 0x82f30a7
+      ervoor: 82f3096:	e8 6d 38 d6 ff       	call   8056908 <ptrace@plt>
+      ervoor: 82f309b:	89 45 f8             	mov    %eax,-0x8(%ebp)
+      ervoor: 82f309e:	eb 0c                	jmp    82f30ac <asctime_r@plt+0x29be84>
+      ervoor: 82f30a0:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+
+############ 4. (b) WAT TELT HIJ? alle vergelijkingen en constanten in de functie
+   82f2da7:	c7 45 f8 00 00 00 00 	movl   $0x0,-0x8(%ebp)
+   82f2db6:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+   82f2dba:	0f 85 99 00 00 00    	jne    82f2e59 <asctime_r@plt+0x29bc31>
+   82f2dc0:	c7 44 24 0c 00 00 00 	movl   $0x0,0xc(%esp)
+   82f2dc8:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+   82f2dd7:	c7 04 24 10 00 00 00 	movl   $0x10,(%esp)
+   82f2de6:	83 7d f4 00          	cmpl   $0x0,-0xc(%ebp)
+   82f2dea:	74 0c                	je     82f2df8 <asctime_r@plt+0x29bbd0>
+   82f2dec:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+   82f2df8:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+   82f2e15:	83 7d f4 ff          	cmpl   $0xffffffff,-0xc(%ebp)
+   82f2e19:	75 0c                	jne    82f2e27 <asctime_r@plt+0x29bbff>
+   82f2e22:	83 f8 04             	cmp    $0x4,%eax
+   82f2e25:	74 d1                	je     82f2df8 <asctime_r@plt+0x29bbd0>
+   82f2e27:	c7 44 24 0c 12 00 00 	movl   $0x12,0xc(%esp)
+   82f2e2f:	c7 44 24 08 01 00 00 	movl   $0x1,0x8(%esp)
+   82f2e3e:	c7 04 24 11 00 00 00 	movl   $0x11,(%esp)
+   82f2e4d:	c7 04 24 00 00 00 00 	movl   $0x0,(%esp)
+   82f2e59:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+   82f2e5d:	79 09                	jns    82f2e68 <asctime_r@plt+0x29bc40>
+   82f2e5f:	c7 45 dc ff ff ff ff 	movl   $0xffffffff,-0x24(%ebp)
+   82f2e66:	eb 5b                	jmp    82f2ec3 <asctime_r@plt+0x29bc9b>
+   82f2e68:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+   82f2e85:	83 7d f4 ff          	cmpl   $0xffffffff,-0xc(%ebp)
+   82f2e89:	75 0c                	jne    82f2e97 <asctime_r@plt+0x29bc6f>
+   82f2e92:	83 f8 04             	cmp    $0x4,%eax
+   82f2e95:	74 d1                	je     82f2e68 <asctime_r@plt+0x29bc40>
+   82f2eae:	83 f8 01             	cmp    $0x1,%eax
+   82f2eb1:	75 09                	jne    82f2ebc <asctime_r@plt+0x29bc94>
+   82f2eb3:	c7 45 dc 01 00 00 00 	movl   $0x1,-0x24(%ebp)
+   82f2eba:	eb 07                	jmp    82f2ec3 <asctime_r@plt+0x29bc9b>
+   82f2ebc:	c7 45 dc 00 00 00 00 	movl   $0x0,-0x24(%ebp)
+   82f2ece:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+   82f2eea:	c7 05 f8 af af 08 00 	movl   $0x0,0x8afaff8
+   82f2f03:	85 c0                	test   %eax,%eax
+   82f2f05:	75 5a                	jne    82f2f61 <asctime_r@plt+0x29bd39>
+   82f2f07:	c7 44 24 04 c8 2e 2f 	movl   $0x82f2ec8,0x4(%esp)
+   82f2f0f:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+   82f2f20:	c7 44 24 0c 00 00 00 	movl   $0x0,0xc(%esp)
+   82f2f28:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+   82f2f34:	c7 04 24 00 00 00 00 	movl   $0x0,(%esp)
+   82f2f43:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+   82f2f47:	74 0c                	je     82f2f55 <asctime_r@plt+0x29bd2d>
+   82f2f49:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+   82f2f55:	c7 45 dc 01 00 00 00 	movl   $0x1,-0x24(%ebp)
+   82f2f5c:	e9 5c 01 00 00       	jmp    82f30bd <asctime_r@plt+0x29be95>
+   82f2f66:	85 c0                	test   %eax,%eax
+   82f2f68:	79 0c                	jns    82f2f76 <asctime_r@plt+0x29bd4e>
+   82f2f6a:	c7 45 dc ff ff ff ff 	movl   $0xffffffff,-0x24(%ebp)
+   82f2f71:	e9 47 01 00 00       	jmp    82f30bd <asctime_r@plt+0x29be95>
+   82f2f76:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+   82f2f7d:	e9 2a 01 00 00       	jmp    82f30ac <asctime_r@plt+0x29be84>
+   82f2f82:	c7 04 24 0a 00 00 00 	movl   $0xa,(%esp)
+   82f2f93:	85 c0                	test   %eax,%eax
+   82f2f95:	74 21                	je     82f2fb8 <asctime_r@plt+0x29bd90>
+   82f2f9c:	c7 44 24 04 09 00 00 	movl   $0x9,0x4(%esp)
+   82f2fac:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+   82f2fbd:	c7 44 24 08 01 00 00 	movl   $0x1,0x8(%esp)
+   82f2fd7:	83 7d f8 ff          	cmpl   $0xffffffff,-0x8(%ebp)
+   82f2fdb:	75 18                	jne    82f2ff5 <asctime_r@plt+0x29bdcd>
+   82f2fe4:	83 f8 0a             	cmp    $0xa,%eax
+   82f2fe7:	75 0c                	jne    82f2ff5 <asctime_r@plt+0x29bdcd>
+   82f2fe9:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+   82f2ff5:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+   82f2ff9:	0f 8e ad 00 00 00    	jle    82f30ac <asctime_r@plt+0x29be84>
+   82f300b:	85 c0                	test   %eax,%eax
+   82f300d:	75 1f                	jne    82f302e <asctime_r@plt+0x29be06>
+   82f303a:	83 c0 01             	add    $0x1,%eax
+   82f303f:	84 c0                	test   %al,%al
+   82f3041:	7e 0c                	jle    82f304f <asctime_r@plt+0x29be27>
+   82f3043:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+   82f305d:	83 f8 7f             	cmp    $0x7f,%eax
+   82f3060:	75 3e                	jne    82f30a0 <asctime_r@plt+0x29be78>
+   82f3083:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+   82f308f:	c7 04 24 07 00 00 00 	movl   $0x7,(%esp)
+   82f309e:	eb 0c                	jmp    82f30ac <asctime_r@plt+0x29be84>
+   82f30a0:	c7 04 24 ff ff ff ff 	movl   $0xffffffff,(%esp)
+   82f30ac:	83 7d fc 00          	cmpl   $0x0,-0x4(%ebp)
+   82f30b0:	0f 84 cc fe ff ff    	je     82f2f82 <asctime_r@plt+0x29bd5a>
+   82f30b6:	c7 45 dc 00 00 00 00 	movl   $0x0,-0x24(%ebp)
+
+############ 5. de hulpfuncties die hij aanroept: wat DOEN die?
+  -- functie 0x082f2859 (eerste 30 instructies) --
+     82f2859:	55                   	push   %ebp
+     82f285a:	89 e5                	mov    %esp,%ebp
+     82f285c:	83 ec 08             	sub    $0x8,%esp
+     82f285f:	8b 45 08             	mov    0x8(%ebp),%eax
+     82f2862:	69 c0 e8 03 00 00    	imul   $0x3e8,%eax,%eax
+     82f2868:	89 04 24             	mov    %eax,(%esp)
+     82f286b:	e8 e8 32 d6 ff       	call   8055b58 <usleep@plt>
+     82f2870:	c9                   	leave
+     82f2871:	c3                   	ret
+     82f2872:	55                   	push   %ebp
+     82f2873:	89 e5                	mov    %esp,%ebp
+     82f2875:	83 ec 18             	sub    $0x18,%esp
+     82f2878:	8b 45 08             	mov    0x8(%ebp),%eax
+     82f287b:	89 45 fc             	mov    %eax,-0x4(%ebp)
+     82f287e:	8b 45 fc             	mov    -0x4(%ebp),%eax
+     82f2881:	8b 10                	mov    (%eax),%edx
+     82f2883:	8b 45 fc             	mov    -0x4(%ebp),%eax
+     82f2886:	8b 40 04             	mov    0x4(%eax),%eax
+     82f2889:	89 04 24             	mov    %eax,(%esp)
+     82f288c:	ff d2                	call   *%edx
+     82f288e:	8b 45 08             	mov    0x8(%ebp),%eax
+     82f2891:	89 04 24             	mov    %eax,(%esp)
+     82f2894:	e8 a2 ff ff ff       	call   82f283b <asctime_r@plt+0x29b613>
+     82f2899:	b8 00 00 00 00       	mov    $0x0,%eax
+     82f289e:	c9                   	leave
+     82f289f:	c3                   	ret
+     82f28a0:	55                   	push   %ebp
+     82f28a1:	89 e5                	mov    %esp,%ebp
+     82f28a3:	83 ec 48             	sub    $0x48,%esp
+     82f28a6:	83 7d 08 00          	cmpl   $0x0,0x8(%ebp)
+    -- haar aanroepen --
+       82f286b:	e8 e8 32 d6 ff       	call   8055b58 <usleep@plt>
+       82f288c:	ff d2                	call   *%edx
+       82f2894:	e8 a2 ff ff ff       	call   82f283b <asctime_r@plt+0x29b613>
+       82f28bf:	e8 4c ff ff ff       	call   82f2810 <asctime_r@plt+0x29b5e8>
+  -- functie 0x082f2d99 (eerste 30 instructies) --
+     82f2d99:	55                   	push   %ebp
+     82f2d9a:	89 e5                	mov    %esp,%ebp
+     82f2d9c:	83 ec 38             	sub    $0x38,%esp
+     82f2d9f:	e8 44 2b d6 ff       	call   80558e8 <getpid@plt>
+     82f2da4:	89 45 fc             	mov    %eax,-0x4(%ebp)
+     82f2da7:	c7 45 f8 00 00 00 00 	movl   $0x0,-0x8(%ebp)
+     82f2dae:	e8 15 27 d6 ff       	call   80554c8 <fork@plt>
+     82f2db3:	89 45 f8             	mov    %eax,-0x8(%ebp)
+     82f2db6:	83 7d f8 00          	cmpl   $0x0,-0x8(%ebp)
+     82f2dba:	0f 85 99 00 00 00    	jne    82f2e59 <asctime_r@plt+0x29bc31>
+     82f2dc0:	c7 44 24 0c 00 00 00 	movl   $0x0,0xc(%esp)
+     82f2dc7:	00 
+     82f2dc8:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+     82f2dcf:	00 
+     82f2dd0:	8b 45 fc             	mov    -0x4(%ebp),%eax
+     82f2dd3:	89 44 24 04          	mov    %eax,0x4(%esp)
+     82f2dd7:	c7 04 24 10 00 00 00 	movl   $0x10,(%esp)
+     82f2dde:	e8 25 3b d6 ff       	call   8056908 <ptrace@plt>
+     82f2de3:	89 45 f4             	mov    %eax,-0xc(%ebp)
+     82f2de6:	83 7d f4 00          	cmpl   $0x0,-0xc(%ebp)
+     82f2dea:	74 0c                	je     82f2df8 <asctime_r@plt+0x29bbd0>
+     82f2dec:	c7 04 24 01 00 00 00 	movl   $0x1,(%esp)
+     82f2df3:	e8 80 3a d6 ff       	call   8056878 <exit@plt>
+     82f2df8:	c7 44 24 08 00 00 00 	movl   $0x0,0x8(%esp)
+     82f2dff:	00 
+     82f2e00:	8d 45 ec             	lea    -0x14(%ebp),%eax
+     82f2e03:	89 44 24 04          	mov    %eax,0x4(%esp)
+     82f2e07:	8b 45 fc             	mov    -0x4(%ebp),%eax
+     82f2e0a:	89 04 24             	mov    %eax,(%esp)
+     82f2e0d:	e8 36 25 d6 ff       	call   8055348 <waitpid@plt>
+    -- haar aanroepen --
+       82f2d9f:	e8 44 2b d6 ff       	call   80558e8 <getpid@plt>
+       82f2dae:	e8 15 27 d6 ff       	call   80554c8 <fork@plt>
+       82f2dde:	e8 25 3b d6 ff       	call   8056908 <ptrace@plt>
+       82f2df3:	e8 80 3a d6 ff       	call   8056878 <exit@plt>
+       82f2e0d:	e8 36 25 d6 ff       	call   8055348 <waitpid@plt>
+       82f2e1b:	e8 38 30 d6 ff       	call   8055e58 <__errno_location@plt>
+
+############ 6. het globale adres dat met kill() gebruikt wordt (0x8afaff8)
+  99: 82f2eea:	c7 05 f8 af af 08 00 	movl   $0x0,0x8afaff8
+  102: 82f2ef9:	a3 f8 af af 08       	mov    %eax,0x8afaff8
+  103: 82f2efe:	a1 f8 af af 08       	mov    0x8afaff8,%eax
+  125: 82f2f61:	a1 f8 af af 08       	mov    0x8afaff8,%eax
+  137: 82f2f97:	a1 f8 af af 08       	mov    0x8afaff8,%eax
+  144: 82f2fb8:	a1 f8 af af 08       	mov    0x8afaff8,%eax
+  199: 82f3076:	8b 15 f8 af af 08    	mov    0x8afaff8,%edx

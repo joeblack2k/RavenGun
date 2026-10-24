@@ -1,0 +1,7 @@
+datum      2026-10-13T10:14:24+02:00
+label      r7-ours
+variant    ours
+limiet     45s
+DISPLAY    :1 / gamescope-0
+bedoelde kern-sha256 3d84057dfb2b73702d71c96a3678374f4ab3d8af6ed70a9f7dd52ba5ef05c140
+commando   cd /home/deck/projects/ravengun && timeout 45 python3 scripts/launch-direct.py LuigisMansion --run --env RG_EXIT_PROTECT=1 --env RG_INIT_TRACE=Z:\tmp\claude-1000\-home-deck-projects-ravengun\9f46723a-e1a6-4e94-90ce-9444f94b9176\scratchpad\runs\r7-ours\exit-trace.log

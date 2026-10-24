@@ -1,0 +1,191 @@
+==============================================================================
+### amdaemon.exe (8272384 bytes, 82012 ascii + 3886 wide strings)
+-- device-interface GUIDs (0):
+-- amPlatform / enumeration surface:
+     amSysData Build:Mar 19 2018 10:42:15 ($Rev: 5764 $)
+     amSysDataGetDotClockTiming arg No.3 is NULL.
+     amSysDataGetDotClockTiming
+     amPlatformGetMemorySize
+     amPlatformGetSoundInfo
+     amPlatformGetDevInfo Error!! (%d)
+     amPlatformGetGraphicInfo
+     amsSystemPropertyGetMountAmfs Error!! Error Code is %d
+     amPlatformIsAvailableSubStorage
+     amPlatformGetComInfo
+     amPlatformGetCheckInterfaceHandle Error!! Error Code is %d
+     AM_PLATFORM_DEVINTERFACE_TYPE is unknown!! Type is %d
+     amPlatformNvapiInit
+     amPlatformNvapiExit
+     amPlatformGetGpuPstate
+     amPlatformGetDevInfo
+     amPlatformGetCheckInterfaceHandle
+     amPlatformDestroyCheckInterfaceHandle
+     amPlatformGetPortName
+     amPlatformGetSearchDevInfo
+     amPlatformGetDevSet
+     amSysFile Build:Mar 19 2018 10:42:15 ($Rev: 3158 $)
+     amSysFileInit
+     amSysFileExit
+     amSysFileRead
+     amSysFileWrite
+     amSysFileGetSize
+     amSysGetBackupRecord Error!!
+     amsSystemPropertyMount Build:Mar 19 2018 10:42:12 ($Rev: 2637 $)
+     amsSystemPropertyDongle Build:Mar 19 2018 10:42:11 ($Rev: 3403 $)
+     amsSystemPropertyWirelessNetwork Build:Mar 19 2018 10:42:57 ($Rev: 2914 $)
+     amsSystemPropertyStatic Build:Mar 19 2018 10:42:03 ($Rev: 2637 $)
+     amsSystemPropertyInstallCmd Build:Mar 19 2018 10:42:11 ($Rev: 3897 $)
+     amsSystemPropertyMaster Build:Mar 19 2018 10:42:11 ($Rev: 2637 $)
+     amPlatformGetPlatformInformation(). ErrCode %d.
+     amPlatformGetOsVersion(). ErrCode %d.
+     amSysFileInit(). ErrCode %d.
+     amSysFileExit(). ErrCode %d.
+     amSysFileExit(). ErrCode %d.
+     amPlatformSetDisplaySettings(). ErrCode %d.
+     amsSystemPropertySetMountAmfs
+     amsSystemPropertyGetMountAmfs
+     amsSystemPropertySetMountAppdata
+     amsSystemPropertyGetMountAppdata
+     amsSystemPropertyMountInit
+     amsSystemPropertyIsDevelop
+     amsSystemPropertyGetGameId
+     amsSystemPropertyGetSystemFlag
+     amsSystemPropertyGetModelType
+     amsSystemPropertyGetRegion
+     amsSystemPropertyGetNetworkAddressIpv4
+     amsSystemPropertyGetNetworkAddressIpv6
+     amsSystemPropertyGetKeychipId
+     amsSystemPropertyGetPlatformIdOnDongle
+     amsSystemPropertyGetFormatTypeOnDongle
+     amsSystemPropertyGetNetworkMediaType
+     amsSystemPropertySetNetworkMediaType
+     amsSystemPropertyInit
+     amsSystemPropertyGetPlatformId
+     amsSystemPropertyGetCpuTempError
+     amsSystemPropertyCpuTempDegenerate
+     amsSystemPropertyGetSoundMasterVolume
+     amsSystemPropertyGetSetupVersion
+     amsSystemPropertyGetStorageVersion
+     amsSystemPropertyStaticInit
+     amsSystemPropertySetInstallCommand
+     amsSystemPropertyGetInstallCommand
+     amsSystemPropertySetInstallTarget
+     amsSystemPropertyGetInstallTarget
+     amsSystemPropertyInstallInit
+     amsSystemPropertySetNextProcess
+     amsSystemPropertyGetNextProcess
+     amsSystemPropertySetSystemError
+     amsSystemPropertyGetSystemError
+     amsSystemPropertySetAppLoaderCount
+     amsSystemPropertyGetAppLoaderCount
+     amsSystemPropertyMasterInit
+-- hardware/platform value names and messages:
+     [Memory] D:\jenkins_work\workspace\all_build\libs\amdipc\src\SharedMemory.cpp
+     [Memory] __cdecl amdaemon::ipc::SharedMemory::Impl::Impl(const wchar_t *)
+     [Memory] __cdecl amdaemon::ipc::SharedMemory::Impl::Impl(unsigned int,const wchar_t *,bool)
+     [Memory] amPlatformGetMemorySize
+     [Memory] GlobalMemoryStatusEx Error!! (%d)
+     [Graphic] amPlatformGetGraphicInfo
+     [SubStorage] amPlatformIsAvailableSubStorage
+     [ModelType] amDongleGetModelType
+     [memory] memory shortage
+     [memory] Failed to alloc memory for big header!
+     [memory] Out of memory
+     [memory] insufficient memory
+     [memory] memory buffer routines
+     [memory] memory buffer
+     [memory] out of memory
+     [Memory] -- Memory
+     [Memory] GlobalMemoryStatus
+     [Memory] ReadProcessMemory
+     [Memory] GlobalMemoryStatusEx
+     [Memory] WFDFreeMemoryInt
+     [memory] Failed to create backup memory.
+     [Memory] SharedMemory is created by another.
+     [Memory] SharedMemory is not created or opened.
+     [Memory] SharedMemory is already created by another.
+     [Memory] SharedMemory is already created with a different size. The library version might be different.
+     [memory] Cannot open memory map.
+     [memory] Cannot create memory map view.
+     [memory] alloc memory. size = %d.
+     [Memory] void __cdecl am::netdeliver::Manager::allocWorkMemory(void)
+     [memory] allocate memory for clear
+     [ModelType] amDongleGetModelType(). ErrCode %d.
+     [memory] Error: allocate memory.
+     [ModelType] amsSystemPropertyGetModelType
+     [platformId] platformId
+     [graphic] Intel Hardware Cryptographic Service Provider
+==============================================================================
+### hwvalue.exe (202240 bytes, 2523 ascii + 299 wide strings)
+-- device-interface GUIDs (0):
+-- amPlatform / enumeration surface:
+     amSysData Build:Mar 19 2018 10:42:15 ($Rev: 5764 $)
+     amSysDataGetDotClockTiming arg No.3 is NULL.
+     amSysDataGetDotClockTiming
+     amPlatformGetMemorySize
+     amPlatformGetSoundInfo
+     amPlatformGetDevInfo Error!! (%d)
+     amPlatformGetGraphicInfo
+     amsSystemPropertyGetMountAmfs Error!! Error Code is %d
+     amPlatformIsAvailableSubStorage
+     amPlatformGetComInfo
+     amPlatformGetCheckInterfaceHandle Error!! Error Code is %d
+     AM_PLATFORM_DEVINTERFACE_TYPE is unknown!! Type is %d
+     amPlatformNvapiInit
+     amPlatformNvapiExit
+     amPlatformGetGpuPstate
+     amPlatformGetDevInfo
+     amPlatformGetCheckInterfaceHandle
+     amPlatformDestroyCheckInterfaceHandle
+     amPlatformGetPortName
+     amPlatformGetSearchDevInfo
+     amPlatformGetDevSet
+     amSysFile Build:Mar 19 2018 10:42:15 ($Rev: 3158 $)
+     amSysFileInit
+     amSysFileExit
+     amSysFileRead
+     amSysFileWrite
+     amSysFileGetSize
+     amsSystemPropertyMount Build:Mar 19 2018 10:42:12 ($Rev: 2637 $)
+     amsSystemPropertyDongle Build:Mar 19 2018 10:42:11 ($Rev: 3403 $)
+     amsSystemPropertyStatic Build:Mar 19 2018 10:42:03 ($Rev: 2637 $)
+     amsSystemPropertyMaster Build:Mar 19 2018 10:42:11 ($Rev: 2637 $)
+     amsSystemPropertySetMountAmfs
+     amsSystemPropertyGetMountAmfs
+     amsSystemPropertySetMountAppdata
+     amsSystemPropertyGetMountAppdata
+     amsSystemPropertyMountInit
+     amsSystemPropertyIsDevelop
+     amsSystemPropertyGetGameId
+     amsSystemPropertyGetSystemFlag
+     amsSystemPropertyGetModelType
+     amsSystemPropertyGetRegion
+     amsSystemPropertyGetNetworkAddressIpv4
+     amsSystemPropertyGetNetworkAddressIpv6
+     amsSystemPropertyGetKeychipId
+     amsSystemPropertyGetPlatformIdOnDongle
+     amsSystemPropertyGetFormatTypeOnDongle
+     amsSystemPropertyGetPlatformId
+     amsSystemPropertyGetCpuTempError
+     amsSystemPropertyCpuTempDegenerate
+     amsSystemPropertyGetSoundMasterVolume
+     amsSystemPropertyGetSetupVersion
+     amsSystemPropertyGetStorageVersion
+     amsSystemPropertyStaticInit
+     amsSystemPropertySetNextProcess
+     amsSystemPropertyGetNextProcess
+     amsSystemPropertySetSystemError
+     amsSystemPropertyGetSystemError
+     amsSystemPropertySetAppLoaderCount
+     amsSystemPropertyGetAppLoaderCount
+     amsSystemPropertyMasterInit
+-- hardware/platform value names and messages:
+     [ModelType] amDongleGetModelType
+     [Memory] amPlatformGetMemorySize
+     [Memory] GlobalMemoryStatusEx Error!! (%d)
+     [Graphic] amPlatformGetGraphicInfo
+     [SubStorage] amPlatformIsAvailableSubStorage
+     [Memory] GlobalMemoryStatusEx
+     [modeltype] modeltype
+     [ModelType] amsSystemPropertyGetModelType
+     [platformId] platformId

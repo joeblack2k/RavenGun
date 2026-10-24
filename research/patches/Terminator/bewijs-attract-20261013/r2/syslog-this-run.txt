@@ -1,0 +1,37 @@
+Tue Oct 13 21:26:10 2026: ------------------------------
+Tue Oct 13 21:26:10 2026: Welcome to Terminator Salvation
+Tue Oct 13 21:26:10 2026: ------------------------------
+Tue Oct 13 21:26:10 2026: Version: 01.25.00.US RELEASE
+Tue Oct 13 21:26:10 2026: Build: Sep 12 2011 16:42:59
+Tue Oct 13 21:26:10 2026: Current time: October 13 2026 21:26:10
+Tue Oct 13 21:26:13 2026: Failed to load shader: shaderS_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shaderC_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader0_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader1_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader3_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader4_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader5 (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader5_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader6 (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader6_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader101 (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader103b (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: Failed to load shader: shader106_sk (ec=-9596, shdr=0, prgm=0)
+Tue Oct 13 21:26:13 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=640, h=480, bits=(0, 0, 0, 0)
+Tue Oct 13 21:26:13 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Tue Oct 13 21:26:13 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=2048, h=2048, bits=(0, 0, 0, 0)
+Tue Oct 13 21:26:13 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=256, h=128, bits=(0, 0, 0, 0)
+Tue Oct 13 21:26:13 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=64, h=32, bits=(0, 0, 0, 0)
+Tue Oct 13 21:26:13 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=256, h=128, bits=(0, 0, 0, 0)
+Tue Oct 13 21:26:13 2026: ObjInitializeRenderTexture: Success creating frame buffer. w=128, h=128, bits=(0, 0, 0, 0)
+Tue Oct 13 21:26:22 2026: DiagCheckAllFiles(): error in shader file include/frag_shadmap.gls.
+Tue Oct 13 21:26:23 2026: GameStart(): .cf file check produced errors.
+Tue Oct 13 21:29:21 2026: ********************************
+Tue Oct 13 21:29:21 2026:   Received FATAL signal SIGSEGV (11)
+Tue Oct 13 21:29:21 2026: ********************************
+Tue Oct 13 21:29:21 2026: gs: 0063 fs: 0000 es: 002B ds: 002B
+Tue Oct 13 21:29:21 2026: edi: 59B5E4F0 esi: 5A9C490C ebp: F61A4788 esp: F61A4760
+Tue Oct 13 21:29:21 2026: ebx: 00000002 edx: E0A6A010 ecx: 000084C0 eax: 00000000
+Tue Oct 13 21:29:21 2026: trap: 14 err: 4 eip: 080DAC20 cs: 0023
+Tue Oct 13 21:29:21 2026: flag: 00210246 SP: F61A4760 ss: 002B cr2: 00000020
+Tue Oct 13 21:29:21 2026: Program exiting...

@@ -1,0 +1,89 @@
+# ingekort: eerste 40 regels, alle scr_start_cb-regels, laatste 40 regels; het volledige spoor telde 3448 regels
+[trace] + 0.000077 pid 1392995 ctor, tracepoints=37
+[trace] + 0.008152 pid 1392995 patched 37 of 37
+[trace] + 0.034628 pid 1393011 ENTER DongleInitialize (#1) ret=0x080c2331 args=0xf58a25e8,0x000001e0,0x58b871cc a0mem=d0642b00000000000000000004000000
+[trace] + 0.039989 pid 1393011 ENTER c2_820d180 (#1) ret=0x080aa670 args=0xf63677ec,0x00000020,0xf6367843 a0mem=942017f3507e68d801a52784e4466e21
+[trace] + 0.040047 pid 1393011 RETURN c2_820d180 eax=0x00000001 (1)
+[trace] + 0.040050 pid 1393011 ENTER c2_820d180 (#2) ret=0x080aa680 args=0xf636780c,0x00000010,0xf6367843 a0mem=2718b1cb6d3e9552da150caf7514d0fa
+[trace] + 0.040055 pid 1393011 RETURN c2_820d180 eax=0x00000001 (1)
+[trace] + 0.040070 pid 1393011 ENTER c2_820d180 (#3) ret=0x080ac01a args=0xf6367843,0x000003ad,0xf6367843 a0="JWoA9xkEodWJWMUqL349ejFfNxf2aLVmuv2VPnh5qTx8kbd+hmlFw3FtH+fs"
+[trace] + 0.040086 pid 1393011 RETURN c2_820d180 eax=0x00000001 (1)
+[trace] + 0.058290 pid 1393011 RETURN DongleInitialize eax=0x00000000 (0)
+[trace] + 0.058294 pid 1393011 ENTER localizationInit (#1) ret=0x080c233e args=0xf58a25e8,0x000001e0,0x58b871cc a0mem=d0642b00000000000000000004000000
+[trace] + 0.058314 pid 1393011 ENTER loc_sub_8065080 (#1) ret=0x08065397 args=0x00000000,0x088ae984,0x00000001
+[trace] + 0.058318 pid 1393011 ENTER csvload_8064ab0 (#1) ret=0x080652a9 args=0xf6367b4c,0x088aebb8,0x00000064 a0="/g3/T4Data/etranslation/english.csv"
+[trace] + 0.058324 pid 1393011 ENTER kdf_820b51d (#1) ret=0x080bb58c args=0x085a47a0,0x00000200,0xf6367434 a0mem=fe2912fb46a4698f4eec031b292e1341
+[trace] + 0.058328 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.058331 pid 1393011 ENTER kdf_820b51d (#2) ret=0x080bb5f7 args=0x085a49a0,0x00000100,0xf6367434 a0mem=f634afbf39d4b5cbcae74cc23b0f0b1b
+[trace] + 0.058334 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.058337 pid 1393011 ENTER aes_or_decrypt_8208322 (#1) ret=0x080bb631 args=0xf63633c8,0x00000001,0x00000000 a0mem=00000000000000000000000000000000
+[trace] + 0.063641 pid 1393011 RETURN aes_or_decrypt_8208322 eax=0x00000000 (0)
+[trace] + 0.063645 pid 1393011 ENTER kdf_820b51d (#3) ret=0x080bb65e args=0xf6367b4c,0x00000023,0xf6367b4c a0="/g3/T4Data/etranslation/english.csv"
+[trace] + 0.063650 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.063654 pid 1393011 ENTER kdf_820b51d (#4) ret=0x080bb689 args=0xf6367b4c,0x00000023,0xf6367b4c a0="/g3/T4Data/etranslation/english.csv"
+[trace] + 0.063658 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.063661 pid 1393011 ENTER stream_read_820856a (#1) ret=0x080bb6c4 args=0xf63633c8,0xf63674e8,0xf63674e4 a0mem=183436f6000000000000000000000000
+[trace] + 0.073697 pid 1393011 ENTER zlib_inflate_83a8680? (#1) ret=0x082086c7 args=0xf63633c8,0x00000000,0xf6363380 a0mem=183436f62f14000000000000e87436f6
+[trace] + 0.073717 pid 1393011 RETURN zlib_inflate_83a8680? eax=0x00000000 (0)
+[trace] + 0.073720 pid 1393011 RETURN stream_read_820856a eax=0x00000000 (0) [arg1]=0x00007b20
+[trace] + 0.073733 pid 1393011 ENTER stream_read_820856a (#2) ret=0x080bb718 args=0xf63633c8,0x58b98420,0xf63674e4 a0="i46"
+[trace] + 0.073737 pid 1393011 ENTER zlib_inflate_83a8680? (#2) ret=0x082086c7 args=0xf63633c8,0x00000000,0xf63633c8 a0="i46"
+[trace] + 0.073809 pid 1393011 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 0.073812 pid 1393011 RETURN stream_read_820856a eax=0x00000000 (0) [arg1]=0x0022feff
+[trace] + 0.073815 pid 1393011 ENTER stream_close_8208939 (#1) ret=0x080bb7a6 args=0xf63633c8,0x58b98420,0xf63674e4 a0="GH6"
+[trace] + 0.073822 pid 1393011 RETURN stream_close_8208939 eax=0x00000000 (0) [arg1]=0x0022feff
+[trace] + 0.073985 pid 1393011 RETURN csvload_8064ab0 eax=0x0000014d (333) [arg1]=0x00000000
+[trace] + 0.073989 pid 1393011 ENTER csvload_8064ab0 (#2) ret=0x080652bb args=0xf6367acc,0x088aebb8,0x00000064 a0="/g3/T4Data/etranslation_app/english.csv"
+[trace] + 0.073993 pid 1393011 ENTER kdf_820b51d (#5) ret=0x080bb58c args=0x085a47a0,0x00000200,0xf6367434 a0mem=fe2912fb46a4698f4eec031b292e1341
+[trace] + 0.073997 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.074002 pid 1393011 ENTER kdf_820b51d (#6) ret=0x080bb5f7 args=0x085a49a0,0x00000100,0xf6367434 a0mem=f634afbf39d4b5cbcae74cc23b0f0b1b
+[trace] + 0.074005 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.074008 pid 1393011 ENTER aes_or_decrypt_8208322 (#2) ret=0x080bb631 args=0xf63633c8,0x00000001,0x00000000 a0="GH6"
+...
+[trace] + 67.292495 pid 1393011 ENTER scr_start_cb (#1) ret=0x08063888 args=0x00000007,0x088adc80,0xf6367924
+[trace] + 67.292500 pid 1393011 RETURN scr_start_cb eax=0x00000000 (0) [arg1]=0x00000000
+[trace] + 193.299243 pid 1393011 ENTER scr_start_cb (#2) ret=0x08063888 args=0x0000001b,0x088adc80,0xf6367924
+[trace] + 193.299247 pid 1393011 RETURN scr_start_cb eax=0x00000000 (0) [arg1]=0x00000000
+[trace] + 193.699552 pid 1393011 ENTER scr_start_cb (#3) ret=0x08063888 args=0x0000001b,0x088adc80,0xf6367924
+[trace] + 193.699555 pid 1393011 RETURN scr_start_cb eax=0x00000000 (0) [arg1]=0x00000000
+...
+[trace] + 67.309388 pid 1393011 ENTER c2_80c83c0 (#2) ret=0x0810af16 args=0x00000001,0x00000000,0x00000000
+[trace] + 67.309397 pid 1393011 RETURN c2_80c83c0 eax=0x00000000 (0)
+[trace] + 67.309401 pid 1393011 ENTER c2_80e8b60 (#2) ret=0x0810af22 args=0x00000001,0x00000000,0x00000000
+[trace] + 67.309405 pid 1393011 RETURN c2_80e8b60 eax=0x00000000 (0)
+[trace] + 67.309409 pid 1393011 ENTER c2_80c6230 (#2) ret=0x0810af2e args=0x00000001,0x00000000,0x00000000
+[trace] + 67.309413 pid 1393011 RETURN c2_80c6230 eax=0x00000000 (0)
+[trace] + 193.299243 pid 1393011 ENTER scr_start_cb (#2) ret=0x08063888 args=0x0000001b,0x088adc80,0xf6367924
+[trace] + 193.299247 pid 1393011 RETURN scr_start_cb eax=0x00000000 (0) [arg1]=0x00000000
+[trace] + 193.315910 pid 1393011 ENTER c2_80aacc0 (#30) ret=0x080aadc3 args=0xf6367888,0xf63678b4,0x2932313d a0mem=2400000016000000150000000d000000
+[trace] + 193.317046 pid 1393011 RETURN c2_80aacc0 eax=0x00000000 (0) [arg1]=0x20657554
+[trace] + 193.317419 pid 1393011 ENTER c2_80c83c0 (#3) ret=0x0810af16 args=0x00000001,0x00000000,0x00000000
+[trace] + 193.317703 pid 1393011 RETURN c2_80c83c0 eax=0x00000000 (0)
+[trace] + 193.317707 pid 1393011 ENTER c2_80e8b60 (#3) ret=0x0810af22 args=0x00000001,0x00000000,0x00000000
+[trace] + 193.317710 pid 1393011 RETURN c2_80e8b60 eax=0x00000000 (0)
+[trace] + 193.317714 pid 1393011 ENTER c2_80c6230 (#3) ret=0x0810af2e args=0x00000001,0x00000000,0x00000000
+[trace] + 193.317718 pid 1393011 RETURN c2_80c6230 eax=0x00000000 (0)
+[trace] + 193.690069 pid 1393011 ENTER kdf_820b51d (#680) ret=0x080a5979 args=0x085a47a0,0x00000200,0xf636761c a0mem=fe2912fb46a4698f4eec031b292e1341
+[trace] + 193.690076 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 193.690079 pid 1393011 ENTER kdf_820b51d (#681) ret=0x080a59ac args=0x085a49a0,0x00000100,0xf636761c a0mem=f634afbf39d4b5cbcae74cc23b0f0b1b
+[trace] + 193.690083 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 193.690086 pid 1393011 ENTER dongle_encrypt_wrap_81c5e70 (#118) ret=0x080a59d5 args=0x087c3434,0xf6367570,0x00000020 a0mem=0100000001000000607fb858507fb858
+[trace] + 193.692499 pid 1393011 RETURN dongle_encrypt_wrap_81c5e70 eax=0x00000000 (0) [arg1]=0xc31f15d7
+[trace] + 193.692504 pid 1393011 ENTER aes_or_decrypt_8208322 (#140) ret=0x080a5a2d args=0xf6363504,0x00000001,0x00000000 a0mem=0ef091bc94ac02f227e385785146800b
+[trace] + 193.692541 pid 1393011 RETURN aes_or_decrypt_8208322 eax=0x00000000 (0)
+[trace] + 193.692544 pid 1393011 ENTER stream_read_820856a (#279) ret=0x080a5ac3 args=0xf6363504,0xf63675a8,0xf63675a4 a0="T56"
+[trace] + 193.692867 pid 1393011 ENTER zlib_inflate_83a8680? (#281) ret=0x082086c7 args=0xf6363504,0x00000000,0xf63634c0 a0="T56"
+[trace] + 193.692880 pid 1393011 RETURN zlib_inflate_83a8680? eax=0x00000000 (0)
+[trace] + 193.692883 pid 1393011 RETURN stream_read_820856a eax=0x00000000 (0) [arg1]=0x00006aaa
+[trace] + 193.692887 pid 1393011 ENTER stream_read_820856a (#280) ret=0x080a5b26 args=0xf6363504,0x5abc79d0,0xf63675a4 a0mem=a13536f6e40c00004d000000ac7536f6
+[trace] + 193.692890 pid 1393011 ENTER zlib_inflate_83a8680? (#282) ret=0x082086c7 args=0xf6363504,0x00000000,0xf63675a4 a0mem=a13536f6e40c00004d000000d079bc5a
+[trace] + 193.692946 pid 1393011 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 193.692948 pid 1393011 RETURN stream_read_820856a eax=0x00000000 (0) [arg1]=0x43202f2f
+[trace] + 193.699487 pid 1393011 ENTER stream_close_8208939 (#140) ret=0x080a5ada args=0xf6363504,0x5abc79d0,0x00000000 a0mem=854236f600000000310d00007ae4bc5a
+[trace] + 193.699495 pid 1393011 RETURN stream_close_8208939 eax=0x00000000 (0) [arg1]=0x59efa198
+[trace] + 193.699499 pid 1393011 ENTER kdf_820b51d (#682) ret=0x080a5a61 args=0xf636761c,0x00000009,0xf636761c a0="screen.cf"
+[trace] + 193.699502 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 193.699505 pid 1393011 ENTER kdf_820b51d (#683) ret=0x080a5a8c args=0xf636761c,0x00000009,0xf636761c a0="screen.cf"
+[trace] + 193.699509 pid 1393011 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 193.699552 pid 1393011 ENTER scr_start_cb (#3) ret=0x08063888 args=0x0000001b,0x088adc80,0xf6367924
+[trace] + 193.699555 pid 1393011 RETURN scr_start_cb eax=0x00000000 (0) [arg1]=0x00000000

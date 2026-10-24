@@ -1,0 +1,7 @@
+run: herstelde displayrun (koppelingen terug, scherm, argumenten)
+datum: 2026-10-13T13:57:37+02:00
+exitcode: 0
+levensduur: 4 s
+regels: 89
+FOUT: 21
+opname: 161086 B

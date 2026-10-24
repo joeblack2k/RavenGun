@@ -1,0 +1,669 @@
+﻿Log file open, 10/11/26 08:47:52
+LogWindows: Failed to load 'aqProf.dll' (GetLastError=126)
+LogWindows: File 'aqProf.dll' does not exist
+LogWindows: Failed to load 'VtuneApi.dll' (GetLastError=126)
+LogWindows: File 'VtuneApi.dll' does not exist
+LogWindows: Failed to load 'VtuneApi32e.dll' (GetLastError=126)
+LogWindows: File 'VtuneApi32e.dll' does not exist
+LogPlatformFile: Not using cached read wrapper
+LogInit: Display: RandInit(1849905095) SRandInit(1849905096).
+LogTaskGraph: Started task graph with 4 named threads and 16 total threads with 3 sets of task threads.
+LogD3D11RHI: Aftermath initialized
+LogPluginManager: Mounting plugin ApexDestruction
+LogPluginManager: Mounting plugin LowEntryExtendedStandardLibrary
+LogPluginManager: Mounting plugin EmitMan
+LogPluginManager: Mounting plugin StateMan
+LogPluginManager: Mounting plugin TaskMan
+LogPluginManager: Mounting plugin WidgetMan
+LogPluginManager: Mounting plugin ABaaSGS
+LogPluginManager: Mounting plugin AMDaemon
+LogPluginManager: Mounting plugin CriWare
+LogPluginManager: Mounting plugin Paper2D
+LogPluginManager: Mounting plugin LightPropagationVolume
+LogPluginManager: Mounting plugin FacialAnimation
+LogPluginManager: Mounting plugin CharacterAI
+LogPluginManager: Mounting plugin MediaCompositing
+LogPluginManager: Mounting plugin TcpMessaging
+LogPluginManager: Mounting plugin ActorSequence
+LogPluginManager: Mounting plugin OnlineSubsystemUtils
+LogPluginManager: Mounting plugin OnlineSubsystem
+LogPluginManager: Mounting plugin ArchVisCharacter
+LogPluginManager: Mounting plugin CableComponent
+LogPluginManager: Mounting plugin CustomMeshComponent
+LogPluginManager: Mounting plugin ExampleDeviceProfileSelector
+LogPluginManager: Mounting plugin ImmediatePhysics
+LogPluginManager: Mounting plugin PhysXVehicles
+LogPluginManager: Mounting plugin ProceduralMeshComponent
+LogPluginManager: Mounting plugin RuntimePhysXCooking
+LogInit: Using libcurl 7.37.1
+LogInit:  - built for x86_64-pc-win32
+LogInit:  - NO SSL SUPPORT!
+LogInit:  - other features:
+LogInit:      CURL_VERSION_ASYNCHDNS
+LogInit:      CURL_VERSION_LARGEFILE
+LogInit:  CurlRequestOptions (configurable via config and command line):
+LogInit:  - bVerifyPeer = false  - Libcurl will NOT verify peer certificate
+LogInit:  - bUseHttpProxy = false  - Libcurl will NOT use HTTP proxy
+LogInit:  - bDontReuseConnections = false  - Libcurl will reuse connections
+LogInit:  - CertBundlePath = nullptr  - Libcurl will use whatever was configured at build time.
+LogInit: Build: ++UE4+Release-4.18-CL-0
+LogInit: Engine Version: 4.18.1-0+++UE4+Release-4.18
+LogInit: Compatible Engine Version: 4.18.0-0+++UE4+Release-4.18
+LogInit: Net CL: 0
+LogInit: Compiled (64-bit): Jul 18 2018 14:26:26
+LogInit: Compiled with Visual C++: 19.00.24215.01
+LogInit: Build Configuration: Shipping
+LogInit: Branch Name: ++UE4+Release-4.18
+LogInit: Command line: 
+LogInit: Base directory: Z:/home/deck/mnt/spidernas_emulation/Teknoparrot/House of the Dead Scarlet Dawn/App/Hodzero/WindowsNoEditor/Hodzero/Binaries/Win64/
+LogInit: Installed Engine Build: 1
+LogInit: Presizing for max 2097152 objects, including 0 objects not considered by GC, pre-allocating 0 bytes for permanent pool.
+LogStreaming: Display: Async Loading initialized: Event Driven Loader: true, Async Loading Thread: false
+LogInit: Object subsystem initialized
+[2026.10.11-06.47.53:358][  0]LogInit: Selected Device Profile: [WindowsNoEditor]
+[2026.10.11-06.47.53:358][  0]LogInit: Applying CVar settings loaded from the selected device profile: [WindowsNoEditor]
+[2026.10.11-06.47.53:384][  0]LogInit: Computer: STEAMDECK
+[2026.10.11-06.47.53:384][  0]LogInit: User: steamuser
+[2026.10.11-06.47.53:384][  0]LogInit: CPU Page size=4096, Cores=8
+[2026.10.11-06.47.53:384][  0]LogInit: High frequency timer resolution =10.000000 MHz
+[2026.10.11-06.47.53:384][  0]LogMemory: Memory total: Physical=31.0GB (31GB approx)
+[2026.10.11-06.47.53:384][  0]LogMemory: Platform Memory Stats for WindowsNoEditor
+[2026.10.11-06.47.53:385][  0]LogMemory: Process Physical Memory: 313.84 MB used, 313.84 MB peak
+[2026.10.11-06.47.53:385][  0]LogMemory: Process Virtual Memory: 285.30 MB used, 285.30 MB peak
+[2026.10.11-06.47.53:385][  0]LogMemory: Physical Memory: 7878.05 MB used,  23827.07 MB free, 31705.13 MB total
+[2026.10.11-06.47.53:385][  0]LogMemory: Virtual Memory: 313.84 MB used,  23827.07 MB free, 134217728.00 MB total
+[2026.10.11-06.47.53:936][  0]LogInit: Using OS detected language (en-US).
+[2026.10.11-06.47.53:936][  0]LogInit: Using OS detected locale (en-US).
+[2026.10.11-06.47.53:988][  0]LogTextLocalizationManager: No specific localization for 'en-US' exists, so the 'en' localization will be used.
+[2026.10.11-06.47.54:476][  0]LogD3D11RHI: D3D11 adapters:
+[2026.10.11-06.47.54:494][  0]LogD3D11RHI:    0. 'ATI Radeon HD 5600 Series' (Feature Level 11_0)
+[2026.10.11-06.47.54:494][  0]LogD3D11RHI:       16384/0/15852 MB DedicatedVideo/DedicatedSystem/SharedSystem, Outputs:1, VendorId:0x1002
+[2026.10.11-06.47.54:495][  0]LogD3D11RHI: Chosen D3D11 Adapter: 0
+[2026.10.11-06.47.54:510][  0]LogD3D11RHI: Creating new Direct3DDevice
+[2026.10.11-06.47.54:512][  0]LogD3D11RHI:     GPU DeviceId: 0x68d8 (for the marketing name, search the web for "GPU Device Id")
+[2026.10.11-06.47.54:512][  0]LogWindows: EnumDisplayDevices:
+[2026.10.11-06.47.54:512][  0]LogWindows:    0. 'AMD Radeon RX 6950 XT (RADV NAVI21)' (P:1 D:1)
+[2026.10.11-06.47.54:513][  0]LogWindows: DebugString: GetVideoDriverDetailsInvalid PrimaryIsNotTheChoosenAdapter FoundDriverCount:0 
+[2026.10.11-06.47.54:513][  0]LogD3D11RHI:     Adapter Name: ATI Radeon HD 5600 Series
+[2026.10.11-06.47.54:513][  0]LogD3D11RHI:   Driver Version: Unknown (internal:Unknown, unified:Unknown)
+[2026.10.11-06.47.54:513][  0]LogD3D11RHI:      Driver Date: Unknown
+[2026.10.11-06.47.54:513][  0]LogRHI: Texture pool is 11468 MB (70% of 16384 MB)
+[2026.10.11-06.47.54:531][  0]LogD3D11RHI: Async texture creation enabled
+[2026.10.11-06.47.54:541][  0]LogD3D11RHI: GPU Timing Frequency: 1000.000000 (Debug: 2 2)
+[2026.10.11-06.47.54:562][  0]LogMaterial: Verifying Global Shaders for PCD3D_SM5
+[2026.10.11-06.47.54:562][  0]LogSlate: Using Freetype 2.6.0
+[2026.10.11-06.47.54:578][  0]LogSlate: SlateFontCache - WITH_FREETYPE: 1, WITH_HARFBUZZ: 1
+[2026.10.11-06.47.54:578][  0]LogSlate: SlateFontCache - WITH_FREETYPE: 1, WITH_HARFBUZZ: 1
+[2026.10.11-06.47.54:663][  0]LogAssetRegistry: FAssetRegistry took 0.0646 seconds to start up
+[2026.10.11-06.47.54:702][  0]LogPackageLocalizationCache: Processed 10 localized package path(s) for 2 prioritized culture(s) in 0.004527 seconds
+[2026.10.11-06.47.54:704][  0]LogPakFile: New pak file ../../../Hodzero/Content/Paks/Hodzero-WindowsNoEditor.pak added to pak precacher.
+[2026.10.11-06.47.54:707][  0]LogInit: Selected Device Profile: [WindowsNoEditor]
+[2026.10.11-06.47.54:916][  0]LogNetVersion: Hodzero , NetCL: 0, EngineNetVer: 2, GameNetVer: 0 (Checksum: 483397930)
+[2026.10.11-06.47.54:925][  0]HodzeroLog: UAppBackup::UAppBackup
+[2026.10.11-06.47.54:925][  0]HodzeroLog: UAppGameInstance::UAppGameInstance
+[2026.10.11-06.47.54:926][  0]HodzeroLog: FAppData::FAppData
+[2026.10.11-06.47.54:926][  0]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.47.54:926][  0]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.47.54:926][  0]LogAppData: UInitializeTestSequenceComponent::UInitializeTestSequenceComponent
+[2026.10.11-06.47.55:140][  0]LogCriWareRuntime: 'Speakers (Virtual Surround Sound)' found.
+[2026.10.11-06.47.55:140][  0]LogCriWareRuntime: 'Speakers (Navi 21/23 HDMI/DP Audio Controller)' found.
+[2026.10.11-06.47.55:140][  0]LogCriWareRuntime: 'Speakers (PulseAudio Output)' found.
+[2026.10.11-06.47.55:315][  0]LogInit: WinSock: version 1.1 (2.2), MaxSocks=32767, MaxUdp=65467
+[2026.10.11-06.47.55:359][  0]LogMoviePlayer: Initializing movie player
+[2026.10.11-06.47.55:571][  0]HodzeroLog: FHodzeroGameModule::StartupModule
+[2026.10.11-06.47.55:573][  0]LogUObjectArray: 35836 objects as part of root set at end of initial load.
+[2026.10.11-06.47.55:573][  0]LogUObjectAllocator: 6114080 out of 0 bytes used by permanent object pool.
+[2026.10.11-06.47.55:573][  0]LogUObjectArray: CloseDisregardForGC: 0/0 objects in disregard for GC pool
+[2026.10.11-06.47.55:576][  0]LogEngine: Initializing Engine...
+[2026.10.11-06.47.55:791][  0]LogInit: XAudio2 using 'Speakers (PulseAudio Output)' : 2 channels at 48 kHz using 32 bits per sample (channel mask 0x3)
+[2026.10.11-06.47.55:798][  0]LogInit: FAudioDevice initialized.
+[2026.10.11-06.47.55:809][  0]LogInit: Texture streaming: Enabled
+[2026.10.11-06.47.57:258][  0]HodzeroLog: UAppGameInstance::UAppGameInstance
+[2026.10.11-06.47.57:258][  0]HodzeroLog: FAppData::FAppData
+[2026.10.11-06.47.57:262][  0]HodzeroLog: UAppGameInstance::UAppGameInstance
+[2026.10.11-06.47.57:262][  0]HodzeroLog: FAppData::FAppData
+[2026.10.11-06.47.57:351][  0]HodzeroLog: UAppGameInstance::CreateObjects
+[2026.10.11-06.47.57:351][  0]LogApp: FGunSensor::FGunSensor : 171014_1239
+[2026.10.11-06.47.57:352][  0]LogApp: FGunSensor::FGunSensor : SCI.Open failure
+[2026.10.11-06.47.57:352][  0]HodzeroLog: FLedController::FLedController : 171015_1707
+[2026.10.11-06.47.57:353][  0]HodzeroLog: FLedController::FLedController : SCI.Open failure
+[2026.10.11-06.47.57:353][  0]LogInit: Display: Game Engine Initialized.
+[2026.10.11-06.47.57:353][  0]LogGameplayTags: Display: UGameplayTagsManager::DoneAddingNativeTags. DelegateIsBound: 0
+[2026.10.11-06.47.57:375][  0]LogInit: Display: Starting Game.
+[2026.10.11-06.47.57:375][  0]LogNet: Browse: /Game/HodZero_v1/Maps/System/PL_InitializeTest?Name=Player
+[2026.10.11-06.47.57:376][  0]LogLoad: LoadMap: /Game/HodZero_v1/Maps/System/PL_InitializeTest?Name=Player
+[2026.10.11-06.47.58:092][  0]LogAppData: UInitializeTestSequenceComponent::UInitializeTestSequenceComponent
+[2026.10.11-06.47.58:161][  0]LogAIModule: Creating AISystem for world PL_InitializeTest
+[2026.10.11-06.47.58:161][  0]LogLoad: Game class is 'InitializeTestGameMode_C'
+[2026.10.11-06.47.58:161][  0]LogAppData: UInitializeTestSequenceComponent::UInitializeTestSequenceComponent
+[2026.10.11-06.47.58:162][  0]LogWorld: Bringing World /Game/HodZero_v1/Maps/System/PL_InitializeTest.PL_InitializeTest up for play (max tick rate 0) at 2026.10.11-08.47.58
+[2026.10.11-06.47.58:162][  0]LogWorld: Bringing up level for play took: 0.000132
+[2026.10.11-06.47.58:162][  0]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.47.58:162][  0]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.47.58:162][  0]LogGameMode: FindPlayerStart: PATHS NOT DEFINED or NO PLAYERSTART with positive rating
+[2026.10.11-06.47.58:162][  0]LogSpawn: Warning: SpawnActor failed because no class was specified
+[2026.10.11-06.47.58:162][  0]LogGameMode: Display: Match State Changed from EnteringMap to WaitingToStart
+[2026.10.11-06.47.58:162][  0]LogGameState: Match State Changed from EnteringMap to WaitingToStart
+[2026.10.11-06.47.58:162][  0]LogGameMode: Display: Match State Changed from WaitingToStart to InProgress
+[2026.10.11-06.47.58:162][  0]HodzeroLog: AAppPlayerController::BeginPlay
+[2026.10.11-06.47.58:162][  0]LogApp: Get GunAdjustmentParam from GameSetting : Fail.
+[2026.10.11-06.47.58:162][  0]LogApp: GunAdjustmentParam:
+[2026.10.11-06.47.58:162][  0]LogApp:  P1_TopY    : 155
+[2026.10.11-06.47.58:162][  0]LogApp:  P1_LeftX   : 132
+[2026.10.11-06.47.58:162][  0]LogApp:  P1_CenterX : 503
+[2026.10.11-06.47.58:162][  0]LogApp:  P1_CenterY : 543
+[2026.10.11-06.47.58:162][  0]LogApp:  P1_RightX  : 916
+[2026.10.11-06.47.58:162][  0]LogApp:  P1_BottomY : 934
+[2026.10.11-06.47.58:162][  0]LogApp:  P2_TopY    : 146
+[2026.10.11-06.47.58:162][  0]LogApp:  P2_LeftX   : 137
+[2026.10.11-06.47.58:163][  0]LogApp:  P2_CenterX : 526
+[2026.10.11-06.47.58:163][  0]LogApp:  P2_CenterY : 490
+[2026.10.11-06.47.58:163][  0]LogApp:  P2_RightX  : 908
+[2026.10.11-06.47.58:163][  0]LogApp:  P2_BottomY : 983
+[2026.10.11-06.47.58:164][  0]LogAppData: UInitializeTestSequenceComponent::BeginPlay
+[2026.10.11-06.47.58:164][  0]LogGameState: Match State Changed from WaitingToStart to InProgress
+[2026.10.11-06.47.58:164][  0]LogLoad: Took 0.788212 seconds to LoadMap(/Game/HodZero_v1/Maps/System/PL_InitializeTest)
+[2026.10.11-06.47.58:196][  0]LogSlate: Took 0.032281 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/SEGA_KakuGothicDB.ufont' (2644K)
+[2026.10.11-06.47.58:675][  0]LogRenderer: Reallocating scene render targets to support 1920x1080 Format 10 NumSamples 1 (Frame:1).
+[2026.10.11-06.47.58:675][  0]LogLoad: (Engine Initialization) Total time: 6.78 seconds
+[2026.10.11-06.47.58:675][  0]LogExternalProfiler: No external profilers were discovered.  External profiling features will not be available.
+[2026.10.11-06.47.58:704][  0]LogContentStreaming: Texture pool size now 4000 MB
+[2026.10.11-06.48.01:704][186]LogAppSequence: [InitializeTest] SetupRecords (Valid?:1)
+[2026.10.11-06.48.04:716][372]LogAppStrong: [BPC_InitializeTestController] Record_Bookkeeping : Valid / Record_GameSetting : Valid
+[2026.10.11-06.48.04:716][372]HodzeroLog: UAppBackup::UAppBackup
+[2026.10.11-06.48.04:716][372]LogAppData: [AppBackup] ConvertBackupData
+[2026.10.11-06.48.04:716][372]LogAppData: FBookkeepingData::PrintLog
+[2026.10.11-06.48.04:716][372]LogAppData: FNetAppUploadCabinetExtensionData : 筺体データ
+[2026.10.11-06.48.04:716][372]LogAppData:  FirstPlay:NORMAL        : 0
+[2026.10.11-06.48.04:716][372]LogAppData:  FirstPlay:MASTER        : 0
+[2026.10.11-06.48.04:716][372]LogAppData:  ContPlay:NORMAL         : 0
+[2026.10.11-06.48.04:716][372]LogAppData:  ContPlay:MASTER         : 0
+[2026.10.11-06.48.04:716][372]LogAppData:  SoloFirstPlay           : 6
+[2026.10.11-06.48.04:716][372]LogAppData:  PairFirstPlay           : 0
+[2026.10.11-06.48.04:716][372]LogAppData:  PairWithBonusFirstPlay  : 0
+[2026.10.11-06.48.04:716][372]LogAppData:  NormalModeSelect        : 0,0
+[2026.10.11-06.48.04:716][372]LogAppData:  MasterModeSelect        : 0,0
+[2026.10.11-06.48.04:716][372]LogAppData:  <<Normal>>
+[2026.10.11-06.48.04:716][372]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:  <<Master>>
+[2026.10.11-06.48.04:716][372]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.04:716][372]LogAppData:  GameClear                : 0,0
+[2026.10.11-06.48.04:716][372]LogAppData:  Ranking[0][0][0]         : 剂䅙呎
+[2026.10.11-06.48.04:716][372]LogAppData:  Ranking[0][0][1]         : 䉅呉乁
+[2026.10.11-06.48.04:717][372]LogAppData:  Ranking[0][0][2]         : 䅊䥎䡓
+[2026.10.11-06.48.04:745][373]LogApp: FGunSensor::SetBoardFrequency : 0
+[2026.10.11-06.48.04:768][374]LogPackageLocalizationCache: Processed 10 localized package path(s) for 1 prioritized culture(s) in 0.005679 seconds
+[2026.10.11-06.48.04:909][375]LogGameMode: Display: Match State Changed from InProgress to LeavingMap
+[2026.10.11-06.48.04:909][375]LogGameState: Match State Changed from InProgress to LeavingMap
+[2026.10.11-06.48.04:912][375]LogNet: Browse: /Game/HodZero_v1/Maps/Advertise/PL_Advertise
+[2026.10.11-06.48.04:912][375]LogLoad: LoadMap: /Game/HodZero_v1/Maps/Advertise/PL_Advertise
+[2026.10.11-06.48.05:845][375]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.48.05:845][375]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.48.06:710][375]LogAIModule: Creating AISystem for world PL_Advertise
+[2026.10.11-06.48.06:710][375]LogLoad: Game class is 'AdvertiseGameMode_C'
+[2026.10.11-06.48.06:710][375]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/HodZero_v1/Maps/System/SL_TestSW) is flushing async loading
+[2026.10.11-06.48.06:712][375]LogWorld: Bringing World /Game/HodZero_v1/Maps/Advertise/PL_Advertise.PL_Advertise up for play (max tick rate 0) at 2026.10.11-08.48.06
+[2026.10.11-06.48.06:712][375]LogWorld: Bringing up level for play took: 0.000136
+[2026.10.11-06.48.06:712][375]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.48.06:712][375]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.48.06:712][375]LogGameMode: FindPlayerStart: PATHS NOT DEFINED or NO PLAYERSTART with positive rating
+[2026.10.11-06.48.06:712][375]LogSpawn: Warning: SpawnActor failed because no class was specified
+[2026.10.11-06.48.06:713][375]LogGameMode: Display: Match State Changed from EnteringMap to WaitingToStart
+[2026.10.11-06.48.06:713][375]LogGameState: Match State Changed from EnteringMap to WaitingToStart
+[2026.10.11-06.48.06:713][375]LogGameMode: Display: Match State Changed from WaitingToStart to InProgress
+[2026.10.11-06.48.06:713][375]HodzeroLog: AAppPlayerController::BeginPlay
+[2026.10.11-06.48.06:713][375]LogApp: Get GunAdjustmentParam from GameSetting : Success.
+[2026.10.11-06.48.06:713][375]LogApp: GunAdjustmentParam:
+[2026.10.11-06.48.06:713][375]LogApp:  P1_TopY    : 236
+[2026.10.11-06.48.06:713][375]LogApp:  P1_LeftX   : 44
+[2026.10.11-06.48.06:713][375]LogApp:  P1_CenterX : 473
+[2026.10.11-06.48.06:713][375]LogApp:  P1_CenterY : 622
+[2026.10.11-06.48.06:713][375]LogApp:  P1_RightX  : 891
+[2026.10.11-06.48.06:713][375]LogApp:  P1_BottomY : 979
+[2026.10.11-06.48.06:713][375]LogApp:  P2_TopY    : 235
+[2026.10.11-06.48.06:713][375]LogApp:  P2_LeftX   : 42
+[2026.10.11-06.48.06:713][375]LogApp:  P2_CenterX : 474
+[2026.10.11-06.48.06:713][375]LogApp:  P2_CenterY : 622
+[2026.10.11-06.48.06:713][375]LogApp:  P2_RightX  : 890
+[2026.10.11-06.48.06:713][375]LogApp:  P2_BottomY : 979
+[2026.10.11-06.48.06:713][375]LogAppSequence: Display: [Ranking] BeginPlay
+[2026.10.11-06.48.06:713][375]LogAppNet: FDBAccessor::ForceBeginCheckServer initialized=false, alive=false, done=false
+[2026.10.11-06.48.06:716][375]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_EMoneyUI 1 1 0
+[2026.10.11-06.48.06:716][375]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Advertise/SL_ButtonCommand 1 1 0
+[2026.10.11-06.48.06:716][375]LogGameState: Match State Changed from WaitingToStart to InProgress
+[2026.10.11-06.48.06:716][375]LogLoad: Took 1.802904 seconds to LoadMap(/Game/HodZero_v1/Maps/Advertise/PL_Advertise)
+[2026.10.11-06.48.06:717][375]LogAppSequence: [Ranking] LoadRanking
+[2026.10.11-06.48.06:763][375]LogSlate: Took 0.044753 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/FOT-NewCinemaBStd-D.ufont' (4664K)
+[2026.10.11-06.48.06:964][376]LogSlate: Took 0.158979 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Bold.ufont' (16600K)
+[2026.10.11-06.48.11:409][651]LogSlate: Took 0.000665 seconds to synchronously load lazily loaded font '../../../Engine/Content/EngineFonts/Faces/RobotoBold.ufont' (160K)
+[2026.10.11-06.48.15:746][920]LogAppData: UBookkeeping::SaveRecord
+[2026.10.11-06.48.15:746][920]LogAppData: FBookkeepingData::PrintLog
+[2026.10.11-06.48.15:746][920]LogAppData: FNetAppUploadCabinetExtensionData : 筺体データ
+[2026.10.11-06.48.15:746][920]LogAppData:  FirstPlay:NORMAL        : 0
+[2026.10.11-06.48.15:746][920]LogAppData:  FirstPlay:MASTER        : 0
+[2026.10.11-06.48.15:746][920]LogAppData:  ContPlay:NORMAL         : 0
+[2026.10.11-06.48.15:746][920]LogAppData:  ContPlay:MASTER         : 0
+[2026.10.11-06.48.15:746][920]LogAppData:  SoloFirstPlay           : 6
+[2026.10.11-06.48.15:746][920]LogAppData:  PairFirstPlay           : 0
+[2026.10.11-06.48.15:746][920]LogAppData:  PairWithBonusFirstPlay  : 0
+[2026.10.11-06.48.15:746][920]LogAppData:  NormalModeSelect        : 0,0
+[2026.10.11-06.48.15:746][920]LogAppData:  MasterModeSelect        : 0,0
+[2026.10.11-06.48.15:746][920]LogAppData:  <<Normal>>
+[2026.10.11-06.48.15:746][920]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:  <<Master>>
+[2026.10.11-06.48.15:746][920]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.15:746][920]LogAppData:  GameClear                : 0,0
+[2026.10.11-06.48.15:747][920]LogAppData:  Ranking[0][0][0]         : 剂䅙呎
+[2026.10.11-06.48.15:747][920]LogAppData:  Ranking[0][0][1]         : 䉅呉乁
+[2026.10.11-06.48.15:747][920]LogAppData:  Ranking[0][0][2]         : 䅊䥎䡓
+[2026.10.11-06.48.28:065][683]LogAppData: UBookkeeping::SaveRecord
+[2026.10.11-06.48.28:065][683]LogAppData: FBookkeepingData::PrintLog
+[2026.10.11-06.48.28:065][683]LogAppData: FNetAppUploadCabinetExtensionData : 筺体データ
+[2026.10.11-06.48.28:065][683]LogAppData:  FirstPlay:NORMAL        : 0
+[2026.10.11-06.48.28:065][683]LogAppData:  FirstPlay:MASTER        : 0
+[2026.10.11-06.48.28:066][683]LogAppData:  ContPlay:NORMAL         : 0
+[2026.10.11-06.48.28:066][683]LogAppData:  ContPlay:MASTER         : 0
+[2026.10.11-06.48.28:066][683]LogAppData:  SoloFirstPlay           : 6
+[2026.10.11-06.48.28:066][683]LogAppData:  PairFirstPlay           : 0
+[2026.10.11-06.48.28:066][683]LogAppData:  PairWithBonusFirstPlay  : 0
+[2026.10.11-06.48.28:066][683]LogAppData:  NormalModeSelect        : 0,0
+[2026.10.11-06.48.28:066][683]LogAppData:  MasterModeSelect        : 0,0
+[2026.10.11-06.48.28:066][683]LogAppData:  <<Normal>>
+[2026.10.11-06.48.28:066][683]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:  <<Master>>
+[2026.10.11-06.48.28:066][683]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.28:066][683]LogAppData:  GameClear                : 0,0
+[2026.10.11-06.48.28:066][683]LogAppData:  Ranking[0][0][0]         : 剂䅙呎
+[2026.10.11-06.48.28:066][683]LogAppData:  Ranking[0][0][1]         : 䉅呉乁
+[2026.10.11-06.48.28:066][683]LogAppData:  Ranking[0][0][2]         : 䅊䥎䡓
+[2026.10.11-06.48.28:093][684]PIE: Warning: The widget 'WBP_TitleInfo_C' was already added to the screen.
+[2026.10.11-06.48.28:244][684]LogSlate: Took 0.147788 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Regular.ufont' (16043K)
+[2026.10.11-06.48.39:585][388]LogAppData: UBookkeeping::SetGameStartMark
+[2026.10.11-06.48.39:585][388]LogAppData: UBookkeeping::AddGameStartModeCount
+[2026.10.11-06.48.39:585][388]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(temp) +00:00:00.000
+[2026.10.11-06.48.39:585][388]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(temp) +00:00:00.000
+[2026.10.11-06.48.39:585][388]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(temp) +00:00:00.000
+[2026.10.11-06.48.39:585][388]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(BK) +00:00:00.000
+[2026.10.11-06.48.39:585][388]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:00.000
+[2026.10.11-06.48.39:585][388]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+[2026.10.11-06.48.39:603][388]LogAppData: UBookkeeping::SetPlayerStartMark
+[2026.10.11-06.48.39:606][389]LogGameMode: Display: Match State Changed from InProgress to LeavingMap
+[2026.10.11-06.48.39:606][389]LogGameState: Match State Changed from InProgress to LeavingMap
+[2026.10.11-06.48.39:607][389]LogNet: Browse: /Game/HodZero_v1/Maps/Entry/PL_Entry
+[2026.10.11-06.48.39:607][389]LogLoad: LoadMap: /Game/HodZero_v1/Maps/Entry/PL_Entry
+[2026.10.11-06.48.39:608][389]LogAppSequence: Display: [Ranking] EndPlay
+[2026.10.11-06.48.39:608][389]LogAppNet: FDBAccessor::CancelFromSequence
+[2026.10.11-06.48.39:608][389]LogAppData: UBookkeeping::SaveRecord
+[2026.10.11-06.48.39:608][389]LogAppData: FBookkeepingData::PrintLog
+[2026.10.11-06.48.39:608][389]LogAppData: FNetAppUploadCabinetExtensionData : 筺体データ
+[2026.10.11-06.48.39:608][389]LogAppData:  FirstPlay:NORMAL        : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  FirstPlay:MASTER        : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  ContPlay:NORMAL         : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  ContPlay:MASTER         : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  SoloFirstPlay           : 7
+[2026.10.11-06.48.39:608][389]LogAppData:  PairFirstPlay           : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  PairWithBonusFirstPlay  : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  NormalModeSelect        : 0,0
+[2026.10.11-06.48.39:608][389]LogAppData:  MasterModeSelect        : 0,0
+[2026.10.11-06.48.39:608][389]LogAppData:  <<Normal>>
+[2026.10.11-06.48.39:608][389]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:  <<Master>>
+[2026.10.11-06.48.39:608][389]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.39:608][389]LogAppData:  GameClear                : 0,0
+[2026.10.11-06.48.39:608][389]LogAppData:  Ranking[0][0][0]         : 剂䅙呎
+[2026.10.11-06.48.39:608][389]LogAppData:  Ranking[0][0][1]         : 䉅呉乁
+[2026.10.11-06.48.39:608][389]LogAppData:  Ranking[0][0][2]         : 䅊䥎䡓
+[2026.10.11-06.48.39:608][389]LogAppData: UBookkeeping::SaveRecord
+[2026.10.11-06.48.39:608][389]LogAppData: FBookkeepingData::PrintLog
+[2026.10.11-06.48.39:608][389]LogAppData: FNetAppUploadCabinetExtensionData : 筺体データ
+[2026.10.11-06.48.39:608][389]LogAppData:  FirstPlay:NORMAL        : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  FirstPlay:MASTER        : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  ContPlay:NORMAL         : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  ContPlay:MASTER         : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  SoloFirstPlay           : 7
+[2026.10.11-06.48.39:608][389]LogAppData:  PairFirstPlay           : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  PairWithBonusFirstPlay  : 0
+[2026.10.11-06.48.39:608][389]LogAppData:  NormalModeSelect        : 0,0
+[2026.10.11-06.48.39:608][389]LogAppData:  MasterModeSelect        : 0,0
+[2026.10.11-06.48.39:608][389]LogAppData:  <<Normal>>
+[2026.10.11-06.48.39:608][389]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:  <<Master>>
+[2026.10.11-06.48.39:609][389]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.39:609][389]LogAppData:  GameClear                : 0,0
+[2026.10.11-06.48.39:609][389]LogAppData:  Ranking[0][0][0]         : 剂䅙呎
+[2026.10.11-06.48.39:609][389]LogAppData:  Ranking[0][0][1]         : 䉅呉乁
+[2026.10.11-06.48.39:609][389]LogAppData:  Ranking[0][0][2]         : 䅊䥎䡓
+[2026.10.11-06.48.40:329][389]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.48.40:329][389]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.48.40:780][389]LogAIModule: Creating AISystem for world PL_Entry
+[2026.10.11-06.48.40:780][389]LogLoad: Game class is 'UIGameMode_C'
+[2026.10.11-06.48.40:780][389]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/HodZero_v1/Maps/System/SL_TestSW) is flushing async loading
+[2026.10.11-06.48.40:781][389]LogWorld: Bringing World /Game/HodZero_v1/Maps/Entry/PL_Entry.PL_Entry up for play (max tick rate 0) at 2026.10.11-08.48.40
+[2026.10.11-06.48.40:781][389]LogWorld: Bringing up level for play took: 0.000145
+[2026.10.11-06.48.40:781][389]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.48.40:781][389]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.48.40:781][389]LogGameMode: FindPlayerStart: PATHS NOT DEFINED or NO PLAYERSTART with positive rating
+[2026.10.11-06.48.40:781][389]LogSpawn: Warning: SpawnActor failed because no class was specified
+[2026.10.11-06.48.40:782][389]HodzeroLog: AAppPlayerController::BeginPlay
+[2026.10.11-06.48.40:782][389]LogApp: Get GunAdjustmentParam from GameSetting : Success.
+[2026.10.11-06.48.40:782][389]LogApp: GunAdjustmentParam:
+[2026.10.11-06.48.40:782][389]LogApp:  P1_TopY    : 236
+[2026.10.11-06.48.40:782][389]LogApp:  P1_LeftX   : 44
+[2026.10.11-06.48.40:782][389]LogApp:  P1_CenterX : 473
+[2026.10.11-06.48.40:782][389]LogApp:  P1_CenterY : 622
+[2026.10.11-06.48.40:782][389]LogApp:  P1_RightX  : 891
+[2026.10.11-06.48.40:782][389]LogApp:  P1_BottomY : 979
+[2026.10.11-06.48.40:782][389]LogApp:  P2_TopY    : 235
+[2026.10.11-06.48.40:782][389]LogApp:  P2_LeftX   : 42
+[2026.10.11-06.48.40:782][389]LogApp:  P2_CenterX : 474
+[2026.10.11-06.48.40:782][389]LogApp:  P2_CenterY : 622
+[2026.10.11-06.48.40:782][389]LogApp:  P2_RightX  : 890
+[2026.10.11-06.48.40:782][389]LogApp:  P2_BottomY : 979
+[2026.10.11-06.48.40:789][389]LogAppSequence: Display: [Login] BeginPlay
+[2026.10.11-06.48.40:789][389]LogAppData: [Login] LockGamePlayMode
+[2026.10.11-06.48.40:789][389]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_EMoneyUI 1 1 0
+[2026.10.11-06.48.40:793][389]LogLoad: Took 1.186105 seconds to LoadMap(/Game/HodZero_v1/Maps/Entry/PL_Entry)
+[2026.10.11-06.48.40:844][389]LogAMDaemon: Error: Exception caused. (Category:Logic  Msg:`aimeId` is invalid.)
+[2026.10.11-06.48.40:844][389]LogAppNet: UPlayLog::InitializePlayLog
+[2026.10.11-06.48.40:844][389]LogAppNet: UPlayLog::StartPlayLog PlayCount=1
+[2026.10.11-06.48.40:889][389]LogSlate: Took 0.020968 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/FOT-NewCinemaBStd-D.ufont' (4664K)
+[2026.10.11-06.48.40:961][390]LogSlate: Took 0.062940 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Bold.ufont' (16600K)
+[2026.10.11-06.48.56:513][355]LogNet: Browse: /Game/HodZero_v1/Maps/StageSelect/PL_StageSelect
+[2026.10.11-06.48.56:513][355]LogLoad: LoadMap: /Game/HodZero_v1/Maps/StageSelect/PL_StageSelect
+[2026.10.11-06.48.56:514][355]LogAppSequence: Display: [Login] EndPlay
+[2026.10.11-06.48.56:514][355]LogAppData: [Login] UnlockGamePlayMode
+[2026.10.11-06.48.56:514][355]LogAppData: UBookkeeping::SaveRecord
+[2026.10.11-06.48.56:514][355]LogAppData: FBookkeepingData::PrintLog
+[2026.10.11-06.48.56:514][355]LogAppData: FNetAppUploadCabinetExtensionData : 筺体データ
+[2026.10.11-06.48.56:514][355]LogAppData:  FirstPlay:NORMAL        : 0
+[2026.10.11-06.48.56:514][355]LogAppData:  FirstPlay:MASTER        : 0
+[2026.10.11-06.48.56:514][355]LogAppData:  ContPlay:NORMAL         : 0
+[2026.10.11-06.48.56:514][355]LogAppData:  ContPlay:MASTER         : 0
+[2026.10.11-06.48.56:514][355]LogAppData:  SoloFirstPlay           : 7
+[2026.10.11-06.48.56:514][355]LogAppData:  PairFirstPlay           : 0
+[2026.10.11-06.48.56:514][355]LogAppData:  PairWithBonusFirstPlay  : 0
+[2026.10.11-06.48.56:514][355]LogAppData:  NormalModeSelect        : 0,0
+[2026.10.11-06.48.56:514][355]LogAppData:  MasterModeSelect        : 0,0
+[2026.10.11-06.48.56:514][355]LogAppData:  <<Normal>>
+[2026.10.11-06.48.56:514][355]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:  <<Master>>
+[2026.10.11-06.48.56:514][355]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.56:514][355]LogAppData:  GameClear                : 0,0
+[2026.10.11-06.48.56:514][355]LogAppData:  Ranking[0][0][0]         : 剂䅙呎
+[2026.10.11-06.48.56:514][355]LogAppData:  Ranking[0][0][1]         : 䉅呉乁
+[2026.10.11-06.48.56:514][355]LogAppData:  Ranking[0][0][2]         : 䅊䥎䡓
+[2026.10.11-06.48.56:515][355]LogAppData: UBookkeeping::SaveRecord
+[2026.10.11-06.48.56:515][355]LogAppData: FBookkeepingData::PrintLog
+[2026.10.11-06.48.56:515][355]LogAppData: FNetAppUploadCabinetExtensionData : 筺体データ
+[2026.10.11-06.48.56:515][355]LogAppData:  FirstPlay:NORMAL        : 0
+[2026.10.11-06.48.56:515][355]LogAppData:  FirstPlay:MASTER        : 0
+[2026.10.11-06.48.56:515][355]LogAppData:  ContPlay:NORMAL         : 0
+[2026.10.11-06.48.56:515][355]LogAppData:  ContPlay:MASTER         : 0
+[2026.10.11-06.48.56:515][355]LogAppData:  SoloFirstPlay           : 7
+[2026.10.11-06.48.56:515][355]LogAppData:  PairFirstPlay           : 0
+[2026.10.11-06.48.56:515][355]LogAppData:  PairWithBonusFirstPlay  : 0
+[2026.10.11-06.48.56:515][355]LogAppData:  NormalModeSelect        : 0,0
+[2026.10.11-06.48.56:515][355]LogAppData:  MasterModeSelect        : 0,0
+[2026.10.11-06.48.56:515][355]LogAppData:  <<Normal>>
+[2026.10.11-06.48.56:515][355]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.56:515][355]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.56:515][355]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.56:515][355]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.56:515][355]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.56:515][355]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.56:515][355]LogAppData:  <<Master>>
+[2026.10.11-06.48.56:515][355]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.48.56:516][355]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.48.56:516][355]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.48.56:516][355]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.48.56:516][355]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.48.56:516][355]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.48.56:516][355]LogAppData:  GameClear                : 0,0
+[2026.10.11-06.48.56:516][355]LogAppData:  Ranking[0][0][0]         : 剂䅙呎
+[2026.10.11-06.48.56:516][355]LogAppData:  Ranking[0][0][1]         : 䉅呉乁
+[2026.10.11-06.48.56:516][355]LogAppData:  Ranking[0][0][2]         : 䅊䥎䡓
+[2026.10.11-06.48.57:006][355]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.48.57:006][355]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.48.57:343][355]LogAIModule: Creating AISystem for world PL_StageSelect
+[2026.10.11-06.48.57:343][355]LogLoad: Game class is 'UIGameMode_C'
+[2026.10.11-06.48.57:344][355]LogWorld: Bringing World /Game/HodZero_v1/Maps/StageSelect/PL_StageSelect.PL_StageSelect up for play (max tick rate 0) at 2026.10.11-08.48.57
+[2026.10.11-06.48.57:344][355]LogWorld: Bringing up level for play took: 0.000696
+[2026.10.11-06.48.57:344][355]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.48.57:344][355]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.48.57:344][355]LogGameMode: FindPlayerStart: PATHS NOT DEFINED or NO PLAYERSTART with positive rating
+[2026.10.11-06.48.57:344][355]LogSpawn: Warning: SpawnActor failed because no class was specified
+[2026.10.11-06.48.57:345][355]HodzeroLog: AAppPlayerController::BeginPlay
+[2026.10.11-06.48.57:345][355]LogApp: Get GunAdjustmentParam from GameSetting : Success.
+[2026.10.11-06.48.57:345][355]LogApp: GunAdjustmentParam:
+[2026.10.11-06.48.57:345][355]LogApp:  P1_TopY    : 236
+[2026.10.11-06.48.57:345][355]LogApp:  P1_LeftX   : 44
+[2026.10.11-06.48.57:345][355]LogApp:  P1_CenterX : 473
+[2026.10.11-06.48.57:345][355]LogApp:  P1_CenterY : 622
+[2026.10.11-06.48.57:345][355]LogApp:  P1_RightX  : 891
+[2026.10.11-06.48.57:345][355]LogApp:  P1_BottomY : 979
+[2026.10.11-06.48.57:345][355]LogApp:  P2_TopY    : 235
+[2026.10.11-06.48.57:345][355]LogApp:  P2_LeftX   : 42
+[2026.10.11-06.48.57:345][355]LogApp:  P2_CenterX : 474
+[2026.10.11-06.48.57:345][355]LogApp:  P2_CenterY : 622
+[2026.10.11-06.48.57:345][355]LogApp:  P2_RightX  : 890
+[2026.10.11-06.48.57:345][355]LogApp:  P2_BottomY : 979
+[2026.10.11-06.48.57:354][355]LogLoad: Took 0.840311 seconds to LoadMap(/Game/HodZero_v1/Maps/StageSelect/PL_StageSelect)
+[2026.10.11-06.48.57:435][355]LogSlate: Took 0.080040 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Medium.ufont' (16118K)
+[2026.10.11-06.48.57:485][355]LogSlate: Took 0.020710 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/FOT-NewCinemaBStd-D.ufont' (4664K)
+[2026.10.11-06.48.57:487][356]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_TestSW 1 1 0
+[2026.10.11-06.48.57:649][366]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_EMoneyUI 1 1 0
+[2026.10.11-06.48.57:891][381]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_TestSW 1 1 0
+[2026.10.11-06.48.58:037][386]LogSlate: Took 0.063065 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Regular.ufont' (16043K)
+[2026.10.11-06.48.58:042][387]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_EMoneyUI 1 1 0
+[2026.10.11-06.49.33:158][564]LogNet: Browse: /Game/HodZero_v1/Maps/Stage0/PL_Stage0
+[2026.10.11-06.49.33:158][564]LogLoad: LoadMap: /Game/HodZero_v1/Maps/Stage0/PL_Stage0
+[2026.10.11-06.49.33:158][564]LogAppData: UBookkeeping::SaveRecord
+[2026.10.11-06.49.33:158][564]LogAppData: FBookkeepingData::PrintLog
+[2026.10.11-06.49.33:158][564]LogAppData: FNetAppUploadCabinetExtensionData : 筺体データ
+[2026.10.11-06.49.33:158][564]LogAppData:  FirstPlay:NORMAL        : 0
+[2026.10.11-06.49.33:158][564]LogAppData:  FirstPlay:MASTER        : 0
+[2026.10.11-06.49.33:158][564]LogAppData:  ContPlay:NORMAL         : 0
+[2026.10.11-06.49.33:158][564]LogAppData:  ContPlay:MASTER         : 0
+[2026.10.11-06.49.33:158][564]LogAppData:  SoloFirstPlay           : 7
+[2026.10.11-06.49.33:158][564]LogAppData:  PairFirstPlay           : 0
+[2026.10.11-06.49.33:158][564]LogAppData:  PairWithBonusFirstPlay  : 0
+[2026.10.11-06.49.33:158][564]LogAppData:  NormalModeSelect        : 0,0
+[2026.10.11-06.49.33:158][564]LogAppData:  MasterModeSelect        : 0,0
+[2026.10.11-06.49.33:159][564]LogAppData:  <<Normal>>
+[2026.10.11-06.49.33:159][564]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:  <<Master>>
+[2026.10.11-06.49.33:159][564]LogAppData:    PlayTime[0]           : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    PlayTime[1]           : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    LongestPlayTime[0]    : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    LongestPlayTime[1]    : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    ShortestPlayTime[0]   : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:    ShortestPlayTime[1]   : +00:00:00.000
+[2026.10.11-06.49.33:159][564]LogAppData:  GameClear                : 0,0
+[2026.10.11-06.49.33:159][564]LogAppData:  Ranking[0][0][0]         : 剂䅙呎
+[2026.10.11-06.49.33:159][564]LogAppData:  Ranking[0][0][1]         : 䉅呉乁
+[2026.10.11-06.49.33:159][564]LogAppData:  Ranking[0][0][2]         : 䅊䥎䡓
+[2026.10.11-06.49.50:506][564]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.49.50:506][564]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.49.50:892][564]LogAIModule: Creating AISystem for world PL_Stage0
+[2026.10.11-06.49.50:893][564]LogLoad: Game class is 'RailShootGameMode_C'
+[2026.10.11-06.49.50:893][564]LogWorld: Bringing World /Game/HodZero_v1/Maps/Stage0/PL_Stage0.PL_Stage0 up for play (max tick rate 0) at 2026.10.11-08.49.50
+[2026.10.11-06.49.50:893][564]LogWorld: Bringing up level for play took: 0.000180
+[2026.10.11-06.49.50:893][564]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.49.50:893][564]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.49.50:893][564]LogGameMode: Display: Match State Changed from EnteringMap to WaitingToStart
+[2026.10.11-06.49.50:893][564]LogGameState: Match State Changed from EnteringMap to WaitingToStart
+[2026.10.11-06.49.50:894][564]LogGameMode: Display: Match State Changed from WaitingToStart to InProgress
+[2026.10.11-06.49.50:908][564]LogAppData: UBookkeeping::SetRoarModeIneffectiveEndMark
+[2026.10.11-06.49.50:908][564]LogAppData: UBookkeeping::SetRoarModeIneffectiveStartMark : unexpected. not start
+[2026.10.11-06.49.50:908][564]LogAppData: UBookkeeping::SetRoarModeEffectiveStartMark
+[2026.10.11-06.49.50:908][564]HodzeroLog: AAppPlayerController::BeginPlay
+[2026.10.11-06.49.50:908][564]LogApp: Get GunAdjustmentParam from GameSetting : Success.
+[2026.10.11-06.49.50:908][564]LogApp: GunAdjustmentParam:
+[2026.10.11-06.49.50:908][564]LogApp:  P1_TopY    : 236
+[2026.10.11-06.49.50:908][564]LogApp:  P1_LeftX   : 44
+[2026.10.11-06.49.50:908][564]LogApp:  P1_CenterX : 473
+[2026.10.11-06.49.50:908][564]LogApp:  P1_CenterY : 622
+[2026.10.11-06.49.50:908][564]LogApp:  P1_RightX  : 891
+[2026.10.11-06.49.50:908][564]LogApp:  P1_BottomY : 979
+[2026.10.11-06.49.50:908][564]LogApp:  P2_TopY    : 235
+[2026.10.11-06.49.50:908][564]LogApp:  P2_LeftX   : 42
+[2026.10.11-06.49.50:908][564]LogApp:  P2_CenterX : 474
+[2026.10.11-06.49.50:908][564]LogApp:  P2_CenterY : 622
+[2026.10.11-06.49.50:908][564]LogApp:  P2_RightX  : 890
+[2026.10.11-06.49.50:908][564]LogApp:  P2_BottomY : 979
+[2026.10.11-06.49.50:909][564]LogGameState: Match State Changed from WaitingToStart to InProgress
+[2026.10.11-06.49.50:910][564]LogLoad: Took 17.750912 seconds to LoadMap(/Game/HodZero_v1/Maps/Stage0/PL_Stage0)
+[2026.10.11-06.49.50:960][564]LogSlate: Took 0.019906 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/FOT-NewCinemaBStd-D.ufont' (4664K)
+[2026.10.11-06.49.50:970][565]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_TestSW 1 1 0
+[2026.10.11-06.49.51:033][565]LogSlate: Took 0.061901 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Medium.ufont' (16118K)
+[2026.10.11-06.49.51:097][565]LogSlate: Took 0.063016 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/NotoSansCJKjp-Bold.ufont' (16600K)
+[2026.10.11-06.49.51:247][575]LogLevel: ActivateLevel /Game/HodZero/CameraMotion/SL_GENERAL_Camera 1 1 0
+[2026.10.11-06.49.51:425][586]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/SequencerEvent/SL_SequencerEventsCommon 1 1 0
+[2026.10.11-06.50.10:850][966]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/SequencerEvent/SL_SequencerEventSound 1 1 0
+[2026.10.11-06.50.11:076][972]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/SequencerEvent/SL_SequencerEventLED 1 1 0
+[2026.10.11-06.50.11:297][978]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/GameUI/SL_GameUI 1 1 0
+[2026.10.11-06.50.12:108][  0]LogSlate: Took 0.019395 seconds to synchronously load lazily loaded font '../../../Hodzero/Content/HodZero_v1/Fonts/FOT-NewCinemaBStd-D.ufont' (4664K)
+[2026.10.11-06.50.12:251][  5]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/GameUI/SL_Bullet 1 1 0
+[2026.10.11-06.50.12:455][ 11]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/System/SL_EMoneyUI 1 1 0
+[2026.10.11-06.50.12:884][ 24]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/StageResult/SL_StageResult 1 1 0
+[2026.10.11-06.50.12:915][ 25]HodzeroLog: AAppPlayerController::CreateGunSensorComponent
+[2026.10.11-06.50.12:915][ 25]HodzeroLog: AAppPlayerController::CreateLedControllerComponent
+[2026.10.11-06.50.12:948][ 26]LogAppSequence: Display: [Result] BeginPlay
+[2026.10.11-06.50.13:108][ 31]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0_SequencerEvents 1 1 0
+[2026.10.11-06.50.18:189][167]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0_ITEM 1 1 0
+[2026.10.11-06.50.18:691][181]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0_BROKEN_OBJECT 1 1 0
+[2026.10.11-06.50.19:867][217]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0AB_COLLISION 1 1 0
+[2026.10.11-06.50.20:248][231]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0B_ENEMY 1 1 0
+[2026.10.11-06.50.20:566][243]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0C_ENEMY 1 1 0
+[2026.10.11-06.50.20:772][251]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0B_BG 1 0 0
+[2026.10.11-06.50.31:561][587]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0C_BG 1 0 0
+[2026.10.11-06.50.45:564][878]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0C_LIGHT 1 0 0
+[2026.10.11-06.50.46:231][905]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0C_COLLISION 1 0 0
+[2026.10.11-06.50.46:421][913]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0C_EFFECT 1 0 0
+[2026.10.11-06.50.46:698][925]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0C_VOLUME 1 0 0
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetCommonGameTimeCountEndMark
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping:SetCommonGameTimeCountEndMark : unexpected. game time count not started
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetIndividualGameTimeCountEndMark
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping:SetCommonGameTimeCountStartMark : unexpected. unexpected. game time count not started(0)
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(temp) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(temp) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(temp) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(BK) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetIndividualGameTimeCountEndMark
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping:SetCommonGameTimeCountStartMark : unexpected. unexpected. game time count not started(1)
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(temp) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(temp) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(temp) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(BK) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:00.000
+[2026.10.11-06.50.46:922][935]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+[2026.10.11-06.50.47:077][942]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0B_BG 1 1 0
+[2026.10.11-06.50.47:101][943]LogAppData: UBookkeeping::AddReachLogCount
+[2026.10.11-06.50.47:229][949]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0B_LIGHT 1 1 0
+[2026.10.11-06.50.50:302][979]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0B_EFFECT 1 1 0
+[2026.10.11-06.50.51:077][990]LogStreaming: Display: UWorld::AddToWorld: routing Initialize on actors for /Game/HodZero_v1/Maps/Stage0/SL_Stage0B_EFFECT took (less than) 23.55 ms
+[2026.10.11-06.50.51:665][993]LogLevel: ActivateLevel /Game/HodZero_v1/Maps/Stage0/SL_Stage0B_VOLUME 1 1 0
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetCommonGameTimeCountStartMark
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping:SetCommonGameTimeCountStartMark [2026.10.11-08.51.40]
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(temp) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(temp) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(temp) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(BK) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetIndividualGameTimeCountStartMark
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping:SetIndividualGameTimeCountStartMark : Start[0][2026.10.11-08.51.40]
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(temp) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(temp) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(temp) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(BK) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:00.000
+[2026.10.11-06.51.40:405][931]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+[2026.10.11-06.51.41:549][948]LogAppData: UBookkeeping::AddReachLogCount
+[2026.10.11-06.51.51:039][465]LogAppData: UBookkeeping::AddDamageLogCount
+[2026.10.11-06.51.53:518][618]LogAppData: UBookkeeping::AddDamageLogCount
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetIndividualGameTimeCountEndMark
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping:SetIndividualGameTimeCountEndMark : Start[0][2026.10.11-08.51.56]
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(temp) +00:00:00.000
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(temp) +00:00:15.709
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(temp) +00:00:00.000
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(BK) +00:00:00.000
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:00.000
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetCommonGameTimeCountEndMark
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(temp) +00:00:15.709
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(temp) +00:00:15.709
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(temp) +00:00:00.000
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : CommonGameTime(BK) +00:00:00.000
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P1 GameTime(BK) +00:00:00.000
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping::SetGameStartMark : P2 GameTime(BK) +00:00:00.000
+[2026.10.11-06.51.56:114][779]LogAppData: UBookkeeping:SetCommonGameTimeCountEndMark [2026.10.11-08.51.56]
+[2026.10.11-06.51.56:116][779]LogAppData: UBookkeeping::AddDamageLogCount
+[2026.10.11-06.51.56:116][779]LogAppData: UBookkeeping::AddFirstDeathLogCount

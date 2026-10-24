@@ -1,0 +1,3 @@
+# Python-rommel van de meetscripts (de probes worden vaak gedraaid; de .pyc's horen niet in de repo).
+__pycache__/
+*.pyc

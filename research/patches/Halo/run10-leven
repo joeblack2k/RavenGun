@@ -1,0 +1,12 @@
+  t=12s START-puls 1
+  *** FileTest geeindigd
+  game-pid=865293; kalibratiescherm zou er nu moeten staan
+  t=41s TEST-puls 1 (3 s vasthouden)
+  t=49s TEST-puls 2 (3 s vasthouden)
+  t=56s TEST-puls 3 (3 s vasthouden)
+  t=63s TEST-puls 4 (3 s vasthouden)
+  t=71s TEST-puls 5 (3 s vasthouden)
+  t=78s TEST-puls 6 (3 s vasthouden)
+  t=86s TEST-puls 7 (3 s vasthouden)
+  t=93s TEST-puls 8 (3 s vasthouden)
+  gamelog: 230 regels (was 214)

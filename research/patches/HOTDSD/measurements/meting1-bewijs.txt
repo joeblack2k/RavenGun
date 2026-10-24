@@ -1,0 +1,93 @@
+==============================================================
+METING 1 - de AM Daemon alleen. Bewijs.
+Datum: 2026-10-13T09:53:24+02:00   host: steamdeck
+==============================================================
+
+### 1. DE OPDRACHT EN DE GRENZEN
+  run A: WINEDEBUG=+file          run B: WINEDEBUG=+file,+reg
+  geen game, geen lader, geen kern; geen display (DISPLAY en WAYLAND_DISPLAY weg)
+  harde limiet 90 s per run (timeout 90); beide runs eindigden na 1 s vanzelf
+  prive-kopie van AMDaemon: /home/deck/rg-hotdsd-meting1/AMDaemon   (symlinks: 0)
+  prive-kopie van de prefix: /home/deck/rg-hotdsd-meting1/prefix
+
+### 2. UITKOMST - de daemon stopt zelf, 1 seconde na de banner
+  run A: exit=0  wall=1 s      trace: 2275587 bytes, 20627 regels
+  run B: exit=0  wall=1 s      trace: 4434225 bytes
+
+  de eigen log (amdaemon.log, 272 bytes):
+  ----------------------------------------------------------
+  | << 2026/10/13 09:51:27 >>
+  | Runtime exception occurred.
+  | File: D:\jenkins_work\workspace\all_build\libs\libamw\src\amw_platform_manager.cpp
+  | Line: 102
+  | Function: void __cdecl am::platform::Manager::initialize(void)
+  | Message: amPlatformGetPlatformInformation(). ErrCode 0.
+  ----------------------------------------------------------
+
+  de banner op stderr, als enige regel van de daemon:
+  | amdaemonExe Ver.2437 Build:Apr 19 2018 23:13:37
+
+### 3. WAT HIJ NIET HEEFT AANGERAAKT (geteld over BEIDE traces)
+  FddDriver        runA=0      runB=0     
+  DeviceIoControl  runA=6      runB=6     
+  amDongle         runA=0      runB=0     
+  amyDongle        runA=0      runB=0     
+  Keychip          runA=0      runB=0     
+  keychip          runA=0      runB=0     
+  mount            runA=11     runB=14    
+  AMFS             runA=0      runB=0     
+  appfile          runA=0      runB=0     
+  nvapi            runA=0      runB=0     
+  NVAPI            runA=0      runB=0     
+  nvml             runA=0      runB=0     
+  d3d11            runA=0      runB=0     
+  dxgi             runA=0      runB=0     
+  d3d9             runA=0      runB=0     
+  vulkan           runA=0      runB=0     
+
+  -> de keychip is NOOIT geopend, en de mountletters zijn NOOIT aangeraakt.
+     Hij sterft dus VOOR beide.
+
+### 4. HET REGISTER: hij is de SCHRIJVER van System\SEGA, niet de lezer
+  | 34301:00e8:trace:reg:NtCreateKey (0x28,L"System\\SEGA\\SystemProperty\\Static",(null),1,20019,0x10d938)
+  | 34305:00e8:trace:reg:NtOpenKeyEx (0x9c,L"SEGA",20119,0x10d488)
+  | 34308:00e8:trace:reg:NtCreateKey (0x9c,L"SEGA",(null),1,20019,0x10d6d0)
+  | 34315:00e8:trace:reg:NtCreateKey (0xac,L"SystemProperty",(null),1,20019,0x10d6d0)
+
+  de gedeelde prefix heeft NU geen enkele SEGA-sectie:
+    SystemProperty   0 treffers in system.reg
+    amVideo          0 treffers in system.reg
+    keychip          0 treffers in system.reg
+    Master           0 treffers in system.reg
+    sgworker         0 treffers in system.reg
+    installer        0 treffers in system.reg
+
+### 5. WAT HIJ WEL DEED: SetupAPI / CFGMGR32 / beeld, geen GPU-bibliotheek
+  setupapi             45
+  cfgmgr32             29
+  Display              108
+  GlobalMemoryStatusEx 0
+
+  de apparaat-ioctl's die wel langskwamen (geen keychip):
+  | trace:file:DeviceIoControl (0000000000000054,121000,0000000000A1F420,56,0000000000C5FCF0,122628,0000000000A1F41C,0000000000000000)
+  | trace:file:KERNEL32_DeviceIoControl (0000000000000054,0x121000,0000000000A1F420,56,0000000000C5FCF0,122628,0000000000A1F41C,0000000000000000)
+  | trace:file:NtDeviceIoControlFile ((nil),(nil),(nil),(nil),0x1000ff1d0,0x00504000,(nil),0x00000000,0x1000ff1fc,0x00000004)
+  | trace:file:NtDeviceIoControlFile (0x54,(nil),(nil),(nil),0xa1f390,0x00121000,0xa1f420,0x00000038,0xc5fcf0,0x0001df04)
+
+### 6. WAT HIJ IN DE RUN-MAP HEEFT ACHTERGELATEN (alleen de eigen log)
+  2026-10-13+09:51:27.7021922590      272 ./amdaemon.log
+  (appfile.dat heeft nog zijn NAS-tijd -- hij is niet aan de NVRAM toegekomen)
+  appfile.dat: 2026-10-11 09:02:49.246397500 +0200  8388608 bytes
+
+### 7. DE NAS IS NIET AANGERAAKT
+  (geen CHANGED-regels = onaangeroerd)
+
+### 8. OPRUIMING
+  STILL: 768692 gamescope --backend headless -W 1920 -H 1080 -- sleep 900
+  STILL: 768719 gamescopereaper -- sleep 900
+  STILL: 768747 /home/deck/.local/share/ravengun/wine/proton-11.0-2/lib/wine/../../bin/wineserver
+  STILL: 768754 C:\windows\system32\winedevice.exe
+  STILL: 768776 C:\windows\system32\winedevice.exe
+  STILL: 769015 bash -c sleep 240; echo '=== loopt er een run?'; pgrep -ax VACUUM.exe | head -1; pgrep -ax amdaemon.exe | head -1; pgrep -ax gamescope | head -1; echo '(leeg=niets)'; echo; echo '=== nieuwe mappen'; ls -dt /tmp/b0-* /tmp/hotdsd* 2>/dev/null | head -5; echo; echo '=== Scarlet Dawn bestanden'; ls -lt ~/projects/ravengun-patches/patches/HOTDSD/*.md ~/projects/ravengun-patches/patches/HOTDSD/measurements/ 2>/dev/null | head -8; echo; echo '=== claude'; tmux capture-pane -p -S -10 -t claude | grep -v '^[[:space:]]*$' | tail -6
+  (geen STILL-regels = niets meer actief)
+  klok na: 2026-10-13T09:53:24+02:00

@@ -1,0 +1,9 @@
+proef          : maps-uitlezing, orde lib32-eerst
+datum          : 2026-10-13T13:51:24+02:00
+LD_LIBRARY_PATH: /home/deck/.local/share/ravengun/runtime/lib32:/home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/ElfLdr2/libs
+exitcode       : 0
+levensduur     : 4 s
+lader sha256   : 7f83edb291f0065c54122392679ef0ffe65190c909d596485e56460e32ac4549
+-- geprinte paden voor libGLU/libtheora --
+/home/deck/.local/share/ravengun/runtime/lib32/libGLU.so.1
+/home/deck/.local/share/ravengun/runtime/lib32/libtheora.so.0

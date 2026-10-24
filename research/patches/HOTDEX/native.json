@@ -1,0 +1,46 @@
+{
+  "title": "The House of the Dead EX",
+  "enabled": true,
+  "status": "werkt",
+  "note": "WERKT 2026-10-15: dubbelklik, 5,5 min gespeeld in muismodus, met stackalign (bench-captures/HOTDEX). Lindbergh-route (docs/lindbergh.md): de ELF draait zonder lader, met lindbergh.so van lindbergh-loader in LD_PRELOAD (dongle, baseboard, EEPROM, GPU-patches; gebouwd door scripts/build-lindbergh-loader.sh in @data/lindbergh-loader/current) en de JVS-lijn van het baseboard doorgegeven aan het JVS-bord van de daemon (route jvs, pty als /dev/ttyRG0). OpenGL via Mesa zink op RADV (voorkeur van de eigenaar); MESA_LOADER_DRIVER_OVERRIDE en LIBGL_KOPPER_DRI2 weghalen = radeonsi. DVP-0063, ID herkend maar niet de schone ELF (al gepatcht). Mesa: de laag compileert de Cg-shaders opnieuw (libCg.so 2.0). Nog niet gestart. Geluid (2026-10-18): de CRI-geluidslaag (librnalindbergh_jr.so, ALSA direct) opent het vaste apparaat 'plughw:0, 0' (kaart 0 apparaat 0 van de arcadekast); hier is kaart 0 een HDMI-kaart zonder apparaat 0, dus snd_pcm_open gaf ENOENT en het spel bleef stil. data/alsa.conf (ALSA_CONFIG_PATH) leidt hw/plughw/default naar PulseAudio/PipeWire.",
+  "arch": "i386",
+  "launcher": "gamescope",
+  "route": "jvs",
+  "lindbergh": {
+    "id": "0x20115a92",
+    "ini": "@patches/HOTDEX/lindbergh.ini",
+    "jvs": "passthrough",
+    "libcg": true,
+    "stackalign": true
+  },
+  "mounts": [
+    {
+      "src": "@nas/The House of the Dead EX",
+      "dst": "/lb",
+      "mode": "overlay"
+    }
+  ],
+  "libdirs": [
+    {
+      "src": "@lib32",
+      "dst": "/rg/lib32"
+    }
+  ],
+  "env": {
+    "MESA_LOADER_DRIVER_OVERRIDE": "zink",
+    "LIBGL_KOPPER_DRI2": "1",
+    "SDL_AUDIO_CHANNELS": "2",
+    "ALSA_CONFIG_PATH": "/rg/alsa.conf"
+  },
+  "exe": "/lb/elf/hodexRI.elf",
+  "cwd": "/lb/elf",
+  "home": "/lb/elf",
+  "args": [],
+  "res": "1360x768",
+  "files": [
+    {
+      "src": "@patches/HOTDEX/data/alsa.conf",
+      "dst": "/rg/alsa.conf"
+    }
+  ]
+}

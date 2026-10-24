@@ -1,0 +1,58 @@
+{
+  "kind": "region",
+  "game": "OG",
+  "title": "Operation G.H.O.S.T.",
+  "platform": "Sega RingWide",
+  "profile": "OG",
+  "emulation_profile": "SegaJvsGoldenGun",
+  "exe": "gs2.exe",
+  "region": {
+    "field": "DongleRegion",
+    "name": "JAPAN",
+    "game_name": "JPN"
+  },
+  "pcb": {
+    "field": "PcbRegion",
+    "name": "JAPAN",
+    "game_name": "JPN"
+  },
+  "io_board": "837-14572",
+  "api": [
+    "amDongleOpen",
+    "amDongleOpenEx",
+    "amDongleSetupKeychip",
+    "amDongleSendAndRecvEx",
+    "amDongleResponseCheck",
+    "amDongleBusy",
+    "amDongleUpdate",
+    "getKeychipID"
+  ],
+  "game_reads": [
+    "keychip.appboot.region",
+    "keychip.appboot.gameid",
+    "keychip.appboot.platformid",
+    "keychip.appboot.modeltype",
+    "keychip.appboot.systemflag"
+  ],
+  "fallback": null,
+  "enforced": false,
+  "enforced_basis": "GEMETEN (ronde 34): de game start en blijft draaien zonder ENIGE regiobron -- met de eigen lader (STARTTEST.md, 22 s) en met alleen `wine <exe>` (ZONDER-LADER.md, 20 s, en in de langere meting 70 s levend). Er is dus geen regiowaarde nodig om door te starten; de dongle wordt niet afgedwongen. Wat NIET gemeten is: of de game speelbaar is (hij is nooit gespeeld) en of hij later in het spel op de regio terugkomt.",
+  "evidence": {
+    "markers_exe": [
+      "amDongle Ver.1.09 Build:May 12 2011 01:09:02",
+      "keychip.appboot.region",
+      "Error Response KeychipError !!!",
+      "KEYCHIP ACCESS FAILED",
+      "Init: amDongleIsAvailable() is false",
+      "Init: Faild to init DongleLib. (amDongleInit() Faild)",
+      "Init: Faild to get DongleInfo. (AMU::Dongle::Info() Faild)",
+      "Faild to get Keychip ID."
+    ],
+    "profiel": "GameProfiles/OG.xml: General/DongleRegion = JAPAN, General/PcbRegion = JAPAN, beide Dropdown met de keuzes JAPAN|USA|JAP2N|EXPORT|CHINA",
+    "findings": "findings/11_hardware_patches_dongles.md, sectie 'Operation G.H.O.S.T. - OG' (DongleRegion JAPAN, PcbRegion JAPAN) en findings/data/target_hw_patch.json",
+    "io_board_bron": "packaging/jvs-boards.json, bord SegaGun2P: identify 'SEGA CORPORATION;I/O BD JVS;837-14572;Ver1.00;2005/10', het standaardbord van de SegaJvs*-profielen",
+    "core_has_region_code": false,
+    "core_checked": "TeknoParrot.dll (32-bits, gedecrypteerd beeld; zie docs/region-layer.md)"
+  },
+  "notes": "De game vraagt de regio aan de keychip (amDongle met de keychip.appboot.*-opdrachten) en niet via amDongleGetRegion zoals LGI/LGI3D. De waarden hierboven zijn wat een dongle moet antwoorden; of de game zonder dat antwoord doorstart is in ronde 34 gemeten: hij start en blijft draaien zonder enige regiobron (zie enforced_basis), maar hij is nooit gespeeld. Er is geen bibliotheek bij deze dongle: het soort region is gegevens zonder binary, en de regio-/printplaatwaarde is de software-emulatie van dongle en PIC die de TeknoParrot-kern zelf doet (findings/12_aanpassingen_en_koppelingen.md paragraaf 7)."
+}

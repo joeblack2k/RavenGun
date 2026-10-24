@@ -1,0 +1,12 @@
+Raw capture sets and instrumented logs for the NERF RIO inputs work are kept OUT of git (size rule), at:
+  ~/.local/share/ravengun/bench-captures/NERF/
+    ni2-shots/                    raw frames, instrumented read-poll run (attract)
+    ni2-instrumented-stderr.log   437 KB, each RIO read call's id (decoded in ni2-measured-poll.txt)
+    ni3-shots/                    raw frames, run where the game LEFT attract and started a game
+    ni1-/ni2-/ni3-*.run           run records
+This folder (patches/NERF/bewijs-rio-20261014/) keeps only the selection + sheets + the decode table.
+
+inputs-map-20261014/: the id->action search (35 runs). Raw frame sets, run records and full sheets are
+out of git at ~/.local/share/ravengun/bench-captures/NERF/inputs-map/ (one <tag>-shots/ per run, matching
+the tags in inputs-map-20261014/RESULTS-TABLE.md). The committed folder keeps the table, the LEESMIJ, a
+selection of sheets and the two close-up evidence frames.

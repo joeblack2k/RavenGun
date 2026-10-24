@@ -1,0 +1,85 @@
+# ingekort: eerste 40 regels, alle scr_start_cb-regels, laatste 40; volledig spoor: 61360 regels
+[trace] + 0.000090 pid 1546198 ctor, tracepoints=37
+[trace] + 0.008385 pid 1546198 patched 37 of 37
+[trace] + 0.035434 pid 1546207 ENTER DongleInitialize (#1) ret=0x080c2331 args=0xf58355e8,0x000001e0,0x57afe1cc a0mem=d0642b00000000000000000004000000
+[trace] + 0.040480 pid 1546207 ENTER c2_820d180 (#1) ret=0x080aa670 args=0xf63687dc,0x00000020,0xf6368833 a0mem=942017f3507e68d801a52784e4466e21
+[trace] + 0.040537 pid 1546207 RETURN c2_820d180 eax=0x00000001 (1)
+[trace] + 0.040540 pid 1546207 ENTER c2_820d180 (#2) ret=0x080aa680 args=0xf63687fc,0x00000010,0xf6368833 a0mem=2718b1cb6d3e9552da150caf7514d0fa
+[trace] + 0.040545 pid 1546207 RETURN c2_820d180 eax=0x00000001 (1)
+[trace] + 0.040561 pid 1546207 ENTER c2_820d180 (#3) ret=0x080ac01a args=0xf6368833,0x000003ad,0xf6368833 a0="JWoA9xkEodWJWMUqL349ejFfNxf2aLVmuv2VPnh5qTx8kbd+hmlFw3FtH+fs"
+[trace] + 0.040577 pid 1546207 RETURN c2_820d180 eax=0x00000001 (1)
+[trace] + 0.080782 pid 1546207 RETURN DongleInitialize eax=0x00000000 (0)
+[trace] + 0.080786 pid 1546207 ENTER localizationInit (#1) ret=0x080c233e args=0xf58355e8,0x000001e0,0x57afe1cc a0mem=d0642b00000000000000000004000000
+[trace] + 0.080806 pid 1546207 ENTER loc_sub_8065080 (#1) ret=0x08065397 args=0x00000000,0x088ae984,0x00000001
+[trace] + 0.080810 pid 1546207 ENTER csvload_8064ab0 (#1) ret=0x080652a9 args=0xf6368b3c,0x088aebb8,0x00000064 a0="/g3/T4Data/etranslation/english.csv"
+[trace] + 0.080816 pid 1546207 ENTER kdf_820b51d (#1) ret=0x080bb58c args=0x085a47a0,0x00000200,0xf6368424 a0mem=fe2912fb46a4698f4eec031b292e1341
+[trace] + 0.080820 pid 1546207 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.080823 pid 1546207 ENTER kdf_820b51d (#2) ret=0x080bb5f7 args=0x085a49a0,0x00000100,0xf6368424 a0mem=f634afbf39d4b5cbcae74cc23b0f0b1b
+[trace] + 0.080826 pid 1546207 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.080829 pid 1546207 ENTER aes_or_decrypt_8208322 (#1) ret=0x080bb631 args=0xf63643b8,0x00000001,0x00000000 a0mem=00000000000000000000000000000000
+[trace] + 0.082210 pid 1546207 RETURN aes_or_decrypt_8208322 eax=0x00000000 (0)
+[trace] + 0.082215 pid 1546207 ENTER kdf_820b51d (#3) ret=0x080bb65e args=0xf6368b3c,0x00000023,0xf6368b3c a0="/g3/T4Data/etranslation/english.csv"
+[trace] + 0.082221 pid 1546207 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.082225 pid 1546207 ENTER kdf_820b51d (#4) ret=0x080bb689 args=0xf6368b3c,0x00000023,0xf6368b3c a0="/g3/T4Data/etranslation/english.csv"
+[trace] + 0.082230 pid 1546207 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.082233 pid 1546207 ENTER stream_read_820856a (#1) ret=0x080bb6c4 args=0xf63643b8,0xf63684d8,0xf63684d4 a0mem=084436f6000000000000000000000000
+[trace] + 0.082661 pid 1546207 ENTER zlib_inflate_83a8680? (#1) ret=0x082086c7 args=0xf63643b8,0x00000000,0xf6364370 a0mem=084436f62f14000000000000d88436f6
+[trace] + 0.082672 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000000 (0)
+[trace] + 0.082675 pid 1546207 RETURN stream_read_820856a eax=0x00000000 (0) [arg1]=0x00007b20
+[trace] + 0.082690 pid 1546207 ENTER stream_read_820856a (#2) ret=0x080bb718 args=0xf63643b8,0x57b0f420,0xf63684d4 a0="YD6"
+[trace] + 0.082694 pid 1546207 ENTER zlib_inflate_83a8680? (#2) ret=0x082086c7 args=0xf63643b8,0x00000000,0xf63643b8 a0="YD6"
+[trace] + 0.082766 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 0.082769 pid 1546207 RETURN stream_read_820856a eax=0x00000000 (0) [arg1]=0x0022feff
+[trace] + 0.082773 pid 1546207 ENTER stream_close_8208939 (#1) ret=0x080bb7a6 args=0xf63643b8,0x57b0f420,0xf63684d4 a0="7X6"
+[trace] + 0.082780 pid 1546207 RETURN stream_close_8208939 eax=0x00000000 (0) [arg1]=0x0022feff
+[trace] + 0.082949 pid 1546207 RETURN csvload_8064ab0 eax=0x0000014d (333) [arg1]=0x00000000
+[trace] + 0.082954 pid 1546207 ENTER csvload_8064ab0 (#2) ret=0x080652bb args=0xf6368abc,0x088aebb8,0x00000064 a0="/g3/T4Data/etranslation_app/english.csv"
+[trace] + 0.082958 pid 1546207 ENTER kdf_820b51d (#5) ret=0x080bb58c args=0x085a47a0,0x00000200,0xf6368424 a0mem=fe2912fb46a4698f4eec031b292e1341
+[trace] + 0.082962 pid 1546207 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.082972 pid 1546207 ENTER kdf_820b51d (#6) ret=0x080bb5f7 args=0x085a49a0,0x00000100,0xf6368424 a0mem=f634afbf39d4b5cbcae74cc23b0f0b1b
+[trace] + 0.082976 pid 1546207 RETURN kdf_820b51d eax=0x00000000 (0)
+[trace] + 0.082979 pid 1546207 ENTER aes_or_decrypt_8208322 (#2) ret=0x080bb631 args=0xf63643b8,0x00000001,0x00000000 a0="7X6"
+...
+[trace] + 36.623591 pid 1546207 ENTER scr_start_cb (#1) ret=0x08063888 args=0x00000007,0x088adc80,0xf6368914
+[trace] + 36.623595 pid 1546207 RETURN scr_start_cb eax=0x00000000 (0) [arg1]=0x00000000
+...
+[trace] + 1199.373092 pid 1546207 ENTER zlib_inflate_83a8680? (#27655) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5dfb0004000000000090de445d
+[trace] + 1199.375462 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.389756 pid 1546207 ENTER zlib_inflate_83a8680? (#27656) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d0d1104000000000090de445d
+[trace] + 1199.392217 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.439968 pid 1546207 ENTER zlib_inflate_83a8680? (#27657) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d610c04000000000090de445d
+[trace] + 1199.442309 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.456402 pid 1546207 ENTER zlib_inflate_83a8680? (#27658) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5dd00804000000000090de445d
+[trace] + 1199.458739 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.506418 pid 1546207 ENTER zlib_inflate_83a8680? (#27659) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d490904000000000090de445d
+[trace] + 1199.508753 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.523089 pid 1546207 ENTER zlib_inflate_83a8680? (#27660) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d3b0704000000000090de445d
+[trace] + 1199.525458 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.573108 pid 1546207 ENTER zlib_inflate_83a8680? (#27661) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5dc76804000000000090de445d
+[trace] + 1199.575627 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.589773 pid 1546207 ENTER zlib_inflate_83a8680? (#27662) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d36f403000000000090de445d
+[trace] + 1199.592199 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.639744 pid 1546207 ENTER zlib_inflate_83a8680? (#27663) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d38f603000000000090de445d
+[trace] + 1199.642070 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.656429 pid 1546207 ENTER zlib_inflate_83a8680? (#27664) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5dca3c04000000000090de445d
+[trace] + 1199.659047 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.706425 pid 1546207 ENTER zlib_inflate_83a8680? (#27665) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d040b04000000000090de445d
+[trace] + 1199.708970 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.723085 pid 1546207 ENTER zlib_inflate_83a8680? (#27666) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d25f103000000000090de445d
+[trace] + 1199.725411 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.773093 pid 1546207 ENTER zlib_inflate_83a8680? (#27667) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d29bf03000000000090de445d
+[trace] + 1199.775411 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.789738 pid 1546207 ENTER zlib_inflate_83a8680? (#27668) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d01bd03000000000090de445d
+[trace] + 1199.792040 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.839746 pid 1546207 ENTER zlib_inflate_83a8680? (#27669) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d52c003000000000090de445d
+[trace] + 1199.842098 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.856403 pid 1546207 ENTER zlib_inflate_83a8680? (#27670) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5dadbf03000000000090de445d
+[trace] + 1199.858645 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.906440 pid 1546207 ENTER zlib_inflate_83a8680? (#27671) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d7ebc03000000000090de445d
+[trace] + 1199.908694 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.923098 pid 1546207 ENTER zlib_inflate_83a8680? (#27672) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d140604000000000090de445d
+[trace] + 1199.925494 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.939761 pid 1546207 ENTER zlib_inflate_83a8680? (#27673) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5d6c0c04000000000090de445d
+[trace] + 1199.942262 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)
+[trace] + 1199.989763 pid 1546207 ENTER zlib_inflate_83a8680? (#27674) ret=0x083a3bab args=0xf63687c0,0x00000004,0x00000038 a0mem=60f73d5dce0f04000000000090de445d
+[trace] + 1199.992127 pid 1546207 RETURN zlib_inflate_83a8680? eax=0x00000001 (1)

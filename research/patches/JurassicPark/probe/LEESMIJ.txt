@@ -1,0 +1,18 @@
+The scripts that produced dropin/eerste-plt-slots.tsv (2026-10-13). Research material, not delivery.
+See ../EERSTE-PLT-SLOTS.md for the method and its limits.
+
+  slots.py, elfp.py   parse the dumped image through PT_DYNAMIC (there are no section headers) and list the first-PLT stubs
+  b7.py, hist.py      every 0xb7... dword in the image, classified by where it sits
+  align.py            fit a candidate library against the stale addresses (page-aligned base, runs of consecutive matches)
+  interp.py, interp2.py  the piecewise fit for libc (the cabinet's build is near 2.19-0ubuntu6, not identical)
+  callers.py          direct call references per stub (used as a second opinion on a name)
+  glnames.py          the libGL names against the NVIDIA driver's export table
+  mktable.py          writes the table: mktable.py <workdir> <game> <dir with the unpacked packages>
+
+The packages the names were read from are NOT in this repository (181 MB, public downloads). They were only read with
+readelf; nothing from them is used at run time:
+  Ubuntu 14.04 i386 (archive.ubuntu.com): libc6 2.19-0ubuntu6 and 2.19-0ubuntu6.15, libc6-dbg (same two), libgcc1
+  4.9-20140406-0ubuntu1, libstdc++6 4.8.2-19ubuntu1 (and -dbg), libstdc++6 4.8.4-2ubuntu1~14.04.4, libudev1 204-5ubuntu20,
+  libx11-6 1.6.2-1ubuntu2, libsdl1.2debian 1.2.15-8ubuntu1 and -8ubuntu1.1, libogg0 1.3.1-1ubuntu1,
+  libtheora0 1.1.1+dfsg.1-3.2, libglu1-mesa 9.0.0-2 and 9.0.0-2.1, freeglut3 2.8.1-1 and 2.8.1-2, nvidia-331 331.38-0ubuntu7
+  NVIDIA Linux x86 driver packages (us.download.nvidia.com), 23 versions tried; 346.59 is the one whose libGL fits.

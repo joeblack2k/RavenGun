@@ -1,0 +1,24 @@
+  t=14s START-puls 1
+  *** FileTest geeindigd na puls 1
+  FileTest Reported staat erin
+  foto 01-kalibratie
+  gamelog: 187 regels
+  11:11:30
+    Uitvoer:      GEWAPEND; apparaat aangemaakt (1209:7202), event /dev/input/event13, abs 0..32767
+    Positie:      aim 0.550,0.503 -> abs 18028,16472; knoppen: -
+    Toetsenbord:  aangemaakt, toetsen: -
+  foto 02-linksboven
+  11:11:34
+    Knop trigger: tap.
+  foto 03-na-trekker
+    gamelog: 187 regels
+  11:11:39  trekker 2
+  foto 04-trekker2
+    gamelog: 187 regels
+  11:11:46  trekker 3
+  foto 05-trekker3
+    gamelog: 187 regels
+  11:11:52  positie 0.5 0.5 + trekker
+  11:11:58  positie 1 1 + trekker
+  foto 06-eind
+  gamelog aan het eind: 187 regels

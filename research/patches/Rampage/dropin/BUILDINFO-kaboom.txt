@@ -1,0 +1,8 @@
+KaboomAdrioFxPlusFourFeeders64.dll = rg-adrio (GPL-3.0), RavenGuns eigen Kaboom/Adrio-bord
+bron:
+  35b2dc2d1c7088506be86ad02342deb1c8555279655e3bffabc4cc33ca2093c0  tools/rg-adrio/rg_adrio.c
+  23bdba313d0738a42c21233b8c460ab6794e8a6c0a624c6dc2f4f82e0154f5ad  tools/rg-adrio/rg_adrio_kern.c
+  bc24973a15be44637028cddac99b548ee26aff4a5db05daefde33e19d4bc78ed  tools/rg-adrio/rg_adrio_kern.h
+toolchain: x86_64-w64-mingw32-gcc (GCC) 16.2.0
+uitvoer:
+  74574597202499120967399b32ab5687832aef0c88a2929f460d421475a2861a  KaboomAdrioFxPlusFourFeeders64.dll

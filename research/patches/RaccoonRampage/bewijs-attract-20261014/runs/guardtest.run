@@ -1,0 +1,17 @@
+RUN guardtest -- RaccoonRampage -- started 2026-10-14 01:13:13
+DECLARED: core=ravengun  share=overlay  shm-source=launcher default  limit=5s  captures every 10s
+user layer (/home/deck/.local/share/ravengun/patches/RaccoonRampage/game.ini) at start:
+    ; Kept after the 2026-10-14 runs: the view has the real Movies folder again, and its videos (MPEG-4 Part 2 + AAC)
+    ; play with these plug-ins on both cores (patches/RaccoonRampage/ATTRACT-RUN.md). The 2026-10-11 notes say that
+    ; with the movies present and without the plug-ins the game exits with code 1; that was not re-measured.
+    [Wine]
+    GStreamerPlugins = ~/.local/share/ravengun/tools/gst-extra/plugins
+launcher plan (scripts/launch-direct.py RaccoonRampage --plan):
+    game: /home/deck/.local/share/ravengun/runtime/views/RaccoonRampage/RSGame/Binaries/Win64/RSGame-Win64-Shipping.exe
+    wine: /home/deck/.local/share/ravengun/wrappers/wine-prefix
+    prefix: /home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk
+    core_dll: /home/deck/.local/share/ravengun/runtime/TeknoParrotUi-2.0.0.130-linux-x64/TeknoParrot/TeknoParrot64.dll
+    core_sha256: f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28
+    core_source: runtime
+    profile_env: {'TP_REMOTETHREAD': 'off', 'RG_WINEPREFIX': '/home/deck/.local/share/ravengun/prefixes/ravengun-test-dxvk', 'WINEDLLOVERRIDES': 'd3d11,d3d10core,dxgi=n,b', 'GST_PLUGIN_PATH': '/home/deck/.local/share/ravengun/tools/gst-extra/plugins'}
+REFUSED: the plan's core_source is 'runtime' but this run was declared as 'ravengun' -- not started

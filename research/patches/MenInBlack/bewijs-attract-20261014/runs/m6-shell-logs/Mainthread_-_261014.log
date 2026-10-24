@@ -1,0 +1,40 @@
+Log Started : 14/10/2026 - 00:52:04:130
+[ 00:52:04:130 ] Shell Version: 230307RED
+[ 00:52:04:135 ] Launcher Version: 0.1.0
+[ 00:52:04:135 ] Disk Image: Unknown
+[ 00:52:04:135 ] Game Version: Unknown
+[ 00:52:04:198 ] Loading XML Resources
+[ 00:52:04:201 ] XML Resources Loaded
+[ 00:52:04:210 ] Validated GameData directory exists
+[ 00:52:07:883 ] Closing down shell ready for game launch
+[ 00:52:12:958 ] Launched z:\home\deck\.local\share\ravengun\runtime\views\meninblack\\MIB\MIB.exe 
+[ 00:53:04:763 ] Game Shutdown - Restarting...
+[ 00:53:04:769 ] MAINTHREAD : Restarting
+[ 00:53:04:771 ] MAINTHREAD : Unexpect Game termination, retrying
+[ 00:53:04:777 ] ERROR - Retry of game launch
+[ 00:53:09:833 ] Launched z:\home\deck\.local\share\ravengun\runtime\views\meninblack\\MIB\MIB.exe 
+[ 00:53:38:715 ] Game Shutdown - Restarting...
+[ 00:53:38:720 ] MAINTHREAD : Restarting
+[ 00:53:38:723 ] MAINTHREAD : Unexpect Game termination, retrying
+[ 00:53:38:733 ] ERROR - Retry of game launch
+[ 00:53:43:766 ] Launched z:\home\deck\.local\share\ravengun\runtime\views\meninblack\\MIB\MIB.exe 
+[ 00:54:10:295 ] Game Shutdown - Restarting...
+[ 00:54:10:300 ] MAINTHREAD : Restarting
+[ 00:54:10:303 ] MAINTHREAD : Unexpect Game termination, retrying
+[ 00:54:10:309 ] ERROR - Retry of game launch
+[ 00:54:15:339 ] Launched z:\home\deck\.local\share\ravengun\runtime\views\meninblack\\MIB\MIB.exe 
+[ 00:54:40:374 ] Game Shutdown - Restarting...
+[ 00:54:40:379 ] MAINTHREAD : Restarting
+[ 00:54:40:382 ] MAINTHREAD : Unexpect Game termination, retrying
+[ 00:54:40:402 ] ERROR - Retry of game launch
+[ 00:54:45:438 ] Launched z:\home\deck\.local\share\ravengun\runtime\views\meninblack\\MIB\MIB.exe 
+[ 00:55:13:062 ] Game Shutdown - Restarting...
+[ 00:55:13:068 ] MAINTHREAD : Restarting
+[ 00:55:13:072 ] MAINTHREAD : Unexpect Game termination, retrying
+[ 00:55:13:077 ] ERROR - Retry of game launch
+[ 00:55:18:104 ] Launched z:\home\deck\.local\share\ravengun\runtime\views\meninblack\\MIB\MIB.exe 
+[ 00:55:42:823 ] Game Shutdown - Restarting...
+[ 00:55:42:829 ] MAINTHREAD : Restarting
+[ 00:55:42:832 ] MAINTHREAD : Unexpect Game termination, retrying
+[ 00:55:42:837 ] ERROR - Retry of game launch
+[ 00:55:47:867 ] Launched z:\home\deck\.local\share\ravengun\runtime\views\meninblack\\MIB\MIB.exe 

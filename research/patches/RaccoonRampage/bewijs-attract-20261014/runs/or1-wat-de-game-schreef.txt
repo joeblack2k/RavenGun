@@ -1,0 +1,7 @@
+# Setting_System.ini: the share's copy (<) against what the game wrote into the kept write layer during or1 (>), at 02:24:02
+2c2
+< CoinNum_1P=0
+---
+> CoinNum_1P=1
+# Setting_Hardware.ini: share against kept layer
+(end)

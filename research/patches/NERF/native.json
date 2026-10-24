@@ -1,0 +1,41 @@
+{
+  "title": "NERF Arcade",
+  "enabled": true,
+  "status": "werkt",
+  "note": "Speelbaar op onze eigen kern sinds 2026-10-14 (patches/NERF/bewijs-bridge-20261014/): de invoer komt via de RIO-brug (preload librg_rio_bridge.so, tools/rio-bridge; tabel patches/NERF/rio-invoer.ini): het lightgun-bord van de game (librio.so, RIO_Connected/RIO_SW_Count/RIO_ADC_Val/RIO_ADC_Val_Ex) leest het bordbeeld van de IO-brug (route tp-shm, indeling WartranTroopers). De lightguns zijn gekalibreerd in het eigen operatormenu van de game (opgeslagen in de lokale schrijflaag). De dump bevat het origineel: Nerf.x86_64, een Unity 2018.2.21f1-speler voor Linux (ELF 64-bits), met zijn eigen Mono en zijn native plug-ins (libUnityNatives, librio, libRIO2, libhasp_linux_23714); de Windows-kant in dezelfde map (Nerf.exe, UnityPlayer.dll, BepInEx, NERFTPPlugin.dll) is de omzetting van TeknoParrot en wordt op deze route niet gebruikt. De plug-ins staan in de dump onder Nerf_Data/Plugins/x86_64_ori; de tweede mount zet ze op Nerf_Data/Plugins/x86_64, waar de game-code ze zoekt. Die mount is NODIG (gemeten, run n4: zonder hem 'DllNotFoundException: UnityNatives' en 'rio', 329.000 logregels in 100 s); dat de speler ze daardoor twee keer voorlaadt is de prijs van de hernoemde map. Dit profiel zet zelf gamescope aan (launcher; zonder krijgt de game geen beeldscherm: 'Authorization required') en toont patches/NERF/data/udev-rules.d als /etc/udev/rules.d (files; zonder 10-usb-automount.rules breekt Game.Awake() af op een UnauthorizedAccessException). Stand en metingen: patches/NERF/.",
+  "arch": "x86_64",
+  "mounts": [
+    {
+      "src": "@nas/NERF Arcade",
+      "dst": "/pm",
+      "mode": "overlay"
+    },
+    {
+      "src": "@nas/NERF Arcade/Nerf_Data/Plugins/x86_64_ori",
+      "dst": "/pm/Nerf_Data/Plugins/x86_64",
+      "mode": "ro"
+    }
+  ],
+  "files": [
+    {
+      "src": "@patches/NERF/data/udev-rules.d",
+      "dst": "/etc/udev/rules.d"
+    }
+  ],
+  "launcher": "gamescope",
+  "route": "tp-shm",
+  "libs": [
+    "@build/librg_rio_bridge.so"
+  ],
+  "extra_ro": [
+    "/dev/shm/ravengun_JvsState"
+  ],
+  "preload": "/rg/lib/librg_rio_bridge.so",
+  "env": {
+    "RG_RIO_LOG": "1"
+  },
+  "exe": "/pm/Nerf.x86_64",
+  "cwd": "/pm",
+  "home": "/pm",
+  "args": []
+}

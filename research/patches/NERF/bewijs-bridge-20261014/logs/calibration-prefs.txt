@@ -1,0 +1,4 @@
+Gun calibration as stored by the game itself (LocalData/testmenu/prefs*, native route's local write layer):
+prefs 09:22:09 P1 Gun Min X=32 P1 Gun Max X=4063 P1 Gun Min Y=32 P1 Gun Max Y=4063 P2 Gun Min X=32 P2 Gun Max X=4063 P2 Gun Min Y=32 P2 Gun Max Y=4063
+prefs2 09:22:09 P1 Gun Min X=32 P1 Gun Max X=4063 P1 Gun Min Y=32 P1 Gun Max Y=4063 P2 Gun Min X=32 P2 Gun Max X=4063 P2 Gun Min Y=32 P2 Gun Max Y=4063
+prefs3 09:22:09 P1 Gun Min X=32 P1 Gun Max X=4063 P1 Gun Min Y=32 P1 Gun Max Y=4063 P2 Gun Min X=32 P2 Gun Max X=4063 P2 Gun Min Y=32 P2 Gun Max Y=4063

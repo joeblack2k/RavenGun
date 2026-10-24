@@ -1,0 +1,4 @@
+proef          : B (alleen ptrace-toestemming, geen waarnemers; meegekeken via /proc)
+datum          : 2026-10-13T13:40:28+02:00
+lader sha256   : 7f83edb291f0065c54122392679ef0ffe65190c909d596485e56460e32ac4549
+kern sha256    : f5c7532d6e63848564a4b9233d30706793066d94d3bbafafe45bf72c2b1d6e28

@@ -1,0 +1,64 @@
+VENSTER 1: Qt Selection Owner for ksmserver
+VENSTER 1: Qt Selection Owner for gmenudbusmenuproxy
+VENSTER 1: Qt Selection Owner for xembedsniproxy
+VENSTER 1: Qt Selection Owner for kaccess
+VENSTER 1: xsettingsd
+VENSTER 1: steam
+VENSTER 1: Chromium clipboard
+VENSTER 1: steamwebhelper
+VENSTER 2: Qt Selection Owner for ksmserver
+VENSTER 2: Qt Selection Owner for gmenudbusmenuproxy
+VENSTER 2: Qt Selection Owner for xembedsniproxy
+VENSTER 2: Qt Selection Owner for kaccess
+VENSTER 2: xsettingsd
+VENSTER 2: steam
+VENSTER 2: Chromium clipboard
+VENSTER 2: steamwebhelper
+VENSTER 3: Qt Selection Owner for ksmserver
+VENSTER 3: Qt Selection Owner for gmenudbusmenuproxy
+VENSTER 3: Qt Selection Owner for xembedsniproxy
+VENSTER 3: Qt Selection Owner for kaccess
+VENSTER 3: xsettingsd
+VENSTER 3: steam
+VENSTER 3: Chromium clipboard
+VENSTER 3: steamwebhelper
+VENSTER 4: Qt Selection Owner for ksmserver
+VENSTER 4: Qt Selection Owner for gmenudbusmenuproxy
+VENSTER 4: Qt Selection Owner for xembedsniproxy
+VENSTER 4: Qt Selection Owner for kaccess
+VENSTER 4: xsettingsd
+VENSTER 4: steam
+VENSTER 4: Chromium clipboard
+VENSTER 4: steamwebhelper
+VENSTER 5: Qt Selection Owner for ksmserver
+VENSTER 5: Qt Selection Owner for gmenudbusmenuproxy
+VENSTER 5: Qt Selection Owner for xembedsniproxy
+VENSTER 5: Qt Selection Owner for kaccess
+VENSTER 5: xsettingsd
+VENSTER 5: steam
+VENSTER 5: Chromium clipboard
+VENSTER 5: steamwebhelper
+VENSTER 6: Qt Selection Owner for ksmserver
+VENSTER 6: Qt Selection Owner for gmenudbusmenuproxy
+VENSTER 6: Qt Selection Owner for xembedsniproxy
+VENSTER 6: Qt Selection Owner for kaccess
+VENSTER 6: xsettingsd
+VENSTER 6: steam
+VENSTER 6: Chromium clipboard
+VENSTER 6: steamwebhelper
+VENSTER 7: Qt Selection Owner for ksmserver
+VENSTER 7: Qt Selection Owner for gmenudbusmenuproxy
+VENSTER 7: Qt Selection Owner for xembedsniproxy
+VENSTER 7: Qt Selection Owner for kaccess
+VENSTER 7: xsettingsd
+VENSTER 7: steam
+VENSTER 7: Chromium clipboard
+VENSTER 7: steamwebhelper
+VENSTER 8: Qt Selection Owner for ksmserver
+VENSTER 8: Qt Selection Owner for gmenudbusmenuproxy
+VENSTER 8: Qt Selection Owner for xembedsniproxy
+VENSTER 8: Qt Selection Owner for kaccess
+VENSTER 8: xsettingsd
+VENSTER 8: steam
+VENSTER 8: Chromium clipboard
+VENSTER 8: steamwebhelper
